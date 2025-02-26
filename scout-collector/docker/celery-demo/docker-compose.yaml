@@ -1,0 +1,135 @@
+x-default-logging: &logging
+ driver: "json-file"
+ options:
+   max-size: "5m"
+   max-file: "2"
+   tag: "{{.Name}}|{{.ImageName}}|{{.ID}}"
+
+services:
+  web:
+    build: .
+    command: poetry run uvicorn celery_demo.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/celery_demo
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=task_db
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - SERVICE_NAME=web
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "localhost:8000/ping"]
+    logging: *logging
+
+  celery_worker:
+    build: .
+    command: poetry run celery -A celery_demo.tasks.celery worker --loglevel=info
+    volumes:
+      - .:/celery_demo
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=task_db
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
+      - SERVICE_NAME=celeryjobs
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "inspect", "ping"]
+    logging: *logging
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-monitoring-user.sql:/docker-entrypoint-initdb.d/init-monitoring-user.sql
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=task_db
+    ports:
+      - "5432:5432"
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "task_db", "-h", "localhost"]
+
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"  # AMQP protocol port
+      - "15672:15672"  # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      # Mount custom configuration
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      # Mount definitions file containing user definitions
+      - ./rabbit-config.json:/etc/rabbitmq/definitions.json:ro
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+
+  otel-collector:
+    image: 010526246885.dkr.ecr.ap-south-1.amazonaws.com/opentelemetry-collector-contrib:0.119.0-7
+    container_name: otel-collector
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+    restart: unless-stopped
+    command: [ "--config=/etc/otelcol-config.yaml"]
+    user: 0:0
+    volumes:
+      - /:/hostfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./config:/etc/
+    ports:
+      - "4318:4318"
+      - "4317:4317"
+      - "55679:55679"  # zpages: http://localhost:55679/debug/tracez
+    logging: *logging
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      db:
+        condition: service_started
+
+volumes:
+  postgres_data:

@@ -1,0 +1,63 @@
+{
+  "users": [
+    {
+      "name": "otel",
+      "password_hash": "YcUE+i0e+ynETxKgl44IXar+7qoK2VOjxQcZNKZJY2U39D2T",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["monitoring"]
+    },
+    {
+      "name": "admin",
+      "password_hash": "5982RBY9xS3U4HteoUq8gXj535qCpSFcQ0/46WqaJY10WYUB",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    },
+    {
+      "name": "rabbit",
+      "password_hash": "iAVlheQU7+H2uoZSEqw6758R8fJZ3L1CmI4WIBVNd56av3Ch",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "guest",
+      "password_hash": "H9IsIgCVaFwA/OkMhIkaUT+8Kv7P5GfmN3uRga/wkYGBGyr9",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator", "monitoring"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "guest",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "rabbit",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "otel",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+extensions:
+  zpages:
+    endpoint: 0.0.0.0:55679
+  oauth2client:
+    client_id: _provided_
+    client_secret: _provided_
+    endpoint_params:
+      audience: _provided_
+    token_url: _provided_
+    tls:
+      insecure_skip_verify: true
+
+exporters:
+  debug:
+  otlphttp/b14:
+    endpoint: _provided_
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  resource:
+    attributes:
+    - key: service.name
+      value: 'example-01'
+      action: upsert
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+  filelog:
+    include:
+    - /var/lib/docker/containers/*/*-json.log
+    operators:
+    - id: parser-docker
+      timestamp:
+        layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+        parse_from: attributes.time
+      type: json_parser
+    - field: attributes.time
+      type: remove
+    - id: extract_metadata_from_docker_tag
+      parse_from: attributes.attrs.tag
+      regex: ^(?P<name>[^\|]+)\|(?P<image_name>[^\|]+)\|(?P<id>[^$]+)$
+      type: regex_parser
+      if: 'attributes?.attrs?.tag != nil'
+    - from: attributes.name
+      to: resource["docker.container.name"]
+      type: move
+      if: 'attributes?.name != nil'
+    - from: attributes.image_name
+      to: resource["docker.image.name"]
+      type: move
+      if: 'attributes?.image_name != nil'
+    - from: attributes.id
+      to: resource["docker.container.id"]
+      type: move
+      if: 'attributes?.id != nil'
+    - from: attributes.log
+      to: body
+      type: move
+
+  postgresql/all:
+    endpoint: db:5432
+    transport: tcp
+    username: otel_monitor
+    password: monitor123
+    databases:
+    - task_db
+    collection_interval: 20s
+    tls:
+      insecure: true
+      insecure_skip_verify: true
+
+  rabbitmq:
+    endpoint: http://rabbitmq:15672
+    username: guest
+    password: guest
+    collection_interval: 20s
+
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    collection_interval: 20s
+
+  redis:
+    endpoint: "redis:6379"
+    collection_interval: 20s
+
+service:
+  extensions: [ oauth2client, zpages ]
+  pipelines:
+    traces:
+      receivers: [ otlp]
+      processors: [ batch, resource]
+      exporters: [ otlphttp/b14] 
+    metrics:
+      receivers: [ otlp, postgresql/all, redis, rabbitmq, docker_stats ]
+      processors: [ batch ]
+      exporters: [ otlphttp/b14 ]
+    logs:
+      receivers: [ otlp, filelog ]
+      processors: [ batch ]
+      exporters: [ otlphttp/b14, debug ]
+  telemetry:
+    logs:
+      level: info
