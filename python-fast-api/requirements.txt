@@ -1,0 +1,17 @@
+fastapi[all]
+pydantic
+psycopg2
+SQLAlchemy
+email-validator
+passlib
+bcrypt
+python-jose[cryptography]
+python-multipart
+alembic
+pydantic_settings
+opentelemetry-instrumentation-fastapi
+opentelemetry-sdk
+opentelemetry-instrumentation-requests
+requests
+opentelemetry-exporter-otlp
+opentelemetry-api
