@@ -30,7 +30,7 @@ services:
 
   spring-service:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile
     container_name: spring-app
     depends_on:
