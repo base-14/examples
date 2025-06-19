@@ -46,6 +46,7 @@ OpenTelemetry::SDK.configure do |c|
     endpoint: endpoint,
     headers: headers
   )
+
   c.add_span_processor(
     OpenTelemetry::SDK::Trace::Export::BatchSpanProcessor.new(otlp_exporter)
   )

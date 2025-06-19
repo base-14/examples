@@ -1,5 +1,6 @@
 # Sample Rails application with OpenTelemetry instrumentation to send directly to Base14 OTLP collector with oidc
 
+<<<<<<< HEAD
 This uses oidc and directly sends the telemetry to Base14 OTLP Collector
 
 Steps for Auto instrumenting Rails application:
@@ -39,3 +40,10 @@ Steps to run the application:
    2 Run `docker-compose up --build` to run the application.
 
 Visit [docs.base.14](http://docs.base14.io/instrument/apps/auto-instrumentation/rails) for a detailed Guide on Instrumenting Rails application
+=======
+Steps to run the application:
+1. Install the dependencies using `bundle install`.
+2. Navigate to `config/initilizers/opentelemetry.rb`.
+3. update the client-id, client-secret, token-url, endpoint.
+4. Run the application using `rails server`
+>>>>>>> 0a72ab9 (add sample rails application with auto instrumentation)
