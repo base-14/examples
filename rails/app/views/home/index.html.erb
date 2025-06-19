@@ -1,0 +1,26 @@
+<h1>Welcome to Hotel Food App</h1>
+
+<% if logged_in? %>
+  <h2>Available Hotels</h2>
+  <% if @hotels.any? %>
+    <% @hotels.each do |hotel| %>
+      <div
+        style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px;"
+      >
+        <h3><%= hotel.name %></h3>
+        <%= link_to "View Menu",
+        hotel_path(hotel),
+        style:
+          "background: #007bff; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %>
+      </div>
+    <% end %>
+  <% else %>
+    <p>No hotels available at the moment.</p>
+  <% end %>
+<% else %>
+  <p>Please
+    <%= link_to "login", login_path %>
+    or
+    <%= link_to "sign up", signup_path %>
+    to view available hotels and place orders.</p>
+<% end %>

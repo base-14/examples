@@ -1,0 +1,19 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bin/rails server -b 0.0.0.0 -p 3000
+    volumes:
+      - .:/rails
+      - rails_storage:/rails/storage
+      - bundle_cache:/usr/local/bundle
+    ports:
+      - "3000:3000"
+    environment:
+      - RAILS_ENV=development
+      - OTEL_SERVICE_NAME=hotel-food-app
+
+volumes:
+  rails_storage:
+  bundle_cache:

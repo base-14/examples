@@ -1,0 +1,25 @@
+# Override configurations for different load testing scenarios
+# Usage: docker-compose -f docker-compose.yml -f loadgen/docker-compose.override.yml --profile loadgen up
+
+services:
+  loadgen:
+    environment:
+      # Override default configuration for specific test patterns
+      - REQUESTS_PER_SECOND=${LOAD_RPS:-2}
+      - DURATION_SECONDS=${LOAD_DURATION:-300}
+      - PATTERN=${LOAD_PATTERN:-normal}
+    # Optional: uncomment to run continuously for longer testing
+    # restart: unless-stopped
+    
+  # Optional: Add a monitoring container for load test metrics
+  loadgen-monitor:
+    image: prom/prometheus:latest
+    container_name: loadgen-monitor
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    profiles:
+      - monitoring
+    depends_on:
+      - otel-collector

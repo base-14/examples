@@ -1,0 +1,70 @@
+# Load Generator Configuration
+
+# Load patterns for different testing scenarios
+load_patterns:
+  light:
+    requests_per_second: 1
+    duration_seconds: 180
+    description: "Light load for basic testing"
+    
+  normal:
+    requests_per_second: 2
+    duration_seconds: 300
+    description: "Normal sustained load"
+    
+  peak:
+    requests_per_second: 5
+    duration_seconds: 120
+    description: "Peak traffic simulation"
+    
+  stress:
+    requests_per_second: 10
+    duration_seconds: 60
+    description: "Stress testing high load"
+
+# User behavior scenarios with weights
+scenarios:
+  browse_hotels:
+    weight: 0.3
+    description: "Users browsing available hotels"
+    
+  view_hotel_foods:
+    weight: 0.25
+    description: "Users viewing food options for specific hotels"
+    
+  user_signup_login:
+    weight: 0.1
+    description: "New user registration and login flow"
+    
+  place_order:
+    weight: 0.2
+    description: "Users placing food orders"
+    
+  view_order_history:
+    weight: 0.15
+    description: "Users checking their order history"
+
+# Target application configuration
+target:
+  base_url: "http://web:3000"
+  health_check_endpoint: "/up"
+  
+# OpenTelemetry configuration
+telemetry:
+  service_name: "hotel-food-loadgen"
+  exporter_endpoint: "http://otel-collector:4317"
+  
+  # Custom attributes to add to all spans
+  attributes:
+    environment: "load-test"
+    test_type: "synthetic"
+    
+  # Sampling configuration
+  sampling:
+    trace_ratio: 1.0  # Sample all traces during load testing
+
+# Error handling
+error_handling:
+  max_retries: 3
+  retry_delay_seconds: 1
+  circuit_breaker_threshold: 0.5  # Open circuit if error rate > 50%
