@@ -8,11 +8,10 @@ require "json"
 
 # Function to fetch OIDC token
 def fetch_oidc_token
-  client_id = "<CLIENT_ID>"
-  client_secret =  "<CLIENT_SECRET>"
-  token_url = "<TOKEN_URL>"
-  endpoint = "<ENDPOINT>"
-  
+  client_id = ENV.fetch("SCOUT_CLIENT_ID")
+  client_secret = ENV.fetch("SCOUT_CLIENT_SECRET")
+  token_url = ENV.fetch("SCOUT_TOKEN_URL")
+
   uri = URI(token_url)
   request = Net::HTTP::Post.new(uri)
   request.set_form_data(
@@ -20,11 +19,11 @@ def fetch_oidc_token
     "client_id" => client_id,
     "client_secret" => client_secret
   )
-  
-  response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == 'https') do |http|
+
+  response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
     http.request(request)
   end
-  
+
   if response.is_a?(Net::HTTPSuccess)
     puts "Fetched OIDC token: #{JSON.parse(response.body)["access_token"]}"
     JSON.parse(response.body)["access_token"]
@@ -36,17 +35,18 @@ end
 
 # Configure OpenTelemetry
 OpenTelemetry::SDK.configure do |c|
+  endpoint = ENV.fetch("SCOUT_ENDPOINT")
   c.service_name = ENV.fetch("OTEL_SERVICE_NAME", "hotel-food-app")
-  
+
   token = fetch_oidc_token
   headers = {}
   headers["Authorization"] = "Bearer #{token}" if token
-  
+
   otlp_exporter = OpenTelemetry::Exporter::OTLP::Exporter.new(
     endpoint: endpoint,
     headers: headers
   )
-  
+
   c.add_span_processor(
     OpenTelemetry::SDK::Trace::Export::BatchSpanProcessor.new(otlp_exporter)
   )
