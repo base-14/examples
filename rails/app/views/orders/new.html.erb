@@ -1,0 +1,38 @@
+<h1>Place Order</h1>
+
+<h2><%= @food.name %></h2>
+<p><strong>Hotel:</strong>
+  <%= @food.hotel.name %></p>
+<p><strong>Type:</strong>
+  <%= @food.food_type %></p>
+<p><strong>Category:</strong>
+  <%= @food.category %></p>
+<p><strong>Price:</strong>
+  $<%= @food.price %>
+  per item</p>
+
+<%= form_with model: @order, url: "/foods/#{@food.id}/order", method: :post, local: true do |form| %>
+  <% if @order.errors.any? %>
+    <div style="color: red;">
+      <h4><%= pluralize(@order.errors.count, "error") %>
+        prohibited this order from being saved:</h4>
+      <ul>
+        <% @order.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :quantity %>
+    <%= form.number_field :quantity, min: 1, value: 1, required: true %>
+  </div>
+
+  <div>
+    <%= form.submit "Place Order",
+                style:
+                  "background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;" %>
+    <%= link_to "Cancel", hotel_path(@food.hotel), style: "margin-left: 10px;" %>
+  </div>
+<% end %>
