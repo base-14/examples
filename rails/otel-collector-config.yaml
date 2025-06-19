@@ -1,0 +1,51 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+
+exporters:
+  debug:
+    verbosity: detailed
+  otlphttp:
+    endpoint: "http://65.2.130.60:4318"
+    tls:
+      insecure: true
+extensions:
+  pprof:
+  zpages:
+    endpoint: 0.0.0.0:55679
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+processors:
+  batch:
+
+service:
+  extensions: [health_check, zpages, pprof]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      exporters: [otlphttp ]
+    metrics:
+      receivers: [otlp]
+      exporters: [otlphttp ]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+  telemetry:
+    logs:
+      level: "info"
+      encoding: "console"
+      output_paths: ["stdout"]
+    metrics:
+      level: "normal"
+      address: "0.0.0.0:8888" # Exposes collector's internal metrics on port 8888
+    # traces: # Traces telemetry can often be left to defaults

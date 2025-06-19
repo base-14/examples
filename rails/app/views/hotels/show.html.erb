@@ -1,0 +1,37 @@
+<h1><%= @hotel.name %></h1>
+
+<h2>Menu</h2>
+
+<% if @foods.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Food Item</th>
+        <th>Type</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @foods.each do |food| %>
+        <tr>
+          <td><%= food.name %></td>
+          <td><%= food.food_type %></td>
+          <td><%= food.category %></td>
+          <td>$<%= food.price %></td>
+          <td>
+            <%= link_to "Order",
+            new_food_order_path(food),
+            style:
+              "background: #28a745; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;" %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No food items available at this hotel.</p>
+<% end %>
+
+<p><%= link_to "← Back to Hotels", hotels_path %></p>

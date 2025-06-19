@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hotel Food App</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      nav { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
+      nav a { margin-right: 15px; text-decoration: none; }
+      .flash { padding: 10px; margin: 10px 0; border-radius: 4px; }
+      .notice { background: #d4edda; color: #155724; }
+      .alert { background: #f8d7da; color: #721c24; }
+      .error { background: #f8d7da; color: #721c24; }
+      form div { margin-bottom: 10px; }
+      label { display: block; font-weight: bold; }
+      input, select { padding: 5px; margin-top: 2px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+      th { background-color: #f2f2f2; }
+    </style>
+  </head>
+
+  <body>
+    <nav>
+      <%= link_to "Home", root_path %>
+      <% if logged_in? %>
+        <%= link_to "Hotels", hotels_path %>
+        <%= link_to "My Orders", orders_path %>
+        <%= link_to "Profile", profile_path %>
+        <%= button_to "Logout",
+        logout_path,
+        method: :delete,
+        style:
+          "display: inline; background: none; border: none; color: blue; text-decoration: underline; cursor: pointer;" %>
+        <span style="float: right;">Welcome,
+          <%= current_user.name %>!</span>
+      <% else %>
+        <%= link_to "Login", login_path %>
+        <%= link_to "Sign Up", signup_path %>
+      <% end %>
+    </nav>
+
+    <% flash.each do |type, message| %>
+      <div class="flash <%= type %>"><%= message %></div>
+    <% end %>
+
+    <%= yield %>
+  </body>
+</html>

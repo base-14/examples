@@ -1,0 +1,48 @@
+<h1>My Profile</h1>
+
+<div
+  style="border: 1px solid #ddd; padding: 20px; border-radius: 5px; margin-bottom: 20px;"
+>
+  <h3>User Information</h3>
+  <p><strong>Name:</strong>
+    <%= @user.name %></p>
+  <p><strong>Email:</strong>
+    <%= @user.email %></p>
+</div>
+
+<h2>Recent Orders</h2>
+
+<% if @orders.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Hotel</th>
+        <th>Food Item</th>
+        <th>Quantity</th>
+        <th>Total Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @orders.limit(5).each do |order| %>
+        <tr>
+          <td><%= order.created_at.strftime("%B %d, %Y") %></td>
+          <td><%= order.food.hotel.name %></td>
+          <td><%= order.food.name %></td>
+          <td><%= order.quantity %></td>
+          <td>$<%= order.total_price %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <% if @orders.count > 5 %>
+    <p><%= link_to "View All Orders", orders_path %></p>
+  <% end %>
+<% else %>
+  <p>You haven't placed any orders yet.</p>
+  <p><%= link_to "Browse Hotels",
+    hotels_path,
+    style:
+      "background: #007bff; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %></p>
+<% end %>
