@@ -7,7 +7,7 @@ exporters:
   debug:
     verbosity: basic
   otlp:
-    endpoint: otel-collector:4317
+    endpoint: <backend-endpoint>:4317
     tls:
       insecure: true
 
