@@ -12,15 +12,11 @@ services:
       - "3000:3000"
     environment:
       - RAILS_ENV=development
-<<<<<<< HEAD
       - OTEL_SERVICE_NAME=sample-rails-application
       - SCOUT_CLIENT_ID=
       - SCOUT_CLIENT_SECRET=
       - SCOUT_TOKEN_URL=
       - SCOUT_ENDPOINT=
-=======
-      - OTEL_SERVICE_NAME=hotel-food-app
->>>>>>> 0a72ab9 (add sample rails application with auto instrumentation)
 
 volumes:
   rails_storage:

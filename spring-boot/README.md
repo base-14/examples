@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Spring Boot with OpenTelemetry
 ## Overview
 
@@ -63,7 +62,3 @@ The application exposes the following metrics:
 - JVM metrics (memory, threads, GC, etc.)
 - HTTP server metrics
 - Database connection pool metrics
-
-=======
-# examples
->>>>>>> 5895e5f (Add all files to spring boot folder)
