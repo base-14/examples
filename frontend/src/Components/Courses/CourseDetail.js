@@ -3,8 +3,49 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import Context from '../../Context';
 import Loading from '../Loading';
+import { trace, metrics } from '@opentelemetry/api';
+import * as logAPI from '@opentelemetry/api-logs';
+
+// Create a meter for component metrics
+const meter = metrics.getMeter('course-detail-meter');
+// Create a counter for component renders
+const renderCounter = meter.createCounter('course_detail.render.count', {
+  description: 'Counts the number of times CourseDetail renders',
+});
+
+const tracer = trace.getTracer('react-course-detail-tracer');
+const logger = logAPI.logs.getLogger('course-detail-logger');
 
 const CourseDetail = () => {
+  // Track component renders with OpenTelemetry
+  useEffect(() => {
+    const span = tracer.startSpan('CourseDetail.render');
+    span.setAttribute('component', 'CourseDetail');
+    span.setAttribute('render.timestamp', new Date().toISOString());
+    
+    // Increment the counter
+    renderCounter.add(1, { component: 'CourseDetail' });
+    
+    // Log to OpenTelemetry
+   logger.emit({
+      severityNumber: logAPI.SeverityNumber.INFO,
+      body: 'CourseDetail component rendered',
+      attributes: {
+        'component': 'CourseDetail',
+        'path': window.location.pathname,
+        'renderTime': new Date().toISOString()
+      }
+    });
+    
+    // End the span
+    span.end();
+    
+    // Return cleanup function
+    return () => {
+      // Any cleanup if needed
+    };
+  });
+  
   const context = useContext(Context.Context);
   let courseDetail = useState('');
   const [course, setCourseDetail] = useState({});
@@ -15,10 +56,17 @@ const CourseDetail = () => {
   let navigate = useNavigate();
 
   useEffect(() => {
+    const span = tracer.startSpan('CourseDetail.dataProcessing');
+    
     // Fetch a course from the database
+    const processData = () => {
+      const start = performance.now();
     const controller = new AbortController();
     context.data.getCourse(id)
       .then(response => {
+        const end = performance.now();
+        span.setAttribute('processing.time_ms', end - start);
+        span.end();
         if (response.id) {
           setCourseDetail(response)
         } else {
@@ -32,9 +80,14 @@ const CourseDetail = () => {
       })
       .finally(() => {
         setIsLoading(false);
-      });
+      })
+
+      return () => controller?.abort();
+    };
+    processData();
+    
     // Clean up to prevent memory leak
-    return () => controller?.abort();
+   
   }, [id, navigate, context.data]);
 
   if (course.id) {

@@ -12,6 +12,7 @@ import CreateCourse from './Components/Courses/CreateCourse';
 import NotFound from './Components/Errors/NotFound';
 import Forbidden from './Components/Errors/Forbidden';
 import UnhandledError from './Components/Errors/UnhandledError';
+import { meterics } from '@opentelemetry/api' 
 
 import PrivateRoute from './PrivateRoute';
 
