@@ -6,6 +6,9 @@ import { Provider } from './Context';
 
 import './styles/reset.css';
 import './styles/global.css';
+import { setupTelemetry } from './telemetry';
+
+setupTelemetry();
 
 ReactDOM.render(
   <Provider>
