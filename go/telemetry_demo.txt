@@ -1,0 +1,22 @@
+# Telemetry Demo Commands
+# 
+# Run these commands in sequence to see OpenTelemetry traces and metrics:
+
+create_parking_lot 3
+park KA01HH1234 White
+park KA01HH9999 Black  
+status
+slot_number_for_registration_number KA01HH1234
+leave 1
+park KA01BB0001 Red
+park DL12AA7777 Blue
+park MH04AY1111 Green
+status
+slot_number_for_registration_number NOTFOUND
+
+# Expected telemetry output:
+# - Detailed traces for each command with spans, events, and attributes
+# - Metrics showing counters, gauges, and histograms
+# - Operation duration measurements
+# - Error traces for failed operations (parking lot full, vehicle not found)
+# - Resource identification (service.name, service.version)
