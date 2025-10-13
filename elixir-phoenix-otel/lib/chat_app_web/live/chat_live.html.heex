@@ -1,0 +1,70 @@
+<div class="h-screen flex flex-col bg-gray-50">
+  <header class="bg-white shadow-sm px-4 py-3 border-b border-gray-200">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <h1 class="text-xl font-semibold text-gray-900">LiveView Chat</h1>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600">
+          {map_size(@users)} {if map_size(@users) == 1, do: "user", else: "users"} online
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto px-4 py-6">
+    <div class="max-w-4xl mx-auto space-y-4" id="messages" phx-update="stream">
+      <div
+        :for={{id, message} <- @streams.messages}
+        id={id}
+        class="bg-white rounded-lg shadow-sm p-4 border border-gray-100 animate-fade-in"
+      >
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0">
+            <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+              {String.first(message.name) |> String.upcase()}
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2">
+              <span class="font-semibold text-gray-900">{message.name}</span>
+              <span class="text-xs text-gray-500">{format_timestamp(message.inserted_at)}</span>
+            </div>
+            <p class="mt-1 text-gray-800">{message.content}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-gray-200 px-4 py-4">
+    <div class="max-w-4xl mx-auto">
+      <.form for={@form} phx-submit="send_message" id="message-form" phx-hook="ClearInput">
+        <div class="flex gap-2">
+          <div class="flex-shrink-0 w-32">
+            <.input
+              field={@form[:name]}
+              type="text"
+              placeholder="Your name"
+              value={@name}
+              autocomplete="off"
+            />
+          </div>
+          <div class="flex-1">
+            <.input
+              field={@form[:content]}
+              type="text"
+              placeholder="Type a message..."
+              autocomplete="off"
+              phx-debounce="300"
+            />
+          </div>
+          <button
+            type="submit"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+          >
+            Send
+          </button>
+        </div>
+      </.form>
+    </div>
+  </footer>
+</div>
