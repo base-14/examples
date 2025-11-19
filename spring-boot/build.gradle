@@ -2,7 +2,7 @@ import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.3.5'
+    id 'org.springframework.boot' version '3.5.7'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -50,7 +50,7 @@ dependencies {
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
     // Database
-    runtimeOnly 'com.mysql:mysql-connector-j:9.1.0'
+    runtimeOnly 'com.mysql:mysql-connector-j:9.5.0'
 
     // Test dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

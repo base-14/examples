@@ -9,9 +9,9 @@ A production-ready Spring Boot application with comprehensive OpenTelemetry inst
 This application demonstrates enterprise-grade observability patterns using:
 
 - **OpenTelemetry SDK 1.50.0** - Full auto-instrumentation
-- **Spring Boot 3.3.5** - Modern Java framework
+- **Spring Boot 3.5.7** - Modern Java framework
 - **Micrometer** - Metrics bridge to OpenTelemetry
-- **MySQL 9.1** - Database with connection pool monitoring
+- **MySQL 9.5** - Database with connection pool monitoring
 - **Docker Compose** - Containerized deployment
 
 ### Instrumented Components
@@ -352,11 +352,11 @@ logging.level.io.opentelemetry.exporter=TRACE
 
 | Component           | Version | Purpose          |
 |---------------------|---------|------------------|
-| Spring Boot         | 3.3.5   | Web framework    |
+| Spring Boot         | 3.5.7   | Web framework    |
 | OpenTelemetry Java  | 2.16.0  | Instrumentation  |
 | OpenTelemetry SDK   | 1.50.0  | Core SDK         |
 | Micrometer          | -       | Metrics bridge   |
-| MySQL               | 9.1     | Database         |
+| MySQL               | 9.5     | Database         |
 | Gradle              | 8.4.0   | Build tool       |
 | Java                | 17      | Runtime          |
 
