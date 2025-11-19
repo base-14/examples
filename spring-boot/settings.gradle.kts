@@ -1,2 +1,2 @@
-rootProject.name = "java-spring-boot-otlel"
+rootProject.name = "java-spring-boot-otel"
 

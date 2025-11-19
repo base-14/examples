@@ -13,15 +13,15 @@ import java.util.List;
 @Service
 @Transactional
 public class UserServiceImpl implements UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 
     @Autowired
-   private UserRepository userRepository;
-    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
+    private UserRepository userRepository;
 
     @Override
     public User save(User user) {
-      logger.atInfo().log("Saved user successfully");
-      return userRepository.save(user);
+        logger.atInfo().log("Saved user successfully");
+        return userRepository.save(user);
     }
 
     @Override

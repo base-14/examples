@@ -19,19 +19,20 @@ public class UserController {
     private UserService userService;
 
     @GetMapping("/")
-    public List<User> getAllUsers(){
+    public List<User> getAllUsers() {
         return userService.findAll();
     }
 
     @PostMapping("/saveUser")
-    public User createUser(@RequestBody User user){
+    public User createUser(@RequestBody User user) {
         logger.atInfo().log("Saving user");
         return userService.save(user);
     }
+
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable(value = "id") Long id,  @RequestBody User userDetails) {
+    public ResponseEntity<User> updateUser(@PathVariable(value = "id") Long id, @RequestBody User userDetails) {
         User user = userService.findFirstById(id);
-        if(null == user) {
+        if (null == user) {
             return ResponseEntity.notFound().build();
         }
         User updatedUser = userService.save(userDetails);
@@ -41,7 +42,7 @@ public class UserController {
     @DeleteMapping("/users/{id}")
     public ResponseEntity<User> deleteUser(@PathVariable(value = "id") Long id) {
         User user = userService.findFirstById(id);
-        if(user == null) {
+        if (user == null) {
             return ResponseEntity.notFound().build();
         }
         userService.delete(user);
@@ -49,7 +50,7 @@ public class UserController {
     }
 
     @GetMapping("/testMessage")
-    public String getTestMessage(){
+    public String getTestMessage() {
         logger.atInfo().log("testMessage");
         return "Hello World... I'm ready..";
     }
