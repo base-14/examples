@@ -1,0 +1,50 @@
+# OpenTelemetry Collector Configuration for Local Development
+#
+# Purpose: Receives telemetry from the Spring Boot app and prints to console
+# Use case: Local debugging and testing - verify telemetry is being sent correctly
+#
+# For production: Replace debug/logging exporters with actual backend exporters:
+#   - otlp: Forward to base14 Scout
+#   - See: https://opentelemetry.io/docs/collector/configuration/
+
+receivers:
+  otlp:
+    protocols:
+      # gRPC endpoint (default port 4317)
+      grpc:
+        endpoint: 0.0.0.0:4317
+      # HTTP endpoint (default port 4318) - used by Spring Boot app
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch processor - groups telemetry for efficient export
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+exporters:
+  # Debug exporter - prints detailed telemetry to console
+  debug:
+    verbosity: detailed
+  # Logging exporter - prints summary to console logs
+  logging:
+    loglevel: info
+
+service:
+  pipelines:
+    # Traces pipeline - distributed tracing data
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, logging]
+    # Metrics pipeline - counters, gauges, histograms
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, logging]
+    # Logs pipeline - structured application logs
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, logging]

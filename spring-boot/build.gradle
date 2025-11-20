@@ -10,6 +10,9 @@ group = 'com.base14.demo'
 version = '0.0.1-SNAPSHOT'
 
 java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
     sourceCompatibility = '17'
 }
 
@@ -21,7 +24,7 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.16.0")
+        mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.21.0")
     }
 }
 
@@ -35,8 +38,9 @@ dependencies {
 
     // OpenTelemetry
     implementation platform(SpringBootPlugin.BOM_COORDINATES)
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.16.0"))
+    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.21.0"))
     implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
+    implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.21.0-alpha")
 
     // Micrometer for observability (includes OpenTelemetry bridge)
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'

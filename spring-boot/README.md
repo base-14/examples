@@ -8,11 +8,13 @@ A production-ready Spring Boot application with comprehensive OpenTelemetry inst
 
 This application demonstrates enterprise-grade observability patterns using:
 
-- **OpenTelemetry SDK 1.50.0** - Full auto-instrumentation
-- **Spring Boot 3.5.7** - Modern Java framework
+- **OpenTelemetry SDK 1.55.0** - Full auto-instrumentation
+- **OpenTelemetry Instrumentation 2.21.0** - Latest instrumentation agent
+- **Spring Boot 3.5.7** - Latest stable Java framework
 - **Micrometer** - Metrics bridge to OpenTelemetry
-- **MySQL 9.5** - Database with connection pool monitoring
+- **MySQL 9.1** - Latest database with connection pool monitoring
 - **Docker Compose** - Containerized deployment
+- **Gradle 9.2.1** - Latest build tool with Java 25 support
 
 ### Instrumented Components
 
@@ -25,8 +27,8 @@ This application demonstrates enterprise-grade observability patterns using:
 ## Prerequisites
 
 - **Docker Desktop** (recommended) or Docker Engine with Compose plugin
-- **Java 17+** (for local development)
-- **Gradle 8.4+** (wrapper included)
+- **Java 17+** (for local development) - Gradle will auto-download Java 17 if needed
+- **Gradle 9.2.1** (wrapper included with Java toolchain auto-provisioning)
 - **OpenTelemetry Collector** (see configuration options below)
 
 ## Quick Start
@@ -306,7 +308,9 @@ Error: `Communications link failure`
 
 **Solution:**
 - Docker uses Java 17 (specified in Dockerfile)
-- Local builds require Java 17+
+- Gradle 9.2.1 includes automatic Java toolchain provisioning
+- If running on Java 25, Gradle will auto-download Java 17 for compilation
+- For manual builds, Java 17-25 are supported
 - Check: `java -version`
 
 ### Debug Mode
@@ -350,15 +354,17 @@ logging.level.io.opentelemetry.exporter=TRACE
 
 ## Technology Stack
 
-| Component           | Version | Purpose          |
-|---------------------|---------|------------------|
-| Spring Boot         | 3.5.7   | Web framework    |
-| OpenTelemetry Java  | 2.16.0  | Instrumentation  |
-| OpenTelemetry SDK   | 1.50.0  | Core SDK         |
-| Micrometer          | -       | Metrics bridge   |
-| MySQL               | 9.5     | Database         |
-| Gradle              | 8.4.0   | Build tool       |
-| Java                | 17      | Runtime          |
+| Component                    | Version | Purpose                |
+|------------------------------|---------|------------------------|
+| Spring Boot                  | 3.5.7   | Web framework          |
+| OpenTelemetry Instrumentation| 2.21.0  | Auto-instrumentation   |
+| OpenTelemetry SDK            | 1.55.0  | Core SDK               |
+| Micrometer                   | -       | Metrics bridge         |
+| MySQL                        | 9.1     | Database               |
+| MySQL Connector/J            | 9.5.0   | JDBC driver            |
+| Gradle                       | 9.2.1   | Build tool             |
+| Java (Target)                | 17      | Compilation target     |
+| Java (Supported)             | 17-25   | Runtime compatibility  |
 
 ## Contributing
 

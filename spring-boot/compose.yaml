@@ -1,6 +1,6 @@
 services:
   db:
-    image: mysql:8.0
+    image: mysql:9.1
     container_name: mysql-db
     restart: always
     environment:
@@ -33,10 +33,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: "123456"
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_APPLICATION_NAME: java-spring-boot-otel
+      # OpenTelemetry Configuration
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:4318/v1/traces
-      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://host.docker.internal:4318/v1/metrics
-      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://host.docker.internal:4318/v1/logs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
       OTEL_RESOURCE_ATTRIBUTES: service.name=java-spring-boot-otel,service.namespace=base14,deployment.environment=dev,deployment.environment.name=dev,service.version=0.0.1-SNAPSHOT
     restart: unless-stopped
 
