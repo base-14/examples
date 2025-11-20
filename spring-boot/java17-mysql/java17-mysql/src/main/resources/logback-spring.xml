@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Spring Boot defaults: patterns, converters, properties -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Console logging: stdout with colorized output
+         Comment out in production if you only want logs in observability platform -->
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- OpenTelemetry appender: exports logs to OTLP endpoint with trace correlation
+         Controlled by: otel.instrumentation.logback-appender.enabled in application.properties -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+        <captureCodeAttributes>true</captureCodeAttributes>
+        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
+        <captureMarkerAttribute>true</captureMarkerAttribute>
+        <captureLoggerContext>true</captureLoggerContext>
+        <captureMdcAttributes>*</captureMdcAttributes>
+    </appender>
+
+    <root level="INFO">
+        <!-- Local debugging - comment out in production -->
+        <!-- <appender-ref ref="CONSOLE"/> -->
+
+        <!-- Observability platform -->
+        <!-- <appender-ref ref="OTEL"/> -->
+    </root>
+
+    <!-- DEBUG logging for troubleshooting telemetry export
+         Change to INFO in production -->
+    <logger name="io.opentelemetry" level="DEBUG"/>
+    <logger name="io.micrometer" level="DEBUG"/>
+</configuration>
