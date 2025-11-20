@@ -1,31 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!--
+        Import Spring Boot's default logging configuration
+        This provides common patterns, converters, and properties
+    -->
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <!-- Console appender for local debugging - disabled in production to avoid duplicates -->
-    <!-- Uncomment the following block and add ref="CONSOLE" to root if you need console logs -->
     <!--
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
-        </encoder>
-    </appender>
+        Import Spring Boot's console appender configuration
+        This enables logging to stdout with colorized output
     -->
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
-    <!-- OpenTelemetry appender - exports logs via OTLP with rich attributes -->
+    <!--
+        OpenTelemetry Logback Appender Configuration
+
+        This appender is controlled by application.properties:
+        - otel.instrumentation.logback-appender.enabled=true
+        - otel.instrumentation.logback-appender.experimental-log-attributes=true
+
+        The appender automatically captures rich context when properly configured
+    -->
     <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <!-- Capture rich log attributes including code location, span/trace IDs -->
         <captureExperimentalAttributes>true</captureExperimentalAttributes>
-        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
         <captureCodeAttributes>true</captureCodeAttributes>
+        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
         <captureMarkerAttribute>true</captureMarkerAttribute>
         <captureLoggerContext>true</captureLoggerContext>
         <captureMdcAttributes>*</captureMdcAttributes>
     </appender>
 
     <root level="INFO">
+        <!-- Console appender for local debugging and container logs -->
+        <appender-ref ref="CONSOLE"/>
+
+        <!-- OTEL appender for sending logs to OpenTelemetry Collector with rich attributes -->
         <appender-ref ref="OTEL"/>
     </root>
 
+    <!--
+        Enable DEBUG logging for OpenTelemetry components
+        Useful for troubleshooting telemetry export issues
+    -->
     <logger name="io.opentelemetry" level="DEBUG"/>
+
+    <!--
+        Enable DEBUG logging for Micrometer components
+        Useful for troubleshooting metrics and tracing issues
+    -->
     <logger name="io.micrometer" level="DEBUG"/>
 </configuration>

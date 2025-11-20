@@ -40,7 +40,7 @@ dependencies {
     implementation platform(SpringBootPlugin.BOM_COORDINATES)
     implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.21.0"))
     implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
-    implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.21.0-alpha")
+    // Note: logback-appender is included via spring-boot-starter, no need for explicit dependency
 
     // Micrometer for observability (includes OpenTelemetry bridge)
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'
