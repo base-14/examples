@@ -1,16 +1,8 @@
-# OpenTelemetry Collector Configuration for Local Development
-#
-# Purpose: Receives telemetry from the Spring Boot app and prints to console
-# Use case: Local debugging and testing - verify telemetry is being sent correctly
-#
-# For production: Replace debug/logging exporters with actual backend exporters:
-#   - otlp: Forward to base14 Scout
-#   - See: https://opentelemetry.io/docs/collector/configuration/
-
+# OpenTelemetry Collector Configuration
+# Receives telemetry from Spring Boot app, exports to base14 Scout and debug console
 
 extensions:
-  # OAuth2 Client Credentials authentication for base14.io Scout
-  oauth2client:
+  oauth2client:  # OAuth2 auth for base14 Scout
     client_id: ${BASE14_CLIENT_ID}
     client_secret: ${BASE14_CLIENT_SECRET}
     token_url: ${BASE14_TOKEN_URL}
@@ -19,35 +11,32 @@ extensions:
     timeout: 10s
     tls:
       insecure_skip_verify: true
-  # Health check extension
   health_check:
     endpoint: 0.0.0.0:13133
 
 receivers:
   otlp:
     protocols:
-      # gRPC endpoint (default port 4317)
       grpc:
         endpoint: 0.0.0.0:4317
-      # HTTP endpoint (default port 4318) - used by Spring Boot app
       http:
-        endpoint: 0.0.0.0:4318
+        endpoint: 0.0.0.0:4318  # Used by Spring Boot app
 
 processors:
-  # Batch processor for efficiency
+  memory_limiter:  # Prevent OOM
+    limit_mib: 256
+    check_interval: 1s
+
+  # Batch processor (optional) - groups telemetry for efficient export
+  # Uncomment for high-volume production scenarios (100+ requests/sec)
+  # Remember to add 'batch' to pipeline processors below
   # batch:
   #   timeout: 1s
   #   send_batch_size: 1024
   #   send_batch_max_size: 2048
 
-  # Memory limiter to prevent OOM
-  memory_limiter:
-    limit_mib: 256
-    check_interval: 1s
-
 exporters:
-  # Export traces to base14.io Scout
-  otlphttp/b14:
+  otlphttp/b14:  # Export to base14 Scout
     endpoint: ${BASE14_SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
@@ -60,25 +49,20 @@ exporters:
       initial_interval: 1s
       max_interval: 30s
       max_elapsed_time: 300s
-
-  # Debug exporter - prints detailed telemetry to console
-  debug:
+  debug:  # Console output for local debugging
     verbosity: detailed
 
 service:
   extensions: [oauth2client, health_check]
   pipelines:
-    # Traces pipeline - distributed tracing data
     traces:
       receivers: [otlp]
       processors: [memory_limiter]
       exporters: [otlphttp/b14, debug]
-    # Metrics pipeline - counters, gauges, histograms
     metrics:
       receivers: [otlp]
       processors: [memory_limiter]
       exporters: [otlphttp/b14, debug]
-    # Logs pipeline - structured application logs
     logs:
       receivers: [otlp]
       processors: [memory_limiter]

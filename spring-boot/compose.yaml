@@ -45,12 +45,13 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Database
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/company?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: "123456"
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_APPLICATION_NAME: java-spring-boot-otel
-      # OpenTelemetry Configuration
+      # OpenTelemetry (overrides defaults in application.properties)
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_RESOURCE_ATTRIBUTES: service.name=java-spring-boot-otel,service.namespace=base14,deployment.environment=dev,deployment.environment.name=dev,service.version=0.0.1-SNAPSHOT
