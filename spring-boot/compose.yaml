@@ -17,6 +17,21 @@ services:
       timeout: 20s
       retries: 10
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.128.0
+    container_name: otel-collector
+    ports:
+      - "4317:4317"  # OTLP gRPC receiver
+      - "4318:4318"  # OTLP HTTP receiver
+    volumes:
+      - ./config/otel-config.yml:/etc/otelcol-contrib/config.yaml
+    environment:
+      - BASE14_SCOUT_ENDPOINT=${BASE14_SCOUT_ENDPOINT}
+      - BASE14_CLIENT_ID=${BASE14_CLIENT_ID}
+      - BASE14_CLIENT_SECRET=${BASE14_CLIENT_SECRET}
+      - BASE14_TOKEN_URL=${BASE14_TOKEN_URL}
+    restart: unless-stopped
+
   spring-service:
     build:
       context: .
@@ -25,6 +40,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     ports:
       - "8080:8080"
     environment:
@@ -35,7 +52,7 @@ services:
       SPRING_APPLICATION_NAME: java-spring-boot-otel
       # OpenTelemetry Configuration
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_RESOURCE_ATTRIBUTES: service.name=java-spring-boot-otel,service.namespace=base14,deployment.environment=dev,deployment.environment.name=dev,service.version=0.0.1-SNAPSHOT
     restart: unless-stopped
 

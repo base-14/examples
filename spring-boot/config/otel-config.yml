@@ -7,6 +7,22 @@
 #   - otlp: Forward to base14 Scout
 #   - See: https://opentelemetry.io/docs/collector/configuration/
 
+
+extensions:
+  # OAuth2 Client Credentials authentication for base14.io Scout
+  oauth2client:
+    client_id: ${BASE14_CLIENT_ID}
+    client_secret: ${BASE14_CLIENT_SECRET}
+    token_url: ${BASE14_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+
 receivers:
   otlp:
     protocols:
@@ -18,33 +34,52 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
-  # Batch processor - groups telemetry for efficient export
-  batch:
-    timeout: 10s
-    send_batch_size: 1024
+  # Batch processor for efficiency
+  # batch:
+  #   timeout: 1s
+  #   send_batch_size: 1024
+  #   send_batch_max_size: 2048
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
 
 exporters:
+  # Export traces to base14.io Scout
+  otlphttp/b14:
+    endpoint: ${BASE14_SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
   # Debug exporter - prints detailed telemetry to console
   debug:
     verbosity: detailed
-  # Logging exporter - prints summary to console logs
-  logging:
-    loglevel: info
 
 service:
+  extensions: [oauth2client, health_check]
   pipelines:
     # Traces pipeline - distributed tracing data
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, logging]
+      processors: [memory_limiter]
+      exporters: [otlphttp/b14, debug]
     # Metrics pipeline - counters, gauges, histograms
     metrics:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, logging]
+      processors: [memory_limiter]
+      exporters: [otlphttp/b14, debug]
     # Logs pipeline - structured application logs
     logs:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, logging]
+      processors: [memory_limiter]
+      exporters: [otlphttp/b14, debug]
