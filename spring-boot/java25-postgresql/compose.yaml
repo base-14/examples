@@ -1,0 +1,60 @@
+services:
+  db:
+    image: postgres:17.7
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_DB: company
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: "Asia/Kolkata"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.140.0
+    container_name: otel-collector
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./config/otel-config.yml:/etc/otelcol-contrib/config.yaml
+    environment:
+      - BASE14_SCOUT_ENDPOINT=${BASE14_SCOUT_ENDPOINT}
+      - BASE14_CLIENT_ID=${BASE14_CLIENT_ID}
+      - BASE14_CLIENT_SECRET=${BASE14_CLIENT_SECRET}
+      - BASE14_TOKEN_URL=${BASE14_TOKEN_URL}
+    restart: unless-stopped
+
+  spring-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spring-app
+    depends_on:
+      db:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/company
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_APPLICATION_NAME: java-spring-boot-otel
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_RESOURCE_ATTRIBUTES: service.name=java-spring-boot-otel,environment=dev,service.version=0.0.1-SNAPSHOT
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
