@@ -22,6 +22,7 @@ Production-ready examples for integrating OpenTelemetry with
 | --------- | ------- | ------- | ------------- |
 | **Scout Collector** | OpenTelemetry Collector | [scout-collector](./scout-collector) | [Guide][doc-collector] |
 | **AWS CloudWatch** | CloudWatch log streaming | [aws-cloudwatch-stream](./aws-cloudwatch-stream) | - |
+| **Load Generator** | Load testing with OTEL | [loadgen](./loadgen) | [README](./loadgen/README.md) |
 
 ### Mobile Applications
 

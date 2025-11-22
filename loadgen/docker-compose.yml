@@ -1,0 +1,20 @@
+services:
+  loadgen:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: loadgen
+    environment:
+      - TARGET_URL=${TARGET_URL:-http://host.docker.internal:3000}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4317}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-loadgen}
+      - REQUESTS_PER_SECOND=${REQUESTS_PER_SECOND:-2}
+      - DURATION_SECONDS=${DURATION_SECONDS:-300}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+
+networks:
+  default:
+    name: loadgen_network
