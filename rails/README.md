@@ -6,7 +6,7 @@ OpenTelemetry instrumentation examples for Rails applications.
 
 | Project | Description |
 | ------- | ----------- |
-| [rails8-sqlite](./rails8-sqlite) | Rails 8.0.2 with auto-instrumentation, SQLite, and OIDC authentication |
+| [rails8-sqlite](./rails8-sqlite) | Rails 8.1.1 with auto-instrumentation, SQLite, and OIDC authentication |
 
 ## Contributing
 

@@ -1,6 +1,7 @@
 # Rails with OpenTelemetry
 
-Rails 8.0.2 application with OpenTelemetry auto-instrumentation for traces, metrics, and logs.
+Rails 8.1.1 application with OpenTelemetry auto-instrumentation for traces,
+metrics, and logs.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails)
 
@@ -87,14 +88,16 @@ OpenTelemetry::SDK.configure do |c|
 end
 ```
 
-See the full implementation in [config/initializers/opentelemetry.rb](./config/initializers/opentelemetry.rb) for OIDC token fetching and log correlation.
+See the full implementation in
+[config/initializers/opentelemetry.rb](./config/initializers/opentelemetry.rb)
+for OIDC token fetching and log correlation.
 
 ### Resource Attributes
 
 Automatically included in telemetry:
 
 ```ruby
-service.name=sample-rails-application
+service.name=ruby-rails8-sqlite-otel
 telemetry.sdk.name=opentelemetry
 telemetry.sdk.language=ruby
 ```
@@ -131,7 +134,9 @@ docker-compose logs -f web       # View logs
 
 ### Logs
 
-All Rails logs include `trace_id` and `span_id` for correlation. The initializer extends the Rails logger to automatically add trace context to every log entry.
+All Rails logs include `trace_id` and `span_id` for correlation. The
+initializer extends the Rails logger to automatically add trace context to
+every log entry.
 
 ## Troubleshooting
 
@@ -149,7 +154,8 @@ Verify Scout credentials are correct and token URL is accessible.
 docker-compose logs web | grep -i opentelemetry
 ```
 
-Check that Scout endpoint is reachable and OIDC token is being fetched successfully.
+Check that Scout endpoint is reachable and OIDC token is being fetched
+successfully.
 
 ### Enable debug logging
 
@@ -164,7 +170,7 @@ environment:
 
 | Component | Version |
 | --------- | ------- |
-| Rails | 8.0.2 |
+| Rails | 8.1.1 |
 | Ruby | 3.3+ |
 | OpenTelemetry SDK | Latest |
 | OpenTelemetry Instrumentation | Latest |
@@ -172,6 +178,8 @@ environment:
 
 ## Resources
 
-- [Rails Auto-Instrumentation Guide](https://docs.base14.io/instrument/apps/auto-instrumentation/rails) - Base14 documentation
-- [OpenTelemetry Ruby](https://opentelemetry.io/docs/languages/ruby/) - OTel Ruby docs
+- [Rails Auto-Instrumentation Guide](https://docs.base14.io/instrument/apps/auto-instrumentation/rails)
+  \- Base14 documentation
+- [OpenTelemetry Ruby](https://opentelemetry.io/docs/languages/ruby/) -
+  OTel Ruby docs
 - [Base14 Scout](https://base14.io/scout) - Observability platform

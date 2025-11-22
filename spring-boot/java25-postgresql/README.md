@@ -34,7 +34,7 @@ For deeper application-level tracing (controller methods, service methods), cons
 ## Prerequisites
 
 - Docker Desktop or Docker Engine with Compose
-- OpenTelemetry Collector running (see [Collector Setup](#collector-setup) below)
+- Base14 Scout credentials ([setup guide](https://docs.base14.io/category/opentelemetry-collector-setup))
 - Java 25+ (only for local development without Docker)
 
 ## Quick Start
@@ -44,7 +44,13 @@ For deeper application-level tracing (controller methods, service methods), cons
 git clone https://github.com/base-14/examples.git
 cd examples/spring-boot/java25-postgresql
 
-# Start application (PostgreSQL + Spring Boot)
+# Set Base14 Scout credentials as environment variables
+export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces
+export SCOUT_CLIENT_ID=your_client_id
+export SCOUT_CLIENT_SECRET=your_client_secret
+export SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
+
+# Start application (PostgreSQL + Spring Boot + OTel Collector)
 docker-compose up --build -d
 
 # Verify it's running
@@ -52,37 +58,36 @@ curl http://localhost:8080/actuator/health
 curl http://localhost:8080/users/testMessage
 ```
 
-The app runs on port `8080`, PostgreSQL on `5432`.
-
-## Collector Setup
-
-The app sends telemetry to an OpenTelemetry Collector on `host.docker.internal:4318`.
-
-### Option 1: External Collector (Recommended)
-
-Run the collector separately on your host machine. Best for production and
-multi-app setups.
-
-```bash
-docker run -d \
-  --name otel-collector \
-  -p 4317:4317 \
-  -p 4318:4318 \
-  -v $(pwd)/config/otel-config.yml:/etc/otelcol-contrib/config.yaml \
-  otel/opentelemetry-collector-contrib:0.128.0
-```
-
-See [Base14 Collector Setup Guide][collector-guide] for configuration.
-
-[collector-guide]: https://docs.base14.io/category/opentelemetry-collector-setup
-
-### Option 2: Embedded Collector (Local Development)
-
-The collector is already included in `compose.yaml` for a self-contained setup.
+The app runs on port `8080`, PostgreSQL on `5432`, OTel Collector on `4317/4318`.
 
 ## Configuration
 
-### Environment Variables (compose.yaml)
+### Required Environment Variables
+
+The OpenTelemetry Collector requires Base14 Scout credentials to export
+telemetry data. Set these before running `docker-compose up`:
+
+| Variable | Required | Description |
+| -------- | -------- | ----------- |
+| `SCOUT_ENDPOINT` | Yes | Base14 Scout OTLP endpoint |
+| `SCOUT_CLIENT_ID` | Yes | OAuth2 client ID from Base14 Scout |
+| `SCOUT_CLIENT_SECRET` | Yes | OAuth2 client secret from Base14 Scout |
+| `SCOUT_TOKEN_URL` | Yes | OAuth2 token endpoint |
+
+**Example:**
+
+```bash
+export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces
+export SCOUT_CLIENT_ID=your_client_id
+export SCOUT_CLIENT_SECRET=your_client_secret
+export SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
+```
+
+See the
+[Base14 Collector Setup Guide](https://docs.base14.io/category/opentelemetry-collector-setup)
+for obtaining credentials.
+
+### Application Environment Variables (compose.yaml)
 
 | Variable | Default |
 | -------- | ------- |

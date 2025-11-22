@@ -16,7 +16,7 @@ traces, metrics, and logs.
 ## Prerequisites
 
 - Docker Desktop or Docker Engine with Compose
-- OpenTelemetry Collector running (see [Collector Setup](#collector-setup) below)
+- Base14 Scout credentials ([setup guide](https://docs.base14.io/category/opentelemetry-collector-setup))
 - Java 17+ (only for local development without Docker)
 
 ## Quick Start
@@ -26,7 +26,13 @@ traces, metrics, and logs.
 git clone https://github.com/base-14/examples.git
 cd examples/spring-boot/java17-mysql
 
-# Start application (MySQL + Spring Boot)
+# Set Base14 Scout credentials as environment variables
+export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces
+export SCOUT_CLIENT_ID=your_client_id
+export SCOUT_CLIENT_SECRET=your_client_secret
+export SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
+
+# Start application (MySQL + Spring Boot + OTel Collector)
 docker-compose up --build -d
 
 # Verify it's running
@@ -34,65 +40,42 @@ curl http://localhost:8080/actuator/health
 curl http://localhost:8080/users/testMessage
 ```
 
-The app runs on port `8080`, MySQL on `3306`.
-
-## Collector Setup
-
-The app sends telemetry to an OpenTelemetry Collector on `host.docker.internal:4318`.
-
-### Option 1: External Collector (Recommended)
-
-Run the collector separately on your host machine. Best for production and
-multi-app setups.
-
-```bash
-docker run -d \
-  --name otel-collector \
-  -p 4317:4317 \
-  -p 4318:4318 \
-  -v $(pwd)/config/otel-config.yml:/etc/otelcol-contrib/config.yaml \
-  otel/opentelemetry-collector-contrib:0.128.0
-```
-
-See [Base14 Collector Setup Guide][collector-guide] for configuration.
-
-[collector-guide]: https://docs.base14.io/category/opentelemetry-collector-setup
-
-### Option 2: Embedded Collector (Local Development)
-
-Add the collector to `compose.yaml` for a self-contained setup:
-
-```yaml
-services:
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.128.0
-    ports:
-      - '4317:4317'
-      - '4318:4318'
-    volumes:
-      - ./config/otel-config.yml:/etc/otelcol-contrib/config.yaml
-
-  spring-service:
-    depends_on:
-      - db
-      - otel-collector
-    environment:
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
-      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://otel-collector:4318/v1/metrics
-      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://otel-collector:4318/v1/logs
-```
+The app runs on port `8080`, MySQL on `3306`, OTel Collector on `4317/4318`.
 
 ## Configuration
 
-### Environment Variables (compose.yaml)
+### Required Environment Variables
+
+The OpenTelemetry Collector requires Base14 Scout credentials to export
+telemetry data. Set these before running `docker-compose up`:
+
+| Variable | Required | Description |
+| -------- | -------- | ----------- |
+| `SCOUT_ENDPOINT` | Yes | Base14 Scout OTLP endpoint |
+| `SCOUT_CLIENT_ID` | Yes | OAuth2 client ID from Base14 Scout |
+| `SCOUT_CLIENT_SECRET` | Yes | OAuth2 client secret from Base14 Scout |
+| `SCOUT_TOKEN_URL` | Yes | OAuth2 token endpoint |
+
+**Example:**
+
+```bash
+export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces
+export SCOUT_CLIENT_ID=your_client_id
+export SCOUT_CLIENT_SECRET=your_client_secret
+export SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
+```
+
+See the
+[Base14 Collector Setup Guide](https://docs.base14.io/category/opentelemetry-collector-setup)
+for obtaining credentials.
+
+### Application Environment Variables (compose.yaml)
 
 | Variable | Default |
 | -------- | ------- |
 | `SPRING_APPLICATION_NAME` | `java-spring-boot-otel` |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `http://host.docker.internal:4318/v1/traces` |
-| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | `http://host.docker.internal:4318/v1/metrics` |
-| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | `http://host.docker.internal:4318/v1/logs` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` |
 
 ### Resource Attributes
 
