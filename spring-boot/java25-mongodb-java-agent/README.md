@@ -21,6 +21,7 @@ This example uses **OpenTelemetry Java Agent** (zero-code instrumentation):
 - ✅ JVM metrics (memory, threads, GC)
 - ✅ Distributed trace propagation (W3C)
 - ✅ Logback logging with trace correlation
+- ✅ Custom methods with `@WithSpan` annotations
 
 ### Key Differences from SDK Integration
 
@@ -34,9 +35,35 @@ This example uses **OpenTelemetry Java Agent** (zero-code instrumentation):
 **Limitations:**
 
 - Configuration via environment variables only (no application.properties support)
-- Cannot use OpenTelemetry API directly
 - Not compatible with GraalVM native-image
 - May conflict with other JVM agents
+
+## Custom Instrumentation
+
+Add custom spans using `@WithSpan` annotations for deeper application visibility.
+
+1. Add dependency to `build.gradle`:
+
+   ```gradle
+   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.10.0'
+   ```
+
+1. Enable annotations (already configured in `compose.yaml`):
+
+   ```yaml
+   OTEL_INSTRUMENTATION_ANNOTATIONS_ENABLED: true
+   ```
+
+1. Annotate methods:
+
+   ```java
+   import io.opentelemetry.instrumentation.annotations.WithSpan;
+
+   @WithSpan("UserService.save")
+   public User save(User user) {
+       return userRepository.save(user);
+   }
+   ```
 
 ## Prerequisites
 
@@ -111,6 +138,7 @@ Java Agent uses **environment variables only** for configuration:
 | `OTEL_TRACES_EXPORTER` | `otlp` | Trace exporter |
 | `OTEL_METRICS_EXPORTER` | `otlp` | Metrics exporter |
 | `OTEL_LOGS_EXPORTER` | `otlp` | Logs exporter |
+| `OTEL_INSTRUMENTATION_ANNOTATIONS_ENABLED` | `true` | @WithSpan support |
 
 ### Resource Attributes
 

@@ -27,6 +27,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
+	// uncomment below for custom instrumentation
+	// implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.10.0'
+
 	// Testing
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
