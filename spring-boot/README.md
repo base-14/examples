@@ -5,8 +5,10 @@ OpenTelemetry instrumentation examples for Spring Boot applications.
 ## Projects
 
 | Project | Description |
-|---------|-------------|
+| ------- | ----------- |
 | [java17-mysql](./java17-mysql) | Spring Boot 3.5.7 with auto-instrumentation, MySQL, and JPA |
+| [java25-postgresql](./java25-postgresql) | Spring Boot 3.5.8 with SDK Integration, PostgreSQL, and JPA |
+| [java25-mongodb-java-agent](./java25-mongodb-java-agent) | Spring Boot 3.5.8 with Java Agent instrumentation, MongoDB 7.x, and Spring Data MongoDB |
 
 ## Contributing
 

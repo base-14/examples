@@ -1,0 +1,61 @@
+# OpenTelemetry Collector Configuration
+# Receives telemetry from Spring Boot app, exports to base14 Scout and debug console
+
+extensions:
+  oauth2client:
+    client_id: ${BASE14_CLIENT_ID}
+    client_secret: ${BASE14_CLIENT_SECRET}
+    token_url: ${BASE14_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+
+exporters:
+  otlphttp/b14:
+    endpoint: ${BASE14_SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [oauth2client, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter]
+      exporters: [otlphttp/b14, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter]
+      exporters: [otlphttp/b14, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter]
+      exporters: [otlphttp/b14, debug]
