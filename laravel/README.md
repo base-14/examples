@@ -1,25 +1,22 @@
-# Sample Laravel Application
+# Laravel Examples
 
-Make sure you have PHP and Composer installed globally on your computer.
+OpenTelemetry instrumentation examples for Laravel applications.
 
-Install the app
+## Projects
 
-```bash
-composer install
-cp .env.example .env
-```
+| Project | Description |
+| ------- | ----------- |
+| [php8-laravel8-sqlite](./php8-laravel8-sqlite) | Laravel 8.65 with auto-instrumentation, SQLite, and JWT authentication |
 
-Run the web server
+## Contributing
 
-```bash
-php artisan serve
-```
+When adding new examples:
 
-That's it. Now you can use the api, i.e.
+- Include a complete README with setup and usage instructions
+- Provide docker-compose setup for easy local testing
+- Include OpenTelemetry configuration (collector config recommended)
+- Document all environment variables and endpoints
+- Add troubleshooting section for common issues
+- Keep examples focused and production-ready
 
-```text
-http://127.0.0.1:8000/api/articles
-```
-
-Visit [docs.base14.io](https://docs.base14.io/instrument/apps/auto-instrumentation/laravel)
-for instrumenting laravel applications.
+Follow the structure of existing projects for consistency.
