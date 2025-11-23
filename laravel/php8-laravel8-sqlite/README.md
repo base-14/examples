@@ -1,8 +1,12 @@
 # Laravel with OpenTelemetry
 
-Laravel 8.65 application with OpenTelemetry auto-instrumentation for traces,
+Laravel 8.x application with OpenTelemetry auto-instrumentation for traces,
 metrics, and logs.
 
+> ⚠️ **Security Notice**: This project uses Laravel 8.x (EOL July 2023) and
+> contains [19+ known security vulnerabilities](./SECURITY.md).
+> **Not recommended for production use.** For production, upgrade to Laravel 11+.
+>
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/laravel)
 
 ## What's Instrumented
@@ -289,14 +293,14 @@ php artisan tinker
 
 ## Technology Stack
 
-| Component | Version |
-| --------- | ------- |
-| Laravel | 8.65 |
-| PHP | 8.1 |
-| OpenTelemetry SDK | 1.6+ |
-| OpenTelemetry Auto-Laravel | 1.2+ |
-| SQLite | 3.x |
-| JWT Auth | 1.0+ |
+| Component | Version | Notes |
+| --------- | ------- | ----- |
+| Laravel | 8.83 (dev) | ⚠️ EOL - See [SECURITY.md](./SECURITY.md) |
+| PHP | 8.1 | ✅ Supported |
+| OpenTelemetry SDK | 1.6+ | ✅ Current |
+| OpenTelemetry Auto-Laravel | 1.2+ | ✅ Current |
+| SQLite | 3.x | ✅ Supported |
+| JWT Auth | 1.0+ | ⚠️ Development version |
 
 ## Resources
 

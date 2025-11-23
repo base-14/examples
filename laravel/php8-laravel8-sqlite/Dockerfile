@@ -33,9 +33,9 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN pecl install opentelemetry && \
     docker-php-ext-enable opentelemetry
 
-# Copy composer files and install dependencies
-COPY composer.json composer.lock ./
-RUN composer install --prefer-dist --no-interaction --no-scripts --no-progress
+# Copy composer files and update dependencies
+COPY composer.json ./
+RUN composer update --prefer-dist --no-interaction --no-scripts --no-progress
 
 # Copy application code
 COPY . .

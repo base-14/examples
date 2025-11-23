@@ -1,0 +1,11 @@
+version: 2
+updates:
+  - package-ecosystem: "composer"
+    directory: "/laravel/php8-laravel8-sqlite"
+    schedule:
+      interval: "weekly"
+    # Disable Dependabot PRs for this project - Laravel 8.x is EOL
+    # See: laravel/php8-laravel8-sqlite/SECURITY.md for documented vulnerabilities
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
