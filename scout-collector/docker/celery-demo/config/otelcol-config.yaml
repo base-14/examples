@@ -2,18 +2,18 @@ extensions:
   zpages:
     endpoint: 0.0.0.0:55679
   oauth2client:
-    client_id: _provided_
-    client_secret: _provided_
+    client_id: ${env:SCOUT_CLIENT_ID}
+    client_secret: ${env:SCOUT_CLIENT_SECRET}
     endpoint_params:
-      audience: _provided_
-    token_url: _provided_
+      audience: ${env:SCOUT_ENDPOINT}
+    token_url: ${env:SCOUT_TOKEN_URL}
     tls:
       insecure_skip_verify: true
 
 exporters:
   debug:
   otlphttp/b14:
-    endpoint: _provided_
+    endpoint: ${env:SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
     tls:

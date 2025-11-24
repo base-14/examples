@@ -1,9 +1,9 @@
 x-default-logging: &logging
- driver: "json-file"
- options:
-   max-size: "5m"
-   max-file: "2"
-   tag: "{{.Name}}|{{.ImageName}}|{{.ID}}"
+  driver: "json-file"
+  options:
+    max-size: "5m"
+    max-file: "2"
+    tag: "{{.Name}}|{{.ImageName}}|{{.ID}}"
 
 services:
   web:
@@ -22,8 +22,12 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USER=guest
       - RABBITMQ_PASSWORD=guest
+      - OTEL_SERVICE_NAME=python-celery-demo-web
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - SERVICE_NAME=web
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -49,9 +53,12 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USER=guest
       - RABBITMQ_PASSWORD=guest
+      - OTEL_SERVICE_NAME=python-celery-demo-worker
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
-      - SERVICE_NAME=celeryjobs
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -78,7 +85,17 @@ services:
       - "5432:5432"
     logging: *logging
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "task_db", "-h", "localhost"]
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-U",
+          "postgres",
+          "-d",
+          "task_db",
+          "-h",
+          "localhost",
+        ]
 
   redis:
     image: redis:6
@@ -91,8 +108,8 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672"  # AMQP protocol port
-      - "15672:15672"  # Management UI port
+      - "5672:5672" # AMQP protocol port
+      - "15672:15672" # Management UI port
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -106,24 +123,29 @@ services:
       test: ["CMD", "rabbitmqctl", "status"]
 
   otel-collector:
-    image: 010526246885.dkr.ecr.ap-south-1.amazonaws.com/opentelemetry-collector-contrib:0.119.0-7
+    image: otel/opentelemetry-collector-contrib:0.128.0
     container_name: otel-collector
     deploy:
       resources:
         limits:
           memory: 200M
     restart: unless-stopped
-    command: [ "--config=/etc/otelcol-config.yaml"]
+    command: ["--config=/etc/otelcol-config.yaml"]
     user: 0:0
     volumes:
       - /:/hostfs:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ./config:/etc/
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
     ports:
       - "4318:4318"
       - "4317:4317"
-      - "55679:55679"  # zpages: http://localhost:55679/debug/tracez
+      - "55679:55679" # zpages: http://localhost:55679/debug/tracez
     logging: *logging
     depends_on:
       rabbitmq:

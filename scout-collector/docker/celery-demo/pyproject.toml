@@ -10,22 +10,22 @@ requires-python = ">=3.13"
 
 
 dependencies = [
-    "uvicorn (>=0.34.0,<0.35.0)",
-    "fastapi (>=0.115.8,<0.116.0)",
-    "celery (>=5.4.0,<6.0.0)",
-    "redis (>=5.2.1,<6.0.0)",
+    "uvicorn (>=0.38.0,<0.39.0)",
+    "fastapi (>=0.121.3,<0.122.0)",
+    "celery (>=5.5.3,<6.0.0)",
+    "redis (>=7.1.0,<8.0.0)",
     "psycopg2-binary (>=2.9.10,<3.0.0)",
-    "sqlalchemy (>=2.0.38,<3.0.0)",
-    "pydantic (>=2.10.6,<3.0.0)",
-    "python-dotenv (>=1.0.1,<2.0.0)",
-    "opentelemetry-instrumentation-celery (>=0.51b0,<0.52)",
-    "opentelemetry-api (>=1.30.0,<2.0.0)",
-    "opentelemetry-sdk (>=1.30.0,<2.0.0)",
-    "opentelemetry-exporter-otlp (>=1.30.0,<2.0.0)",
-    "opentelemetry-instrumentation-fastapi (>=0.51b0,<0.52)",
+    "sqlalchemy (>=2.0.44,<3.0.0)",
+    "pydantic (>=2.12.4,<3.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "opentelemetry-instrumentation-celery (>=0.59b0,<0.60)",
+    "opentelemetry-api (>=1.38.0,<2.0.0)",
+    "opentelemetry-sdk (>=1.38.0,<2.0.0)",
+    "opentelemetry-exporter-otlp (>=1.38.0,<2.0.0)",
+    "opentelemetry-instrumentation-fastapi (>=0.59b0,<0.60)",
     "python-environ (>=0.4.54,<0.5.0)",
-    "opentelemetry-instrumentation-sqlalchemy (>=0.51b0,<0.52)",
-    "opentelemetry-instrumentation-redis (>=0.51b0,<0.52)"
+    "opentelemetry-instrumentation-sqlalchemy (>=0.59b0,<0.60)",
+    "opentelemetry-instrumentation-redis (>=0.59b0,<0.60)"
 ]
 
 

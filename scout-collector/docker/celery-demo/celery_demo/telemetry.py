@@ -11,7 +11,8 @@ from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
-from .config import OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+from .config import OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+import os
 
 @worker_process_init.connect(weak=False)
 def init_celery_tracing(*args, **kwargs):
@@ -19,20 +20,21 @@ def init_celery_tracing(*args, **kwargs):
     CeleryInstrumentor().instrument()
 
 def init_tracing():
-    trace.set_tracer_provider(TracerProvider())
+    service_name = os.getenv('OTEL_SERVICE_NAME', OTEL_SERVICE_NAME)
+
+    resource = Resource(attributes={
+        ResourceAttributes.SERVICE_NAME: service_name
+    })
+
+    trace.set_tracer_provider(TracerProvider(resource=resource))
     tracer_provider = trace.get_tracer_provider()
 
-    # Configure OTLP exporter with compression
-    otlp_exporter = OTLPSpanExporter(
-        endpoint=OTEL_EXPORTER_OTLP_ENDPOINT
-    )
     otel_trace_exporter = OTLPSpanExporter(
         endpoint=OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
     )
     span_processor = BatchSpanProcessor(otel_trace_exporter)
     tracer_provider.add_span_processor(span_processor)
 
-    # Optionally, add a console exporter for debugging
     console_exporter = ConsoleSpanExporter()
     tracer_provider.add_span_processor(BatchSpanProcessor(console_exporter))
 

@@ -5,7 +5,7 @@ from opentelemetry import trace
 from .telemetry import init_celery_tracing
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
-from .config import OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+from .config import OTEL_SERVICE_NAME
 
 
 RABBITMQ_USER = os.getenv("RABBITMQ_USER", "guest")
