@@ -1,0 +1,30 @@
+FROM ruby:2.7.7-slim
+
+# Install dependencies
+RUN apt-get update -qq && \
+  apt-get install -y --no-install-recommends \
+  build-essential \
+  default-libmysqlclient-dev \
+  default-mysql-client \
+  tzdata \
+  git \
+  nodejs \
+  npm && \
+  npm install -g yarn && \
+  rm -rf /var/lib/apt/lists/*
+
+WORKDIR /rails
+
+# Install bundler
+RUN gem install bundler:2.3.26
+
+# Copy Gemfile and install gems
+COPY Gemfile* ./
+RUN bundle install
+
+# Copy application code
+COPY . .
+
+EXPOSE 3000
+
+CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]

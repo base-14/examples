@@ -1,0 +1,104 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.140.0
+    container_name: otel-collector
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./config/otel-config.yml:/etc/otelcol-contrib/config.yaml
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bin/rails server -b 0.0.0.0 -p 3000
+    volumes:
+      - .:/rails
+      - rails_storage:/rails/storage
+      - bundle_cache:/usr/local/bundle
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=mysql2://rails:password@db:3306/rails_app_development
+      - REDIS_URL=redis://redis:6379/0
+      - RAILS_ENV=development
+      - OTEL_SERVICE_NAME=ruby27-rails52-mysql8-otel
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+    depends_on:
+      - otel-collector
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: rails_app_development
+      MYSQL_USER: rails
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  sidekiq:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    volumes:
+      - .:/rails
+      - bundle_cache:/usr/local/bundle
+    environment:
+      - DATABASE_URL=mysql2://rails:password@db:3306/rails_app_development
+      - REDIS_URL=redis://redis:6379/0
+      - RAILS_ENV=development
+      - OTEL_SERVICE_NAME=ruby27-rails52-mysql8-sidekiq-otel
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+    depends_on:
+      - otel-collector
+      - db
+      - redis
+    restart: unless-stopped
+
+volumes:
+  rails_storage:
+  mysql_data:
+  redis_data:
+  bundle_cache:

@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+# Remove a potentially pre-existing server.pid for Rails.
+if [ -f /rails/tmp/pids/server.pid ]; then
+  rm -f /rails/tmp/pids/server.pid
+fi
+
+# Wait for database to be ready
+echo "Waiting for database..."
+until nc -z -v -w30 $DB_HOST 3306
+do
+  echo "Waiting for database connection..."
+  sleep 1
+done
+echo "Database is ready!"
+
+# Then exec the container's main process (what's set as CMD in the Dockerfile).
+exec "$@"
