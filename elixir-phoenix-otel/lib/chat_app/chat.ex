@@ -42,7 +42,7 @@ defmodule ChatApp.Chat do
           {:ok, message}
 
         {:error, changeset} ->
-          Logger.warning("Message validation failed",
+          Logger.info("Message validation failed",
             errors: inspect(changeset.errors),
             params: inspect(changeset.params)
           )
