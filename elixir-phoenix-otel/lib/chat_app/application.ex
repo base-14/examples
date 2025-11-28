@@ -7,7 +7,7 @@ defmodule ChatApp.Application do
 
   @impl true
   def start(_type, _args) do
-    OpentelemetryPhoenix.setup()
+    OpentelemetryPhoenix.setup(adapter: :bandit)
     OpentelemetryEcto.setup([:chat_app, :repo])
 
     children = [

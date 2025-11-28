@@ -45,7 +45,7 @@ config :tailwind,
 
 # Configures Elixir's Logger with OpenTelemetry trace context
 config :logger, :default_formatter,
-  format: "$time [$level] $message trace_id=$otel_trace_id span_id=$otel_span_id\n",
+  format: "$time [$level] $message $metadata\n",
   metadata: [:otel_trace_id, :otel_span_id]
 
 # Use Jason for JSON parsing in Phoenix

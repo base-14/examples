@@ -60,13 +60,13 @@ defmodule ChatApp.MixProject do
        depth: 1},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:gettext, "~> 0.26"},
+      {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:opentelemetry, "~> 1.3"},
       {:opentelemetry_exporter, "~> 1.6"},
-      {:opentelemetry_phoenix, "~> 1.1"},
+      {:opentelemetry_phoenix, "~> 2.0"},
       {:opentelemetry_ecto, "~> 1.1"}
     ]
   end
