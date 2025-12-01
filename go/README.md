@@ -7,6 +7,7 @@ OpenTelemetry instrumentation examples for Go applications.
 | Project | Description |
 | ------- | ----------- |
 | [go-chi-inmemory](./go-chi-inmemory) | Go 1.25 with chi router, custom instrumentation, and in-memory storage |
+| [go119-gin191-postgres](./go119-gin191-postgres) | Go 1.19 with Gin 1.9.1, PostgreSQL 14, and OpenTelemetry v1.17.0 |
 
 ## Contributing
 
