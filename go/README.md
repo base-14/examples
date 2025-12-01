@@ -1,11 +1,10 @@
-# Go Parking Lot + OpenTelemetry + PostgreSQL
+# Go Parking Lot + OpenTelemetry
 
 Go-based parking lot management system with OpenTelemetry instrumentation.
 Features both CLI and HTTP REST API interfaces with custom metrics and
-distributed tracing via Base14 Scout.
+distributed tracing via base14 Scout.
 
-📚 [OpenTelemetry Documentation](https://docs.base14.io/opentelemetry) |
-[Base14 Scout](https://base14.io)
+> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/go)
 
 ## What's Instrumented
 
@@ -26,10 +25,9 @@ This example demonstrates comprehensive OpenTelemetry instrumentation in Go:
 - **Events**: Operation lifecycle events (slot_allocated, vehicle_found)
 
 **Observability**: All telemetry (traces and metrics) is exported to
-Base14 Scout via OTLP for full-stack observability.
+base14 Scout via OTLP for full-stack observability.
 
-**Note**: PostgreSQL is configured in docker-compose for future database
-integration. Current implementation uses in-memory storage.
+**Storage**: In-memory implementation - data is not persisted between restarts.
 
 Service name: `go-parking-lot-otel` (configurable)
 
@@ -37,9 +35,9 @@ Service name: `go-parking-lot-otel` (configurable)
 
 - **Language**: Go 1.25
 - **HTTP Router**: go-chi/chi v5
-- **Database**: PostgreSQL 18
+- **Storage**: In-memory (no database)
 - **OTel Collector**: opentelemetry-collector-contrib 0.115.1
-- **Observability**: Base14 Scout (traces + metrics via OTLP)
+- **Observability**: base14 Scout (traces + metrics via OTLP)
 - **Container**: Docker + Docker Compose
 
 ## Dependencies
@@ -55,7 +53,7 @@ Service name: `go-parking-lot-otel` (configurable)
 ## Prerequisites
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
-2. **Scout Account** - [Sign up for Base14 Scout](https://base14.io)
+2. **base14 Scout Account** - [Sign up](https://base14.io)
 3. **Go 1.25+** (for local development)
 
 ## Quick Start
@@ -80,14 +78,13 @@ SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
 ### 2. Start Services
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 This starts:
 
 - **app**: Go HTTP server on port 8080
 - **otel-collector**: OTel collector with Scout export
-- **postgres**: PostgreSQL database
 
 ### 3. Test the API
 
@@ -113,7 +110,6 @@ https://your-tenant.base14.io
 | -------- | ----------- | ------- |
 | `APP_ENV` | Application environment | `development` |
 | `APP_PORT` | HTTP server port | `8080` |
-| `DATABASE_URL` | PostgreSQL connection | `postgres://parking:parking@...` |
 | `OTEL_SERVICE_NAME` | Service name | `go-parking-lot-otel` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint | `http://otel-collector:4318` |
 | `OTEL_RESOURCE_ATTRIBUTES` | Resource attrs | `deployment.environment=dev` |
@@ -295,7 +291,7 @@ HTTP REST API server:
 
 ```bash
 # Using Docker Compose
-docker-compose up
+docker compose up
 
 # Using Make
 make run-server
@@ -337,20 +333,20 @@ make build-lint
 
 ```bash
 # Build and start
-docker-compose up --build
+docker compose up --build
 
 # Start in background
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f app
-docker-compose logs -f otel-collector
+docker compose logs -f app
+docker compose logs -f otel-collector
 
 # Stop services
-docker-compose down
+docker compose down
 
 # Rebuild
-docker-compose build
+docker compose build
 ```
 
 ### Access Services
@@ -358,9 +354,6 @@ docker-compose build
 ```bash
 # Application shell
 docker exec -it go-parking-lot sh
-
-# Database access
-docker exec -it postgres psql -U parking -d parking_db
 
 # OTel collector zpages
 open http://localhost:55679/debug/servicez
@@ -401,7 +394,7 @@ operation_duration_seconds_bucket{operation="park",le="0.1"} 5
 1. Check OTel collector logs:
 
    ```bash
-   docker-compose logs otel-collector
+   docker compose logs otel-collector
    ```
 
 2. Verify Scout credentials in `.env`
@@ -423,7 +416,7 @@ operation_duration_seconds_bucket{operation="park",le="0.1"} 5
 2. View application logs:
 
    ```bash
-   docker-compose logs app
+   docker compose logs app
    ```
 
 3. Verify environment variables:
@@ -431,22 +424,6 @@ operation_duration_seconds_bucket{operation="park",le="0.1"} 5
    ```bash
    docker exec go-parking-lot env | grep OTEL
    ```
-
-### Database connection issues
-
-1. Verify PostgreSQL is running:
-
-   ```bash
-   docker-compose ps postgres
-   ```
-
-2. Test connection:
-
-   ```bash
-   docker exec postgres pg_isready -U parking
-   ```
-
-3. Check connection string in `DATABASE_URL`
 
 ### Build errors
 

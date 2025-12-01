@@ -1,5 +1,5 @@
 # OpenTelemetry Collector Configuration
-# Receives telemetry from Laravel app, exports to base14 Scout and debug console
+# Receives telemetry from Go parking-lot app, exports to base14 Scout and debug console
 
 extensions:
   oauth2client:
