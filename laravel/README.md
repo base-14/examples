@@ -7,6 +7,7 @@ OpenTelemetry instrumentation examples for Laravel applications.
 | Project | Description |
 | ------- | ----------- |
 | [php8-laravel8-sqlite](./php8-laravel8-sqlite) | Laravel 8.65 with auto-instrumentation, SQLite, and JWT authentication |
+| [php85-laravel12-postgres](./php85-laravel12-postgres) | Laravel 12.39 with auto-instrumentation, PostgreSQL 18, and JWT authentication |
 
 ## Contributing
 
