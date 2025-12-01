@@ -15,7 +15,7 @@ func NewParkingLot(capacity int) *ParkingLot {
 	for i := 0; i < capacity; i++ {
 		slots[i] = NewSlot(i + 1)
 	}
-	
+
 	return &ParkingLot{
 		capacity: capacity,
 		slots:    slots,
@@ -37,12 +37,12 @@ func (pl *ParkingLot) Leave(slotNumber int) error {
 	if slotNumber < 1 || slotNumber > pl.capacity {
 		return fmt.Errorf("invalid slot number")
 	}
-	
+
 	slot := pl.slots[slotNumber-1]
 	if !slot.IsOccupied {
 		return fmt.Errorf("slot is already empty")
 	}
-	
+
 	slot.Leave()
 	return nil
 }
@@ -54,11 +54,11 @@ func (pl *ParkingLot) GetStatus() []*Slot {
 			occupiedSlots = append(occupiedSlots, slot)
 		}
 	}
-	
+
 	sort.Slice(occupiedSlots, func(i, j int) bool {
 		return occupiedSlots[i].Number < occupiedSlots[j].Number
 	})
-	
+
 	return occupiedSlots
 }
 
@@ -69,4 +69,8 @@ func (pl *ParkingLot) GetSlotByRegistrationNumber(registrationNumber string) (in
 		}
 	}
 	return 0, fmt.Errorf("not found")
+}
+
+func (pl *ParkingLot) GetCapacity() int {
+	return pl.capacity
 }

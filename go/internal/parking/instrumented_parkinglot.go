@@ -15,16 +15,16 @@ type InstrumentedParkingLot struct {
 	telemetry *TelemetryProvider
 
 	// Metrics
-	parkingOperations      metric.Int64Counter
-	leavingOperations      metric.Int64Counter
-	occupancyGauge         metric.Int64UpDownCounter
-	operationDuration      metric.Float64Histogram
-	totalSlotsGauge        metric.Int64UpDownCounter
+	parkingOperations metric.Int64Counter
+	leavingOperations metric.Int64Counter
+	occupancyGauge    metric.Int64UpDownCounter
+	operationDuration metric.Float64Histogram
+	totalSlotsGauge   metric.Int64UpDownCounter
 }
 
 func NewInstrumentedParkingLot(capacity int, telemetry *TelemetryProvider) (*InstrumentedParkingLot, error) {
 	baseParkingLot := NewParkingLot(capacity)
-	
+
 	meter := telemetry.Meter()
 
 	parkingOperations, err := meter.Int64Counter("parking_operations_total",
@@ -63,13 +63,13 @@ func NewInstrumentedParkingLot(capacity int, telemetry *TelemetryProvider) (*Ins
 	}
 
 	ipl := &InstrumentedParkingLot{
-		ParkingLot:         baseParkingLot,
-		telemetry:          telemetry,
-		parkingOperations:  parkingOperations,
-		leavingOperations:  leavingOperations,
-		occupancyGauge:     occupancyGauge,
-		operationDuration:  operationDuration,
-		totalSlotsGauge:    totalSlotsGauge,
+		ParkingLot:        baseParkingLot,
+		telemetry:         telemetry,
+		parkingOperations: parkingOperations,
+		leavingOperations: leavingOperations,
+		occupancyGauge:    occupancyGauge,
+		operationDuration: operationDuration,
+		totalSlotsGauge:   totalSlotsGauge,
 	}
 
 	// Set initial total slots metric
@@ -88,13 +88,13 @@ func (ipl *InstrumentedParkingLot) Park(ctx context.Context, registrationNumber,
 	defer span.End()
 
 	start := time.Now()
-	
+
 	span.AddEvent("finding_available_slot")
-	
+
 	slotNumber, err := ipl.ParkingLot.Park(registrationNumber, color)
-	
+
 	duration := time.Since(start).Seconds()
-	
+
 	labels := []attribute.KeyValue{
 		attribute.String("operation", "park"),
 		attribute.String("vehicle_color", color),
@@ -106,7 +106,7 @@ func (ipl *InstrumentedParkingLot) Park(ctx context.Context, registrationNumber,
 		labels = append(labels, attribute.String("status", "failed"))
 		ipl.parkingOperations.Add(ctx, 1, metric.WithAttributes(labels...))
 	} else {
-		labels = append(labels, 
+		labels = append(labels,
 			attribute.String("status", "success"),
 			attribute.Int("allocated_slot", slotNumber),
 		)
@@ -114,13 +114,13 @@ func (ipl *InstrumentedParkingLot) Park(ctx context.Context, registrationNumber,
 		span.AddEvent("slot_allocated", trace.WithAttributes(
 			attribute.Int("slot_number", slotNumber),
 		))
-		
+
 		ipl.parkingOperations.Add(ctx, 1, metric.WithAttributes(labels...))
 		ipl.occupancyGauge.Add(ctx, 1)
 	}
 
 	ipl.operationDuration.Record(ctx, duration, metric.WithAttributes(labels...))
-	
+
 	return slotNumber, err
 }
 
@@ -133,7 +133,7 @@ func (ipl *InstrumentedParkingLot) Leave(ctx context.Context, slotNumber int) er
 	defer span.End()
 
 	start := time.Now()
-	
+
 	// Get vehicle info before leaving for metrics
 	var vehicleInfo *Vehicle
 	if slotNumber >= 1 && slotNumber <= ipl.capacity {
@@ -142,20 +142,20 @@ func (ipl *InstrumentedParkingLot) Leave(ctx context.Context, slotNumber int) er
 			vehicleInfo = slot.Vehicle
 		}
 	}
-	
+
 	span.AddEvent("releasing_slot")
-	
+
 	err := ipl.ParkingLot.Leave(slotNumber)
-	
+
 	duration := time.Since(start).Seconds()
-	
+
 	labels := []attribute.KeyValue{
 		attribute.String("operation", "leave"),
 		attribute.Int("slot_number", slotNumber),
 	}
 
 	if vehicleInfo != nil {
-		labels = append(labels, 
+		labels = append(labels,
 			attribute.String("vehicle_registration", vehicleInfo.RegistrationNumber),
 			attribute.String("vehicle_color", vehicleInfo.Color),
 		)
@@ -187,25 +187,25 @@ func (ipl *InstrumentedParkingLot) GetStatus(ctx context.Context) []*Slot {
 	defer span.End()
 
 	start := time.Now()
-	
+
 	span.AddEvent("retrieving_status")
-	
+
 	occupiedSlots := ipl.ParkingLot.GetStatus()
-	
+
 	duration := time.Since(start).Seconds()
-	
+
 	span.SetAttributes(
 		attribute.Int("occupied_slots_count", len(occupiedSlots)),
 		attribute.Int("total_capacity", ipl.capacity),
 	)
-	
+
 	labels := []attribute.KeyValue{
 		attribute.String("operation", "get_status"),
 		attribute.String("status", "success"),
 	}
-	
+
 	ipl.operationDuration.Record(ctx, duration, metric.WithAttributes(labels...))
-	
+
 	return occupiedSlots
 }
 
@@ -218,13 +218,13 @@ func (ipl *InstrumentedParkingLot) GetSlotByRegistrationNumber(ctx context.Conte
 	defer span.End()
 
 	start := time.Now()
-	
+
 	span.AddEvent("searching_by_registration")
-	
+
 	slotNumber, err := ipl.ParkingLot.GetSlotByRegistrationNumber(registrationNumber)
-	
+
 	duration := time.Since(start).Seconds()
-	
+
 	labels := []attribute.KeyValue{
 		attribute.String("operation", "get_slot_by_registration"),
 		attribute.String("registration_number", registrationNumber),
@@ -238,7 +238,7 @@ func (ipl *InstrumentedParkingLot) GetSlotByRegistrationNumber(ctx context.Conte
 		span.AddEvent("vehicle_found", trace.WithAttributes(
 			attribute.Int("slot_number", slotNumber),
 		))
-		labels = append(labels, 
+		labels = append(labels,
 			attribute.String("status", "found"),
 			attribute.Int("slot_number", slotNumber),
 		)

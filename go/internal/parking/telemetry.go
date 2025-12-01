@@ -13,13 +13,13 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
-	serviceName    = "parking-lot-service"
-	serviceVersion = "1.0.0"
+	defaultServiceName  = "parking-lot-service"
+	serviceVersion      = "1.0.0"
 	defaultOTLPEndpoint = "http://localhost:4318"
 )
 
@@ -33,18 +33,28 @@ type TelemetryProvider struct {
 func NewTelemetryProvider() (*TelemetryProvider, error) {
 	ctx := context.Background()
 
-	// Get OTLP endpoint from environment variable or use default
+	serviceName := os.Getenv("OTEL_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = defaultServiceName
+	}
+
 	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if otlpEndpoint == "" {
 		otlpEndpoint = defaultOTLPEndpoint
 	}
 
-	resource, err := resource.New(ctx,
+	resAttrs := []resource.Option{
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
 			semconv.ServiceVersion(serviceVersion),
 		),
-	)
+	}
+
+	if resAttrStr := os.Getenv("OTEL_RESOURCE_ATTRIBUTES"); resAttrStr != "" {
+		resAttrs = append(resAttrs, resource.WithFromEnv())
+	}
+
+	resource, err := resource.New(ctx, resAttrs...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,33 @@
+# Binaries
+parking-lot
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+vendor/
+
+# Temporary files
+tmp/
+temp/
