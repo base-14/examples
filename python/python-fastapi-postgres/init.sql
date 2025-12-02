@@ -1,0 +1,2 @@
+-- Database is automatically created via POSTGRES_DB environment variable
+-- This file is here for any additional initialization SQL commands

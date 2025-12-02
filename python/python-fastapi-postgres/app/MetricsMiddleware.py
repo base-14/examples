@@ -1,10 +1,12 @@
+import os
 from starlette.middleware.base import BaseHTTPMiddleware
 from opentelemetry.metrics import get_meter
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
-        self.meter = get_meter("custom-fastapi-service")
+        service_name = os.getenv("OTEL_SERVICE_NAME", "fastapi-postgres-app")
+        self.meter = get_meter(service_name)
         self.http_requests_counter = self.meter.create_counter(
             name="http_requests_total",
             unit="1",

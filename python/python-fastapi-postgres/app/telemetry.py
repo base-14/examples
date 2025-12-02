@@ -1,3 +1,4 @@
+import os
 from opentelemetry import trace, metrics
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -8,7 +9,8 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 
 def setup_telemetry(otel_host_port: str):
-    resource = Resource.create({"service.name": "custom-fastapi-service"})
+    service_name = os.getenv("OTEL_SERVICE_NAME", "fastapi-postgres-app")
+    resource = Resource.create({"service.name": service_name})
 
     trace.set_tracer_provider(TracerProvider(resource=resource))
     trace.get_tracer_provider().add_span_processor(

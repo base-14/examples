@@ -6,8 +6,11 @@ from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from .telemetry import setup_telemetry
 from .MetricsMiddleware import MetricsMiddleware
 from .routers import post, user, auth, vote
+import os
 
-setup_telemetry("0.0.0.0:4318")
+# Get OTLP endpoint from environment, default to otel-collector
+otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
+setup_telemetry(otel_endpoint.replace("http://", ""))
 
 app = FastAPI()
 
