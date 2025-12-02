@@ -5,6 +5,7 @@ Rails.application.routes.draw do
 
     # Background jobs
     post 'jobs', to: 'jobs#create'
+    post 'jobs/bulk_process', to: 'jobs#bulk_process'
 
     # Metrics
     get 'metrics', to: 'metrics#index'

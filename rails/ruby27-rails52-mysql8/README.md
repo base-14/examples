@@ -90,6 +90,22 @@ docker-compose logs -f web       # View logs
 docker-compose exec web bash     # Access container shell
 ```
 
+## API Examples
+
+### Batch Processing with Threads
+
+Process multiple articles concurrently:
+
+```bash
+curl -X POST http://localhost:3000/api/jobs/bulk_process \
+  -H "Content-Type: application/json" \
+  -d '{"count": 10, "operation": "analyze"}'
+```
+
+Operations: `analyze`, `translate`, `moderate`
+
+This demonstrates concurrent thread execution with OpenTelemetry tracing.
+
 ## Telemetry Data
 
 ### Traces
@@ -97,6 +113,7 @@ docker-compose exec web bash     # Access container shell
 - HTTP requests (method, URL, status, controller/action)
 - Database queries (SQL statements, duration)
 - Background jobs (Sidekiq)
+- Concurrent thread execution in batch jobs
 - Exceptions with stack traces
 
 ### Logs
