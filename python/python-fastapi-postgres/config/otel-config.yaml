@@ -46,8 +46,8 @@ exporters:
       initial_interval: 1s
       max_interval: 30s
       max_elapsed_time: 300s
-  logging:
-    loglevel: debug
+  debug:
+    verbosity: detailed
 
 service:
   extensions: [oauth2client, health_check, zpages]
@@ -55,12 +55,12 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/b14, logging]
+      exporters: [otlphttp/b14, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/b14, logging]
+      exporters: [otlphttp/b14, debug]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/b14, logging]
+      exporters: [otlphttp/b14, debug]

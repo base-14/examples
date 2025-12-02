@@ -10,11 +10,11 @@ JWT authentication, and PostgreSQL integration with base14 Scout.
 
 | Component | Version | EOL Status | Current Version |
 | --------- | ------- | ---------- | --------------- |
-| **Python** | 3.11+ | Active | 3.13 |
-| **FastAPI** | latest | Stable | latest |
-| **PostgreSQL** | 14 | Active | 17 |
-| **OpenTelemetry** | latest | N/A | latest |
-| **SQLAlchemy** | latest | Stable | latest |
+| **Python** | 3.13 | Active | 3.13.9 |
+| **FastAPI** | 0.115.6 | Stable | 0.115.6 |
+| **PostgreSQL** | 18 | Active | 18.1 |
+| **OpenTelemetry** | 1.29.0 | N/A | 1.29.0 |
+| **SQLAlchemy** | 2.0.36 | Stable | 2.0.36 |
 
 **Why This Matters:** Modern Python stack with FastAPI's high performance
 and automatic OpenTelemetry instrumentation for comprehensive observability.
@@ -43,23 +43,24 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 
 ## Technology Stack
 
-| Component | Package |
-| --------- | ------- |
-| Python | 3.11+ |
-| FastAPI | fastapi[all] |
-| PostgreSQL | psycopg2 |
-| SQLAlchemy | SQLAlchemy |
-| Authentication | python-jose, passlib, bcrypt |
-| OTel SDK | opentelemetry-sdk |
-| OTel Instrumentation | opentelemetry-instrumentation-fastapi |
-| OTel Exporter | opentelemetry-exporter-otlp |
-| Database Migrations | alembic |
+| Component | Package | Version |
+| --------- | ------- | ------- |
+| Python | python | 3.13 |
+| FastAPI | fastapi[all] | 0.115.6 |
+| PostgreSQL Driver | psycopg2-binary | 2.9.10 |
+| SQLAlchemy | SQLAlchemy | 2.0.36 |
+| Pydantic | pydantic | 2.10.3 |
+| Authentication | python-jose, passlib, bcrypt | 3.3.0, 1.7.4, 4.2.1 |
+| OTel SDK | opentelemetry-sdk | 1.29.0 |
+| OTel Instrumentation | opentelemetry-instrumentation-fastapi | 0.50b0 |
+| OTel Exporter | opentelemetry-exporter-otlp | 1.29.0 |
+| Database Migrations | alembic | 1.14.0 |
 
 ## Prerequisites
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Python 3.11+** (for local development)
+3. **Python 3.13+** (for local development)
 
 ## Quick Start
 
@@ -67,24 +68,42 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
 cd examples/python/python-fastapi-postgres
+
+# Copy environment template
+cp .env.example .env.local
 ```
 
-### 1. Set base14 Scout Credentials
+### 1. Configure Environment Variables
 
-Set these as environment variables:
+Edit `.env.local` and update the required values:
 
 ```bash
-export SCOUT_ENDPOINT=https://your-tenant.base14.io:4318
-export SCOUT_CLIENT_ID=your_client_id
-export SCOUT_CLIENT_SECRET=your_client_secret
-export SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
+# Generate a secure SECRET_KEY
+SECRET_KEY=$(openssl rand -hex 32)
+
+# Set database password
+DB_PASSWORD=your_database_password
+
+# Configure CORS (comma-separated origins)
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+```
+
+### 2. Set base14 Scout Credentials
+
+Add these to your `.env.local` file:
+
+```bash
+SCOUT_ENDPOINT=https://your-tenant.base14.io:4318
+SCOUT_CLIENT_ID=your_client_id
+SCOUT_CLIENT_SECRET=your_client_secret
+SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
 ```
 
 See the [base14 Collector Setup Guide](
 <https://docs.base14.io/category/opentelemetry-collector-setup>)
 for obtaining credentials.
 
-### 2. Start Services
+### 3. Start Services
 
 ```bash
 docker compose up --build
@@ -93,10 +112,16 @@ docker compose up --build
 This starts:
 
 - **app**: FastAPI application on port 8000
-- **postgres**: PostgreSQL 14 database
-- **otel-collector**: OpenTelemetry Collector
+- **postgres**: PostgreSQL 18 database
+- **otel-collector**: OpenTelemetry Collector 0.140.0
 
-### 3. Test the API
+### 4. Run Database Migrations
+
+```bash
+docker compose exec app alembic upgrade head
+```
+
+### 5. Test the API
 
 ```bash
 ./scripts/test-api.sh
@@ -104,7 +129,7 @@ This starts:
 
 The test script exercises all endpoints and verifies telemetry.
 
-### 4. View Traces
+### 6. View Traces
 
 Navigate to your Scout dashboard to view traces and metrics:
 
@@ -132,14 +157,15 @@ See `.env.example` for all available configuration options:
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
-| `DB_HOSTNAME` | `localhost` | PostgreSQL hostname |
+| `DB_HOSTNAME` | `postgres` | PostgreSQL hostname |
 | `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_PASSWORD` | - | PostgreSQL password |
+| `DB_PASSWORD` | Required | PostgreSQL password |
 | `DB_NAME` | `fastapi` | Database name |
 | `DB_USERNAME` | `postgres` | Database username |
-| `SECRET_KEY` | - | JWT secret key |
+| `SECRET_KEY` | Required | JWT secret key (`openssl rand -hex 32`) |
 | `ALGORITHM` | `HS256` | JWT algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | JWT token expiration |
+| `ALLOWED_ORIGINS` | `http://localhost:3000` | CORS allowed origins |
 | `OTEL_SERVICE_NAME` | `fastapi-postgres-app` | Service name |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` | Collector |
 
