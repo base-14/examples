@@ -4,7 +4,7 @@ A production-ready example demonstrating Express.js 5.x REST API with
 TypeScript, MongoDB, and comprehensive OpenTelemetry instrumentation for
 end-to-end observability.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nodejs-express)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/express)
 
 ## Stack Profile
 

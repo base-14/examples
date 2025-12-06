@@ -10,7 +10,8 @@ Production-ready examples for integrating OpenTelemetry with
 | Framework | Language | Example | Documentation |
 | --------- | -------- | ------- | ------------- |
 | **Spring Boot** | Java 17 | [java17-mysql](./spring-boot/java17-mysql) | [Guide][doc-spring-boot] |
-| **FastAPI** | Python | [python-fast-api](./python-fast-api) | [Guide][doc-fastapi] |
+| **Express.js** | Node.js 24 + TypeScript | [express-typescript-mongodb](./nodejs/express-typescript-mongodb) | [Guide][doc-express] |
+| **FastAPI** | Python 3.13 | [python-fastapi-postgres](./python/python-fastapi-postgres) | [Guide][doc-fastapi] |
 | **Rails** | Ruby | [rails](./rails) | [Guide][doc-rails] |
 | **Phoenix** | Elixir | [elixir-phoenix-otel](./elixir-phoenix-otel) | [Guide][doc-phoenix] |
 | **Laravel** | PHP | [laravel](./laravel) | [Guide][doc-laravel] |
@@ -37,9 +38,10 @@ Production-ready examples for integrating OpenTelemetry with
 Navigate to the framework directory that matches your stack:
 
 ```bash
-cd spring-boot/java17-mysql    # For Spring Boot (Java)
-cd python-fast-api              # For FastAPI (Python)
-cd rails                        # For Rails (Ruby)
+cd spring-boot/java17-mysql              # For Spring Boot (Java)
+cd nodejs/express-typescript-mongodb     # For Express.js (Node.js + TypeScript)
+cd python/python-fastapi-postgres        # For FastAPI (Python)
+cd rails                                 # For Rails (Ruby)
 ```
 
 ### 2. Follow Framework-Specific README
@@ -73,6 +75,12 @@ All examples demonstrate:
 Most comprehensive example with auto-instrumentation, MySQL connection pool
 monitoring, and Actuator endpoints.
 [View README →](./spring-boot/java17-mysql/README.md)
+
+### Express.js
+
+Production-ready TypeScript REST API with MongoDB, Redis, Socket.io for real-time
+updates, BullMQ for background jobs, and comprehensive test coverage.
+[View README →](./nodejs/express-typescript-mongodb/README.md)
 
 ### Go
 
@@ -119,6 +127,7 @@ See [LICENSE](./LICENSE) for details.
 
 [scout]: https://base14.io/scout
 [doc-spring-boot]: https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot
+[doc-express]: https://docs.base14.io/instrument/apps/auto-instrumentation/express
 [doc-fastapi]: https://docs.base14.io/instrument/apps/auto-instrumentation/fast-api
 [doc-rails]: https://docs.base14.io/instrument/apps/auto-instrumentation/rails
 [doc-phoenix]: https://docs.base14.io/instrument/apps/auto-instrumentation/elixir-phoenix
