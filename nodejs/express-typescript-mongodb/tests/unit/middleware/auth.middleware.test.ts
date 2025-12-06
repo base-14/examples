@@ -8,6 +8,14 @@ import { trace, type Span } from '@opentelemetry/api';
 // Mock dependencies
 vi.mock('../../../src/models/User');
 vi.mock('../../../src/utils/jwt');
+vi.mock('../../../src/utils/logger', () => ({
+  getLogger: vi.fn(() => ({
+    warn: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
+}));
 
 describe('Auth Middleware', () => {
   let mockReq: Partial<Request>;
@@ -16,6 +24,9 @@ describe('Auth Middleware', () => {
   let mockSpan: Partial<Span>;
 
   beforeEach(() => {
+    // Clear all mocks first
+    vi.clearAllMocks();
+
     // Mock request
     mockReq = {
       headers: {},
@@ -40,9 +51,6 @@ describe('Auth Middleware', () => {
 
     // Setup default span mock
     vi.spyOn(trace, 'getActiveSpan').mockReturnValue(mockSpan as Span);
-
-    // Clear all mocks
-    vi.clearAllMocks();
   });
 
   describe('Missing or Invalid Authorization Header', () => {

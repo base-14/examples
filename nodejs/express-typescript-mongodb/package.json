@@ -19,7 +19,8 @@
     "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e",
     "test:ci": "vitest run --coverage --reporter=verbose",
-    "build-lint-test": "npm run build && npm run lint && npm run test"
+    "build-lint-test": "npm run build && npm run lint && npm run test",
+    "build-lint-test-audit": "npm run build && npm run lint && npm run test && npm audit"
   },
   "keywords": [
     "express",
@@ -90,5 +91,8 @@
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "overrides": {
+    "tmp": ">=0.2.4"
   }
 }
