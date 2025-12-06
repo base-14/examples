@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Article Updates - WebSocket Client</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    .connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .event {
+      padding: 10px;
+      margin: 10px 0;
+      border-left: 4px solid #007bff;
+      background-color: #f8f9fa;
+    }
+    .event-created {
+      border-left-color: #28a745;
+    }
+    .event-updated {
+      border-left-color: #ffc107;
+    }
+    .event-deleted {
+      border-left-color: #dc3545;
+    }
+    .event-published {
+      border-left-color: #17a2b8;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    input {
+      padding: 8px;
+      width: 300px;
+      margin: 10px 0;
+    }
+    #events {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Article Updates - WebSocket Client</h1>
+
+  <div>
+    <label for="token">JWT Token:</label><br>
+    <input type="text" id="token" placeholder="Paste your JWT token here">
+  </div>
+
+  <div>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <button onclick="subscribeToArticles()">Subscribe to Articles</button>
+    <button onclick="unsubscribeFromArticles()">Unsubscribe from Articles</button>
+    <button onclick="clearEvents()">Clear Events</button>
+  </div>
+
+  <div id="status" class="status disconnected">Disconnected</div>
+
+  <h2>Real-time Events</h2>
+  <div id="events"></div>
+
+  <script>
+    let socket = null;
+    const statusDiv = document.getElementById('status');
+    const eventsDiv = document.getElementById('events');
+
+    function updateStatus(message, isConnected) {
+      statusDiv.textContent = message;
+      statusDiv.className = isConnected ? 'status connected' : 'status disconnected';
+    }
+
+    function addEvent(type, data) {
+      const eventDiv = document.createElement('div');
+      eventDiv.className = `event event-${type.split(':')[1]}`;
+
+      const timestamp = new Date(data.timestamp).toLocaleString();
+      eventDiv.innerHTML = `
+        <strong>${type}</strong> - ${timestamp}<br>
+        <strong>ID:</strong> ${data.id}<br>
+        <strong>Title:</strong> ${data.title}<br>
+        <strong>Author ID:</strong> ${data.authorId}<br>
+        ${data.published !== undefined ? `<strong>Published:</strong> ${data.published}<br>` : ''}
+      `;
+
+      eventsDiv.insertBefore(eventDiv, eventsDiv.firstChild);
+    }
+
+    function connect() {
+      const token = document.getElementById('token').value.trim();
+
+      if (!token) {
+        alert('Please enter a JWT token');
+        return;
+      }
+
+      if (socket && socket.connected) {
+        alert('Already connected');
+        return;
+      }
+
+      socket = io('http://localhost:3000', {
+        auth: {
+          token: token
+        }
+      });
+
+      socket.on('connect', () => {
+        updateStatus('Connected', true);
+        console.log('Connected to WebSocket server');
+      });
+
+      socket.on('connected', (data) => {
+        console.log('Server acknowledged connection:', data);
+        updateStatus(`Connected - User ID: ${data.userId}`, true);
+      });
+
+      socket.on('disconnect', (reason) => {
+        updateStatus(`Disconnected: ${reason}`, false);
+        console.log('Disconnected:', reason);
+      });
+
+      socket.on('connect_error', (error) => {
+        updateStatus(`Connection error: ${error.message}`, false);
+        console.error('Connection error:', error);
+      });
+
+      socket.on('subscribed', (data) => {
+        console.log('Subscribed to channel:', data.channel);
+        updateStatus(`Connected & Subscribed to ${data.channel}`, true);
+      });
+
+      socket.on('unsubscribed', (data) => {
+        console.log('Unsubscribed from channel:', data.channel);
+        updateStatus(`Connected (unsubscribed from ${data.channel})`, true);
+      });
+
+      socket.on('article:created', (data) => {
+        console.log('Article created:', data);
+        addEvent('article:created', data);
+      });
+
+      socket.on('article:updated', (data) => {
+        console.log('Article updated:', data);
+        addEvent('article:updated', data);
+      });
+
+      socket.on('article:deleted', (data) => {
+        console.log('Article deleted:', data);
+        addEvent('article:deleted', data);
+      });
+
+      socket.on('article:published', (data) => {
+        console.log('Article published:', data);
+        addEvent('article:published', data);
+      });
+    }
+
+    function disconnect() {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+        updateStatus('Disconnected', false);
+      } else {
+        alert('Not connected');
+      }
+    }
+
+    function subscribeToArticles() {
+      if (socket && socket.connected) {
+        socket.emit('subscribe:articles');
+      } else {
+        alert('Please connect first');
+      }
+    }
+
+    function unsubscribeFromArticles() {
+      if (socket && socket.connected) {
+        socket.emit('unsubscribe:articles');
+      } else {
+        alert('Please connect first');
+      }
+    }
+
+    function clearEvents() {
+      eventsDiv.innerHTML = '';
+    }
+  </script>
+</body>
+</html>
