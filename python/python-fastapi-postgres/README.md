@@ -11,10 +11,10 @@ JWT authentication, and PostgreSQL integration with base14 Scout.
 | Component | Version | EOL Status | Current Version |
 | --------- | ------- | ---------- | --------------- |
 | **Python** | 3.13 | Active | 3.13.9 |
-| **FastAPI** | 0.115.6 | Stable | 0.115.6 |
+| **FastAPI** | 0.123.10 | Stable | 0.123.10 |
 | **PostgreSQL** | 18 | Active | 18.1 |
-| **OpenTelemetry** | 1.29.0 | N/A | 1.29.0 |
-| **SQLAlchemy** | 2.0.36 | Stable | 2.0.36 |
+| **OpenTelemetry** | 1.39.0 | N/A | 1.39.0 |
+| **SQLAlchemy** | 2.0.44 | Stable | 2.0.44 |
 
 **Why This Matters:** Modern Python stack with FastAPI's high performance
 and automatic OpenTelemetry instrumentation for comprehensive observability.
@@ -46,14 +46,14 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 | Component | Package | Version |
 | --------- | ------- | ------- |
 | Python | python | 3.13 |
-| FastAPI | fastapi[all] | 0.115.6 |
+| FastAPI | fastapi[all] | 0.123.10 |
 | PostgreSQL Driver | psycopg2-binary | 2.9.10 |
-| SQLAlchemy | SQLAlchemy | 2.0.36 |
-| Pydantic | pydantic | 2.10.3 |
-| Authentication | python-jose, passlib, bcrypt | 3.3.0, 1.7.4, 4.2.1 |
-| OTel SDK | opentelemetry-sdk | 1.29.0 |
-| OTel Instrumentation | opentelemetry-instrumentation-fastapi | 0.50b0 |
-| OTel Exporter | opentelemetry-exporter-otlp | 1.29.0 |
+| SQLAlchemy | SQLAlchemy | 2.0.44 |
+| Pydantic | pydantic | 2.12.5 |
+| Authentication | PyJWT, passlib, bcrypt | 2.10.1, 1.7.4, 4.2.1 |
+| OTel SDK | opentelemetry-sdk | 1.39.0 |
+| OTel Instrumentation | opentelemetry-instrumentation-fastapi | 0.60b0 |
+| OTel Exporter | opentelemetry-exporter-otlp | 1.39.0 |
 | Database Migrations | alembic | 1.14.0 |
 
 ## Prerequisites
@@ -70,12 +70,12 @@ git clone https://github.com/base-14/examples.git
 cd examples/python/python-fastapi-postgres
 
 # Copy environment template
-cp .env.example .env.local
+cp .env.example .env
 ```
 
 ### 1. Configure Environment Variables
 
-Edit `.env.local` and update the required values:
+Edit `.env` and update the required values:
 
 ```bash
 # Generate a secure SECRET_KEY
@@ -90,7 +90,7 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
 
 ### 2. Set base14 Scout Credentials
 
-Add these to your `.env.local` file:
+Add these to your `.env` file:
 
 ```bash
 SCOUT_ENDPOINT=https://your-tenant.base14.io:4318

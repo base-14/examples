@@ -6,7 +6,7 @@ OpenTelemetry instrumentation examples for Python applications.
 
 | Project | Description |
 | ------- | ----------- |
-| [python-fastapi-postgres](./python-fastapi-postgres) | Python + FastAPI with auto-instrumentation, PostgreSQL, and JWT authentication |
+| [python-fastapi-postgres](./python-fastapi-postgres) | Python 3.13 + FastAPI 0.123 with auto-instrumentation, PostgreSQL, and JWT authentication (PyJWT) |
 
 ## Contributing
 

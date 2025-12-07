@@ -1,7 +1,10 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(extra='ignore', env_file=".env")
+
     db_hostname: str
     db_port: int
     db_name: str
@@ -10,9 +13,6 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str
     access_token_expire_minutes: int
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()
