@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 from . import models, schemas, tasks
 from .database import SessionLocal, engine
-from typing import List
+from .telemetry import setup_telemetry
+
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
 # Set up OpenTelemetry
-from .telemetry import setup_telemetry, cleanup_telemetry
 setup_telemetry(app, engine)
 
 # Dependency
