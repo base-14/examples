@@ -16,9 +16,14 @@ from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
-from .config import OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+from .config import (
+    OTEL_SERVICE_NAME,
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
+)
 
 logger = logging.getLogger(__name__)
+
 
 @worker_process_init.connect(weak=False)
 def init_celery_tracing(*args, **kwargs):
@@ -27,23 +32,24 @@ def init_celery_tracing(*args, **kwargs):
     init_telemetry()
     CeleryInstrumentor().instrument()
 
+
 def init_telemetry():
     """Initialize OpenTelemetry tracing and metrics with OTLP exporters."""
-    service_name = os.getenv('OTEL_SERVICE_NAME', OTEL_SERVICE_NAME)
+    service_name = os.getenv("OTEL_SERVICE_NAME", OTEL_SERVICE_NAME)
 
-    resource = Resource(attributes={
-        ResourceAttributes.SERVICE_NAME: service_name,
-        ResourceAttributes.SERVICE_VERSION: "1.0.0"
-    })
+    resource = Resource(
+        attributes={
+            ResourceAttributes.SERVICE_NAME: service_name,
+            ResourceAttributes.SERVICE_VERSION: "1.0.0",
+        }
+    )
 
     # Setup trace provider
     trace.set_tracer_provider(TracerProvider(resource=resource))
     tracer_provider = trace.get_tracer_provider()
 
     # OTLP trace exporter for Base14 Scout
-    otel_trace_exporter = OTLPSpanExporter(
-        endpoint=OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-    )
+    otel_trace_exporter = OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
     span_processor = BatchSpanProcessor(otel_trace_exporter)
     tracer_provider.add_span_processor(span_processor)
 
@@ -88,15 +94,13 @@ def setup_telemetry(app, engine):
         engine=engine,
         service="postgresql",
         enable_commenter=True,
-        commenter_options={
-            "db_driver": True,
-            "db_framework": True
-        }
+        commenter_options={"db_driver": True, "db_framework": True},
     )
     logger.info("SQLAlchemy auto-instrumentation enabled")
 
-    # Auto-instrument Celery (will be initialized in worker process with metrics)
-    logger.info("Celery auto-instrumentation will be enabled on worker init (traces + metrics)")
+    # Auto-instrument Celery on producer side (injects trace context into task headers)
+    CeleryInstrumentor().instrument()
+    logger.info("Celery auto-instrumentation enabled (producer side)")
 
     # Auto-instrument Redis
     RedisInstrumentor().instrument()
@@ -108,11 +112,11 @@ def setup_telemetry(app, engine):
 def cleanup_telemetry():
     """Cleanup telemetry resources on shutdown."""
     tracer_provider = trace.get_tracer_provider()
-    if hasattr(tracer_provider, 'shutdown'):
+    if hasattr(tracer_provider, "shutdown"):
         logger.info("Shutting down OpenTelemetry tracer provider")
         tracer_provider.shutdown()
 
     meter_provider = metrics.get_meter_provider()
-    if hasattr(meter_provider, 'shutdown'):
+    if hasattr(meter_provider, "shutdown"):
         logger.info("Shutting down OpenTelemetry meter provider")
         meter_provider.shutdown()

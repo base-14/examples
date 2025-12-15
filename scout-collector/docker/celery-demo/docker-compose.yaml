@@ -3,14 +3,13 @@ x-default-logging: &logging
   options:
     max-size: "5m"
     max-file: "2"
-    tag: "{{.Name}}|{{.ImageName}}|{{.ID}}"
 
 services:
   web:
     build: .
     command: poetry run opentelemetry-instrument uvicorn celery_demo.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/celery_demo
+      - .:/app
     ports:
       - "8000:8000"
     environment:
@@ -44,7 +43,7 @@ services:
     build: .
     command: poetry run opentelemetry-instrument celery -A celery_demo.tasks.celery worker --loglevel=info
     volumes:
-      - .:/celery_demo
+      - .:/app
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -87,17 +86,11 @@ services:
       - "5432:5432"
     logging: *logging
     healthcheck:
-      test:
-        [
-          "CMD",
-          "pg_isready",
-          "-U",
-          "postgres",
-          "-d",
-          "task_db",
-          "-h",
-          "localhost",
-        ]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "task_db", "-h", "localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis:
     image: redis:8
@@ -106,6 +99,10 @@ services:
     logging: *logging
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -123,6 +120,10 @@ services:
     logging: *logging
     healthcheck:
       test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.141.0
@@ -133,11 +134,7 @@ services:
           memory: 256M
     restart: unless-stopped
     command: ["--config=/etc/otelcol-config.yaml"]
-    user: 0:0
     volumes:
-      - /:/hostfs:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ./config:/etc/
     environment:
       - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
@@ -147,13 +144,21 @@ services:
     ports:
       - "4318:4318"   # OTLP HTTP receiver
       - "4317:4317"   # OTLP gRPC receiver
-      - "55679:55679" # zpages: http://localhost:55679/debug/tracez
+      - "13133:13133" # health_check
+      - "55679:55679" # zpages
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     logging: *logging
     depends_on:
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
       db:
-        condition: service_started
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -1,11 +1,14 @@
 from pydantic import BaseModel
 from datetime import datetime
 
+
 class TaskBase(BaseModel):
     title: str
 
+
 class TaskCreate(TaskBase):
     pass
+
 
 class Task(TaskBase):
     id: int

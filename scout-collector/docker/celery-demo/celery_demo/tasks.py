@@ -12,10 +12,11 @@ RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 
 celery = Celery(
-    'tasks',
-    broker=f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}//',
-    backend=f'redis://{REDIS_HOST}:6379/0'
+    "tasks",
+    broker=f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}//",
+    backend=f"redis://{REDIS_HOST}:6379/0",
 )
+
 
 @celery.task
 def process_task(task_id: int):
@@ -31,5 +32,4 @@ def process_task(task_id: int):
 
         logger.info(f"Task {task_id}: Processing completed successfully")
         span.set_attribute("status", "completed")
-        span.end()
         return {"task_id": task_id, "status": "completed"}

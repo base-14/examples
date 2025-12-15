@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, DateTime
 from .database import Base
 import datetime
 
+
 class Task(Base):
     __tablename__ = "tasks"
 
