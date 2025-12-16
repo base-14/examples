@@ -35,16 +35,16 @@ export SCOUT_CLIENT_SECRET=<your-client-secret>
 export SCOUT_TOKEN_URL=<your-token-url>
 
 # Start all services
-docker-compose up -d --build
+docker compose up -d --build
 
 # Check service health
-docker-compose ps
+docker compose ps
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop services
-docker-compose down
+docker compose down
 ```
 
 ## Test the Application

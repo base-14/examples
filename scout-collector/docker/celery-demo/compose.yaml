@@ -7,27 +7,28 @@ x-default-logging: &logging
 services:
   web:
     build: .
+    restart: unless-stopped
     command: poetry run opentelemetry-instrument uvicorn celery_demo.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=task_db
-      - POSTGRES_HOST=db
-      - REDIS_HOST=redis
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USER=guest
-      - RABBITMQ_PASSWORD=guest
-      - OTEL_SERVICE_NAME=python-celery-demo-web
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_TRACES_EXPORTER=otlp
-      - OTEL_METRICS_EXPORTER=otlp
-      - OTEL_LOGS_EXPORTER=otlp
-      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: task_db
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      OTEL_SERVICE_NAME: python-celery-demo-web
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -36,30 +37,40 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "localhost:8000/ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     logging: *logging
+    develop:
+      watch:
+        - action: sync
+          path: ./celery_demo
+          target: /app/celery_demo
 
   celery_worker:
     build: .
+    restart: unless-stopped
     command: poetry run opentelemetry-instrument celery -A celery_demo.tasks.celery worker --loglevel=info
     volumes:
       - .:/app
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=task_db
-      - POSTGRES_HOST=db
-      - REDIS_HOST=redis
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USER=guest
-      - RABBITMQ_PASSWORD=guest
-      - OTEL_SERVICE_NAME=python-celery-demo-worker
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_TRACES_EXPORTER=otlp
-      - OTEL_METRICS_EXPORTER=otlp
-      - OTEL_LOGS_EXPORTER=otlp
-      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: task_db
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      OTEL_SERVICE_NAME: python-celery-demo-worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -70,18 +81,29 @@ services:
       web:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "celery", "inspect", "ping"]
+      test: ["CMD", "celery", "-A", "celery_demo.tasks.celery", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging: *logging
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./celery_demo
+          target: /app/celery_demo
 
   db:
-    image: postgres:18
+    image: postgres:18.1-alpine
+    restart: unless-stopped
+    shm_size: 128mb
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./init-monitoring-user.sql:/docker-entrypoint-initdb.d/init-monitoring-user.sql
+      - ./init-monitoring-user.sql:/docker-entrypoint-initdb.d/init-monitoring-user.sql:ro
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=task_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: task_db
     ports:
       - "5432:5432"
     logging: *logging
@@ -93,7 +115,8 @@ services:
       start_period: 10s
 
   redis:
-    image: redis:8
+    image: redis:8.0-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
     logging: *logging
@@ -105,17 +128,16 @@ services:
       start_period: 5s
 
   rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:4.0-management-alpine
+    restart: unless-stopped
     ports:
-      - "5672:5672" # AMQP protocol port
-      - "15672:15672" # Management UI port
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
-      # Mount custom configuration
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      # Mount definitions file containing user definitions
       - ./rabbit-config.json:/etc/rabbitmq/definitions.json:ro
     logging: *logging
     healthcheck:
@@ -135,17 +157,17 @@ services:
     restart: unless-stopped
     command: ["--config=/etc/otelcol-config.yaml"]
     volumes:
-      - ./config:/etc/
+      - ./config:/etc/:ro
     environment:
-      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
-      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL}
     ports:
-      - "4318:4318"   # OTLP HTTP receiver
-      - "4317:4317"   # OTLP gRPC receiver
-      - "13133:13133" # health_check
-      - "55679:55679" # zpages
+      - "4318:4318"
+      - "4317:4317"
+      - "13133:13133"
+      - "55679:55679"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:13133/"]
       interval: 10s
