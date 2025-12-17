@@ -1,7 +1,21 @@
-# Celery Demo with base14 Scout
+# FastAPI + Celery + PostgreSQL + OpenTelemetry
 
 FastAPI + Celery reference application demonstrating **OpenTelemetry
 auto-instrumentation** and **unified observability** with base14 Scout.
+
+> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/python)
+
+## Stack Profile
+
+| Component | Version | Status |
+| --------- | ------- | ------ |
+| **Python** | 3.13 | Active |
+| **FastAPI** | 0.124+ | Stable |
+| **Celery** | 5.6+ | Stable |
+| **PostgreSQL** | 18 | Active |
+| **RabbitMQ** | 4.0 | Active |
+| **Redis** | 8.0 | Active |
+| **OpenTelemetry** | 1.39.0 | N/A |
 
 ## Overview
 

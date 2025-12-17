@@ -1,4 +1,3 @@
-# app/telemetry.py
 import logging
 import os
 from celery.signals import worker_process_init
@@ -16,7 +15,7 @@ from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
-from .config import (
+from ..config import (
     OTEL_SERVICE_NAME,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,

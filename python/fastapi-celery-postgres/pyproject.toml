@@ -1,7 +1,7 @@
 [project]
-name = "celery-demo"
+name = "fastapi-celery-postgres"
 version = "0.1.0"
-description = ""
+description = "FastAPI + Celery + PostgreSQL OpenTelemetry example"
 authors = [
     {name = "Irfan Shah",email = "irfns@protonmail.com"}
 ]

@@ -8,7 +8,7 @@ services:
   web:
     build: .
     restart: unless-stopped
-    command: poetry run opentelemetry-instrument uvicorn celery_demo.main:app --host 0.0.0.0 --port 8000 --reload
+    command: poetry run opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - .:/app
     ports:
@@ -22,7 +22,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      OTEL_SERVICE_NAME: python-celery-demo-web
+      OTEL_SERVICE_NAME: fastapi-celery-postgres-web
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_TRACES_EXPORTER: otlp
@@ -46,13 +46,13 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./celery_demo
-          target: /app/celery_demo
+          path: ./app
+          target: /app/app
 
   celery_worker:
     build: .
     restart: unless-stopped
-    command: poetry run opentelemetry-instrument celery -A celery_demo.tasks.celery worker --loglevel=info
+    command: poetry run opentelemetry-instrument celery -A app.tasks.celery worker --loglevel=info
     volumes:
       - .:/app
     environment:
@@ -64,7 +64,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      OTEL_SERVICE_NAME: python-celery-demo-worker
+      OTEL_SERVICE_NAME: fastapi-celery-postgres-worker
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_TRACES_EXPORTER: otlp
@@ -81,7 +81,7 @@ services:
       web:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "celery", "-A", "celery_demo.tasks.celery", "inspect", "ping"]
+      test: ["CMD", "celery", "-A", "app.tasks.celery", "inspect", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -90,8 +90,8 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./celery_demo
-          target: /app/celery_demo
+          path: ./app
+          target: /app/app
 
   db:
     image: postgres:18.1-alpine
@@ -99,7 +99,7 @@ services:
     shm_size: 128mb
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./init-monitoring-user.sql:/docker-entrypoint-initdb.d/init-monitoring-user.sql:ro
+      - ./scripts/init-monitoring-user.sql:/docker-entrypoint-initdb.d/init-monitoring-user.sql:ro
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -137,8 +137,8 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
-      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./rabbit-config.json:/etc/rabbitmq/definitions.json:ro
+      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./config/rabbit-config.json:/etc/rabbitmq/definitions.json:ro
     logging: *logging
     healthcheck:
       test: ["CMD", "rabbitmqctl", "status"]
@@ -155,9 +155,9 @@ services:
         limits:
           memory: 256M
     restart: unless-stopped
-    command: ["--config=/etc/otelcol-config.yaml"]
+    command: ["--config=/etc/otel-config.yaml"]
     volumes:
-      - ./config:/etc/:ro
+      - ./config/otel-config.yaml:/etc/otel-config.yaml:ro
     environment:
       SCOUT_ENDPOINT: ${SCOUT_ENDPOINT}
       SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID}

@@ -53,7 +53,7 @@ processors:
   resource:
     attributes:
     - key: service.name
-      value: 'otel-celery-demo'
+      value: 'fastapi-celery-postgres'
       action: upsert
     - key: deployment.environment
       value: 'demo'
