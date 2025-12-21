@@ -10,10 +10,12 @@
         "guzzlehttp/guzzle": "^7.8",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10",
-        "open-telemetry/sdk": "^1.6",
+        "mismatch/opentelemetry-auto-redis": "^0.3",
         "open-telemetry/exporter-otlp": "^1.3",
+        "open-telemetry/opentelemetry-logger-monolog": "^1.1",
         "open-telemetry/opentelemetry-auto-laravel": "^1.2",
         "open-telemetry/opentelemetry-auto-psr18": "^1.1",
+        "open-telemetry/sdk": "^1.6",
         "tymon/jwt-auth": "^2.0"
     },
     "require-dev": {

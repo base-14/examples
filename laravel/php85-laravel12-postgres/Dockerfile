@@ -1,22 +1,46 @@
 # syntax=docker/dockerfile:1
 
 ARG PHP_VERSION=8.5
-FROM php:${PHP_VERSION}-cli
 
-# Laravel app lives here
-WORKDIR /var/www/html
+# Stage 1: Build dependencies
+FROM php:${PHP_VERSION}-cli AS builder
 
-# Install system dependencies and PHP extensions required by Laravel
+WORKDIR /app
+
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
-    curl \
     git \
     unzip \
     libzip-dev \
-    postgresql-client \
+    libpq-dev && \
+    docker-php-ext-install \
+    pdo \
+    pdo_pgsql \
+    zip \
+    bcmath && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --ignore-platform-req=ext-opentelemetry
+
+COPY . .
+RUN composer dump-autoload --optimize --no-scripts
+
+# Stage 2: Runtime
+FROM php:${PHP_VERSION}-cli
+
+WORKDIR /var/www/html
+
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+    curl \
+    libzip-dev \
     libpq-dev \
     libonig-dev \
-    libxml2-dev && \
+    libxml2-dev \
+    postgresql-client && \
     docker-php-ext-install \
     pdo \
     pdo_pgsql \
@@ -24,27 +48,26 @@ RUN apt-get update -qq && \
     bcmath \
     mbstring \
     xml && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+    pecl install opentelemetry redis && \
+    docker-php-ext-enable opentelemetry redis && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY config/php.ini /usr/local/etc/php/conf.d/99-app.ini
 
-# Install OpenTelemetry PHP extension via PECL
-RUN pecl install opentelemetry && \
-    docker-php-ext-enable opentelemetry
+RUN groupadd --gid 1000 laravel && \
+    useradd --uid 1000 --gid laravel --shell /bin/bash --create-home laravel
 
-# Copy application code first
-COPY . .
+COPY --from=builder --chown=laravel:laravel /app /var/www/html
 
-# Update dependencies to Laravel 12
-RUN composer update --prefer-dist --no-interaction --no-scripts --no-progress --with-all-dependencies
+RUN mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache && \
+    chown -R laravel:laravel storage bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache
 
-# Set proper permissions for Laravel storage and cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+USER laravel
 
-# Expose port 8000
 EXPOSE 8000
 
-# Start Laravel development server
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health || exit 1
+
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

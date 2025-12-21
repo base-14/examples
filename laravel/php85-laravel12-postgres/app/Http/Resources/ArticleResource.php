@@ -24,7 +24,7 @@ class ArticleResource extends JsonResource
             'createdAt' => $this->created_at->toISOString(),
             'updatedAt' => $this->updated_at->toISOString(),
             'favorited' => $this->isFavoritedBy($request->user()),
-            'favoritesCount' => $this->favoritesCount(),
+            'favoritesCount' => $this->favorites_count,
             'author' => new UserResource($this->author),
         ];
     }

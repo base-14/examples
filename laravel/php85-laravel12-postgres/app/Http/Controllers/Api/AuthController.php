@@ -7,6 +7,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Telemetry\Metrics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
@@ -24,6 +25,8 @@ class AuthController extends Controller
         $token = JWTAuth::fromUser($user);
         $user->token = $token;
 
+        Metrics::authRegistration();
+
         return response()->json([
             'user' => new UserResource($user),
         ], 201);
@@ -34,11 +37,14 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (! $token = auth('api')->attempt($credentials)) {
+            Metrics::authLoginFailed();
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
         $user = auth('api')->user();
         $user->token = $token;
+
+        Metrics::authLoginSuccess();
 
         return response()->json([
             'user' => new UserResource($user),
@@ -48,6 +54,8 @@ class AuthController extends Controller
     public function logout(): JsonResponse
     {
         auth('api')->logout();
+
+        Metrics::authLogout();
 
         return response()->json(['message' => 'Successfully logged out']);
     }

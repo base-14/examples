@@ -1,5 +1,5 @@
 # OpenTelemetry Collector Configuration
-# Receives telemetry from Laravel app, exports to base14 Scout and debug console
+# Receives telemetry from Laravel app, exports to Base14 Scout and debug console
 
 extensions:
   oauth2client:
@@ -13,6 +13,8 @@ extensions:
       insecure_skip_verify: true
   health_check:
     endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
 
 receivers:
   otlp:
@@ -26,9 +28,17 @@ processors:
   memory_limiter:
     limit_mib: 256
     check_interval: 1s
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+  filter/logs:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'IsMatch(body, ".*chr\\(\\).*deprecated.*")'
 
 exporters:
-  otlphttp/b14:
+  otlphttp/scout:
     endpoint: ${SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
@@ -45,17 +55,17 @@ exporters:
     verbosity: detailed
 
 service:
-  extensions: [oauth2client, health_check]
+  extensions: [oauth2client, health_check, zpages]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/scout, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/scout, debug]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, filter/logs, batch]
+      exporters: [otlphttp/scout, debug]

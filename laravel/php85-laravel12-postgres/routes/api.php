@@ -3,8 +3,13 @@
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommentController;
+use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\MetricsController;
 use App\Http\Controllers\Api\TagController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/health', HealthController::class);
+Route::get('/metrics', MetricsController::class);
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
