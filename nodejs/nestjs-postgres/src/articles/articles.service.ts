@@ -2,6 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +12,9 @@ import { trace, SpanStatusCode, metrics } from '@opentelemetry/api';
 import { Article } from './entities/article.entity';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
+import { NotificationService } from '../jobs/notification.service';
+import { UsersService } from '../users/users.service';
+import { EventsGateway } from '../events/events.gateway';
 
 const tracer = trace.getTracer('articles-service');
 const meter = metrics.getMeter('articles-service');
@@ -37,6 +43,10 @@ export class ArticlesService {
   constructor(
     @InjectRepository(Article)
     private articlesRepository: Repository<Article>,
+    private notificationService: NotificationService,
+    private usersService: UsersService,
+    @Inject(forwardRef(() => EventsGateway))
+    private eventsGateway: EventsGateway,
   ) {}
 
   async create(dto: CreateArticleDto, userId: string): Promise<Article> {
@@ -55,6 +65,14 @@ export class ArticlesService {
         const savedArticle = await this.articlesRepository.save(article);
         span.setAttribute('article.id', savedArticle.id);
         articlesCreatedCounter.add(1);
+
+        this.eventsGateway.emitArticleCreated({
+          id: savedArticle.id,
+          title: savedArticle.title,
+          authorId: savedArticle.authorId,
+          published: savedArticle.published,
+          timestamp: new Date(),
+        });
 
         span.setStatus({ code: SpanStatusCode.OK });
         return savedArticle;
@@ -154,6 +172,14 @@ export class ArticlesService {
         Object.assign(article, dto);
         const updatedArticle = await this.articlesRepository.save(article);
 
+        this.eventsGateway.emitArticleUpdated({
+          id: updatedArticle.id,
+          title: updatedArticle.title,
+          authorId: updatedArticle.authorId,
+          published: updatedArticle.published,
+          timestamp: new Date(),
+        });
+
         span.setStatus({ code: SpanStatusCode.OK });
         return updatedArticle;
       } catch (error) {
@@ -188,12 +214,86 @@ export class ArticlesService {
           throw new ForbiddenException('You can only delete your own articles');
         }
 
+        const articleId = article.id;
+        const articleTitle = article.title;
+        const articleAuthorId = article.authorId;
+
         await this.articlesRepository.remove(article);
+
+        this.eventsGateway.emitArticleDeleted({
+          id: articleId,
+          title: articleTitle,
+          authorId: articleAuthorId,
+          timestamp: new Date(),
+        });
+
         span.setStatus({ code: SpanStatusCode.OK });
       } catch (error) {
         if (
           !(error instanceof NotFoundException) &&
           !(error instanceof ForbiddenException)
+        ) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: String(error),
+          });
+        }
+        throw error;
+      } finally {
+        span.end();
+      }
+    });
+  }
+
+  async publish(
+    id: string,
+    userId: string,
+  ): Promise<{ message: string; jobId?: string }> {
+    return tracer.startActiveSpan('article.publish', async (span) => {
+      try {
+        span.setAttributes({
+          'article.id': id,
+          'user.id': userId,
+        });
+
+        const article = await this.findOne(id);
+
+        if (article.authorId !== userId) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message: 'Forbidden' });
+          throw new ForbiddenException(
+            'You can only publish your own articles',
+          );
+        }
+
+        if (article.published) {
+          span.setAttribute('article.already_published', true);
+          throw new ConflictException('Article is already published');
+        }
+
+        const author = await this.usersService.findById(userId);
+        if (!author) {
+          throw new NotFoundException('Author not found');
+        }
+
+        const jobId = await this.notificationService.notifyArticlePublished(
+          article.id,
+          article.title,
+          userId,
+          author.email,
+        );
+
+        span.setAttribute('job.id', jobId ?? '');
+        span.setStatus({ code: SpanStatusCode.OK });
+
+        return {
+          message: 'Article publish job enqueued',
+          jobId,
+        };
+      } catch (error) {
+        if (
+          !(error instanceof NotFoundException) &&
+          !(error instanceof ForbiddenException) &&
+          !(error instanceof ConflictException)
         ) {
           span.setStatus({
             code: SpanStatusCode.ERROR,

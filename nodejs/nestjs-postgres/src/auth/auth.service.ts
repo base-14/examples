@@ -3,12 +3,15 @@ import {
   UnauthorizedException,
   ConflictException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { trace, SpanStatusCode, metrics } from '@opentelemetry/api';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { AuthResponseDto } from './dto/auth-response.dto';
+import { UserResponseDto } from '../users/dto/user-response.dto';
 import { User } from '../users/entities/user.entity';
 
 const tracer = trace.getTracer('auth-service');
@@ -26,27 +29,48 @@ const registrationCounter = meter.createCounter('auth.registration.total', {
   description: 'Number of user registrations',
 });
 
-type UserWithoutPassword = Omit<User, 'password'>;
+function toUserResponse(user: User): UserResponseDto {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
 
-function excludePassword(user: User): UserWithoutPassword {
-  const { id, email, name, role, createdAt, updatedAt } = user;
-  return { id, email, name, role, createdAt, updatedAt };
+function parseExpiresIn(expiresIn: string): number {
+  const match = expiresIn.match(/^(\d+)([smhd])$/);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  const multipliers: Record<string, number> = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  };
+  return value * (multipliers[unit] || 1000);
 }
 
 @Injectable()
 export class AuthService {
+  private readonly expiresIn: string;
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.expiresIn = this.configService.get<string>('jwt.expiresIn') || '7d';
+  }
 
-  async register(
-    dto: RegisterDto,
-  ): Promise<{ user: UserWithoutPassword; token: string }> {
+  async register(dto: RegisterDto): Promise<AuthResponseDto> {
     return tracer.startActiveSpan('auth.register', async (span) => {
       try {
         span.setAttributes({
-          'user.email': dto.email,
+          'user.email_domain': dto.email.split('@')[1],
           'user.name': dto.name,
         });
 
@@ -69,9 +93,9 @@ export class AuthService {
         span.setAttribute('user.id', user.id);
         registrationCounter.add(1, { status: 'success' });
 
-        const token = this.generateToken(user);
+        const authResponse = this.generateAuthResponse(user);
         span.setStatus({ code: SpanStatusCode.OK });
-        return { user: excludePassword(user), token };
+        return authResponse;
       } catch (error) {
         if (!(error instanceof ConflictException)) {
           span.setStatus({
@@ -87,12 +111,10 @@ export class AuthService {
     });
   }
 
-  async login(
-    dto: LoginDto,
-  ): Promise<{ user: UserWithoutPassword; token: string }> {
+  async login(dto: LoginDto): Promise<AuthResponseDto> {
     return tracer.startActiveSpan('auth.login', async (span) => {
       try {
-        span.setAttribute('user.email', dto.email);
+        span.setAttribute('user.email_domain', dto.email.split('@')[1]);
         loginAttemptsCounter.add(1);
 
         const user = await this.usersService.findByEmail(dto.email);
@@ -119,9 +141,9 @@ export class AuthService {
         span.setAttribute('user.id', user.id);
         loginSuccessCounter.add(1);
 
-        const token = this.generateToken(user);
+        const authResponse = this.generateAuthResponse(user);
         span.setStatus({ code: SpanStatusCode.OK });
-        return { user: excludePassword(user), token };
+        return authResponse;
       } catch (error) {
         if (!(error instanceof UnauthorizedException)) {
           span.setStatus({
@@ -136,7 +158,7 @@ export class AuthService {
     });
   }
 
-  async getProfile(userId: string): Promise<UserWithoutPassword> {
+  async getProfile(userId: string): Promise<UserResponseDto> {
     return tracer.startActiveSpan('auth.getProfile', async (span) => {
       try {
         span.setAttribute('user.id', userId);
@@ -151,7 +173,7 @@ export class AuthService {
         }
 
         span.setStatus({ code: SpanStatusCode.OK });
-        return excludePassword(user);
+        return toUserResponse(user);
       } catch (error) {
         span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) });
         throw error;
@@ -161,10 +183,18 @@ export class AuthService {
     });
   }
 
-  private generateToken(user: User): string {
-    return this.jwtService.sign({
+  private generateAuthResponse(user: User): AuthResponseDto {
+    const token = this.jwtService.sign({
       sub: user.id,
       email: user.email,
     });
+
+    return {
+      user: toUserResponse(user),
+      token,
+      expiresIn: this.expiresIn,
+      expiresAt: Date.now() + parseExpiresIn(this.expiresIn),
+      tokenType: 'Bearer',
+    };
   }
 }

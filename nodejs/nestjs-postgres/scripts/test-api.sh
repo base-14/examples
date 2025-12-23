@@ -36,7 +36,7 @@ echo "--------------"
 echo -n "POST /api/auth/register... "
 REGISTER=$(curl -s -X POST "$BASE_URL/api/auth/register" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"password123\",\"name\":\"Test User\"}")
+    -d "{\"email\":\"$EMAIL\",\"password\":\"Password123\",\"name\":\"Test User\"}")
 if echo "$REGISTER" | grep -q '"token"'; then
     TOKEN=$(echo "$REGISTER" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
     echo -e "${GREEN}PASS${NC}"
@@ -63,7 +63,7 @@ fi
 echo -n "POST /api/auth/register (duplicate → 409)... "
 DUPLICATE=$(curl -s -X POST "$BASE_URL/api/auth/register" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"password123\",\"name\":\"Test User\"}" \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"Password123\",\"name\":\"Test User\"}" \
     -o /dev/null -w "%{http_code}")
 if [ "$DUPLICATE" = "409" ]; then
     echo -e "${GREEN}PASS${NC}"
@@ -76,7 +76,7 @@ fi
 echo -n "POST /api/auth/login... "
 LOGIN=$(curl -s -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"password123\"}")
+    -d "{\"email\":\"$EMAIL\",\"password\":\"Password123\"}")
 if echo "$LOGIN" | grep -q '"token"'; then
     TOKEN=$(echo "$LOGIN" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
     echo -e "${GREEN}PASS${NC}"
@@ -103,7 +103,7 @@ fi
 echo -n "POST /api/auth/login (non-existent user → 401)... "
 NOUSER_LOGIN=$(curl -s -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
-    -d '{"email":"nouser@example.com","password":"password123"}' \
+    -d '{"email":"nouser@example.com","password":"Password123"}' \
     -o /dev/null -w "%{http_code}")
 if [ "$NOUSER_LOGIN" = "401" ]; then
     echo -e "${GREEN}PASS${NC}"
@@ -226,12 +226,67 @@ echo -n "PUT /api/articles/:id... "
 UPDATED=$(curl -s -X PUT "$BASE_URL/api/articles/$ARTICLE_ID" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $TOKEN" \
-    -d '{"title":"Updated Title","published":true}')
+    -d '{"title":"Updated Title"}')
 if echo "$UPDATED" | grep -q '"title":"Updated Title"'; then
     echo -e "${GREEN}PASS${NC}"
 else
     echo -e "${RED}FAIL${NC}"
     echo "$UPDATED"
+    exit 1
+fi
+
+echo ""
+echo "Background Jobs"
+echo "---------------"
+
+# Publish article (async job)
+echo -n "POST /api/articles/:id/publish... "
+PUBLISH=$(curl -s -X POST "$BASE_URL/api/articles/$ARTICLE_ID/publish" \
+    -H "Authorization: Bearer $TOKEN")
+if echo "$PUBLISH" | grep -q '"jobId"'; then
+    JOB_ID=$(echo "$PUBLISH" | grep -o '"jobId":"[^"]*"' | cut -d'"' -f4)
+    echo -e "${GREEN}PASS${NC} (jobId: $JOB_ID)"
+else
+    echo -e "${RED}FAIL${NC}"
+    echo "$PUBLISH"
+    exit 1
+fi
+
+# Wait for background job to process
+echo -n "Waiting for job to complete... "
+sleep 2
+echo -e "${GREEN}done${NC}"
+
+# Verify article is published
+echo -n "GET /api/articles/:id (published=true)... "
+PUBLISHED=$(curl -s "$BASE_URL/api/articles/$ARTICLE_ID")
+if echo "$PUBLISHED" | grep -q '"published":true'; then
+    echo -e "${GREEN}PASS${NC}"
+else
+    echo -e "${RED}FAIL${NC}"
+    echo "$PUBLISHED"
+    exit 1
+fi
+
+# Verify publishedAt is set
+echo -n "GET /api/articles/:id (publishedAt set)... "
+if echo "$PUBLISHED" | grep -q '"publishedAt":"[0-9]'; then
+    echo -e "${GREEN}PASS${NC}"
+else
+    echo -e "${RED}FAIL${NC}"
+    echo "$PUBLISHED"
+    exit 1
+fi
+
+# Publish already published article (should fail)
+echo -n "POST /api/articles/:id/publish (already published → 409)... "
+PUBLISH_AGAIN=$(curl -s -X POST "$BASE_URL/api/articles/$ARTICLE_ID/publish" \
+    -H "Authorization: Bearer $TOKEN" \
+    -o /dev/null -w "%{http_code}")
+if [ "$PUBLISH_AGAIN" = "409" ]; then
+    echo -e "${GREEN}PASS${NC}"
+else
+    echo -e "${RED}FAIL (expected 409, got $PUBLISH_AGAIN)${NC}"
     exit 1
 fi
 

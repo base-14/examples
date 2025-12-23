@@ -26,6 +26,9 @@ export class Article {
   @Column({ default: false })
   published: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  publishedAt: Date | null;
+
   @Column({ default: 0 })
   favoritesCount: number;
 

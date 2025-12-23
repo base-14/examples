@@ -9,6 +9,9 @@ const configSchema = z.object({
   database: z.object({
     url: z.string().url().or(z.string().startsWith('postgresql://')),
   }),
+  redis: z.object({
+    url: z.string().default('redis://localhost:6379'),
+  }),
   jwt: z.object({
     secret: z.string().min(1),
     expiresIn: z.string().default('7d'),
@@ -38,6 +41,9 @@ export function loadConfiguration(): AppConfig {
     },
     database: {
       url: process.env.DATABASE_URL,
+    },
+    redis: {
+      url: process.env.REDIS_URL,
     },
     jwt: {
       secret: process.env.JWT_SECRET,

@@ -60,4 +60,10 @@ export class ArticlesController {
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
     return this.articlesService.remove(id, user.id);
   }
+
+  @Post(':id/publish')
+  @UseGuards(JwtAuthGuard)
+  publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.articlesService.publish(id, user.id);
+  }
 }

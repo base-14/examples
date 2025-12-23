@@ -31,6 +31,11 @@ processors:
   batch:
     timeout: 10s
     send_batch_size: 1024
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${SCOUT_ENVIRONMENT}
+        action: upsert
 
 exporters:
   otlphttp/b14:
@@ -54,13 +59,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, resource, batch]
       exporters: [otlphttp/b14, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, resource, batch]
       exporters: [otlphttp/b14, debug]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, resource, batch]
       exporters: [otlphttp/b14, debug]

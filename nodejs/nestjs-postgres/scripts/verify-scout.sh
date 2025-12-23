@@ -55,17 +55,24 @@ EMAIL="scout-test-$(date +%s)@example.com"
 # Register and login to generate auth metrics
 curl -s -X POST "$BASE_URL/api/auth/register" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"password123\",\"name\":\"Scout Test\"}" > /dev/null
+    -d "{\"email\":\"$EMAIL\",\"password\":\"Password123\",\"name\":\"Scout Test\"}" > /dev/null
 
 TOKEN=$(curl -s -X POST "$BASE_URL/api/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"password123\"}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    -d "{\"email\":\"$EMAIL\",\"password\":\"Password123\"}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 
 # Create article to generate article metrics
 ARTICLE_ID=$(curl -s -X POST "$BASE_URL/api/articles" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $TOKEN" \
-    -d '{"title":"Scout Test Article","content":"Testing telemetry."}' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    -d '{"title":"Scout Test Article","content":"Testing telemetry for observability demo."}' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+# Publish article to demonstrate trace propagation (HTTP → Queue → Worker → WebSocket)
+curl -s -X POST "$BASE_URL/api/articles/$ARTICLE_ID/publish" \
+    -H "Authorization: Bearer $TOKEN" > /dev/null
+
+# Wait for background job to process
+sleep 2
 
 # Favorite to generate favorite metrics
 curl -s -X POST "$BASE_URL/api/articles/$ARTICLE_ID/favorite" \
@@ -117,6 +124,34 @@ else
     echo -e "${YELLOW}PENDING${NC} (may need more time)"
 fi
 
+echo -n "articles.published... "
+if curl -s "$METRICS_URL/metrics" | grep -q "articles_published"; then
+    echo -e "${GREEN}OK${NC}"
+else
+    echo -e "${YELLOW}PENDING${NC} (may need more time)"
+fi
+
+echo -n "jobs.completed... "
+if curl -s "$METRICS_URL/metrics" | grep -q "jobs_completed"; then
+    echo -e "${GREEN}OK${NC}"
+else
+    echo -e "${YELLOW}PENDING${NC} (may need more time)"
+fi
+
+echo -n "job_queue_waiting (gauge)... "
+if curl -s "$METRICS_URL/metrics" | grep -q "job_queue_waiting"; then
+    echo -e "${GREEN}OK${NC}"
+else
+    echo -e "${YELLOW}PENDING${NC} (may need more time)"
+fi
+
+echo -n "http_errors_total... "
+if curl -s "$METRICS_URL/metrics" | grep -q "http_errors_total"; then
+    echo -e "${GREEN}OK${NC}"
+else
+    echo -e "${YELLOW}PENDING${NC} (may need more time)"
+fi
+
 echo ""
 echo "Verification Summary"
 echo "===================="
@@ -130,7 +165,19 @@ echo "2. Navigate to TraceX"
 echo "3. Filter by service: nestjs-postgres-app"
 echo ""
 echo -e "${GREEN}Expected traces:${NC}"
-echo "- auth.register, auth.login"
-echo "- article.create, article.favorite"
-echo "- PostgreSQL queries (automatic)"
+echo "- auth.register, auth.login, auth.getProfile"
+echo "- article.create, article.findAll, article.findOne"
+echo "- article.update, article.delete, article.favorite"
+echo ""
+echo -e "${GREEN}Trace propagation demo (HTTP → Queue → Worker → WebSocket):${NC}"
+echo "- article.publish (HTTP endpoint)"
+echo "  └── job.process (BullMQ worker, linked via trace context)"
+echo "      ├── article.publish.update (database update)"
+echo "      ├── notification.send (simulated email)"
+echo "      └── websocket.emit (real-time event)"
+echo ""
+echo -e "${GREEN}Auto-instrumented:${NC}"
+echo "- PostgreSQL queries (via pg instrumentation)"
+echo "- Redis commands (via ioredis instrumentation)"
+echo "- HTTP requests (via http instrumentation)"
 echo ""
