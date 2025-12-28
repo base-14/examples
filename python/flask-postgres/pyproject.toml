@@ -1,0 +1,154 @@
+[project]
+name = "flask-postgres-otel"
+version = "1.0.0"
+description = "Flask REST API with PostgreSQL and OpenTelemetry instrumentation"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.14"
+authors = [{ name = "base14", email = "hello@base14.io" }]
+keywords = ["flask", "postgresql", "opentelemetry", "observability", "celery"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "flask>=3.1,<4.0",
+    "flask-sqlalchemy>=3.1,<4.0",
+    "sqlalchemy>=2.0,<3.0",
+    "psycopg[binary]>=3.2",
+    "marshmallow>=4.1,<5.0",
+    "flask-marshmallow>=1.3,<2.0",
+    "celery>=5.6,<6.0",
+    "redis>=5.2,<6.0",
+    "PyJWT>=2.10,<3.0",
+    "python-dotenv>=1.0",
+    "gunicorn>=23.0",
+    "opentelemetry-sdk>=1.39",
+    "opentelemetry-exporter-otlp>=1.39",
+    "opentelemetry-instrumentation-flask>=0.60b",
+    "opentelemetry-instrumentation-sqlalchemy>=0.60b",
+    "opentelemetry-instrumentation-celery>=0.60b",
+    "opentelemetry-instrumentation-redis>=0.60b",
+    "opentelemetry-instrumentation-logging>=0.60b",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
+]
+
+[project.urls]
+Homepage = "https://github.com/base-14/examples"
+Documentation = "https://docs.base14.io"
+Repository = "https://github.com/base-14/examples"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+# Ruff - Python 3.14 compatible linter/formatter (Dec 2025)
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate (commented code)
+    "PL",     # Pylint
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "PLR0913", # too many arguments
+    "PLR2004", # magic value comparison
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# MyPy - strict type checking for Python 3.14
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+
+# Per-module overrides for third-party libraries
+[[tool.mypy.overrides]]
+module = [
+    "flask_sqlalchemy.*",
+    "flask_marshmallow.*",
+    "celery.*",
+    "redis.*",
+    "opentelemetry.*",
+    "psycopg.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true

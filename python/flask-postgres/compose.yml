@@ -1,0 +1,130 @@
+# Flask + PostgreSQL + OpenTelemetry Example
+# Docker Compose Configuration | Dec 2025
+
+services:
+  # ==========================================================================
+  # Flask Application
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_APP=wsgi:app
+      - FLASK_ENV=development
+      - DEBUG=true
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/flask_app
+      - REDIS_URL=redis://redis:6379/0
+      - OTEL_SERVICE_NAME=flask-postgres-app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Celery Worker
+  # ==========================================================================
+  celery:
+    build:
+      context: .
+      target: runtime
+    command: celery -A app.jobs.celery worker --loglevel=info
+    environment:
+      - FLASK_APP=wsgi:app
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/flask_app
+      - REDIS_URL=redis://redis:6379/0
+      - OTEL_SERVICE_NAME=flask-postgres-worker
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=flask_app
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Redis
+  # ==========================================================================
+  redis:
+    image: redis:8-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # OpenTelemetry Collector
+  # ==========================================================================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    command: ["--config=/etc/otelcol-config.yaml"]
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge
