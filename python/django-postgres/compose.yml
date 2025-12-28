@@ -1,0 +1,109 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=dev-secret-key-for-docker-compose-only
+      - ALLOWED_HOSTS=localhost,127.0.0.1,app
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/django_app
+      - REDIS_URL=redis://redis:6379/0
+      - OTEL_SERVICE_NAME=django-postgres-celery-app
+      - OTEL_SERVICE_VERSION=1.0.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 120 config.wsgi:application"
+
+  celery:
+    build: .
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=dev-secret-key-for-docker-compose-only
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/django_app
+      - REDIS_URL=redis://redis:6379/0
+      - OTEL_SERVICE_NAME=django-postgres-celery-worker
+      - OTEL_SERVICE_VERSION=1.0.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - app-network
+    command: celery -A config worker --loglevel=info
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=django_app
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:8-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./config/otel-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "14317:4317"
+      - "14318:4318"
+      - "23133:13133"
+      - "45679:55679"
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+    networks:
+      - app-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge

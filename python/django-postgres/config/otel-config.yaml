@@ -1,0 +1,76 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
+  oauth2client:
+    client_id: ${env:SCOUT_CLIENT_ID}
+    client_secret: ${env:SCOUT_CLIENT_SECRET}
+    token_url: ${env:SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  transform/pii:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          # Mask email in log body
+          - replace_pattern(body, "([a-zA-Z0-9._%+-]{2})[a-zA-Z0-9._%+-]*@([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})", "$$1***@$$2")
+    trace_statements:
+      - context: span
+        statements:
+          # Mask user.email attribute
+          - replace_pattern(attributes["user.email"], "([a-zA-Z0-9._%+-]{2})[a-zA-Z0-9._%+-]*@([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})", "$$1***@$$2")
+
+exporters:
+  debug:
+    verbosity: detailed
+  otlphttp/scout:
+    endpoint: ${env:SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+service:
+  extensions: [health_check, zpages, oauth2client]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/pii, batch]
+      exporters: [debug, otlphttp/scout]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, otlphttp/scout]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/pii, batch]
+      exporters: [debug, otlphttp/scout]
