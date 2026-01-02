@@ -1,5 +1,5 @@
-fastapi[all]==0.123.10
-starlette==0.50.0
+fastapi[all]==0.128.0
+starlette==0.51.0
 pydantic==2.12.5
 psycopg2-binary==2.9.10
 SQLAlchemy==2.0.44

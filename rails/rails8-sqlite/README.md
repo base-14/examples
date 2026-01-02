@@ -21,11 +21,24 @@ metrics, and logs.
 
 ## Quick Start
 
-```bash
-# Clone and navigate
-git clone https://github.com/base-14/examples.git
-cd examples/rails/rails8-sqlite
+### First Time Setup - Generate Master Key
 
+⚠️ The example includes a demo master key. For production or your own testing, generate a new one:
+
+```bash
+# Remove demo credentials
+rm config/master.key config/credentials.yml.enc
+
+# Rails will auto-generate master key when you edit credentials
+bin/rails credentials:edit
+
+# Never commit config/master.key (already in .gitignore)
+# In production, use: RAILS_MASTER_KEY=<your-key> environment variable
+```
+
+### Run the Application
+
+```bash
 # Configure Scout credentials in docker-compose.yml
 # Update SCOUT_CLIENT_ID, SCOUT_CLIENT_SECRET, SCOUT_TOKEN_URL, SCOUT_ENDPOINT
 

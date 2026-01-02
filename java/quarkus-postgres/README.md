@@ -32,11 +32,21 @@ This example uses **Quarkus OpenTelemetry Extension** (production-ready):
 
 ## Quick Start
 
-```bash
-# Clone and navigate
-git clone https://github.com/base-14/examples.git
-cd examples/quarkus/quarkus-postgres
+### First Time Setup - Generate JWT Keys
 
+⚠️ The example includes demo keys. For production or your own testing, generate new ones:
+
+```bash
+# Generate new RSA key pair for JWT signing
+openssl genrsa -out src/main/resources/privateKey.pem 2048
+openssl rsa -in src/main/resources/privateKey.pem -pubout -out src/main/resources/publicKey.pem
+
+# Never commit privateKey.pem (already in .gitignore)
+```
+
+### Run the Application
+
+```bash
 # Set Base14 Scout credentials
 export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces
 export SCOUT_CLIENT_ID=your_client_id

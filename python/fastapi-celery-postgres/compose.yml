@@ -94,7 +94,7 @@ services:
           target: /app/app
 
   db:
-    image: postgres:18.1-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     shm_size: 128mb
     volumes:

@@ -28,3 +28,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Private keys (should be generated locally)
+*.pem
+*.key
+!publicKey.pem
