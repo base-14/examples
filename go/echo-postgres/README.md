@@ -92,7 +92,7 @@ HTTP POST /api/articles/:slug/favorite (parent span)
 
 ```bash
 git clone https://github.com/base-14/examples.git
-cd examples/go/go-echo-postgres
+cd examples/go/echo-postgres
 ```
 
 ### 2. Set base14 Scout Credentials

@@ -1,14 +1,13 @@
-# Spring Boot Examples
+# PHP Examples
 
-OpenTelemetry instrumentation examples for Spring Boot applications.
+OpenTelemetry instrumentation examples for PHP applications.
 
 ## Projects
 
 | Project | Description |
 | ------- | ----------- |
-| [java17-mysql](./java17-mysql) | Spring Boot 3.5.7 with auto-instrumentation, MySQL, and JPA |
-| [java25-postgresql](./java25-postgresql) | Spring Boot 3.5.8 with SDK Integration, PostgreSQL, and JPA |
-| [java25-mongodb-java-agent](./java25-mongodb-java-agent) | Spring Boot 3.5.8 with Java Agent instrumentation, MongoDB 7.x, and Spring Data MongoDB |
+| [php8-laravel8-sqlite](./php8-laravel8-sqlite) | Laravel 8.65 with auto-instrumentation, SQLite, and JWT authentication |
+| [php85-laravel12-postgres](./php85-laravel12-postgres) | Laravel 12.39 with auto-instrumentation, PostgreSQL 18, and JWT authentication |
 
 ## Contributing
 

@@ -61,7 +61,7 @@ Service name: `go-parking-lot-otel` (configurable)
 ```bash
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
-cd examples/go/go-chi-inmemory
+cd examples/go/chi-inmemory
 ```
 
 ### 1. Configure Scout Credentials

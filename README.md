@@ -19,16 +19,16 @@ Production-ready examples for integrating OpenTelemetry with
 | --------- | ----- | ------- | -------- |
 | **Django** | Django 5.2 LTS + PostgreSQL 18 | [django-postgres](./python/django-postgres) | Celery jobs, PII masking, auto-instrumentation |
 | **Flask** | Flask 3.1 + PostgreSQL 18 | [flask-postgres](./python/flask-postgres) | Celery jobs, SQLAlchemy, auto-instrumentation |
-| **FastAPI** | FastAPI 0.123 + PostgreSQL | [python-fastapi-postgres](./python/python-fastapi-postgres) | JWT auth, auto-instrumentation |
+| **FastAPI** | FastAPI 0.123 + PostgreSQL | [fastapi-postgres](./python/fastapi-postgres) | JWT auth, auto-instrumentation |
 | **FastAPI + Celery** | FastAPI + Celery + PostgreSQL | [fastapi-celery-postgres](./python/fastapi-celery-postgres) | Distributed tracing across async tasks |
 
 ### Go
 
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
-| **Echo** | Echo 4.13 + GORM + PostgreSQL 18 | [go-echo-postgres](./go/go-echo-postgres) | Asynq jobs, GORM service pattern |
-| **Fiber** | Fiber 2.52 + sqlx + PostgreSQL 18 | [go-fiber-postgres](./go/go-fiber-postgres) | River jobs (PostgreSQL-native), repository pattern |
-| **Chi** | Chi + In-memory storage | [go-chi-inmemory](./go/go-chi-inmemory) | Custom instrumentation |
+| **Echo** | Echo 4.13 + GORM + PostgreSQL 18 | [echo-postgres](./go/echo-postgres) | Asynq jobs, GORM service pattern |
+| **Fiber** | Fiber 2.52 + sqlx + PostgreSQL 18 | [fiber-postgres](./go/fiber-postgres) | River jobs (PostgreSQL-native), repository pattern |
+| **Chi** | Chi + In-memory storage | [chi-inmemory](./go/chi-inmemory) | Custom instrumentation |
 | **Gin (Legacy)** | Gin 1.9.1 + PostgreSQL 14 | [go119-gin191-postgres](./go/go119-gin191-postgres) | Legacy Go 1.19 support |
 
 ### Java
@@ -36,15 +36,28 @@ Production-ready examples for integrating OpenTelemetry with
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
 | **Quarkus** | Quarkus 3.17 + Java 21 + PostgreSQL 18 | [quarkus-postgres](./java/quarkus-postgres) | Built-in OTEL, native compilation, JWT auth |
+| **Spring Boot** | Spring Boot 3.5.7 + Java 17 + MySQL | [spring-boot-java17-mysql](./java/spring-boot-java17-mysql) | Auto-instrumentation |
+| **Spring Boot** | Spring Boot 3.5.8 + Java 25 + PostgreSQL | [spring-boot-java25-postgresql](./java/spring-boot-java25-postgresql) | SDK Integration |
+| **Spring Boot** | Spring Boot 3.5.8 + Java 25 + MongoDB | [spring-boot-java25-mongodb-java-agent](./java/spring-boot-java25-mongodb-java-agent) | Java Agent |
 
-### Other Languages
+### Ruby
 
-| Framework | Language | Example | Documentation |
-| --------- | -------- | ------- | ------------- |
-| **Spring Boot** | Java 17 | [java17-mysql](./spring-boot/java17-mysql) | [Guide][doc-spring-boot] |
-| **Rails** | Ruby | [rails](./rails) | [Guide][doc-rails] |
-| **Phoenix** | Elixir | [elixir-phoenix-otel](./elixir-phoenix-otel) | [Guide][doc-phoenix] |
-| **Laravel** | PHP | [laravel](./laravel) | [Guide][doc-laravel] |
+| Framework | Stack | Example | Features |
+| --------- | ----- | ------- | -------- |
+| **Rails** | Rails | [rails](./rails) | [Guide][doc-rails] |
+
+### PHP
+
+| Framework | Stack | Example | Features |
+| --------- | ----- | ------- | -------- |
+| **Laravel 8** | Laravel 8.65 + PHP 8 + SQLite | [php8-laravel8-sqlite](./php/php8-laravel8-sqlite) | JWT auth, auto-instrumentation |
+| **Laravel 12** | Laravel 12.39 + PHP 8.5 + PostgreSQL 18 | [php85-laravel12-postgres](./php/php85-laravel12-postgres) | JWT auth, auto-instrumentation |
+
+### Elixir
+
+| Framework | Stack | Example | Features |
+| --------- | ----- | ------- | -------- |
+| **Phoenix** | Phoenix 1.8 + Ecto 3 + PostgreSQL 14+ | [phoenix18-ecto3-postgres](./elixir/phoenix18-ecto3-postgres) | LiveView, real-time chat, auto-instrumentation |
 
 ### Infrastructure & Integrations
 
@@ -76,8 +89,8 @@ cd python/django-postgres                # Django + PostgreSQL + Celery
 cd python/flask-postgres                 # Flask + PostgreSQL + Celery
 
 # Go
-cd go/go-echo-postgres                   # Echo + GORM + Asynq
-cd go/go-fiber-postgres                  # Fiber + sqlx + River
+cd go/echo-postgres                      # Echo + GORM + Asynq
+cd go/fiber-postgres                     # Fiber + sqlx + River
 
 # Java
 cd java/quarkus-postgres                 # Quarkus + PostgreSQL
@@ -133,12 +146,12 @@ Comprehensive auto-instrumentation showing distributed tracing across app and wo
 ### Go Echo (GORM Pattern)
 
 Demonstrates GORM ORM with service layer pattern, Asynq job queue, and type-safe database operations with auto-migrations.
-[View README →](./go/go-echo-postgres/README.md)
+[View README →](./go/echo-postgres/README.md)
 
 ### Go Fiber (Repository Pattern)
 
 Shows repository pattern with raw SQL via sqlx, River PostgreSQL-native job queue (no Redis), and fine-grained SQL control for performance optimization.
-[View README →](./go/go-fiber-postgres/README.md)
+[View README →](./go/fiber-postgres/README.md)
 
 ### Quarkus
 
@@ -184,9 +197,6 @@ Include in your README:
 See [LICENSE](./LICENSE) for details.
 
 [scout]: https://base14.io/scout
-[doc-spring-boot]: https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot
 [doc-rails]: https://docs.base14.io/instrument/apps/auto-instrumentation/rails
-[doc-phoenix]: https://docs.base14.io/instrument/apps/auto-instrumentation/elixir-phoenix
-[doc-laravel]: https://docs.base14.io/instrument/apps/auto-instrumentation/laravel
 [doc-collector]: https://docs.base14.io/category/opentelemetry-collector-setup
 [doc-apps]: https://docs.base14.io/category/app-instrumentation

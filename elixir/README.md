@@ -1,13 +1,12 @@
-# Laravel Examples
+# Elixir Examples
 
-OpenTelemetry instrumentation examples for Laravel applications.
+OpenTelemetry instrumentation examples for Elixir applications.
 
 ## Projects
 
 | Project | Description |
 | ------- | ----------- |
-| [php8-laravel8-sqlite](./php8-laravel8-sqlite) | Laravel 8.65 with auto-instrumentation, SQLite, and JWT authentication |
-| [php85-laravel12-postgres](./php85-laravel12-postgres) | Laravel 12.39 with auto-instrumentation, PostgreSQL 18, and JWT authentication |
+| [phoenix18-ecto3-postgres](./phoenix18-ecto3-postgres) | Phoenix 1.8.1 + Ecto 3 + PostgreSQL 14+ with LiveView, auto-instrumentation for traces/metrics/logs, and real-time chat |
 
 ## Contributing
 

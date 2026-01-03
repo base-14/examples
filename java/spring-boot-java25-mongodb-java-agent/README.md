@@ -76,7 +76,7 @@ Add custom spans using `@WithSpan` annotations for deeper application visibility
 ```bash
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
-cd examples/spring-boot/java25-mongodb-java-agent
+cd examples/java/spring-boot-java25-mongodb-java-agent
 
 # Set Base14 Scout credentials as environment variables
 export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces

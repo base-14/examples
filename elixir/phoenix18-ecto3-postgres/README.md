@@ -26,7 +26,7 @@ metrics, and logs.
 ```bash
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
-cd examples/elixir-phoenix-otel
+cd examples/elixir/phoenix18-ecto3-postgres
 
 # Install dependencies
 mix deps.get

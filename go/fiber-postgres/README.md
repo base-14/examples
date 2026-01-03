@@ -121,7 +121,7 @@ HTTP POST /api/articles (parent span)
 
 ```bash
 git clone https://github.com/base-14/examples.git
-cd examples/go/go-fiber-postgres
+cd examples/go/fiber-postgres
 ```
 
 ### 2. Set base14 Scout Credentials

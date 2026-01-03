@@ -45,7 +45,9 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 
 ### Redis Instrumentation
 
-> **Note**: Redis auto-instrumentation (`mismatch/opentelemetry-auto-redis`) covers connection and basic operations (GET, SET, DELETE, EXISTS, SCAN). Queue-specific operations (LPUSH, BRPOP, EVAL) used by Laravel's Redis queue driver are not instrumented. Queue job execution is still traced via Laravel's job instrumentation with `messaging.system=redis` attribute.
+> **Note**: Redis auto-instrumentation (`mismatch/opentelemetry-auto-redis`) covers connection and basic operations (GET, SET, DELETE, EXISTS, SCAN).
+> Queue-specific operations (LPUSH, BRPOP, EVAL) used by Laravel's Redis queue driver are not instrumented.
+> Queue job execution is still traced via Laravel's job instrumentation with `messaging.system=redis` attribute.
 
 ### Production Patterns
 
@@ -78,7 +80,7 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 
 ```bash
 git clone https://github.com/base-14/examples.git
-cd examples/laravel/php85-laravel12-postgres
+cd examples/php/php85-laravel12-postgres
 ```
 
 ### 1. Set Base14 Scout Credentials
@@ -122,7 +124,7 @@ Seed credentials: `alice@example.com`, `bob@example.com`, `charlie@example.com`
 
 ## Viewing Traces in Scout
 
-1. **Login**: Navigate to https://your-tenant.base14.io
+1. **Login**: Navigate to `https://your-tenant.base14.io`
 2. **Find Service**: Traces → Select `php-laravel12-postgres-otel`
 3. **Explore**: Click any trace to see distributed view
 
@@ -422,10 +424,10 @@ docker compose down -v
 
 | Service | URL/Command | Purpose |
 | ------- | ----------- | ------- |
-| Application | http://localhost:8000 | Laravel API |
+| Application | <http://localhost:8000> | Laravel API |
 | Queue Worker | `docker compose logs -f worker` | Background job processing |
-| OTel Collector Health | http://localhost:13133 | Collector status |
-| Collector zPages | http://localhost:55679/debug/tracez | Trace debugging |
+| OTel Collector Health | <http://localhost:13133> | Collector status |
+| Collector zPages | <http://localhost:55679/debug/tracez> | Trace debugging |
 
 ## Troubleshooting
 

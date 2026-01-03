@@ -28,7 +28,7 @@ metrics, and logs.
 ```bash
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
-cd examples/laravel/php8-laravel8-sqlite
+cd examples/php/php8-laravel8-sqlite
 
 # Set Base14 Scout credentials as environment variables
 export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces

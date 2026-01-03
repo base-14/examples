@@ -1,0 +1,6 @@
+**/node_modules/**
+**/vendor/**
+**/_build/**
+**/deps/**
+**/.elixir_ls/**
+astronomy_shop_mobile/**

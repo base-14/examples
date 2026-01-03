@@ -1,30 +1,48 @@
 # Spring Boot with OpenTelemetry
 
-Spring Boot 3.5.7 application with OpenTelemetry auto-instrumentation for
-traces, metrics, and logs.
+Spring Boot 3.5.8 application with OpenTelemetry instrumentation using the
+**OpenTelemetry SDK Integration** approach.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
 
-## What's Instrumented
+## Instrumentation Approach
 
-- HTTP requests and responses
-- Database queries (JDBC/JPA) and connection pool
-- JVM metrics (memory, threads, GC)
-- Distributed trace propagation (W3C)
-- Custom business metrics via Micrometer
+This example uses **OpenTelemetry SDK Integration** (production-ready):
+
+- Dependency: `opentelemetry-spring-boot-starter`
+- Direct OpenTelemetry API access
+- Explicit dependency management via BOM
+- Compatible with Spring Boot 2.7+ and 3.x
+
+### What's Auto-Instrumented
+
+- ✅ HTTP requests and responses (Spring MVC)
+- ✅ Database queries (JDBC/JPA) and connection pools
+- ✅ JVM metrics (memory, threads, GC)
+- ✅ Distributed trace propagation (W3C)
+- ✅ Custom business metrics via Micrometer
+
+### What Requires Manual Instrumentation
+
+For deeper application-level tracing (controller methods, service methods), consider:
+
+- Manual `@WithSpan` annotations, OR
+- [OpenTelemetry Java Agent][java-agent] for zero-code instrumentation
+
+[java-agent]: https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives#java-agent-approach
 
 ## Prerequisites
 
 - Docker Desktop or Docker Engine with Compose
 - Base14 Scout credentials ([setup guide](https://docs.base14.io/category/opentelemetry-collector-setup))
-- Java 17+ (only for local development without Docker)
+- Java 25+ (only for local development without Docker)
 
 ## Quick Start
 
 ```bash
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
-cd examples/spring-boot/java17-mysql
+cd examples/java/spring-boot-java25-postgresql
 
 # Set Base14 Scout credentials as environment variables
 export SCOUT_ENDPOINT=https://your-tenant.base14.io/v1/traces
@@ -32,7 +50,7 @@ export SCOUT_CLIENT_ID=your_client_id
 export SCOUT_CLIENT_SECRET=your_client_secret
 export SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
 
-# Start application (MySQL + Spring Boot + OTel Collector)
+# Start application (PostgreSQL + Spring Boot + OTel Collector)
 docker-compose up --build -d
 
 # Verify it's running
@@ -40,7 +58,7 @@ curl http://localhost:8080/actuator/health
 curl http://localhost:8080/users/testMessage
 ```
 
-The app runs on port `8080`, MySQL on `3306`, OTel Collector on `4317/4318`.
+The app runs on port `8080`, PostgreSQL on `5432`, OTel Collector on `4317/4318`.
 
 ## Configuration
 
@@ -122,7 +140,7 @@ curl http://localhost:8080/users/
 
 ### Run Locally (without Docker)
 
-Requires MySQL and OTel Collector running locally on standard ports.
+Requires PostgreSQL and OTel Collector running locally on standard ports.
 
 ```bash
 ./gradlew bootRun      # Run application
@@ -130,7 +148,7 @@ Requires MySQL and OTel Collector running locally on standard ports.
 ./gradlew build        # Build JAR
 ```
 
-Update `application.properties` to use `localhost:3306` for MySQL.
+Update `application.properties` to use `localhost:5432` for PostgreSQL.
 
 ### Docker Commands
 
@@ -144,10 +162,10 @@ docker-compose restart spring-service  # Restart app only
 
 ### Faster Development Loop
 
-Run only MySQL in Docker, app locally for quick iteration:
+Run only PostgreSQL in Docker, app locally for quick iteration:
 
 ```bash
-docker-compose up db -d    # Start MySQL only
+docker-compose up db -d    # Start PostgreSQL only
 ./gradlew bootRun          # Run app locally
 ```
 
@@ -192,11 +210,11 @@ Verify collector config exports to the correct backend.
 ### Database connection failed
 
 ```bash
-docker-compose ps           # Check MySQL health
-docker logs mysql-db        # View MySQL logs
+docker-compose ps           # Check PostgreSQL health
+docker logs postgres-db     # View PostgreSQL logs
 ```
 
-Wait for MySQL healthcheck to complete before starting the app.
+Wait for PostgreSQL healthcheck to complete before starting the app.
 
 ### Enable debug logging
 
@@ -217,17 +235,17 @@ logging.level.io.opentelemetry=DEBUG
 
 | Component | Version |
 | --------- | ------- |
-| Spring Boot | 3.5.7 |
-| OpenTelemetry Instrumentation | 2.21.0 |
+| Spring Boot | 3.5.8 |
+| OpenTelemetry Instrumentation | 2.22.0 |
 | OpenTelemetry SDK | 1.55.0 |
-| MySQL | 9.1 |
+| PostgreSQL | 17.7 |
+| OTel Collector | 0.140.0 |
 | Gradle | 9.2.1 |
-| Java | 17 (target) / 17-25 (supported) |
+| Java | 25 |
 
 ## Resources
 
-- [Spring Boot Auto-Instrumentation Guide][spring-boot-guide] -
-  Base14 documentation
+- [Spring Boot Auto-Instrumentation Guide][spring-boot-guide] - Base14 documentation
 - [OpenTelemetry Java][otel-java] - OTel Java docs
 - [Spring Boot Actuator][actuator] - Actuator reference
 - [Base14 Scout][scout] - Observability platform

@@ -6,9 +6,9 @@ OpenTelemetry instrumentation examples for Go applications.
 
 | Project | Description |
 | ------- | ----------- |
-| [go-echo-postgres](./go-echo-postgres) | Go 1.24 + Echo 4.13 + GORM + PostgreSQL 18 + Asynq with service pattern and auto-instrumentation |
-| [go-fiber-postgres](./go-fiber-postgres) | Go 1.24 + Fiber 2.52 + sqlx + PostgreSQL 18 + River with repository pattern and PostgreSQL-native job queue |
-| [go-chi-inmemory](./go-chi-inmemory) | Go 1.25 with chi router, custom instrumentation, and in-memory storage |
+| [echo-postgres](./echo-postgres) | Go 1.24 + Echo 4.13 + GORM + PostgreSQL 18 + Asynq with service pattern and auto-instrumentation |
+| [fiber-postgres](./fiber-postgres) | Go 1.24 + Fiber 2.52 + sqlx + PostgreSQL 18 + River with repository pattern and PostgreSQL-native job queue |
+| [chi-inmemory](./chi-inmemory) | Go 1.25 with chi router, custom instrumentation, and in-memory storage |
 | [go119-gin191-postgres](./go119-gin191-postgres) | Go 1.19 with Gin 1.9.1, PostgreSQL 14, and OpenTelemetry v1.17.0 |
 
 ## Contributing

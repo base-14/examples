@@ -67,7 +67,7 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 ```bash
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
-cd examples/python/python-fastapi-postgres
+cd examples/python/fastapi-postgres
 
 # Copy environment template
 cp .env.example .env

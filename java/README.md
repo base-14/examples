@@ -7,6 +7,9 @@ OpenTelemetry instrumentation examples for Java applications.
 | Project | Description |
 | ------- | ----------- |
 | [quarkus-postgres](./quarkus-postgres) | Quarkus 3.17 + Java 21 + PostgreSQL 18 with built-in OpenTelemetry, native compilation support, and JWT authentication |
+| [spring-boot-java17-mysql](./spring-boot-java17-mysql) | Spring Boot 3.5.7 + Java 17 + MySQL with auto-instrumentation for traces, metrics, and logs |
+| [spring-boot-java25-postgresql](./spring-boot-java25-postgresql) | Spring Boot 3.5.8 + Java 25 + PostgreSQL with SDK Integration approach for OpenTelemetry instrumentation |
+| [spring-boot-java25-mongodb-java-agent](./spring-boot-java25-mongodb-java-agent) | Spring Boot 3.5.8 + Java 25 + MongoDB 7 with Java Agent approach for OpenTelemetry instrumentation |
 
 ## Contributing
 
