@@ -1,11 +1,107 @@
 version: 2
 updates:
+  # PHP - Laravel 8 (EOL - Disabled)
   - package-ecosystem: "composer"
-    directory: "/laravel/php8-laravel8-sqlite"
+    directory: "/php/php8-laravel8-sqlite"
     schedule:
       interval: "weekly"
     # Disable Dependabot PRs for this project - Laravel 8.x is EOL
-    # See: laravel/php8-laravel8-sqlite/SECURITY.md for documented vulnerabilities
+    # See: php/php8-laravel8-sqlite/SECURITY.md for documented vulnerabilities
     open-pull-requests-limit: 0
     ignore:
       - dependency-name: "*"
+
+  # PHP - Laravel 12 (Current - Enabled)
+  - package-ecosystem: "composer"
+    directory: "/php/php85-laravel12-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Ruby - Rails 5.2 (EOL - Disabled)
+  - package-ecosystem: "bundler"
+    directory: "/ruby/ruby27-rails52-mysql8"
+    schedule:
+      interval: "weekly"
+    # Disable Dependabot PRs for this project - Rails 5.2.x and Ruby 2.7 are EOL
+    # See: ruby/ruby27-rails52-mysql8/SECURITY.md for documented vulnerabilities
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+
+  # Ruby - Rails 8 (Current - Enabled)
+  - package-ecosystem: "bundler"
+    directory: "/ruby/rails8-sqlite"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Python - Django
+  - package-ecosystem: "pip"
+    directory: "/python/django-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Python - Flask
+  - package-ecosystem: "pip"
+    directory: "/python/flask-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Python - FastAPI
+  - package-ecosystem: "pip"
+    directory: "/python/fastapi-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Node.js - Express 5
+  - package-ecosystem: "npm"
+    directory: "/nodejs/express5-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Node.js - NestJS
+  - package-ecosystem: "npm"
+    directory: "/nodejs/nestjs-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Node.js - Express TypeScript MongoDB
+  - package-ecosystem: "npm"
+    directory: "/nodejs/express-typescript-mongodb"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Go - Echo
+  - package-ecosystem: "gomod"
+    directory: "/go/echo-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Go - Fiber
+  - package-ecosystem: "gomod"
+    directory: "/go/fiber-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Go - Chi
+  - package-ecosystem: "gomod"
+    directory: "/go/chi-inmemory"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Java - Quarkus
+  - package-ecosystem: "maven"
+    directory: "/java/quarkus-postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

@@ -3,6 +3,11 @@
 Rails 5.2.8 application with OpenTelemetry auto-instrumentation for traces,
 metrics, and logs. Uses MySQL 8, Redis, and Sidekiq.
 
+> ⚠️ **Security Notice**: This project uses Rails 5.2.x (EOL June 2022) and
+> Ruby 2.7 (EOL March 2023) with known security vulnerabilities.
+> **Not recommended for production use.** For production, upgrade to Rails 8+ with Ruby 3.3+.
+> See [SECURITY.md](./SECURITY.md) for details.
+>
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails)
 
 ## What's Instrumented
@@ -152,15 +157,15 @@ environment:
 
 ## Technology Stack
 
-| Component | Version |
-| --------- | ------- |
-| Rails | 5.2.8 |
-| Ruby | 2.7.7 |
-| MySQL | 8.0 |
-| Redis | 7 |
-| OpenTelemetry SDK | Latest |
-| OpenTelemetry Instrumentation | Latest |
-| OpenTelemetry Collector | 0.140.0 |
+| Component | Version | Notes |
+| --------- | ------- | ----- |
+| Rails | 5.2.8 | ⚠️ EOL (June 2022) - See [SECURITY.md](./SECURITY.md) |
+| Ruby | 2.7.7 | ⚠️ EOL (March 2023) |
+| MySQL | 8.0 | ✅ Supported |
+| Redis | 7 | ✅ Supported |
+| OpenTelemetry SDK | Latest | ✅ Current |
+| OpenTelemetry Instrumentation | Latest | ✅ Current |
+| OpenTelemetry Collector | 0.140.0 | ✅ Current |
 
 ## Resources
 
