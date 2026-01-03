@@ -23,7 +23,7 @@ metrics, and logs. Uses MySQL 8, Redis, and Sidekiq.
 ```bash
 # Clone and navigate
 git clone https://github.com/base-14/examples.git
-cd examples/rails/ruby27-rails52-mysql8
+cd examples/ruby/ruby27-rails52-mysql8
 
 # Configure Scout credentials
 cp .env.example .env

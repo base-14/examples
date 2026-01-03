@@ -44,7 +44,7 @@ Production-ready examples for integrating OpenTelemetry with
 
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
-| **Rails** | Rails | [rails](./rails) | [Guide][doc-rails] |
+| **Rails** | Rails | [ruby](./ruby) | [Guide][doc-rails] |
 
 ### PHP
 
