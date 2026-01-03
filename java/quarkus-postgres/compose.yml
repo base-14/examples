@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: quarkus
+      POSTGRES_DB: quarkus_app
     ports:
       - "5432:5432"
     volumes:
@@ -42,7 +42,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_NAME: quarkus
+      DB_NAME: quarkus_app
       DB_USER: postgres
       DB_PASSWORD: postgres
       ENVIRONMENT: development
@@ -53,7 +53,7 @@ services:
       otel-collector:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5

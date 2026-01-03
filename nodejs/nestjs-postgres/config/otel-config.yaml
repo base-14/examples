@@ -3,9 +3,9 @@
 
 extensions:
   oauth2client:
-    client_id: ${SCOUT_CLIENT_ID}
-    client_secret: ${SCOUT_CLIENT_SECRET}
-    token_url: ${SCOUT_TOKEN_URL}
+    client_id: ${env:SCOUT_CLIENT_ID}
+    client_secret: ${env:SCOUT_CLIENT_SECRET}
+    token_url: ${env:SCOUT_TOKEN_URL}
     endpoint_params:
       audience: b14collector
     timeout: 10s
@@ -34,12 +34,12 @@ processors:
   resource:
     attributes:
       - key: deployment.environment
-        value: ${SCOUT_ENVIRONMENT}
+        value: ${env:SCOUT_ENVIRONMENT}
         action: upsert
 
 exporters:
   otlphttp/b14:
-    endpoint: ${SCOUT_ENDPOINT}
+    endpoint: ${env:SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
     tls:

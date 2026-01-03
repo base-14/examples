@@ -8,7 +8,6 @@ services:
       - .env.local
     ports:
       - "3000:3000"
-      - "9464:9464"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - APP_PORT=${APP_PORT:-3000}
@@ -38,7 +37,7 @@ services:
     image: postgres:18-alpine
     container_name: nestjs-postgres-db
     ports:
-      - "5433:5432"
+      - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -54,7 +53,7 @@ services:
       - app-network
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: nestjs-postgres-redis
     ports:
       - "6379:6379"
@@ -69,7 +68,7 @@ services:
       - app-network
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.116.1
     container_name: otel-collector
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml

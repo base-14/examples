@@ -8,7 +8,7 @@ services:
     environment:
       PORT: "8080"
       ENVIRONMENT: "development"
-      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/goecho?sslmode=disable"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/go_echo_app?sslmode=disable"
       REDIS_URL: "redis:6379"
       JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
       JWT_EXPIRES_IN: "168h"
@@ -22,7 +22,7 @@ services:
       otel-collector:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,7 +34,7 @@ services:
       dockerfile: Dockerfile.worker
     environment:
       ENVIRONMENT: "development"
-      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/goecho?sslmode=disable"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/go_echo_app?sslmode=disable"
       REDIS_URL: "redis:6379"
       JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
       OTEL_SERVICE_NAME: "go-echo-postgres"
@@ -50,7 +50,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: goecho
+      POSTGRES_DB: go_echo_app
     ports:
       - "5432:5432"
     volumes:
@@ -62,7 +62,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     ports:
       - "6379:6379"
     volumes:

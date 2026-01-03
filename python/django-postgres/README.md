@@ -16,7 +16,8 @@ Django REST API with automatic OpenTelemetry instrumentation, JWT authentication
 | **Redis** | 8 | Active | 8.0 |
 | **OpenTelemetry SDK** | 1.39 | N/A | 1.39.1 |
 
-**Why This Matters:** Production-ready Django stack with LTS support, background task processing via Celery, and comprehensive OpenTelemetry instrumentation for full observability.
+**Why This Matters:** Production-ready Django stack with LTS support, background task processing via Celery,
+and comprehensive OpenTelemetry instrumentation for full observability.
 
 ## What's Instrumented
 
@@ -164,6 +165,7 @@ curl -X POST http://localhost:8000/api/register \
 ```
 
 Response:
+
 ```json
 {
   "user": {
@@ -191,6 +193,7 @@ curl -X POST http://localhost:8000/api/articles/ \
 ```
 
 Response:
+
 ```json
 {
   "slug": "my-article-1735284134081",
@@ -211,6 +214,7 @@ curl http://localhost:8000/api/health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -239,7 +243,7 @@ Distributed traces capture the full request lifecycle:
 
 **Distributed Tracing Example** - `POST /api/articles/` creates an article and triggers a Celery task, all correlated by the same trace ID:
 
-```
+```text
 App (django-postgres-celery-app):
   → HTTP POST /api/articles/
   → article.create span
@@ -268,7 +272,7 @@ All spans share: otelTraceID: 59e443df8f7614a5b21c11d8c8f83a8d
 
 All logs are exported via OTLP with trace correlation:
 
-```
+```text
 LogRecord:
   SeverityText: INFO
   Body: "User registered: al***@example.com"
@@ -393,7 +397,7 @@ This ensures PII is redacted before data leaves the collector, without requiring
 
 ## Project Structure
 
-```
+```text
 django-postgres/
 ├── config/
 │   ├── settings.py        # Django settings
@@ -529,7 +533,7 @@ docker compose exec redis redis-cli ping
 
 ```bash
 # Check collector health
-curl http://localhost:23133/health
+curl http://localhost:13133/health
 
 # View collector logs
 docker compose logs otel-collector

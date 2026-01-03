@@ -13,8 +13,8 @@ OpenTelemetry instrumentation for end-to-end observability.
 | **Node.js**       | 24.x     | Active | Latest                          |
 | **TypeScript**    | 5.x      | Latest | Strict mode enabled             |
 | **NestJS**        | 11.x     | Latest | Latest stable                   |
-| **PostgreSQL**    | 16       | Active | Alpine variant                  |
-| **Redis**         | 7.x      | Active | For BullMQ job queue            |
+| **PostgreSQL**    | 18       | Active | Alpine variant                  |
+| **Redis**         | 8.x      | Active | For BullMQ job queue            |
 | **TypeORM**       | 0.3.x    | Active | NestJS native integration       |
 | **BullMQ**        | 5.x      | Active | Background job processing       |
 | **Socket.io**     | 4.x      | Active | Real-time WebSocket events      |
@@ -98,7 +98,6 @@ JWT_EXPIRES_IN=7d
 CORS_ORIGIN=*
 OTEL_SERVICE_NAME=nestjs-postgres-app
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-PROMETHEUS_PORT=9464
 SCOUT_ENDPOINT=https://your-tenant.base14.io:4318
 SCOUT_CLIENT_ID=your_client_id
 SCOUT_CLIENT_SECRET=your_client_secret
@@ -118,7 +117,6 @@ This starts:
 - PostgreSQL on port 5432
 - Redis on port 6379
 - OpenTelemetry Collector on ports 4317/4318
-- Prometheus metrics on port 9464
 
 ### 4. Test the API
 
@@ -240,7 +238,6 @@ Error codes: `RESOURCE_NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`,
 | `JWT_EXPIRES_IN`     | JWT token expiration   | `7d`                    |
 | `OTEL_SERVICE_NAME`  | Service name in traces | `nestjs-postgres-app`   |
 | `OTEL_EXPORTER_*`    | OTLP collector         | `http://collector:4318` |
-| `PROMETHEUS_PORT`    | Prometheus port        | `9464`                  |
 
 ## Telemetry Data
 
@@ -400,15 +397,14 @@ docker compose up --build app
 
 ### Access Services
 
-| Service        | URL                            | Purpose             |
-| -------------- | ------------------------------ | ------------------- |
-| NestJS API     | <http://localhost:3000>        | Main application    |
-| Health Check   | <http://localhost:3000/health> | Service health      |
-| PostgreSQL     | `localhost:5432`               | Database            |
-| Redis          | `localhost:6379`               | Job queue backend   |
-| Prometheus     | <http://localhost:9464>        | Application metrics |
-| OTel Collector | <http://localhost:4318>        | Telemetry ingestion |
-| OTel Health    | <http://localhost:13133>       | Collector health    |
+| Service        | URL                                | Purpose             |
+| -------------- | ---------------------------------- | ------------------- |
+| NestJS API     | <http://localhost:3000>            | Main application    |
+| Health Check   | <http://localhost:3000/api/health> | Service health      |
+| PostgreSQL     | `localhost:5432`                   | Database            |
+| Redis          | `localhost:6379`                   | Job queue backend   |
+| OTel Collector | <http://localhost:4318>            | Telemetry ingestion |
+| OTel Health    | <http://localhost:13133>           | Collector health    |
 
 ## Troubleshooting
 

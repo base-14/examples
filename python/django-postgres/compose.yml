@@ -88,10 +88,10 @@ services:
     volumes:
       - ./config/otel-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "14317:4317"
-      - "14318:4318"
-      - "23133:13133"
-      - "45679:55679"
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+      - "55679:55679"
     environment:
       - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-}
       - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
