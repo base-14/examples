@@ -79,7 +79,7 @@
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
-    "@vitest/coverage-v8": "^4.0.15",
+    "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.15",
     "eslint": "^9.17.0",
     "ioredis-mock": "^8.13.1",
