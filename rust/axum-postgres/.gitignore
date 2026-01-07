@@ -1,0 +1,21 @@
+# Rust
+/target/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# SQLx offline mode
+.sqlx/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
