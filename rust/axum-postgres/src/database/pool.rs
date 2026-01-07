@@ -1,4 +1,4 @@
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 
 use crate::config::Config;
 
@@ -12,9 +12,7 @@ pub async fn create_pool(config: &Config) -> Result<PgPool, sqlx::Error> {
 
     tracing::info!("Database connection pool created");
 
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await?;
+    sqlx::migrate!("./migrations").run(&pool).await?;
 
     tracing::info!("Database migrations completed");
 

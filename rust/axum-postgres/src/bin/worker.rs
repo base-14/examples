@@ -29,7 +29,7 @@ use telemetry::init_telemetry;
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env();
 
-    let _tracer_provider = init_telemetry(&config)?;
+    let telemetry_guard = init_telemetry(&config)?;
 
     tracing::info!(
         environment = %config.environment,
@@ -70,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
     worker_handle.await?;
 
     tracing::info!("Worker shutdown complete");
+    telemetry_guard.shutdown();
 
     Ok(())
 }
@@ -86,7 +87,7 @@ async fn process_job(job_queue: &JobQueue) -> anyhow::Result<()> {
         job_id = job.id,
         job_kind = %job.kind,
     );
-    span.set_parent(parent_context);
+    let _ = span.set_parent(parent_context);
     let _guard = span.enter();
 
     tracing::info!(job_id = job.id, kind = %job.kind, "Processing job");

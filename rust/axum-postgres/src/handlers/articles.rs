@@ -1,16 +1,17 @@
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::StatusCode,
-    Json,
 };
 
 use crate::{
+    AppState,
     error::AppResult,
     middleware::{AuthUser, OptionalAuthUser},
     models::{
-        ArticleResponse, ArticlesResponse, CreateArticleInput, ListArticlesQuery, UpdateArticleInput,
+        ArticleResponse, ArticlesResponse, CreateArticleInput, ListArticlesQuery,
+        UpdateArticleInput,
     },
-    AppState,
 };
 
 pub async fn create_article(

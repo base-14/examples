@@ -10,7 +10,7 @@ A production-ready Rust web application demonstrating full OpenTelemetry instrum
 | Axum | 0.8.8 | Tower-based async web framework |
 | SQLx | 0.8.6 | Async PostgreSQL with runtime queries |
 | PostgreSQL | 18-alpine | Latest stable |
-| OpenTelemetry | 0.31.0 | Traces, metrics via OTLP |
+| OpenTelemetry | 0.31.0 | Traces, metrics, logs via OTLP |
 | tracing | 0.1.44 | Instrumentation framework |
 | tracing-opentelemetry | 0.32.0 | OTel bridge |
 | jsonwebtoken | 9.3 | JWT authentication |
@@ -20,8 +20,11 @@ A production-ready Rust web application demonstrating full OpenTelemetry instrum
 
 - RESTful API with JWT authentication
 - PostgreSQL-native job queue using `SKIP LOCKED` pattern
-- Full OpenTelemetry instrumentation (traces + metrics)
+- Full OpenTelemetry instrumentation (traces, metrics, logs via OTLP)
 - Custom spans with business metrics
+- HTTP request metrics (count, duration histogram)
+- Request ID generation and propagation
+- Trace ID included in error responses
 - Trace context propagation to background jobs
 - Multi-stage Docker builds
 - Graceful shutdown handling
@@ -66,6 +69,7 @@ docker compose logs -f api
 ```
 rust/axum-postgres/
 ├── Cargo.toml              # Dependencies
+├── Makefile                # Build tasks
 ├── compose.yml             # Docker stack
 ├── Dockerfile              # API multi-stage build
 ├── Dockerfile.worker       # Worker multi-stage build
@@ -108,6 +112,8 @@ Custom business metrics exported via OTLP:
 
 | Metric | Type | Description |
 |--------|------|-------------|
+| `http.requests.total` | Counter | Total HTTP requests |
+| `http.request.duration` | Histogram | HTTP request duration (ms) |
 | `articles.created` | Counter | Total articles created |
 | `articles.updated` | Counter | Total articles updated |
 | `articles.deleted` | Counter | Total articles deleted |
@@ -136,13 +142,17 @@ Custom business metrics exported via OTLP:
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Check code
-cargo check
+# Using Makefile
+make build          # Build release binaries
+make test           # Run all tests
+make lint           # Run clippy
+make format         # Run cargo fmt
+make build-lint     # Build + lint + test
+make clean          # Clean build artifacts
 
-# Run tests
-cargo test
-
-# Build release
+# Or using cargo directly
+cargo check         # Check code
+cargo test          # Run tests
 cargo build --release
 
 # Run locally (requires PostgreSQL)

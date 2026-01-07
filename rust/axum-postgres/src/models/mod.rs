@@ -1,7 +1,7 @@
-mod user;
 mod article;
 mod favorite;
+mod user;
 
-pub use user::*;
 pub use article::*;
 pub use favorite::*;
+pub use user::*;

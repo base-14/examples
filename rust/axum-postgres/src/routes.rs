@@ -1,9 +1,9 @@
 use axum::{
-    routing::{delete, get, post, put},
     Router,
+    routing::{delete, get, post, put},
 };
 
-use crate::{handlers, AppState};
+use crate::{AppState, handlers};
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
@@ -17,7 +17,13 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/articles/{slug}", get(handlers::get_article))
         .route("/api/articles/{slug}", put(handlers::update_article))
         .route("/api/articles/{slug}", delete(handlers::delete_article))
-        .route("/api/articles/{slug}/favorite", post(handlers::favorite_article))
-        .route("/api/articles/{slug}/favorite", delete(handlers::unfavorite_article))
+        .route(
+            "/api/articles/{slug}/favorite",
+            post(handlers::favorite_article),
+        )
+        .route(
+            "/api/articles/{slug}/favorite",
+            delete(handlers::unfavorite_article),
+        )
         .with_state(state)
 }

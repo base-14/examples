@@ -12,8 +12,8 @@ pub mod telemetry;
 
 pub use config::Config;
 
-use sqlx::PgPool;
 use services::{ArticleService, AuthService};
+use sqlx::PgPool;
 
 #[derive(Clone)]
 pub struct AppState {

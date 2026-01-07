@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
-use tracing::{instrument, Span};
+use tracing::{Span, instrument};
 
 use crate::telemetry::{JOBS_COMPLETED, JOBS_ENQUEUED, JOBS_FAILED};
 
@@ -26,11 +26,7 @@ impl JobQueue {
     }
 
     #[instrument(name = "job.enqueue", skip(self, payload))]
-    pub async fn enqueue<T: Serialize>(
-        &self,
-        kind: &str,
-        payload: T,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn enqueue<T: Serialize>(&self, kind: &str, payload: T) -> Result<i64, sqlx::Error> {
         let trace_context = self.capture_trace_context();
         let payload_json = serde_json::to_value(&payload).unwrap_or(serde_json::Value::Null);
 
@@ -140,8 +136,8 @@ impl JobQueue {
     }
 
     fn capture_trace_context(&self) -> Option<serde_json::Value> {
-        use tracing_opentelemetry::OpenTelemetrySpanExt;
         use opentelemetry::trace::TraceContextExt;
+        use tracing_opentelemetry::OpenTelemetrySpanExt;
 
         let span = Span::current();
         let context = span.context();

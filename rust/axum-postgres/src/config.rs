@@ -21,10 +21,8 @@ impl Config {
                 .parse()
                 .expect("PORT must be a number"),
             environment: env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
-            database_url: env::var("DATABASE_URL")
-                .expect("DATABASE_URL must be set"),
-            jwt_secret: env::var("JWT_SECRET")
-                .expect("JWT_SECRET must be set"),
+            database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
+            jwt_secret: env::var("JWT_SECRET").expect("JWT_SECRET must be set"),
             jwt_expires_in_hours: env::var("JWT_EXPIRES_IN_HOURS")
                 .unwrap_or_else(|_| "168".to_string())
                 .parse()

@@ -4,11 +4,13 @@ use crate::{
     error::{AppError, AppResult},
     jobs::JobQueue,
     models::{
-        ArticleDto, ArticleResponse, ArticlesResponse, CreateArticleInput,
-        ListArticlesQuery, UpdateArticleInput,
+        ArticleDto, ArticleResponse, ArticlesResponse, CreateArticleInput, ListArticlesQuery,
+        UpdateArticleInput,
     },
     repository::{ArticleRepository, FavoriteRepository},
-    telemetry::{ARTICLES_CREATED, ARTICLES_DELETED, ARTICLES_UPDATED, FAVORITES_ADDED, FAVORITES_REMOVED},
+    telemetry::{
+        ARTICLES_CREATED, ARTICLES_DELETED, ARTICLES_UPDATED, FAVORITES_ADDED, FAVORITES_REMOVED,
+    },
 };
 
 #[derive(Clone)]
@@ -39,7 +41,11 @@ impl ArticleService {
     ) -> AppResult<ArticleResponse> {
         let slug = self.generate_slug(&input.title);
         let final_slug = if self.article_repo.exists_by_slug(&slug).await? {
-            format!("{}-{}", slug, time::OffsetDateTime::now_utc().unix_timestamp())
+            format!(
+                "{}-{}",
+                slug,
+                time::OffsetDateTime::now_utc().unix_timestamp()
+            )
         } else {
             slug
         };
@@ -55,11 +61,13 @@ impl ArticleService {
             )
             .await?;
 
-        let article_with_author = self
-            .article_repo
-            .find_by_id(article.id)
-            .await?
-            .ok_or(AppError::Internal("Failed to fetch created article".to_string()))?;
+        let article_with_author =
+            self.article_repo
+                .find_by_id(article.id)
+                .await?
+                .ok_or(AppError::Internal(
+                    "Failed to fetch created article".to_string(),
+                ))?;
 
         if let Err(e) = self
             .job_queue
@@ -108,15 +116,14 @@ impl ArticleService {
             .list(query.limit, query.offset, query.author.as_deref())
             .await?;
 
-        let total = self
-            .article_repo
-            .count(query.author.as_deref())
-            .await?;
+        let total = self.article_repo.count(query.author.as_deref()).await?;
 
         let article_ids: Vec<i32> = articles.iter().map(|a| a.id).collect();
 
         let favorited_ids = if let Some(uid) = user_id {
-            self.favorite_repo.is_favorited_batch(uid, &article_ids).await?
+            self.favorite_repo
+                .is_favorited_batch(uid, &article_ids)
+                .await?
         } else {
             vec![]
         };
@@ -164,11 +171,13 @@ impl ArticleService {
             )
             .await?;
 
-        let updated_article = self
-            .article_repo
-            .find_by_id(article.id)
-            .await?
-            .ok_or(AppError::Internal("Failed to fetch updated article".to_string()))?;
+        let updated_article =
+            self.article_repo
+                .find_by_id(article.id)
+                .await?
+                .ok_or(AppError::Internal(
+                    "Failed to fetch updated article".to_string(),
+                ))?;
 
         let favorited = self.favorite_repo.exists(user_id, article.id).await?;
 
@@ -258,14 +267,72 @@ impl ArticleService {
     }
 
     fn generate_slug(&self, title: &str) -> String {
-        title
-            .to_lowercase()
-            .chars()
-            .map(|c| if c.is_alphanumeric() { c } else { '-' })
-            .collect::<String>()
-            .split('-')
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>()
-            .join("-")
+        generate_slug(title)
+    }
+}
+
+pub fn generate_slug(title: &str) -> String {
+    title
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_slug_simple() {
+        assert_eq!(generate_slug("Hello World"), "hello-world");
+    }
+
+    #[test]
+    fn test_generate_slug_with_special_chars() {
+        assert_eq!(
+            generate_slug("Hello, World! How are you?"),
+            "hello-world-how-are-you"
+        );
+    }
+
+    #[test]
+    fn test_generate_slug_with_numbers() {
+        assert_eq!(
+            generate_slug("Top 10 Tips for 2024"),
+            "top-10-tips-for-2024"
+        );
+    }
+
+    #[test]
+    fn test_generate_slug_with_multiple_spaces() {
+        assert_eq!(
+            generate_slug("Multiple   Spaces   Here"),
+            "multiple-spaces-here"
+        );
+    }
+
+    #[test]
+    fn test_generate_slug_preserves_lowercase() {
+        assert_eq!(generate_slug("UPPERCASE TITLE"), "uppercase-title");
+    }
+
+    #[test]
+    fn test_generate_slug_handles_leading_trailing_special_chars() {
+        assert_eq!(generate_slug("---Hello World---"), "hello-world");
+    }
+
+    #[test]
+    fn test_generate_slug_empty_title() {
+        assert_eq!(generate_slug(""), "");
+    }
+
+    #[test]
+    fn test_generate_slug_only_special_chars() {
+        assert_eq!(generate_slug("!@#$%^&*()"), "");
     }
 }

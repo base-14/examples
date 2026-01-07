@@ -1,11 +1,11 @@
-use axum::{extract::State, http::StatusCode, Json};
-use serde_json::{json, Value};
+use axum::{Json, extract::State, http::StatusCode};
+use serde_json::{Value, json};
 
 use crate::{
+    AppState,
     error::AppResult,
     middleware::AuthUser,
     models::{LoginInput, ProfileResponse, RegisterInput, UserResponse},
-    AppState,
 };
 
 pub async fn register(

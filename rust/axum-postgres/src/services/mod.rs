@@ -1,5 +1,5 @@
-mod auth;
 mod article;
+mod auth;
 
-pub use auth::AuthService;
 pub use article::ArticleService;
+pub use auth::AuthService;

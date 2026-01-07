@@ -1,10 +1,10 @@
-mod health;
-mod auth;
 mod articles;
+mod auth;
+mod health;
 
-pub use health::health_check;
-pub use auth::{register, login, get_user, logout};
 pub use articles::{
-    create_article, get_article, list_articles, update_article, delete_article,
-    favorite_article, unfavorite_article,
+    create_article, delete_article, favorite_article, get_article, list_articles,
+    unfavorite_article, update_article,
 };
+pub use auth::{get_user, login, logout, register};
+pub use health::health_check;

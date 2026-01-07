@@ -1,5 +1,5 @@
 mod init;
 mod metrics;
 
-pub use init::init_telemetry;
+pub use init::{TelemetryGuard, init_telemetry};
 pub use metrics::*;

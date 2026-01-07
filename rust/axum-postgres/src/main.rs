@@ -2,11 +2,13 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use axum::http::{Request, Response, StatusCode};
+use opentelemetry::KeyValue;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tower_http::{
     cors::{Any, CorsLayer},
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     timeout::TimeoutLayer,
     trace::{MakeSpan, OnResponse, TraceLayer},
 };
@@ -29,7 +31,7 @@ use database::create_pool;
 use jobs::JobQueue;
 use repository::{ArticleRepository, FavoriteRepository, UserRepository};
 use services::{ArticleService, AuthService};
-use telemetry::init_telemetry;
+use telemetry::{HTTP_REQUEST_DURATION, HTTP_REQUESTS_TOTAL, init_telemetry};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -37,6 +39,8 @@ pub struct AppState {
     pub auth_service: AuthService,
     pub article_service: ArticleService,
 }
+
+const X_REQUEST_ID: &str = "x-request-id";
 
 #[derive(Clone)]
 struct HttpMakeSpan;
@@ -46,6 +50,12 @@ impl<B> MakeSpan<B> for HttpMakeSpan {
         let method = request.method().as_str();
         let uri = request.uri();
         let path = uri.path();
+
+        let request_id = request
+            .headers()
+            .get(X_REQUEST_ID)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
 
         tracing::info_span!(
             "HTTP request",
@@ -59,6 +69,7 @@ impl<B> MakeSpan<B> for HttpMakeSpan {
                 .get("user-agent")
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or(""),
+            http.request_id = %request_id,
             http.response.status_code = tracing::field::Empty,
             otel.status_code = tracing::field::Empty,
         )
@@ -70,19 +81,45 @@ struct HttpOnResponse;
 
 impl<B> OnResponse<B> for HttpOnResponse {
     fn on_response(self, response: &Response<B>, latency: Duration, span: &Span) {
-        let status = response.status().as_u16() as i64;
-        span.record("http.response.status_code", status);
+        let status = response.status().as_u16();
+        let method = span
+            .metadata()
+            .and_then(|m| m.fields().field("http.method"))
+            .map(|_| "unknown")
+            .unwrap_or("unknown");
 
-        // Set OTel status code based on HTTP status
+        span.record("http.response.status_code", status as i64);
+
         if status >= 500 {
             span.record("otel.status_code", "ERROR");
         } else {
             span.record("otel.status_code", "OK");
         }
 
+        let latency_ms = latency.as_secs_f64() * 1000.0;
+        let status_class = format!("{}xx", status / 100);
+
+        HTTP_REQUESTS_TOTAL.add(
+            1,
+            &[
+                KeyValue::new("http.method", method.to_string()),
+                KeyValue::new("http.status_code", status.to_string()),
+                KeyValue::new("http.status_class", status_class.clone()),
+            ],
+        );
+
+        HTTP_REQUEST_DURATION.record(
+            latency_ms,
+            &[
+                KeyValue::new("http.method", method.to_string()),
+                KeyValue::new("http.status_code", status.to_string()),
+                KeyValue::new("http.status_class", status_class),
+            ],
+        );
+
         tracing::info!(
             http.response.status_code = status,
-            latency_ms = latency.as_millis() as i64,
+            latency_ms = latency_ms,
             "finished processing request"
         );
     }
@@ -92,7 +129,7 @@ impl<B> OnResponse<B> for HttpOnResponse {
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env();
 
-    let _tracer_provider = init_telemetry(&config)?;
+    let telemetry_guard = init_telemetry(&config)?;
 
     tracing::info!(
         port = config.port,
@@ -117,12 +154,20 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let app = routes::create_router(state)
+        .layer(PropagateRequestIdLayer::new(X_REQUEST_ID.parse().unwrap()))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(HttpMakeSpan)
                 .on_response(HttpOnResponse),
         )
-        .layer(TimeoutLayer::with_status_code(StatusCode::REQUEST_TIMEOUT, Duration::from_secs(30)))
+        .layer(SetRequestIdLayer::new(
+            X_REQUEST_ID.parse().unwrap(),
+            MakeRequestUuid,
+        ))
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(30),
+        ))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -140,6 +185,7 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     tracing::info!("Server shutdown complete");
+    telemetry_guard.shutdown();
 
     Ok(())
 }

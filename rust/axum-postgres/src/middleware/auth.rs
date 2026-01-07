@@ -3,14 +3,17 @@ use axum::{
     http::{header::AUTHORIZATION, request::Parts},
 };
 
-use crate::{error::AppError, AppState};
+use crate::{AppState, error::AppError};
 
 pub struct AuthUser(pub i32);
 
 impl FromRequestParts<AppState> for AuthUser {
     type Rejection = AppError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let token = extract_token(parts)?;
         let user_id = state.auth_service.validate_token(&token)?;
         Ok(AuthUser(user_id))
@@ -22,14 +25,15 @@ pub struct OptionalAuthUser(pub Option<i32>);
 impl FromRequestParts<AppState> for OptionalAuthUser {
     type Rejection = AppError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         match extract_token(parts) {
-            Ok(token) => {
-                match state.auth_service.validate_token(&token) {
-                    Ok(user_id) => Ok(OptionalAuthUser(Some(user_id))),
-                    Err(_) => Ok(OptionalAuthUser(None)),
-                }
-            }
+            Ok(token) => match state.auth_service.validate_token(&token) {
+                Ok(user_id) => Ok(OptionalAuthUser(Some(user_id))),
+                Err(_) => Ok(OptionalAuthUser(None)),
+            },
             Err(_) => Ok(OptionalAuthUser(None)),
         }
     }
