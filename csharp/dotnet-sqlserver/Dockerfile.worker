@@ -1,0 +1,28 @@
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy solution and project files
+COPY DotnetSqlServer.sln .
+COPY src/Api/Api.csproj src/Api/
+COPY src/Worker/Worker.csproj src/Worker/
+
+# Restore dependencies
+RUN dotnet restore src/Worker/Worker.csproj
+
+# Copy source code
+COPY src/Api/ src/Api/
+COPY src/Worker/ src/Worker/
+
+# Build and publish
+WORKDIR /src/src/Worker
+RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+
+# Copy published output
+COPY --from=build /app/publish .
+
+ENTRYPOINT ["dotnet", "Worker.dll"]
