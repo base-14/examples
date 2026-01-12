@@ -10,7 +10,7 @@ export const errorHandler: ErrorRequestHandler = (
   err: ApiError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
   const span = trace.getActiveSpan();
   const spanContext = span?.spanContext();

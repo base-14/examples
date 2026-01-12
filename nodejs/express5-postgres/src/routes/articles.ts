@@ -136,7 +136,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 router.get('/:slug', optionalAuth, async (req, res) => {
-  const slug = req.params.slug;
+  const slug = req.params.slug as string;
   if (!slug) {
     return errorResponse('Slug is required', 400, res);
   }
@@ -153,7 +153,7 @@ router.get('/:slug', optionalAuth, async (req, res) => {
 });
 
 router.put('/:slug', requireAuth, async (req, res) => {
-  const slug = req.params.slug;
+  const slug = req.params.slug as string;
   if (!slug) {
     return errorResponse('Slug is required', 400, res);
   }
@@ -192,7 +192,7 @@ router.put('/:slug', requireAuth, async (req, res) => {
 });
 
 router.delete('/:slug', requireAuth, async (req, res) => {
-  const slug = req.params.slug;
+  const slug = req.params.slug as string;
   if (!slug) {
     return errorResponse('Slug is required', 400, res);
   }
@@ -215,7 +215,7 @@ router.delete('/:slug', requireAuth, async (req, res) => {
 });
 
 router.post('/:slug/favorite', requireAuth, async (req, res) => {
-  const slug = req.params.slug;
+  const slug = req.params.slug as string;
   if (!slug) {
     return errorResponse('Slug is required', 400, res);
   }
@@ -233,7 +233,7 @@ router.post('/:slug/favorite', requireAuth, async (req, res) => {
 });
 
 router.delete('/:slug/favorite', requireAuth, async (req, res) => {
-  const slug = req.params.slug;
+  const slug = req.params.slug as string;
   if (!slug) {
     return errorResponse('Slug is required', 400, res);
   }

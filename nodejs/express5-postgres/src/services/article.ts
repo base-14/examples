@@ -1,7 +1,7 @@
 import { eq, sql, ilike, desc, and } from 'drizzle-orm';
 import { trace, SpanStatusCode, metrics } from '@opentelemetry/api';
 import { db } from '../db/index.js';
-import { articles, favorites, users, type Article, type NewArticle } from '../db/schema.js';
+import { articles, favorites, type Article } from '../db/schema.js';
 import { logger } from '../logger.js';
 import type { PaginationParams, PaginatedResponse } from '../types/index.js';
 

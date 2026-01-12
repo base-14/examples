@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { trace, SpanStatusCode, metrics } from '@opentelemetry/api';
 import { db } from '../db/index.js';
-import { users, type User, type NewUser } from '../db/schema.js';
+import { users, type User } from '../db/schema.js';
 import { logger } from '../logger.js';
 import type { JwtPayload } from '../types/index.js';
 

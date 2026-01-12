@@ -12,7 +12,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Copy the fat jar from the build stage
-COPY --from=builder /app/build/libs/java-spring-boot-otel-0.0.1-SNAPSHOT.jar /app/app.jar
+COPY --from=builder /app/build/libs/java-spring-boot-otel-0.0.2-SNAPSHOT.jar /app/app.jar
 
 # Expose port if needed
 EXPOSE 8080

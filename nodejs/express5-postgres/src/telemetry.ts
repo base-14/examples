@@ -10,7 +10,7 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import {
@@ -22,7 +22,7 @@ const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhos
 const serviceName = process.env.OTEL_SERVICE_NAME || 'express5-postgres-app';
 const serviceVersion = process.env.OTEL_SERVICE_VERSION || '1.0.0';
 
-const resource = new Resource({
+const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
   [ATTR_SERVICE_VERSION]: serviceVersion,
 });

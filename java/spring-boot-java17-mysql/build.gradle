@@ -2,12 +2,12 @@ import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.7'
+    id 'org.springframework.boot' version '3.5.8'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.base14.demo'
-version = '0.0.1-SNAPSHOT'
+version = '0.0.2-SNAPSHOT'
 
 java {
     toolchain {
@@ -24,7 +24,7 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.21.0")
+        mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.22.0")
     }
 }
 
@@ -40,7 +40,7 @@ dependencies {
     // OpenTelemetry - Automatic Instrumentation
     // Includes: HTTP, JDBC, Logback appender, and more
     implementation platform(SpringBootPlugin.BOM_COORDINATES)
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.21.0"))
+    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.22.0"))
     implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
     implementation('io.micrometer:micrometer-tracing-bridge-otel')
 
