@@ -3,7 +3,7 @@ module go-echo-postgres
 go 1.24.0
 
 require (
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/hibiken/asynq v0.25.1
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/rs/zerolog v1.33.0
