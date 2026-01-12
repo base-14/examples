@@ -1,0 +1,225 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      ENVIRONMENT: "development"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/orders?sslmode=disable"
+      TEMPORAL_HOST: "temporal:7233"
+      TEMPORAL_TASK_QUEUE: "order-fulfillment"
+      JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
+      JWT_EXPIRES_IN: "168h"
+      OTEL_SERVICE_NAME: "go-temporal-postgres-api"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      ENVIRONMENT: "development"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/orders?sslmode=disable"
+      TEMPORAL_HOST: "temporal:7233"
+      TEMPORAL_TASK_QUEUE: "order-fulfillment"
+      OTEL_SERVICE_NAME: "go-temporal-postgres-worker"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orders
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=postgres
+      - POSTGRES_SEEDS=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  temporal-ui:
+    image: temporalio/ui:2.33.0
+    ports:
+      - "8088:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      - temporal
+
+  fraud-worker:
+    build:
+      context: .
+      dockerfile: services/fraud-worker/Dockerfile
+    environment:
+      ENVIRONMENT: "development"
+      TEMPORAL_HOST: "temporal:7233"
+      TASK_QUEUE: "fraud-assessment-queue"
+      OTEL_SERVICE_NAME: "fraud-worker"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      FRAUD_FAILURE_RATE: "0.01"
+      FRAUD_LATENCY_MIN_MS: "10"
+      FRAUD_LATENCY_MAX_MS: "100"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  inventory-worker:
+    build:
+      context: .
+      dockerfile: services/inventory-worker/Dockerfile
+    environment:
+      ENVIRONMENT: "development"
+      TEMPORAL_HOST: "temporal:7233"
+      TASK_QUEUE: "inventory-queue"
+      OTEL_SERVICE_NAME: "inventory-worker"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      INVENTORY_FAILURE_RATE: "0.01"
+      INVENTORY_OUT_OF_STOCK_FAILURE_RATE: "0.05"
+      INVENTORY_LATENCY_MIN_MS: "5"
+      INVENTORY_LATENCY_MAX_MS: "50"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  payment-worker:
+    build:
+      context: .
+      dockerfile: services/payment-worker/Dockerfile
+    environment:
+      ENVIRONMENT: "development"
+      TEMPORAL_HOST: "temporal:7233"
+      TASK_QUEUE: "payment-queue"
+      OTEL_SERVICE_NAME: "payment-worker"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      PAYMENT_FAILURE_RATE: "0.02"
+      PAYMENT_DECLINE_FAILURE_RATE: "0.05"
+      PAYMENT_LATENCY_MIN_MS: "50"
+      PAYMENT_LATENCY_MAX_MS: "200"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  shipping-worker:
+    build:
+      context: .
+      dockerfile: services/shipping-worker/Dockerfile
+    environment:
+      ENVIRONMENT: "development"
+      TEMPORAL_HOST: "temporal:7233"
+      TASK_QUEUE: "shipping-queue"
+      OTEL_SERVICE_NAME: "shipping-worker"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      SHIPPING_FAILURE_RATE: "0.02"
+      SHIPPING_LATENCY_MIN_MS: "20"
+      SHIPPING_LATENCY_MAX_MS: "100"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  notification-worker:
+    build:
+      context: .
+      dockerfile: services/notification-worker/Dockerfile
+    environment:
+      ENVIRONMENT: "development"
+      TEMPORAL_HOST: "temporal:7233"
+      TASK_QUEUE: "notification-queue"
+      OTEL_SERVICE_NAME: "notification-worker"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      NOTIFICATION_FAILURE_RATE: "0.01"
+      NOTIFICATION_LATENCY_MIN_MS: "5"
+      NOTIFICATION_LATENCY_MAX_MS: "30"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  loadgen:
+    build:
+      context: .
+      dockerfile: Dockerfile.loadgen
+    environment:
+      API_URL: "http://api:8080/api/orders"
+    profiles:
+      - tools
+    depends_on:
+      api:
+        condition: service_healthy
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.142.0
+    command: ["--config=/etc/otel-config.yaml"]
+    volumes:
+      - ./config/otel-config.yaml:/etc/otel-config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+
+volumes:
+  postgres_data:
