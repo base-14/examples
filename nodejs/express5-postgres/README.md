@@ -513,6 +513,3 @@ docker compose up --build app
 - [Socket.io Documentation](https://socket.io/docs/)
 - [base14 Scout Documentation](https://docs.base14.io/)
 
-## License
-
-MIT

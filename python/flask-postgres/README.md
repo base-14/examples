@@ -587,6 +587,3 @@ After starting the application and generating some traffic:
 - [Celery Documentation](https://docs.celeryq.dev/)
 - [base14 Scout Documentation](https://docs.base14.io)
 
-## License
-
-MIT

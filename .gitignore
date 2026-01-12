@@ -1,4 +1,9 @@
+# macOS
 .DS_Store
+**/.DS_Store
+
+# Go binaries
+go/go-temporal-postgres/loadgen
 
 # python ignores
 .idea

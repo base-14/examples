@@ -28,6 +28,7 @@ Production-ready examples for integrating OpenTelemetry with
 | --------- | ----- | ------- | -------- |
 | **Echo** | Echo 4.13 + GORM + PostgreSQL 18 | [echo-postgres](./go/echo-postgres) | Asynq jobs, GORM service pattern |
 | **Fiber** | Fiber 2.52 + sqlx + PostgreSQL 18 | [fiber-postgres](./go/fiber-postgres) | River jobs (PostgreSQL-native), repository pattern |
+| **Echo + Temporal** | Echo 4.15 + Temporal + PostgreSQL 18 | [go-temporal-postgres](./go/go-temporal-postgres) | Workflow orchestration, microservice workers, simulation framework |
 | **Chi** | Chi + In-memory storage | [chi-inmemory](./go/chi-inmemory) | Custom instrumentation |
 | **Gin (Legacy)** | Gin 1.9.1 + PostgreSQL 14 | [go119-gin191-postgres](./go/go119-gin191-postgres) | Legacy Go 1.19 support |
 
@@ -152,6 +153,11 @@ Demonstrates GORM ORM with service layer pattern, Asynq job queue, and type-safe
 
 Shows repository pattern with raw SQL via sqlx, River PostgreSQL-native job queue (no Redis), and fine-grained SQL control for performance optimization.
 [View README →](./go/fiber-postgres/README.md)
+
+### Go Temporal (Workflow Orchestration)
+
+Demonstrates Temporal workflow orchestration with microservice workers for order fulfillment. Features fraud detection, inventory management, payment processing, and configurable failure simulation for testing.
+[View README →](./go/go-temporal-postgres/README.md)
 
 ### Quarkus
 

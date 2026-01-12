@@ -569,6 +569,3 @@ After starting the application and generating some traffic:
 - [OpenTelemetry Go](https://opentelemetry.io/docs/languages/go/)
 - [base14 Scout Documentation](https://docs.base14.io)
 
-## License
-
-MIT

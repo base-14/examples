@@ -735,6 +735,3 @@ docker compose up --build app
 - [base14 Scout Documentation](https://docs.base14.io/)
 - [TypeScript Documentation](https://www.typescriptlang.org/)
 
-## License
-
-MIT

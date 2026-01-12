@@ -557,6 +557,3 @@ After starting the application and generating some traffic:
 - [Quarkus Native Compilation](https://quarkus.io/guides/building-native-image)
 - [base14 Scout Documentation](https://docs.base14.io)
 
-## License
-
-MIT

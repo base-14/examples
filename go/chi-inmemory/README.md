@@ -454,6 +454,3 @@ operation_duration_seconds_bucket{operation="park",le="0.1"} 5
 - [Go OpenTelemetry SDK](https://pkg.go.dev/go.opentelemetry.io/otel)
 - [OTLP Protocol](https://opentelemetry.io/docs/specs/otlp/)
 
-## License
-
-This example is open-source software provided for educational purposes.
