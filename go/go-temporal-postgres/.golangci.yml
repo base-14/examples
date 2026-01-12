@@ -1,0 +1,49 @@
+version: "2"
+
+run:
+  timeout: 5m
+  go: "1.25"
+
+linters:
+  default: standard
+  enable:
+    # Code Quality
+    - gocritic
+    - misspell
+    - prealloc
+    - unconvert
+
+    # Error Handling
+    - errorlint
+
+    # Security
+    - gosec
+
+    # Context Usage
+    - noctx
+
+formatters:
+  enable:
+    - goimports
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+
+  goimports:
+    local-prefixes: github.com/base-14/examples
+
+  errorlint:
+    errorf: true
+    asserts: true
+    comparison: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
