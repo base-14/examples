@@ -11,6 +11,7 @@ Production-ready examples for integrating OpenTelemetry with
 | --------- | ----- | ------- | -------- |
 | **Express 5** | Express 5 + TypeScript + PostgreSQL 18 | [express5-postgres](./nodejs/express5-postgres) | BullMQ jobs, WebSockets, auto-instrumentation |
 | **NestJS** | NestJS 11 + TypeScript + PostgreSQL 18 | [nestjs-postgres](./nodejs/nestjs-postgres) | Enterprise architecture, BullMQ, WebSockets |
+| **Next.js** | Next.js 16 + TypeScript + MongoDB 8 | [nextjs-api-mongodb](./nodejs/nextjs-api-mongodb) | BullMQ jobs, Mongoose, auto-instrumentation |
 | **Express (Legacy)** | Express + TypeScript + MongoDB | [express-typescript-mongodb](./nodejs/express-typescript-mongodb) | MongoDB integration, Redis |
 
 ### Python
@@ -136,6 +137,13 @@ Enterprise-grade architecture with dependency injection, background jobs, and We
 Full OpenTelemetry integration including queue depth metrics and distributed tracing.
 
 [View README →](./nodejs/nestjs-postgres/README.md)
+
+### Next.js
+
+Modern Next.js 16 REST API with App Router, MongoDB, and BullMQ background jobs.
+Demonstrates auto-instrumentation with Turbopack and trace propagation across HTTP → Queue → Worker flows.
+
+[View README →](./nodejs/nextjs-api-mongodb/README.md)
 
 ### Django
 
