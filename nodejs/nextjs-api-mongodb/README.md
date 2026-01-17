@@ -112,7 +112,7 @@ npm run test:api
 
 ## Project Structure
 
-```
+```plain
 ├── src/
 │   ├── app/
 │   │   └── api/           # API routes

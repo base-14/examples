@@ -164,7 +164,9 @@ Shows repository pattern with raw SQL via sqlx, River PostgreSQL-native job queu
 
 ### Go Temporal (Workflow Orchestration)
 
-Demonstrates Temporal workflow orchestration with microservice workers for order fulfillment. Features fraud detection, inventory management, payment processing, and configurable failure simulation for testing.
+Demonstrates Temporal workflow orchestration with microservice workers for order fulfillment.
+Features fraud detection, inventory management, payment processing, and configurable failure simulation for testing.
+
 [View README →](./go/go-temporal-postgres/README.md)
 
 ### Quarkus
