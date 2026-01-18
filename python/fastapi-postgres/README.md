@@ -11,10 +11,10 @@ JWT authentication, and PostgreSQL integration with base14 Scout.
 | Component | Version | EOL Status | Current Version |
 | --------- | ------- | ---------- | --------------- |
 | **Python** | 3.13 | Active | 3.13.9 |
-| **FastAPI** | 0.123.10 | Stable | 0.123.10 |
+| **FastAPI** | 0.128.0 | Stable | 0.128.0 |
 | **PostgreSQL** | 18 | Active | 18.1 |
-| **OpenTelemetry** | 1.39.0 | N/A | 1.39.0 |
-| **SQLAlchemy** | 2.0.44 | Stable | 2.0.44 |
+| **OpenTelemetry** | 1.39.1 | N/A | 1.39.1 |
+| **SQLAlchemy** | 2.0.45 | Stable | 2.0.45 |
 
 **Why This Matters:** Modern Python stack with FastAPI's high performance
 and automatic OpenTelemetry instrumentation for comprehensive observability.
@@ -46,14 +46,14 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 | Component | Package | Version |
 | --------- | ------- | ------- |
 | Python | python | 3.13 |
-| FastAPI | fastapi[all] | 0.123.10 |
+| FastAPI | fastapi[all] | 0.128.0 |
 | PostgreSQL Driver | psycopg2-binary | 2.9.10 |
-| SQLAlchemy | SQLAlchemy | 2.0.44 |
+| SQLAlchemy | SQLAlchemy | 2.0.45 |
 | Pydantic | pydantic | 2.12.5 |
 | Authentication | PyJWT, passlib, bcrypt | 2.10.1, 1.7.4, 4.2.1 |
-| OTel SDK | opentelemetry-sdk | 1.39.0 |
+| OTel SDK | opentelemetry-sdk | 1.39.1 |
 | OTel Instrumentation | opentelemetry-instrumentation-fastapi | 0.60b0 |
-| OTel Exporter | opentelemetry-exporter-otlp | 1.39.0 |
+| OTel Exporter | opentelemetry-exporter-otlp | 1.39.1 |
 | Database Migrations | alembic | 1.14.0 |
 
 ## Prerequisites

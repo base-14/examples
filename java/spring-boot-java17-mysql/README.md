@@ -1,6 +1,6 @@
 # Spring Boot with OpenTelemetry
 
-Spring Boot 3.5.7 application with OpenTelemetry auto-instrumentation for
+Spring Boot 3.5.9 application with OpenTelemetry auto-instrumentation for
 traces, metrics, and logs.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
@@ -217,8 +217,8 @@ logging.level.io.opentelemetry=DEBUG
 
 | Component | Version |
 | --------- | ------- |
-| Spring Boot | 3.5.7 |
-| OpenTelemetry Instrumentation | 2.21.0 |
+| Spring Boot | 3.5.9 |
+| OpenTelemetry Instrumentation | 2.23.0 |
 | OpenTelemetry SDK | 1.55.0 |
 | MySQL | 9.1 |
 | Gradle | 9.2.1 |

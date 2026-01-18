@@ -50,7 +50,7 @@ Microservices architecture with each domain running as an independent Temporal w
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25+
 - Docker and Docker Compose
 
 ### Run with Docker Compose
@@ -253,7 +253,7 @@ Import the pre-built Grafana dashboards into Scout (uses ClickHouse datasource):
 | Component | Version |
 |-----------|---------|
 | Go | 1.25 |
-| Temporal SDK | 1.38.0 |
+| Temporal SDK | 1.39.0 |
 | Echo | 4.15.0 |
 | GORM | 1.31.1 |
 | PostgreSQL | 18 |

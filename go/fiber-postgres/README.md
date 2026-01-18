@@ -13,7 +13,7 @@ River job queue (PostgreSQL-native), and comprehensive OpenTelemetry instrumenta
 | **Fiber** | 2.52 | Active | Express-inspired web framework |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 (database + job queue) |
 | **sqlx** | 1.4 | Active | Lightweight SQL toolkit |
-| **River** | 0.14 | Active | PostgreSQL-native job queue |
+| **River** | 0.30 | Active | PostgreSQL-native job queue |
 | **slog** | stdlib | N/A | Go 1.21+ structured logging |
 | **OpenTelemetry** | 1.39 | N/A | 1.39.0 |
 

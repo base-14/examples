@@ -1,6 +1,6 @@
 # Spring Boot with OpenTelemetry
 
-Spring Boot 3.5.8 application with OpenTelemetry instrumentation using the
+Spring Boot 3.5.9 application with OpenTelemetry instrumentation using the
 **OpenTelemetry SDK Integration** approach.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
@@ -235,8 +235,8 @@ logging.level.io.opentelemetry=DEBUG
 
 | Component | Version |
 | --------- | ------- |
-| Spring Boot | 3.5.8 |
-| OpenTelemetry Instrumentation | 2.22.0 |
+| Spring Boot | 3.5.9 |
+| OpenTelemetry Instrumentation | 2.23.0 |
 | OpenTelemetry SDK | 1.55.0 |
 | PostgreSQL | 17.7 |
 | OTel Collector | 0.140.0 |

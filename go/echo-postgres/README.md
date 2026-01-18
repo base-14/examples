@@ -9,13 +9,13 @@ A production-ready Go REST API demonstrating Echo framework with GORM ORM, Asynq
 | Component | Version | EOL Status | Current Version |
 |-----------|---------|------------|-----------------|
 | **Go** | 1.24 | Feb 2026 | Latest stable |
-| **Echo** | 4.13 | Active | Latest v4 |
-| **GORM** | 1.25 | Active | ORM with auto-migrations |
+| **Echo** | 4.15 | Active | Latest v4 |
+| **GORM** | 1.31 | Active | ORM with auto-migrations |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
 | **Redis** | 8 | Active | 8.0 |
 | **Asynq** | 0.25 | Active | Background job processing |
-| **OpenTelemetry** | 1.33 | N/A | 1.33.0 |
-| **zerolog** | 1.33 | Active | Structured logging |
+| **OpenTelemetry** | 1.39 | N/A | 1.39.0 |
+| **zerolog** | 1.34 | Active | Structured logging |
 
 **Why This Stack**: Demonstrates Go's performance with Echo framework, GORM ORM for type-safe database operations,
 Asynq for reliable background jobs, and comprehensive OpenTelemetry instrumentation.

@@ -1,6 +1,6 @@
 # Spring Boot with OpenTelemetry - Java Agent Approach
 
-Spring Boot 3.5.8 application with OpenTelemetry instrumentation using the
+Spring Boot 3.5.9 application with OpenTelemetry instrumentation using the
 **Java Agent** approach.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives#java-agent-approach)
@@ -312,8 +312,8 @@ environment:
 
 | Component | Version |
 | --------- | ------- |
-| Spring Boot | 3.5.8 |
-| OpenTelemetry Java Agent | 2.22.0 |
+| Spring Boot | 3.5.9 |
+| OpenTelemetry Java Agent | 2.23.0 |
 | MongoDB | 7.0 |
 | OTel Collector | 0.140.0 |
 | Gradle | 9.2.1 |
