@@ -19,7 +19,7 @@ func Connect(ctx context.Context, databaseURL string) (*sqlx.DB, error) {
 		return nil, err
 	}
 
-	if err := otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
+	if _, err := otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
 		semconv.DBSystemPostgreSQL,
 	)); err != nil {
 		return nil, err
