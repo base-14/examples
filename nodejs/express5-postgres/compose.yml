@@ -122,6 +122,7 @@ services:
       - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
       - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
       - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
     networks:
       - app-network
 
