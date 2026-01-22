@@ -1,0 +1,179 @@
+[project]
+name = "ai-sales-intelligence"
+version = "2.0.0"
+description = "AI-powered sales intelligence agent with unified observability via Base14 Scout"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.14"
+authors = [{ name = "base14", email = "hello@base14.io" }]
+keywords = ["langgraph", "claude", "sales", "opentelemetry", "fastapi", "ai-agents", "base14-scout"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.40.0",
+
+    # Validation & settings
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.45",
+    "asyncpg>=0.31.0",
+
+    # LLM & Agents (provider-agnostic - configure via LLM_PROVIDER env var)
+    "langgraph>=1.0.6",
+    "anthropic>=0.76.0",
+    "google-genai>=1.59.0",
+    "openai>=1.60.0",
+
+    # Utilities
+    "tenacity>=9.1.2",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.21",
+    "pyyaml>=6.0.0",
+
+    # Observability (OpenTelemetry)
+    "opentelemetry-sdk>=1.39.1",
+    "opentelemetry-api>=1.39.1",
+    "opentelemetry-exporter-otlp-proto-http>=1.39.1",
+    "opentelemetry-instrumentation-fastapi>=0.60b1",
+    "opentelemetry-instrumentation-sqlalchemy>=0.60b1",
+    "opentelemetry-instrumentation-httpx>=0.60b1",
+    "opentelemetry-instrumentation-logging>=0.60b1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=1.0.0",
+    "ruff>=0.14.0",
+    "mypy>=1.19.0",
+    "aiosqlite>=0.21.0",
+    "pip-audit>=2.7.0",
+    "testcontainers[postgres]>=4.10.0",
+    "types-pyyaml>=6.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/base-14/examples"
+Documentation = "https://docs.base14.io"
+Repository = "https://github.com/base-14/examples"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sales_intelligence"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate
+    "PL",     # pylint
+    "RUF",    # ruff-specific
+]
+ignore = [
+    "E501",     # line too long (handled by formatter)
+    "PLR0913",  # too many arguments
+    "PLR2004",  # magic value comparison
+    "ARG001",   # unused function argument
+    "ARG002",   # unused method argument (needed for pytest fixtures)
+    "B008",     # function call in default argument
+    "TC002",    # move third-party import to type-checking block (needed for DI)
+    "TC003",    # move stdlib import to type-checking block (false positive for ORM)
+    "PLC0415",  # import not at top level (needed for lazy imports)
+    "PLW0603",  # global statement (acceptable for singleton pattern)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sales_intelligence"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "langgraph.*",
+    "anthropic.*",
+    "google.genai.*",
+    "opentelemetry.*",
+    "asyncpg.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["-v", "--tb=short", "--strict-markers"]
+markers = [
+    "integration: marks tests as integration tests",
+]
+# TODO: Remove pydantic.v1 filter once Pydantic 2.13+ is released (fixes langchain#33926)
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore:Core Pydantic V1 functionality:UserWarning",
+]
+
+[tool.coverage.run]
+source = ["src/sales_intelligence"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true

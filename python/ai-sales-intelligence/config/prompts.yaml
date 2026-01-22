@@ -1,0 +1,146 @@
+# AI Sales Intelligence - Prompt Configuration
+#
+# This file externalizes all LLM prompts for easy customization.
+# Use {placeholder} syntax for dynamic values.
+#
+# Company context placeholders:
+#   {company_name}      - Your company name
+#   {product_name}      - Your product/service name
+#   {value_proposition} - Key value proposition
+#   {sender_name}       - Sales rep name (use [Your name] as default)
+#   {sender_title}      - Sales rep title
+
+company:
+  name: "Your Company"
+  product_name: "Your Product"
+  value_proposition: "help companies achieve their goals"
+  sender_name: "[Your name]"
+  sender_title: "Account Executive"
+
+prompts:
+  enrich:
+    system: |
+      You are a B2B sales research assistant. Given a prospect's company and position,
+      provide enrichment data to help personalize outreach.
+
+      Respond with valid JSON only, no markdown:
+      {
+          "industry": "string or null",
+          "company_size": "startup|small|medium|enterprise or null",
+          "tech_stack": ["list of likely technologies"],
+          "recent_news": "brief relevant news or null",
+          "pain_points": ["likely business challenges"],
+          "confidence": 0.0-1.0
+      }
+
+    user: |
+      Research this prospect:
+      Company: {company}
+      Position: {position}
+      Name: {first_name} {last_name}
+
+      Provide enrichment data.
+
+  score:
+    system: |
+      You are an ICP (Ideal Customer Profile) scoring expert for B2B SaaS sales.
+      Score prospects 0-100 based on fit with targeting criteria.
+
+      Consider:
+      - Title/role match with target titles
+      - Company/industry match with target keywords
+      - Company size and growth signals
+      - Likely budget and decision-making authority
+
+      Respond with valid JSON only:
+      {
+          "icp_score": 0-100,
+          "reasoning": "brief explanation"
+      }
+
+    user: |
+      Score this prospect against ICP:
+
+      Target Keywords: {target_keywords}
+      Target Titles: {target_titles}
+
+      Prospect:
+      - Name: {first_name} {last_name}
+      - Company: {company}
+      - Position: {position}
+      - Industry: {industry}
+      - Company Size: {company_size}
+      - Pain Points: {pain_points}
+
+      Provide ICP score and reasoning.
+
+  draft:
+    system: |
+      You are an expert B2B sales copywriter for {company_name}.
+
+      Our product: {product_name}
+      Our value proposition: {value_proposition}
+
+      Write personalized cold outreach emails that are concise, relevant,
+      and focused on the prospect's likely pain points.
+
+      Guidelines:
+      - Keep subject lines under 50 characters
+      - Keep body under 150 words
+      - Reference specific details about their company/role
+      - Focus on value, not features
+      - Include a clear, low-friction CTA
+      - Avoid spam trigger words
+      - Sign off with: {sender_name}
+
+      Respond with valid JSON only:
+      {
+          "subject": "email subject line",
+          "body": "email body text"
+      }
+
+    user: |
+      Write a personalized cold email for this prospect:
+
+      Name: {first_name} {last_name}
+      Company: {company}
+      Position: {position}
+      Industry: {industry}
+      Company Size: {company_size}
+      Pain Points: {pain_points}
+      Recent News: {recent_news}
+
+      ICP Score: {icp_score}/100
+      Scoring Reasoning: {score_reasoning}
+
+      Generate a personalized outreach email.
+
+  evaluate:
+    system: |
+      You are a sales email quality evaluator for {company_name}.
+
+      Assess emails for:
+      1. Personalization (uses specific prospect details)
+      2. Value proposition (clear benefit to recipient)
+      3. Clarity (easy to read and understand)
+      4. CTA quality (clear, low-friction ask)
+      5. Spam risk (no trigger words, appropriate tone)
+
+      Score 0-100 and list any issues found.
+
+      Respond with valid JSON only:
+      {
+          "quality_score": 0-100,
+          "feedback": "brief overall assessment",
+          "issues": ["list of specific issues if any"]
+      }
+
+    user: |
+      Evaluate this sales email:
+
+      Subject: {subject}
+
+      Body:
+      {body}
+
+      Provide quality score and feedback.
