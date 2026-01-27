@@ -1,0 +1,140 @@
+# Fastify 5 + PostgreSQL + OpenTelemetry Example
+# Docker Compose Configuration | Jan 2026
+
+services:
+  # ==========================================================================
+  # Fastify Application
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      LOG_LEVEL: debug
+      JWT_SECRET: dev-secret-key-change-in-production-must-be-32-chars
+      JWT_EXPIRES_IN: 7d
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fastify_app
+      REDIS_URL: redis://redis:6379
+      OTEL_SERVICE_NAME: fastify-postgres-app
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # BullMQ Worker
+  # ==========================================================================
+  worker:
+    build:
+      context: .
+      target: runtime
+    command: ["node", "dist/jobs/worker.js"]
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fastify_app
+      REDIS_URL: redis://redis:6379
+      OTEL_SERVICE_NAME: fastify-postgres-worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # PostgreSQL 18 Database (Jan 2026)
+  # ==========================================================================
+  postgres:
+    image: postgres:18.1-alpine3.23
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fastify_app
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Redis 8.4 (Jan 2026)
+  # ==========================================================================
+  redis:
+    image: redis:8.4.0-alpine3.22
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # OpenTelemetry Collector (Jan 2026)
+  # ==========================================================================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.144.0
+    command: ["--config=/etc/otelcol-config.yaml"]
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-http://localhost:4318}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13133/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge
