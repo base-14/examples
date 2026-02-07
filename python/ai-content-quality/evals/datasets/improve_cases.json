@@ -1,0 +1,9 @@
+{
+  "needs_improvement": "The thing is really good and stuff. It does lots of things that are useful. People like using it because its helpful for various purposes and tasks that they need to accomplish in their daily work routines.",
+  "well_written": "Effective error handling is essential for robust software. By catching exceptions at appropriate levels and providing meaningful error messages, developers can create applications that gracefully handle unexpected situations without exposing sensitive implementation details to end users.",
+  "marketing_draft": "We are excited to announce our new product! It is amazing and will blow your mind. Buy it now and you won't regret it. This is the best thing since sliced bread and everyone needs one immediately!!!",
+  "academic_rough": "This paper examines the impact of social media on adolescent mental health. While some studies suggest negative correlations between social media use and well-being, the relationship is complex. Methodology varies significantly across studies, making definitive conclusions difficult. More longitudinal research with standardized metrics is needed to establish causal relationships.",
+  "blog_with_issues": "Your probably wondering why Python is so popular. Its because the language is easy too learn and has alot of libraries. Their are many reasons developer's choose Python over other language's. Lets look at the top 5 reasons.",
+  "minimal_content": "Hello world.",
+  "content_with_jargon": "The microservice leverages a CQRS pattern with event sourcing, utilizing a saga orchestrator for distributed transactions across bounded contexts. The polyglot persistence layer employs eventual consistency via CRDTs in the AP partition of the CAP theorem."
+}

@@ -1,0 +1,82 @@
+# OpenTelemetry Collector Configuration
+# Receives telemetry from app, exports to Base14 Scout
+
+extensions:
+  # Health check endpoint for container orchestration
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # zpages for debugging - view at http://localhost:55679/debug/tracez
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+  # OAuth2 authentication for Base14 Scout
+  oauth2client:
+    client_id: ${SCOUT_CLIENT_ID}
+    client_secret: ${SCOUT_CLIENT_SECRET}
+    token_url: ${SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Batch for efficiency
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Add deployment environment to all telemetry
+  attributes:
+    actions:
+      - key: deployment.environment
+        value: ${SCOUT_ENVIRONMENT}
+        action: upsert
+
+exporters:
+  # Base14 Scout exporter with retry and compression
+  otlphttp/b14:
+    endpoint: ${SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Debug exporter for local development
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [health_check, zpages, oauth2client]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes, batch]
+      exporters: [otlphttp/b14, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes, batch]
+      exporters: [otlphttp/b14, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes, batch]
+      exporters: [otlphttp/b14, debug]

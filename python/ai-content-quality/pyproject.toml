@@ -1,0 +1,171 @@
+[project]
+name = "ai-content-quality"
+version = "1.0.0"
+description = "AI content quality agent with eval-driven development and unified observability via Base14 Scout"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.14"
+authors = [{ name = "base14", email = "hello@base14.io" }]
+keywords = ["llamaindex", "openai", "anthropic", "gemini", "content-quality", "promptfoo", "opentelemetry", "fastapi", "base14-scout"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.40.0",
+
+    # Validation & settings
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+
+    # LLM
+    "llama-index-core>=0.14.13",
+    "llama-index-llms-openai>=0.6.15",
+    "llama-index-llms-google-genai>=0.8.5",
+    "llama-index-llms-anthropic>=0.10.7",
+
+    # Utilities
+    "tenacity>=9.1.2",
+    "httpx>=0.28.1",
+    "pyyaml>=6.0.3",
+
+    # Observability (OpenTelemetry)
+    "opentelemetry-sdk>=1.39.1",
+    "opentelemetry-api>=1.39.1",
+    "opentelemetry-exporter-otlp-proto-http>=1.39.1",
+    "opentelemetry-instrumentation-fastapi>=0.60b1",
+    "opentelemetry-instrumentation-httpx>=0.60b1",  # not instrumented; enable for HTTP-level debugging
+    "opentelemetry-instrumentation-logging>=0.60b1",
+
+    # OpenInference (LlamaIndex auto-instrumentation)
+    "openinference-instrumentation-llama-index>=4.3.9",
+    "openinference-instrumentation>=0.1.44",
+    "openinference-semantic-conventions>=0.1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pytest-asyncio>=1.1.0",
+    "ruff>=0.14.14",
+    "mypy>=1.19.1",
+    "pip-audit>=2.10.0",
+    "types-pyyaml>=6.0.12.20250915",
+]
+
+[project.urls]
+Homepage = "https://github.com/base-14/examples"
+Documentation = "https://docs.base14.io"
+Repository = "https://github.com/base-14/examples"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/content_quality"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate
+    "PL",     # pylint
+    "RUF",    # ruff-specific
+]
+ignore = [
+    "E501",     # line too long (handled by formatter)
+    "PLR0913",  # too many arguments
+    "PLR2004",  # magic value comparison
+    "ARG001",   # unused function argument
+    "ARG002",   # unused method argument
+    "B008",     # function call in default argument
+    "TC002",    # move third-party import to type-checking block
+    "TC003",    # move stdlib import to type-checking block
+    "PLC0415",  # import not at top level
+    "PLW0603",  # global statement
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["content_quality"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "llama_index.*",
+    "opentelemetry.*",
+    "openinference.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["-v", "--tb=short", "--strict-markers"]
+markers = [
+    "integration: marks tests as integration tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/content_quality"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
