@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BASE_URL="${API_URL:-http://localhost:8000}"
+DELAY="${REQUEST_DELAY:-2}"
 PASS=0
 FAIL=0
 
@@ -36,12 +37,14 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -H "Content-Type: application/json" \
   -d '{"content": "This is a test of the review endpoint."}')
 check "POST /review" "200" "$STATUS"
+sleep "$DELAY"
 
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE_URL}/improve" \
   -H "Content-Type: application/json" \
   -d '{"content": "This is a test of the improve endpoint."}')
 check "POST /improve" "200" "$STATUS"
+sleep "$DELAY"
 
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE_URL}/score" \
@@ -50,7 +53,7 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
 check "POST /score" "200" "$STATUS"
 
 # ---------------------------------------------------------------------------
-# 2. Validation error tests — expect 422
+# 2. Validation error tests — expect 422 (no LLM calls, no delay needed)
 # ---------------------------------------------------------------------------
 echo ""
 echo "$(cyan "=== 2. Validation Error Tests (expect 422) ===")"
@@ -80,12 +83,15 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -d 'not json')
 check "POST /improve malformed JSON" "422" "$STATUS"
 
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/nonexistent")
+check "GET  /nonexistent (404)" "404" "$STATUS"
+
 # ---------------------------------------------------------------------------
 # 3. Content type variants — exercises content.type span attribute
 # ---------------------------------------------------------------------------
 echo ""
 echo "$(cyan "=== 3. Content Type Variants ===")"
-echo "$(dim "    Each request generates a content_analysis span with content.type attribute")"
+echo "$(dim "    Each request generates a chat span with content.type attribute")"
 echo ""
 
 for CT in marketing technical blog general; do
@@ -94,6 +100,7 @@ for CT in marketing technical blog general; do
     -d "{\"content\": \"Testing the ${CT} content type.\", \"content_type\": \"${CT}\"}")
   STATUS=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print('200')" 2>/dev/null || echo "ERR")
   check "POST /review content_type=${CT}" "200" "$STATUS"
+  sleep "$DELAY"
 done
 
 # ---------------------------------------------------------------------------
@@ -114,6 +121,7 @@ check "Review has 'issues' field" "yes" "$HAS_ISSUES"
 
 HAS_QUALITY=$(echo "$REVIEW_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if d.get('overall_quality') in ('poor','fair','good','excellent') else 'no')" 2>/dev/null || echo "no")
 check "Review has valid overall_quality" "yes" "$HAS_QUALITY"
+sleep "$DELAY"
 
 IMPROVE_BODY=$(curl -s -X POST "${BASE_URL}/improve" \
   -H "Content-Type: application/json" \
@@ -124,6 +132,7 @@ echo "$IMPROVE_BODY" | python3 -m json.tool 2>/dev/null | head -20 | while IFS= 
 
 HAS_SUGGESTIONS=$(echo "$IMPROVE_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'suggestions' in d else 'no')" 2>/dev/null || echo "no")
 check "Improve has 'suggestions' field" "yes" "$HAS_SUGGESTIONS"
+sleep "$DELAY"
 
 SCORE_BODY=$(curl -s -X POST "${BASE_URL}/score" \
   -H "Content-Type: application/json" \
@@ -150,6 +159,7 @@ echo "$(dim "    These requests exercise specific telemetry paths for manual ver
 echo ""
 
 echo "  $(dim "[token metrics] High-quality technical content (expect higher token usage)...")"
+sleep "$DELAY"
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE_URL}/score" \
   -H "Content-Type: application/json" \
@@ -157,6 +167,7 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
 check "Score technical (token metrics path)" "200" "$STATUS"
 
 echo "  $(dim "[evaluation events] Content with many issues (triggers low eval score)...")"
+sleep "$DELAY"
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE_URL}/review" \
   -H "Content-Type: application/json" \
@@ -164,6 +175,7 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
 check "Review hyperbolic marketing (eval event path)" "200" "$STATUS"
 
 echo "  $(dim "[PII scrubbing] Content with PII (should be scrubbed from span events)...")"
+sleep "$DELAY"
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${BASE_URL}/review" \
   -H "Content-Type: application/json" \
@@ -172,6 +184,7 @@ check "Review with PII content (scrub path)" "200" "$STATUS"
 
 echo "  $(dim "[cost tracking] Multiple endpoints to generate cost breakdown...")"
 for EP in review improve score; do
+  sleep "$DELAY"
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "${BASE_URL}/${EP}" \
     -H "Content-Type: application/json" \

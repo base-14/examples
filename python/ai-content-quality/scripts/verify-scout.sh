@@ -106,29 +106,35 @@ if [ "${SKIP_REQUESTS:-}" != "1" ]; then
   echo "$(cyan "=== 2. Sending Telemetry-Generating Requests ===")"
   echo ""
 
-  echo "  $(dim "[spans] content_analysis review — marketing content")"
+  DELAY="${REQUEST_DELAY:-2}"
+
+  echo "  $(dim "[spans] chat span — marketing content")"
   curl -s -o /dev/null -X POST "${BASE_URL}/review" \
     -H "Content-Type: application/json" \
     -d '{"content": "This revolutionary product is the absolute best!", "content_type": "marketing"}'
   echo "  $(green "sent") POST /review (marketing)"
+  sleep "$DELAY"
 
-  echo "  $(dim "[spans] content_analysis improve — blog content")"
+  echo "  $(dim "[spans] chat span — blog content")"
   curl -s -o /dev/null -X POST "${BASE_URL}/improve" \
     -H "Content-Type: application/json" \
     -d '{"content": "The thing is really good and stuff.", "content_type": "blog"}'
   echo "  $(green "sent") POST /improve (blog)"
+  sleep "$DELAY"
 
-  echo "  $(dim "[spans] content_analysis score — technical content")"
+  echo "  $(dim "[spans] chat span — technical content")"
   curl -s -o /dev/null -X POST "${BASE_URL}/score" \
     -H "Content-Type: application/json" \
     -d '{"content": "Kubernetes orchestrates containerized workloads across clusters.", "content_type": "technical"}'
   echo "  $(green "sent") POST /score (technical)"
+  sleep "$DELAY"
 
   echo "  $(dim "[eval events] Review with many issues — triggers low evaluation score")"
   curl -s -o /dev/null -X POST "${BASE_URL}/review" \
     -H "Content-Type: application/json" \
     -d '{"content": "Everyone knows this is literally the most amazing thing ever! Studies prove 100% of people agree!", "content_type": "marketing"}'
   echo "  $(green "sent") POST /review (hyperbolic — eval event)"
+  sleep "$DELAY"
 
   echo "  $(dim "[PII scrub] Content with email, phone, SSN in prompts")"
   curl -s -o /dev/null -X POST "${BASE_URL}/review" \
@@ -141,6 +147,10 @@ if [ "${SKIP_REQUESTS:-}" != "1" ]; then
     -H "Content-Type: application/json" \
     -d '{"content": ""}'
   echo "  $(green "sent") POST /review (empty — 422)"
+
+  echo "  $(dim "[error metrics] Unknown route — triggers 404 + error span")"
+  curl -s -o /dev/null "${BASE_URL}/nonexistent"
+  echo "  $(green "sent") GET /nonexistent (404)"
 
   echo "  $(dim "[http metrics] Health endpoint — low-cost request for baseline")"
   curl -s -o /dev/null "${BASE_URL}/health"
@@ -168,9 +178,7 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
   else
     # --- Spans ---
     echo "  $(dim "--- Trace Spans ---")"
-    check_log "Span: content_analysis review"   "content_analysis review"   "$LOGS"
-    check_log "Span: content_analysis improve"  "content_analysis improve"  "$LOGS"
-    check_log "Span: content_analysis score"    "content_analysis score"    "$LOGS"
+    check_log "Span: chat (semconv name)"       "chat "                     "$LOGS"
 
     # --- Span attributes ---
     echo "  $(dim "--- Span Attributes ---")"
@@ -179,12 +187,17 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Attr: gen_ai.request.model"      "gen_ai.request.model"     "$LOGS"
     warn_log  "Attr: gen_ai.provider.name"      "gen_ai.provider.name"     "$LOGS"
     warn_log  "Attr: gen_ai.operation.name"     "gen_ai.operation.name"    "$LOGS"
+    warn_log  "Attr: server.address"            "server.address"           "$LOGS"
+    warn_log  "Attr: gen_ai.response.model"     "gen_ai.response.model"   "$LOGS"
+    warn_log  "Attr: gen_ai.request.temperature" "gen_ai.request.temperature" "$LOGS"
+
+    # --- Error telemetry ---
+    echo "  $(dim "--- Error Telemetry ---")"
+    warn_log  "Attr: error.type (on error spans)" "error.type"              "$LOGS"
 
     # --- Span events ---
     echo "  $(dim "--- Span Events ---")"
-    warn_log  "Event: gen_ai.system.message"    "gen_ai.system.message"    "$LOGS"
-    warn_log  "Event: gen_ai.user.message"      "gen_ai.user.message"      "$LOGS"
-    warn_log  "Event: gen_ai.assistant.message"  "gen_ai.assistant.message" "$LOGS"
+    warn_log  "Event: gen_ai.client.inference.operation.details" "gen_ai.client.inference.operation.details" "$LOGS"
     warn_log  "Event: gen_ai.evaluation.result"  "gen_ai.evaluation.result" "$LOGS"
 
     # --- PII scrubbing (should NOT appear in logs) ---
@@ -211,6 +224,8 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Metric: gen_ai.client.operation.duration" "gen_ai.client.operation.duration" "$LOGS"
     warn_log  "Metric: gen_ai.client.cost"               "gen_ai.client.cost"               "$LOGS"
     warn_log  "Metric: gen_ai.evaluation.score"          "gen_ai.evaluation.score"          "$LOGS"
+    warn_log  "Metric: gen_ai.client.error.count"         "gen_ai.client.error.count"         "$LOGS"
+    warn_log  "Metric: gen_ai.client.retry.count"         "gen_ai.client.retry.count"         "$LOGS"
     warn_log  "Metric: http.server.request.count"        "http.server.request.count"        "$LOGS"
     warn_log  "Metric: http.server.request.duration"     "http.server.request.duration"     "$LOGS"
 
@@ -245,11 +260,13 @@ echo "    [ ] Token Usage shows input vs output breakdown"
 echo "    [ ] Cost by Endpoint shows /review, /improve, /score"
 echo ""
 echo "  $(cyan "Trace Explorer:")"
-echo "    [ ] Traces show nested spans: HTTP → content_analysis → LlamaIndex"
-echo "    [ ] content_analysis spans have content.type, content.length attributes"
-echo "    [ ] gen_ai.system.message events show [EMAIL] not raw emails"
-echo "    [ ] gen_ai.user.message events are truncated to ~500 chars"
-echo "    [ ] Error traces (if any) show error.type attribute"
+echo "    [ ] Traces show nested spans: HTTP → chat {model} → LlamaIndex"
+echo "    [ ] chat spans have content.type, content.length, server.address attributes"
+echo "    [ ] chat spans have gen_ai.request.temperature attribute"
+echo "    [ ] gen_ai.client.inference.operation.details event shows [EMAIL] not raw emails"
+echo "    [ ] Event content fields are truncated to ~500 chars"
+echo "    [ ] 422 error traces have error.type=RequestValidationError and ERROR status"
+echo "    [ ] 404 error traces have error status on HTTP span"
 echo ""
 echo "  $(cyan "Logs:")"
 echo "    [ ] Log records include trace_id and span_id correlation"

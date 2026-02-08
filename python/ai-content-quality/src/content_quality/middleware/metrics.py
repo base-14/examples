@@ -39,6 +39,8 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         _init_metrics()
+        if request.url.path == "/health":
+            return await call_next(request)
         attributes: dict[str, Any] = {
             "http.request.method": request.method,
             "http.route": request.url.path,

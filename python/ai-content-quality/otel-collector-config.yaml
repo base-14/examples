@@ -63,7 +63,9 @@ exporters:
 
   # Debug exporter for local development
   debug:
-    verbosity: detailed
+    verbosity: basic
+    sampling_initial: 5
+    sampling_thereafter: 200
 
 service:
   extensions: [health_check, zpages, oauth2client]

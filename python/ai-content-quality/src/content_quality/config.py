@@ -15,9 +15,12 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     llm_model: str = "gpt-4.1-nano"
     llm_temperature: float = 0.3
+    llm_timeout: float = 30.0
     openai_api_key: str = ""
     google_api_key: str = ""
     anthropic_api_key: str = ""
+
+    request_timeout: float = 60.0
 
     review_prompt_version: str = "v1"
     improve_prompt_version: str = "v1"

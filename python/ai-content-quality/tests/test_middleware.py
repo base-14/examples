@@ -16,15 +16,15 @@ def test_middleware_records_request_count(_init: MagicMock, client: TestClient) 
     metrics_mod._active_requests = mock_updown
 
     try:
-        response = client.get("/health")
+        response = client.post("/review", json={"content": "Test content for middleware."})
         assert response.status_code == 200
 
         mock_counter.add.assert_called()
         call_args = mock_counter.add.call_args
         assert call_args.args[0] == 1
         attrs = call_args.args[1]
-        assert attrs["http.request.method"] == "GET"
-        assert attrs["http.route"] == "/health"
+        assert attrs["http.request.method"] == "POST"
+        assert attrs["http.route"] == "/review"
         assert attrs["http.response.status_code"] == 200
     finally:
         metrics_mod._meter = None
@@ -44,15 +44,15 @@ def test_middleware_records_request_duration(_init: MagicMock, client: TestClien
     metrics_mod._active_requests = mock_updown
 
     try:
-        client.get("/health")
+        client.post("/review", json={"content": "Test content for middleware."})
 
         mock_histogram.record.assert_called()
         call_args = mock_histogram.record.call_args
         duration = call_args.args[0]
         assert duration > 0
         attrs = call_args.args[1]
-        assert attrs["http.request.method"] == "GET"
-        assert attrs["http.route"] == "/health"
+        assert attrs["http.request.method"] == "POST"
+        assert attrs["http.route"] == "/review"
     finally:
         metrics_mod._meter = None
         metrics_mod._request_count = None
@@ -71,7 +71,7 @@ def test_middleware_tracks_active_requests(_init: MagicMock, client: TestClient)
     metrics_mod._active_requests = mock_updown
 
     try:
-        client.get("/health")
+        client.post("/review", json={"content": "Test content for middleware."})
 
         calls = mock_updown.add.call_args_list
         assert len(calls) == 2
@@ -85,7 +85,7 @@ def test_middleware_tracks_active_requests(_init: MagicMock, client: TestClient)
 
 
 @patch.object(metrics_mod, "_init_metrics")
-def test_middleware_records_500_on_error(_init: MagicMock, client: TestClient) -> None:
+def test_middleware_records_422_on_validation_error(_init: MagicMock, client: TestClient) -> None:
     mock_counter = MagicMock()
     mock_histogram = MagicMock()
     mock_updown = MagicMock()
@@ -101,6 +101,30 @@ def test_middleware_records_500_on_error(_init: MagicMock, client: TestClient) -
         mock_counter.add.assert_called()
         attrs = mock_counter.add.call_args.args[1]
         assert attrs["http.response.status_code"] == 422
+    finally:
+        metrics_mod._meter = None
+        metrics_mod._request_count = None
+        metrics_mod._request_duration = None
+        metrics_mod._active_requests = None
+
+
+@patch.object(metrics_mod, "_init_metrics")
+def test_middleware_skips_health_endpoint(_init: MagicMock, client: TestClient) -> None:
+    mock_counter = MagicMock()
+    mock_histogram = MagicMock()
+    mock_updown = MagicMock()
+    metrics_mod._meter = MagicMock()
+    metrics_mod._request_count = mock_counter
+    metrics_mod._request_duration = mock_histogram
+    metrics_mod._active_requests = mock_updown
+
+    try:
+        response = client.get("/health")
+        assert response.status_code == 200
+
+        mock_counter.add.assert_not_called()
+        mock_histogram.record.assert_not_called()
+        mock_updown.add.assert_not_called()
     finally:
         metrics_mod._meter = None
         metrics_mod._request_count = None

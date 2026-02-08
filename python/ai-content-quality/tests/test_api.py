@@ -1,6 +1,7 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
+from opentelemetry.trace import StatusCode
 
 
 def test_health(client: TestClient) -> None:
@@ -99,3 +100,103 @@ def test_llm_error_returns_502(client: TestClient, mock_analyzer: AsyncMock) -> 
     response = client.post("/review", json={"content": "Some content."})
     assert response.status_code == 502
     assert response.json()["detail"] == "Analysis failed"
+
+
+def test_timeout_records_error_on_span(client: TestClient, mock_analyzer: AsyncMock) -> None:
+    mock_analyzer.review.side_effect = TimeoutError()
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+
+    with patch("content_quality.main.trace") as mock_trace:
+        mock_trace.get_current_span.return_value = mock_span
+        response = client.post("/review", json={"content": "Slow content."})
+
+    assert response.status_code == 504
+    mock_span.record_exception.assert_called_once()
+    mock_span.set_attribute.assert_any_call("error.type", "TimeoutError")
+    mock_span.set_status.assert_called_once()
+    assert mock_span.set_status.call_args.args[0] == StatusCode.ERROR
+
+
+def test_llm_error_records_error_on_span(client: TestClient, mock_analyzer: AsyncMock) -> None:
+    mock_analyzer.score.side_effect = RuntimeError("LLM crashed")
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+
+    with patch("content_quality.main.trace") as mock_trace:
+        mock_trace.get_current_span.return_value = mock_span
+        response = client.post("/score", json={"content": "Some content."})
+
+    assert response.status_code == 502
+    mock_span.record_exception.assert_called_once()
+    mock_span.set_attribute.assert_any_call("error.type", "RuntimeError")
+    mock_span.set_status.assert_called_once()
+    assert mock_span.set_status.call_args.args[0] == StatusCode.ERROR
+
+
+def test_timeout_on_improve_returns_504(client: TestClient, mock_analyzer: AsyncMock) -> None:
+    mock_analyzer.improve.side_effect = TimeoutError()
+    response = client.post("/improve", json={"content": "Slow content."})
+    assert response.status_code == 504
+    assert response.json()["detail"] == "Analysis timed out"
+
+
+def test_llm_error_on_improve_returns_502(client: TestClient, mock_analyzer: AsyncMock) -> None:
+    mock_analyzer.improve.side_effect = RuntimeError("LLM failed")
+    response = client.post("/improve", json={"content": "Some content."})
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Analysis failed"
+
+
+def test_timeout_on_score_returns_504(client: TestClient, mock_analyzer: AsyncMock) -> None:
+    mock_analyzer.score.side_effect = TimeoutError()
+    response = client.post("/score", json={"content": "Slow content."})
+    assert response.status_code == 504
+    assert response.json()["detail"] == "Analysis timed out"
+
+
+def test_error_on_span_skipped_when_not_recording(
+    client: TestClient, mock_analyzer: AsyncMock
+) -> None:
+    mock_analyzer.review.side_effect = TimeoutError()
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = False
+
+    with patch("content_quality.main.trace") as mock_trace:
+        mock_trace.get_current_span.return_value = mock_span
+        response = client.post("/review", json={"content": "Content."})
+
+    assert response.status_code == 504
+    mock_span.record_exception.assert_not_called()
+    mock_span.set_attribute.assert_not_called()
+    mock_span.set_status.assert_not_called()
+
+
+def test_improve_records_error_on_span(client: TestClient, mock_analyzer: AsyncMock) -> None:
+    mock_analyzer.improve.side_effect = RuntimeError("LLM crashed")
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+
+    with patch("content_quality.main.trace") as mock_trace:
+        mock_trace.get_current_span.return_value = mock_span
+        response = client.post("/improve", json={"content": "Some content."})
+
+    assert response.status_code == 502
+    mock_span.record_exception.assert_called_once()
+    mock_span.set_attribute.assert_any_call("error.type", "RuntimeError")
+    mock_span.set_status.assert_called_once()
+    assert mock_span.set_status.call_args.args[0] == StatusCode.ERROR
+
+
+def test_validation_error_records_error_on_span(client: TestClient) -> None:
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+
+    with patch("content_quality.main.trace") as mock_trace:
+        mock_trace.get_current_span.return_value = mock_span
+        response = client.post("/review", json={"content": ""})
+
+    assert response.status_code == 422
+    mock_span.record_exception.assert_called_once()
+    mock_span.set_attribute.assert_any_call("error.type", "RequestValidationError")
+    mock_span.set_status.assert_called_once()

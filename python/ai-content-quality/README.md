@@ -72,28 +72,59 @@ Prompt files live in `prompts/` as YAML with separate `system` and `user` templa
 
 ## Observability
 
-Every request produces a unified trace spanning HTTP, LlamaIndex LLM calls, and external API requests — all visible in Base14 Scout.
+Every request produces a unified trace spanning HTTP and LLM calls — all visible in Base14 Scout.
+
+### Instrumentation Approach
+
+GenAI telemetry (spans, metrics, events) is handled by **custom instrumentation** in `llm.py` following [OTel GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). We intentionally do NOT use OpenInference/LlamaIndex auto-instrumentation to avoid non-standard attributes (`llm.*`, `input.*`, `output.*`) that pollute telemetry with framework-specific data outside the OTel GenAI semconv.
 
 ### What's Instrumented
 
 | Layer | Instrumentation | Type | What You Get |
 |-------|----------------|------|-------------|
-| HTTP server | `FastAPIInstrumentor` | Auto | Request spans with method, path, status, duration |
-| HTTP server | `MetricsMiddleware` | Custom | `http.server.request.count`, `http.server.request.duration`, `http.server.active_requests` |
-| Logging | `LoggingInstrumentor` | Auto | Trace-correlated log records |
-| LlamaIndex | `LlamaIndexInstrumentor` (OpenInference) | Auto | LLM calls with GenAI attributes (model, tokens, latency) |
-| Business | Custom OTel spans | Custom | `content_analysis` spans with `content.type`, `content.length` |
+| HTTP server | `FastAPIInstrumentor` | Auto | Request spans with method, path, status, duration (excludes `/health`, suppresses ASGI sub-spans) |
+| HTTP server | `MetricsMiddleware` | Custom | `http.server.request.count`, `http.server.request.duration`, `http.server.active_requests` (excludes `/health`) |
+| Logging | `LoggingInstrumentor` | Auto | Trace-correlated log records with `trace_id` and `span_id` |
+| GenAI spans | Custom OTel spans | Custom | `chat {model}` spans with OTel GenAI semconv attributes |
 | GenAI metrics | Custom OTel meters | Custom | `gen_ai.client.token.usage`, `gen_ai.client.cost`, `gen_ai.client.operation.duration` |
+| GenAI errors | Custom OTel counters | Custom | `gen_ai.client.error.count`, `gen_ai.client.retry.count` |
 | Evaluations | Custom OTel events + metrics | Custom | `gen_ai.evaluation.result` events, `gen_ai.evaluation.score` histogram |
+| PII scrubbing | Custom event processing | Custom | Emails, phone numbers, SSNs scrubbed from span events before export |
 
-### Span Ownership
+### Span Attributes (OTel GenAI Semconv)
 
-Each LLM request produces three nested spans with clear ownership — no attribute duplication:
+Each `chat {model}` span carries these attributes:
 
-| Span | Source | Attributes Owned |
-|------|--------|-----------------|
-| `content_analysis {endpoint}` | Custom (`llm.py`) | `content.type`, `content.length`, `endpoint`, `gen_ai.request.model`, `gen_ai.provider.name`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.cost_usd`, `gen_ai.client.operation.duration` |
-| `LlamaIndex.llm.predict` | OpenInference (auto) | `gen_ai.request.model`, `gen_ai.usage.*`, `gen_ai.response.*`, `gen_ai.request.temperature` |
+| Attribute | Source | Example |
+|-----------|--------|---------|
+| `gen_ai.operation.name` | Custom | `chat` |
+| `gen_ai.request.model` | Custom | `claude-3-5-haiku-20241022` |
+| `gen_ai.response.model` | Custom | `claude-3-5-haiku-20241022` |
+| `gen_ai.provider.name` | Custom | `anthropic` |
+| `gen_ai.request.temperature` | Custom | `0.3` |
+| `gen_ai.output.type` | Custom | `json` |
+| `gen_ai.usage.input_tokens` | Custom | `923` |
+| `gen_ai.usage.output_tokens` | Custom | `150` |
+| `gen_ai.usage.cost_usd` | Custom | `0.001666` |
+| `gen_ai.response.id` | Custom | `msg_abc123` |
+| `gen_ai.response.finish_reasons` | Custom | `["end_turn"]` |
+| `server.address` | Custom | `api.anthropic.com` |
+| `server.port` | Custom | `443` |
+| `content.type` | Custom | `marketing` |
+| `content.length` | Custom | `42` |
+| `endpoint` | Custom | `/review` |
+
+### Token & Cost Tracking
+
+Token usage and cost are extracted from each LLM response across all supported providers:
+
+| Provider | Token Source | Pricing |
+|----------|-------------|---------|
+| OpenAI | `additional_kwargs["prompt_tokens"]` / `["completion_tokens"]` | Per-model lookup table |
+| Google Gemini | `additional_kwargs["prompt_tokens"]` / `["completion_tokens"]` | Per-model lookup table |
+| Anthropic | `raw["usage"]["input_tokens"]` / `["output_tokens"]` | Per-model lookup table |
+
+Cost is calculated using a built-in pricing table (`PRICING` in `llm.py`) and recorded as both a span attribute (`gen_ai.usage.cost_usd`) and a counter metric (`gen_ai.client.cost`).
 
 ## Configuration
 
@@ -107,12 +138,12 @@ Copy `.env.example` to `.env` and configure:
 | `OPENAI_API_KEY` | — | OpenAI API key (when provider is `openai`) |
 | `GOOGLE_API_KEY` | — | Google API key (when provider is `google`) |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key (when provider is `anthropic`) |
-| `OTEL_SERVICE_NAME` | `ai-content-quality` | Service name for all telemetry |
-| `SCOUT_ENVIRONMENT` | `development` | Deployment environment tag |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTel Collector endpoint |
 | `OTEL_SDK_DISABLED` | `false` | Disable telemetry (`true` to disable) |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `false` | Capture prompt/completion content on span events |
+| `SCOUT_ENVIRONMENT` | `development` | Deployment environment tag |
 | `SCOUT_CLIENT_ID` | — | Base14 Scout OAuth client ID |
 | `SCOUT_CLIENT_SECRET` | — | Base14 Scout OAuth client secret |
+| `REQUEST_TIMEOUT` | `60.0` | Request timeout (seconds) for LLM analysis endpoints |
 | `REVIEW_PROMPT_VERSION` | `v1` | Prompt version for `/review` |
 | `IMPROVE_PROMPT_VERSION` | `v1` | Prompt version for `/improve` |
 | `SCORE_PROMPT_VERSION` | `v1` | Prompt version for `/score` |
@@ -123,13 +154,16 @@ Copy `.env.example` to `.env` and configure:
 
 ```bash
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys and LLM provider
 
 # Start full stack (app + OTel Collector)
 docker compose up -d
 
 # Run API smoke tests
-make test-api
+./scripts/test-api.sh
+
+# Verify telemetry pipeline
+./scripts/verify-scout.sh
 
 # Tear down
 docker compose down -v
@@ -184,7 +218,7 @@ Recommended alert rules for production monitoring:
 |-------|-----------|----------|--------|
 | Quality Drop | `avg(gen_ai.evaluation.score) < 70` | Warning | Review prompts, run eval suite |
 | Eval Pass Rate Drop | CI pass rate < 90% | Critical | Block deploy, investigate failures |
-| High Latency | `p95(gen_ai.client.operation.duration) > 5s` | Warning | Check OpenAI status, consider model |
+| High Latency | `p95(gen_ai.client.operation.duration) > 5s` | Warning | Check provider status, consider model |
 | Cost Spike | `rate(gen_ai.client.cost) > 2x baseline` | Warning | Review request volume, model selection |
 | High Daily Cost | `sum(gen_ai.client.cost) > $10` | Warning | Review usage patterns |
 | Error Rate | `sum(gen_ai.client.error.count) / total > 5%` | Critical | Check logs, investigate trace |
@@ -199,7 +233,7 @@ ai-content-quality/
 │   ├── main.py                  # FastAPI app, routes, lifespan
 │   ├── config.py                # Settings from environment
 │   ├── pii.py                   # PII scrubbing for span events
-│   ├── telemetry.py             # OTel SDK + OpenInference setup
+│   ├── telemetry.py             # OTel SDK setup (traces, metrics, logs)
 │   ├── middleware/
 │   │   └── metrics.py           # HTTP request metrics middleware
 │   ├── models/
@@ -207,7 +241,7 @@ ai-content-quality/
 │   │   └── responses.py         # Pydantic response models (ReviewResult, ImproveResult, ScoreResult)
 │   └── services/
 │       ├── analyzer.py          # ContentAnalyzer with eval event recording
-│       ├── llm.py               # LLM call with retry, metrics, PII scrubbing
+│       ├── llm.py               # LLM call with OTel GenAI semconv, retry, cost tracking, PII scrubbing
 │       └── prompts.py           # YAML prompt loader
 ├── prompts/                     # Versioned prompt templates (YAML)
 │   ├── review_v1.yaml
@@ -223,16 +257,19 @@ ai-content-quality/
 │       ├── review_cases.json
 │       ├── improve_cases.json
 │       └── score_cases.json
-├── tests/                       # Unit tests (52 tests)
+├── tests/                       # Unit tests (137 tests)
 │   ├── conftest.py
 │   ├── test_analyzer.py
 │   ├── test_api.py
+│   ├── test_llm.py
 │   ├── test_middleware.py
 │   ├── test_models.py
+│   ├── test_pii.py
 │   ├── test_prompts.py
 │   └── test_telemetry.py
 ├── scripts/
-│   └── test-api.sh              # API smoke test script
+│   ├── test-api.sh              # API smoke test script
+│   └── verify-scout.sh          # Telemetry verification script
 ├── promptfooconfig.yaml         # Eval pipeline configuration
 ├── compose.yml                  # Docker Compose (app + OTel Collector)
 ├── otel-collector-config.yaml   # Collector pipeline config

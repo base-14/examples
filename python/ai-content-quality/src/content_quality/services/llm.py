@@ -1,10 +1,16 @@
+import json
 import logging
+import os
+import re
 import time
+from collections.abc import Callable
+from typing import Any
 
 import httpx
 from llama_index.core import PromptTemplate
 from llama_index.core.llms import LLM, ChatMessage
 from opentelemetry import metrics, trace
+from opentelemetry.trace import StatusCode
 from pydantic import BaseModel, ValidationError
 from tenacity import (
     RetryCallState,
@@ -20,6 +26,16 @@ from content_quality.pii import scrub_pii
 logger = logging.getLogger(__name__)
 
 MAX_PARSE_RETRIES = 2
+
+_MARKDOWN_JSON_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?\s*```$", re.DOTALL)
+
+
+def _strip_markdown_json(text: str) -> str:
+    """Strip markdown code fences if present, pass through clean JSON as-is."""
+    text = text.strip()
+    m = _MARKDOWN_JSON_RE.match(text)
+    return m.group(1).strip() if m else text
+
 
 _provider: str = "openai"
 
@@ -55,6 +71,25 @@ retry_counter = meter.create_counter(
     unit="1",
 )
 
+PROVIDER_SEMCONV_NAMES: dict[str, str] = {
+    "openai": "openai",
+    "google": "gcp.gemini",
+    "anthropic": "anthropic",
+}
+
+PROVIDER_SERVERS: dict[str, str] = {
+    "openai": "api.openai.com",
+    "gcp.gemini": "generativelanguage.googleapis.com",
+    "anthropic": "api.anthropic.com",
+}
+
+
+def _is_content_capture_enabled() -> bool:
+    return (
+        os.environ.get("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower() == "true"
+    )
+
+
 PRICING: dict[str, dict[str, float]] = {
     # OpenAI
     "gpt-5.2": {"input": 1.75, "output": 14.0},
@@ -65,9 +100,13 @@ PRICING: dict[str, dict[str, float]] = {
     "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
     "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
     # Anthropic
+    "claude-opus-4-6": {"input": 5.0, "output": 25.0},
     "claude-opus-4-5-20251101": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-1-20250805": {"input": 15.0, "output": 75.0},
+    "claude-sonnet-4-5-20250929": {"input": 3.0, "output": 15.0},
     "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
-    "claude-haiku-3-5-20241022": {"input": 0.80, "output": 4.0},
+    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
+    "claude-3-5-haiku-20241022": {"input": 0.80, "output": 4.0},
 }
 
 
@@ -76,14 +115,15 @@ def create_llm(
     model: str = "gpt-4.1-nano",
     temperature: float = 0.3,
     api_key: str = "",
+    timeout: float = 30.0,
 ) -> LLM:
     global _provider
-    _provider = provider
+    _provider = PROVIDER_SEMCONV_NAMES.get(provider, provider)
 
     if provider == "openai":
         from llama_index.llms.openai import OpenAI
 
-        return OpenAI(model=model, temperature=temperature, api_key=api_key, timeout=30.0)
+        return OpenAI(model=model, temperature=temperature, api_key=api_key, timeout=timeout)
 
     if provider == "google":
         from llama_index.llms.google_genai import GoogleGenAI
@@ -93,7 +133,7 @@ def create_llm(
     if provider == "anthropic":
         from llama_index.llms.anthropic import Anthropic
 
-        return Anthropic(model=model, temperature=temperature, api_key=api_key, timeout=30.0)
+        return Anthropic(model=model, temperature=temperature, api_key=api_key, timeout=timeout)
 
     raise ValueError(f"Unknown LLM provider: {provider!r}. Choose from: openai, google, anthropic")
 
@@ -104,13 +144,39 @@ def _on_retry(retry_state: RetryCallState) -> None:
         metadata = getattr(retry_state.args[0], "metadata", None)
         if metadata is not None:
             model = str(metadata.model_name)
-    retry_counter.add(
-        1,
-        {
-            "gen_ai.request.model": model,
-            "gen_ai.provider.name": _provider,
-        },
-    )
+    attrs: dict[str, str | int] = {
+        "gen_ai.request.model": model,
+        "gen_ai.provider.name": _provider,
+    }
+    exc = retry_state.outcome.exception() if retry_state.outcome else None
+    if exc is not None:
+        attrs["error.type"] = type(exc).__name__
+    attrs["retry.attempt"] = retry_state.attempt_number
+    retry_counter.add(1, attrs)
+
+
+def _set_initial_span_attrs(
+    span: trace.Span,
+    llm: LLM,
+    model_name: str,
+    server_address: str,
+    content_type: str,
+    content: str,
+    endpoint: str,
+) -> None:
+    span.set_attribute("gen_ai.operation.name", "chat")
+    span.set_attribute("gen_ai.request.model", model_name)
+    span.set_attribute("gen_ai.provider.name", _provider)
+    if server_address:
+        span.set_attribute("server.address", server_address)
+    span.set_attribute("server.port", 443)
+    span.set_attribute("gen_ai.output.type", "json")
+    temperature = getattr(llm, "temperature", None)
+    if temperature is not None:
+        span.set_attribute("gen_ai.request.temperature", float(temperature))
+    span.set_attribute("content.type", content_type)
+    span.set_attribute("content.length", len(content))
+    span.set_attribute("endpoint", endpoint)
 
 
 @retry(
@@ -132,47 +198,61 @@ async def generate_structured(
     system_prompt: str = "",
 ) -> BaseModel:
     tracer = trace.get_tracer("gen_ai.client")
+    model_name = llm.metadata.model_name
+    server_address = PROVIDER_SERVERS.get(_provider, "")
 
-    with tracer.start_as_current_span(f"content_analysis {endpoint.strip('/')}") as span:
-        span.set_attribute("gen_ai.operation.name", "content_analysis")
-        span.set_attribute("content.type", content_type)
-        span.set_attribute("content.length", len(content))
-        span.set_attribute("endpoint", endpoint)
+    with tracer.start_as_current_span(f"chat {model_name}") as span:
+        _set_initial_span_attrs(
+            span, llm, model_name, server_address, content_type, content, endpoint
+        )
 
         start = time.perf_counter()
 
         try:
             formatted_prompt = prompt_template.format(content=content)
 
-            sllm = llm.as_structured_llm(output_cls=output_cls)
-            messages: list[ChatMessage] = []
-            if system_prompt:
-                messages.append(ChatMessage(role="system", content=system_prompt))
-            messages.append(ChatMessage(role="user", content=formatted_prompt))
-            chat_response = await sllm.achat(messages)
+            schema_json = json.dumps(output_cls.model_json_schema(), indent=2)
+            json_instruction = f"Respond ONLY with valid JSON matching this schema:\n{schema_json}"
+            full_system = (
+                f"{system_prompt}\n\n{json_instruction}" if system_prompt else json_instruction
+            )
+
+            messages: list[ChatMessage] = [
+                ChatMessage(role="system", content=full_system),
+                ChatMessage(role="user", content=formatted_prompt),
+            ]
+            achat_kwargs: dict[str, Any] = {}
+            if _provider == "google":
+                achat_kwargs["generation_config"] = {
+                    "response_mime_type": "application/json",
+                    "response_schema": output_cls,
+                }
+            chat_response = await llm.achat(messages, **achat_kwargs)
 
             duration = time.perf_counter() - start
 
-            model_name = llm.metadata.model_name
-            common_attrs = {
-                "gen_ai.request.model": model_name,
-                "gen_ai.provider.name": _provider,
-                "gen_ai.operation.name": "chat",
-            }
+            response_model, finish_reason = _set_response_attrs(chat_response, span, model_name)
 
-            span.set_attribute("gen_ai.request.model", model_name)
-            span.set_attribute("gen_ai.provider.name", _provider)
+            common_attrs = _build_common_attrs(model_name, response_model, server_address)
             span.set_attribute("gen_ai.client.operation.duration", duration)
 
             operation_duration.record(duration, common_attrs)
             _record_token_metrics(
                 chat_response, common_attrs, model_name, content_type, endpoint, span
             )
-            _record_span_events(
-                span, system_prompt, formatted_prompt, str(chat_response.message.content)
-            )
+            if _is_content_capture_enabled():
+                _record_span_event(
+                    span,
+                    system_prompt,
+                    formatted_prompt,
+                    str(chat_response.message.content),
+                    finish_reason,
+                    event_attrs=_build_event_metadata(
+                        model_name, response_model, server_address, chat_response, finish_reason
+                    ),
+                )
 
-            raw_content = str(chat_response.message.content)
+            raw_content = _strip_markdown_json(str(chat_response.message.content))
             for parse_attempt in range(MAX_PARSE_RETRIES + 1):
                 try:
                     return output_cls.model_validate_json(raw_content)
@@ -194,8 +274,8 @@ async def generate_structured(
                                 ),
                             )
                         )
-                        correction_response = await sllm.achat(messages)
-                        raw_content = str(correction_response.message.content)
+                        correction_response = await llm.achat(messages, **achat_kwargs)
+                        raw_content = _strip_markdown_json(str(correction_response.message.content))
                         continue
                     raise
 
@@ -203,28 +283,105 @@ async def generate_structured(
 
         except Exception as e:
             span.record_exception(e)
+            span.set_status(StatusCode.ERROR, str(e))
             span.set_attribute("error.type", type(e).__name__)
             error_counter.add(
                 1,
                 {
                     "gen_ai.request.model": llm.metadata.model_name,
+                    "gen_ai.provider.name": _provider,
                     "error.type": type(e).__name__,
                 },
             )
             raise
 
 
+def _raw_get(raw: object) -> Callable[[str], Any]:
+    """Return a getter that works whether raw is a dict or an object."""
+    if isinstance(raw, dict):
+        return raw.get
+    return lambda key, default=None: getattr(raw, key, default)
+
+
+def _extract_raw_usage(raw: object) -> dict[str, Any]:
+    """Extract usage dict from raw response (dict or object)."""
+    if isinstance(raw, dict):
+        usage = raw.get("usage")
+        if isinstance(usage, dict):
+            return usage
+        if usage is not None:
+            return {
+                "input_tokens": getattr(usage, "input_tokens", None),
+                "output_tokens": getattr(usage, "output_tokens", None),
+            }
+    elif raw is not None:
+        usage = getattr(raw, "usage", None)
+        if usage is not None:
+            return {
+                "input_tokens": getattr(usage, "input_tokens", None),
+                "output_tokens": getattr(usage, "output_tokens", None),
+            }
+    return {}
+
+
+def _set_response_attrs(
+    chat_response: object, span: trace.Span, model_name: str
+) -> tuple[str, str | None]:
+    additional = getattr(chat_response, "additional_kwargs", None) or {}
+    raw = getattr(chat_response, "raw", None)
+    raw_get = _raw_get(raw)
+    response_model = additional.get("model") or raw_get("model") or model_name
+    span.set_attribute("gen_ai.response.model", response_model)
+    response_id = additional.get("id") or raw_get("id")
+    if response_id:
+        span.set_attribute("gen_ai.response.id", response_id)
+    finish_reason = (
+        additional.get("finish_reason") or additional.get("stop_reason") or raw_get("stop_reason")
+    )
+    if finish_reason:
+        span.set_attribute("gen_ai.response.finish_reasons", [finish_reason])
+    return response_model, finish_reason
+
+
+def _build_common_attrs(
+    model_name: str, response_model: str, server_address: str
+) -> dict[str, str | int]:
+    attrs: dict[str, str | int] = {
+        "gen_ai.request.model": model_name,
+        "gen_ai.provider.name": _provider,
+        "gen_ai.operation.name": "chat",
+        "gen_ai.response.model": response_model,
+    }
+    if server_address:
+        attrs["server.address"] = server_address
+        attrs["server.port"] = 443
+    return attrs
+
+
 def _record_token_metrics(
     chat_response: object,
-    common_attrs: dict[str, str],
+    common_attrs: dict[str, str | int],
     model_name: str,
     content_type: str,
     endpoint: str,
     span: trace.Span,
 ) -> None:
     additional = getattr(chat_response, "additional_kwargs", None) or {}
-    input_tokens = additional.get("prompt_tokens") or additional.get("input_tokens")
-    output_tokens = additional.get("completion_tokens") or additional.get("output_tokens")
+    raw = getattr(chat_response, "raw", None)
+    raw_usage = _extract_raw_usage(raw)
+
+    input_tokens = (
+        additional.get("prompt_tokens")
+        or additional.get("input_tokens")
+        or (additional.get("usage") or {}).get("input_tokens")
+        or raw_usage.get("input_tokens")
+    )
+    output_tokens = (
+        additional.get("completion_tokens")
+        or additional.get("output_tokens")
+        or (additional.get("usage") or {}).get("output_tokens")
+        or raw_usage.get("output_tokens")
+    )
 
     if input_tokens is not None and output_tokens is not None:
         span.set_attribute("gen_ai.usage.input_tokens", int(input_tokens))
@@ -242,15 +399,78 @@ def _record_token_metrics(
         )
 
 
-def _record_span_events(
-    span: trace.Span, system_prompt: str, user_prompt: str, assistant_content: str
+def _build_event_metadata(
+    model_name: str,
+    response_model: str,
+    server_address: str,
+    chat_response: object,
+    finish_reason: str | None,
+) -> dict[str, str | int | list[str]]:
+    additional = getattr(chat_response, "additional_kwargs", None) or {}
+    raw = getattr(chat_response, "raw", None)
+    raw_get = _raw_get(raw)
+    raw_usage = _extract_raw_usage(raw)
+    attrs: dict[str, str | int | list[str]] = {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.model": model_name,
+        "gen_ai.response.model": response_model,
+        "server.port": 443,
+    }
+    if server_address:
+        attrs["server.address"] = server_address
+    response_id = additional.get("id") or raw_get("id")
+    if response_id:
+        attrs["gen_ai.response.id"] = response_id
+    if finish_reason:
+        attrs["gen_ai.response.finish_reasons"] = [finish_reason]
+    input_toks = (
+        additional.get("prompt_tokens")
+        or additional.get("input_tokens")
+        or (additional.get("usage") or {}).get("input_tokens")
+        or raw_usage.get("input_tokens")
+    )
+    output_toks = (
+        additional.get("completion_tokens")
+        or additional.get("output_tokens")
+        or (additional.get("usage") or {}).get("output_tokens")
+        or raw_usage.get("output_tokens")
+    )
+    if input_toks is not None:
+        attrs["gen_ai.usage.input_tokens"] = int(input_toks)
+    if output_toks is not None:
+        attrs["gen_ai.usage.output_tokens"] = int(output_toks)
+    return attrs
+
+
+def _record_span_event(
+    span: trace.Span,
+    system_prompt: str,
+    user_prompt: str,
+    assistant_content: str,
+    finish_reason: str | None = None,
+    *,
+    event_attrs: dict[str, str | int | list[str]] | None = None,
 ) -> None:
+    attrs: dict[str, str | int | list[str]] = {}
+    if event_attrs:
+        attrs.update(event_attrs)
     if system_prompt:
-        span.add_event("gen_ai.system.message", {"content": scrub_pii(system_prompt)[:500]})
-    span.add_event("gen_ai.user.message", {"content": scrub_pii(user_prompt)[:500]})
-    span.add_event("gen_ai.assistant.message", {"content": scrub_pii(assistant_content)[:500]})
+        attrs["gen_ai.system_instructions"] = json.dumps(
+            [{"type": "text", "content": scrub_pii(system_prompt)[:500]}]
+        )
+    attrs["gen_ai.input.messages"] = json.dumps(
+        [{"role": "user", "parts": [{"type": "text", "content": scrub_pii(user_prompt)[:500]}]}]
+    )
+    output_msg: dict[str, object] = {
+        "role": "assistant",
+        "parts": [{"type": "text", "content": scrub_pii(assistant_content)[:500]}],
+    }
+    if finish_reason:
+        output_msg["finish_reason"] = finish_reason
+    attrs["gen_ai.output.messages"] = json.dumps([output_msg])
+    span.add_event("gen_ai.client.inference.operation.details", attrs)
 
 
 def _calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    pricing = PRICING.get(model, {"input": 0.10, "output": 0.40})
+    pricing = PRICING.get(model, {"input": 0.0, "output": 0.0})
     return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000

@@ -1,9 +1,9 @@
 import atexit
 import logging
 import os
+from importlib.metadata import version
 from typing import Any
 
-from openinference.instrumentation.llama_index import LlamaIndexInstrumentor
 from opentelemetry import _logs, metrics, trace
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -31,15 +31,13 @@ def setup_telemetry(
     1. Trace provider with OTLP exporter (for spans)
     2. Meter provider with OTLP exporter (for metrics)
     3. Log provider with OTLP exporter (for logs with trace correlation)
-    4. Auto-instrumentation for LlamaIndex (OpenInference) and logging
+    4. Auto-instrumentation for logging (trace_id/span_id correlation)
 
-    Auto-instrumentation provides:
-    - LlamaIndex spans: LLM calls with GenAI attributes (model, tokens, latency)
-    - Log correlation: trace_id and span_id added to log records and exported via OTLP
-
-    Custom instrumentation (in llm.py) adds:
-    - GenAI metrics: token usage, operation duration, cost tracking
-    - Business context: content.type, content.length, endpoint
+    GenAI telemetry (spans, metrics, events) is handled by custom instrumentation
+    in llm.py following OTel GenAI semantic conventions. We intentionally do NOT use
+    OpenInference/LlamaIndex auto-instrumentation to avoid non-standard attributes
+    (llm.*, input.*, output.*) that pollute the telemetry with framework-specific
+    data outside the OTel GenAI semconv.
 
     Args:
         service_name: Service identifier for all telemetry
@@ -55,7 +53,7 @@ def setup_telemetry(
     resource = Resource.create(
         {
             "service.name": service_name,
-            "service.version": "1.0.0",
+            "service.version": version("ai-content-quality"),
             "deployment.environment": os.getenv("SCOUT_ENVIRONMENT", "development"),
         }
     )
@@ -88,9 +86,6 @@ def setup_telemetry(
     atexit.register(metric_provider.shutdown)
     atexit.register(log_provider.shutdown)
 
-    # Auto-instrumentation: LlamaIndex (OpenInference)
-    LlamaIndexInstrumentor().instrument(tracer_provider=trace_provider)
-
     # Auto-instrumentation: logging (adds trace_id/span_id to log records)
     LoggingInstrumentor().instrument(set_logging_format=True)
 
@@ -110,4 +105,8 @@ def instrument_fastapi(app: Any) -> None:
     """
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-    FastAPIInstrumentor.instrument_app(app)
+    FastAPIInstrumentor.instrument_app(
+        app,
+        excluded_urls="health",
+        exclude_spans=["receive", "send"],
+    )

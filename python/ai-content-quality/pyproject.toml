@@ -20,7 +20,7 @@ classifiers = [
 
 dependencies = [
     # Web framework
-    "fastapi>=0.128.0",
+    "fastapi>=0.128.4",
     "uvicorn[standard]>=0.40.0",
 
     # Validation & settings
@@ -29,12 +29,12 @@ dependencies = [
 
     # LLM
     "llama-index-core>=0.14.13",
-    "llama-index-llms-openai>=0.6.15",
-    "llama-index-llms-google-genai>=0.8.5",
-    "llama-index-llms-anthropic>=0.10.7",
+    "llama-index-llms-openai>=0.6.18",
+    "llama-index-llms-google-genai>=0.8.7",
+    "llama-index-llms-anthropic>=0.10.8",
 
     # Utilities
-    "tenacity>=9.1.2",
+    "tenacity>=9.1.4",
     "httpx>=0.28.1",
     "pyyaml>=6.0.3",
 
@@ -43,13 +43,8 @@ dependencies = [
     "opentelemetry-api>=1.39.1",
     "opentelemetry-exporter-otlp-proto-http>=1.39.1",
     "opentelemetry-instrumentation-fastapi>=0.60b1",
-    "opentelemetry-instrumentation-httpx>=0.60b1",  # not instrumented; enable for HTTP-level debugging
     "opentelemetry-instrumentation-logging>=0.60b1",
 
-    # OpenInference (LlamaIndex auto-instrumentation)
-    "openinference-instrumentation-llama-index>=4.3.9",
-    "openinference-instrumentation>=0.1.44",
-    "openinference-semantic-conventions>=0.1.26",
 ]
 
 [project.optional-dependencies]
@@ -57,7 +52,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "pytest-asyncio>=1.1.0",
-    "ruff>=0.14.14",
+    "ruff>=0.15.0",
     "mypy>=1.19.1",
     "pip-audit>=2.10.0",
     "types-pyyaml>=6.0.12.20250915",
@@ -137,7 +132,6 @@ plugins = ["pydantic.mypy"]
 module = [
     "llama_index.*",
     "opentelemetry.*",
-    "openinference.*",
 ]
 ignore_missing_imports = true
 

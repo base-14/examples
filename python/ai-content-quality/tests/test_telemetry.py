@@ -16,7 +16,6 @@ _ENABLED_PATCHES = (
     "content_quality.telemetry.OTLPMetricExporter",
     "content_quality.telemetry.OTLPLogExporter",
     "content_quality.telemetry.LoggingHandler",
-    "content_quality.telemetry.LlamaIndexInstrumentor",
     "content_quality.telemetry.LoggingInstrumentor",
     "content_quality.telemetry.trace",
     "content_quality.telemetry.metrics",
@@ -72,14 +71,13 @@ def test_enabled_creates_real_providers() -> None:
             _stop_patches()
 
 
-def test_enabled_instruments_llamaindex() -> None:
+def test_enabled_instruments_logging() -> None:
     with patch.dict(os.environ, {}, clear=False):
         _clear_otel_disabled()
         mocks = _enter_patches()
         try:
             setup_telemetry("test-service", "http://localhost:4318")
 
-            mocks["LlamaIndexInstrumentor"].return_value.instrument.assert_called_once()
             mocks["LoggingInstrumentor"].return_value.instrument.assert_called_once_with(
                 set_logging_format=True
             )
@@ -107,7 +105,9 @@ def test_instrument_fastapi_calls_instrumentor() -> None:
     with patch("opentelemetry.instrumentation.fastapi.FastAPIInstrumentor") as mock_fai:
         mock_app = MagicMock()
         instrument_fastapi(mock_app)
-        mock_fai.instrument_app.assert_called_once_with(mock_app)
+        mock_fai.instrument_app.assert_called_once_with(
+            mock_app, excluded_urls="health", exclude_spans=["receive", "send"]
+        )
 
 
 def test_resource_includes_service_metadata() -> None:

@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
+from opentelemetry.trace import StatusCode
 
 from content_quality.config import get_settings
 from content_quality.middleware import MetricsMiddleware
@@ -38,6 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "google": settings.google_api_key,
             "anthropic": settings.anthropic_api_key,
         }.get(settings.llm_provider, ""),
+        timeout=settings.llm_timeout,
     )
     app.state.analyzer = ContentAnalyzer(app.state.llm)
     yield
@@ -48,10 +51,19 @@ app.add_middleware(MetricsMiddleware)
 instrument_fastapi(app)
 
 
+def _record_error_on_span(exc: Exception) -> None:
+    span = trace.get_current_span()
+    if span.is_recording():
+        span.record_exception(exc)
+        span.set_attribute("error.type", type(exc).__name__)
+        span.set_status(StatusCode.ERROR, str(exc))
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
+    _record_error_on_span(exc)
     logger.warning("Validation error on %s %s: %s", request.method, request.url.path, exc.errors())
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
@@ -66,11 +78,13 @@ async def review_content(request: ContentRequest) -> ReviewResult:
     try:
         return await asyncio.wait_for(
             app.state.analyzer.review(request.content, request.content_type),
-            timeout=60.0,
+            timeout=settings.request_timeout,
         )
-    except TimeoutError:
+    except TimeoutError as exc:
+        _record_error_on_span(exc)
         raise HTTPException(status_code=504, detail="Analysis timed out") from None
-    except Exception:
+    except Exception as exc:
+        _record_error_on_span(exc)
         logger.exception("Review analysis failed")
         raise HTTPException(status_code=502, detail="Analysis failed") from None
 
@@ -80,11 +94,13 @@ async def improve_content(request: ContentRequest) -> ImproveResult:
     try:
         return await asyncio.wait_for(
             app.state.analyzer.improve(request.content, request.content_type),
-            timeout=60.0,
+            timeout=settings.request_timeout,
         )
-    except TimeoutError:
+    except TimeoutError as exc:
+        _record_error_on_span(exc)
         raise HTTPException(status_code=504, detail="Analysis timed out") from None
-    except Exception:
+    except Exception as exc:
+        _record_error_on_span(exc)
         logger.exception("Improve analysis failed")
         raise HTTPException(status_code=502, detail="Analysis failed") from None
 
@@ -94,10 +110,12 @@ async def score_content(request: ContentRequest) -> ScoreResult:
     try:
         return await asyncio.wait_for(
             app.state.analyzer.score(request.content, request.content_type),
-            timeout=60.0,
+            timeout=settings.request_timeout,
         )
-    except TimeoutError:
+    except TimeoutError as exc:
+        _record_error_on_span(exc)
         raise HTTPException(status_code=504, detail="Analysis timed out") from None
-    except Exception:
+    except Exception as exc:
+        _record_error_on_span(exc)
         logger.exception("Score analysis failed")
         raise HTTPException(status_code=502, detail="Analysis failed") from None
