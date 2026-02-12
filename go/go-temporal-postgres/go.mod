@@ -1,6 +1,6 @@
 module github.com/base-14/examples/go/go-temporal-postgres
 
-go 1.25
+go 1.25.7
 
 // Web Framework
 require github.com/labstack/echo/v4 v4.15.0

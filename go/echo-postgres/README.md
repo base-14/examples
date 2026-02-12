@@ -8,7 +8,7 @@ A production-ready Go REST API demonstrating Echo framework with GORM ORM, Asynq
 
 | Component | Version | EOL Status | Current Version |
 |-----------|---------|------------|-----------------|
-| **Go** | 1.24 | Feb 2026 | Latest stable |
+| **Go** | 1.24.13 | Feb 2026 | Latest stable |
 | **Echo** | 4.15 | Active | Latest v4 |
 | **GORM** | 1.31 | Active | ORM with auto-migrations |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
@@ -84,7 +84,7 @@ HTTP POST /api/articles/:slug/favorite (parent span)
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Go 1.24+** (for local development)
+3. **Go 1.24.13+** (for local development)
 
 ## Quick Start
 

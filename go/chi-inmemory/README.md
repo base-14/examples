@@ -33,7 +33,7 @@ Service name: `go-parking-lot-otel` (configurable)
 
 ## Stack
 
-- **Language**: Go 1.25
+- **Language**: Go 1.25.7
 - **HTTP Router**: go-chi/chi v5
 - **Storage**: In-memory (no database)
 - **OTel Collector**: opentelemetry-collector-contrib 0.115.1
@@ -54,7 +54,7 @@ Service name: `go-parking-lot-otel` (configurable)
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Go 1.25+** (for local development)
+3. **Go 1.25.7+** (for local development)
 
 ## Quick Start
 

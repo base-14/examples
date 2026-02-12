@@ -22,6 +22,7 @@
     "verify:scout": "bash scripts/verify-scout.sh",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
+    "build:lint": "npm run build && npm run lint",
     "check": "npm run lint && npm run typecheck && npm run test"
   },
   "dependencies": {

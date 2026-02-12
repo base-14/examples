@@ -20,7 +20,8 @@
     "test:api": "bash scripts/test-api.sh",
     "test:websocket": "node scripts/test-websocket.js",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:lint": "npm run build && npm run lint"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",

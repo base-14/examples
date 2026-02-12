@@ -9,7 +9,7 @@ River job queue (PostgreSQL-native), and comprehensive OpenTelemetry instrumenta
 
 | Component | Version | EOL Status | Current Version |
 |-----------|---------|------------|-----------------|
-| **Go** | 1.24 | Feb 2026 | Latest stable |
+| **Go** | 1.24.13 | Feb 2026 | Latest stable |
 | **Fiber** | 2.52 | Active | Express-inspired web framework |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 (database + job queue) |
 | **sqlx** | 1.4 | Active | Lightweight SQL toolkit |
@@ -113,7 +113,7 @@ HTTP POST /api/articles (parent span)
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Go 1.24+** (for local development)
+3. **Go 1.24.13+** (for local development)
 
 ## Quick Start
 
