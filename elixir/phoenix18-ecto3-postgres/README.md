@@ -1,6 +1,6 @@
 # Phoenix LiveView Chat with OpenTelemetry
 
-Phoenix 1.8.1 application with OpenTelemetry auto-instrumentation for traces,
+Phoenix 1.8.3 application with OpenTelemetry auto-instrumentation for traces,
 metrics, and logs.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/elixir-phoenix)

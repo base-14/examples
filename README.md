@@ -56,7 +56,7 @@ Production-ready examples for integrating OpenTelemetry with
 
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
-| **Laravel 8** | Laravel 8 + PHP 8 + SQLite | [php8-laravel8-sqlite](./php/php8-laravel8-sqlite) | JWT auth, auto-instrumentation |
+| **Laravel 8 (Legacy)** | Laravel 8 + PHP 8 + SQLite | [php8-laravel8-sqlite](./php/php8-laravel8-sqlite) | JWT auth, auto-instrumentation |
 | **Laravel 12** | Laravel 12 + PHP 8.5 + PostgreSQL 18 | [php85-laravel12-postgres](./php/php85-laravel12-postgres) | JWT auth, auto-instrumentation |
 
 ### Elixir

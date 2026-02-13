@@ -9,7 +9,7 @@ Production-ready Quarkus REST API with built-in OpenTelemetry instrumentation, J
 | Component | Version | EOL Status | Current Version |
 |-----------|---------|------------|-----------------|
 | **Java** | 21 | Sep 2028 | LTS release |
-| **Quarkus** | 3.30 | Active | 3.30.6 |
+| **Quarkus** | 3.31 | Active | 3.31.3 |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
 | **Hibernate** | 6.6 | Active | Bundled with Quarkus |
 | **OpenTelemetry** | Built-in | N/A | Quarkus extension |

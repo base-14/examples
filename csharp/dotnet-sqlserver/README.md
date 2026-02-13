@@ -11,7 +11,7 @@ A production-ready ASP.NET Core 9 REST API demonstrating full OpenTelemetry inst
 | C# | 13 | Latest language version |
 | Azure SQL Edge | latest | SQL Server compatible, ARM64 native |
 | Entity Framework Core | 9.0.0 | Latest ORM version |
-| OpenTelemetry | 1.11.2 | Traces, metrics, logs via OTLP |
+| OpenTelemetry | 1.15.0 | Traces, metrics, logs via OTLP |
 | BCrypt.Net-Next | 4.0.3 | Password hashing |
 
 ## Features

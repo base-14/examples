@@ -1,0 +1,60 @@
+name: Promptfoo Eval
+
+on:
+  push:
+    paths:
+      - "python/ai-content-quality/prompts/**"
+      - "python/ai-content-quality/evals/**"
+      - "python/ai-content-quality/src/content_quality/services/analyzer.py"
+      - "python/ai-content-quality/promptfooconfig.yaml"
+  pull_request:
+    paths:
+      - "python/ai-content-quality/prompts/**"
+      - "python/ai-content-quality/evals/**"
+      - "python/ai-content-quality/src/content_quality/services/analyzer.py"
+      - "python/ai-content-quality/promptfooconfig.yaml"
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python/ai-content-quality
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install promptfoo
+        run: npm install -g promptfoo@latest
+
+      - name: Run eval
+        run: promptfoo eval --no-cache -o eval-results.json
+
+      - name: Check pass rate
+        run: |
+          TOTAL=$(jq '.results.stats.totalAssertions' eval-results.json)
+          PASSED=$(jq '.results.stats.totalPassedAssertions' eval-results.json)
+          RATE=$(echo "scale=2; $PASSED * 100 / $TOTAL" | bc)
+          echo "Pass rate: ${RATE}% (${PASSED}/${TOTAL})"
+          PASS=$(echo "$RATE >= 95" | bc)
+          if [ "$PASS" -ne 1 ]; then
+            echo "::error::Pass rate ${RATE}% is below 95% threshold"
+            exit 1
+          fi
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: python/ai-content-quality/eval-results.json

@@ -6,7 +6,7 @@ OpenTelemetry instrumentation examples for Elixir applications.
 
 | Project | Description |
 | ------- | ----------- |
-| [phoenix18-ecto3-postgres](./phoenix18-ecto3-postgres) | Phoenix 1.8.1 + Ecto 3 + PostgreSQL 14+ with LiveView, auto-instrumentation for traces/metrics/logs, and real-time chat |
+| [phoenix18-ecto3-postgres](./phoenix18-ecto3-postgres) | Phoenix 1.8.3 + Ecto 3 + PostgreSQL 14+ with LiveView, auto-instrumentation for traces/metrics/logs, and real-time chat |
 
 ## Contributing
 

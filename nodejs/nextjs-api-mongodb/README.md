@@ -10,7 +10,7 @@ A production-ready REST API built with Next.js 16, MongoDB, and OpenTelemetry.
 - **Cache/Queue**: Redis 7 with BullMQ
 - **Validation**: Zod 4
 - **Authentication**: JWT (jsonwebtoken)
-- **Observability**: OpenTelemetry SDK 0.210.0
+- **Observability**: OpenTelemetry SDK 0.211.0
 
 ## Getting Started
 
