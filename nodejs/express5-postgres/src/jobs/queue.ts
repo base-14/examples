@@ -7,7 +7,7 @@ export const connection = new Redis(redisUrl, {
   maxRetriesPerRequest: null,
 });
 
-export const notificationQueue = new Queue('notifications', { connection });
+export const notificationQueue = new Queue('notifications', { connection: connection as any });
 
 export async function closeQueues() {
   await notificationQueue.close();

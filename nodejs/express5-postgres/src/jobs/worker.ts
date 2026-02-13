@@ -90,7 +90,7 @@ async function processNotificationJob(job: Job<NotificationJobData>) {
 }
 
 const worker = new Worker<NotificationJobData>('notifications', processNotificationJob, {
-  connection,
+  connection: connection as any,
   concurrency: 5,
 });
 

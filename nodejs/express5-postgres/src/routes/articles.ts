@@ -95,7 +95,7 @@ router.post('/', requireAuth, async (req, res) => {
   const result = createArticleSchema.safeParse(req.body);
 
   if (!result.success) {
-    return errorResponse(result.error.errors[0]?.message || 'Validation failed', 400, res);
+    return errorResponse(result.error.issues[0]?.message || 'Validation failed', 400, res);
   }
 
   try {
@@ -161,7 +161,7 @@ router.put('/:slug', requireAuth, async (req, res) => {
   const result = updateArticleSchema.safeParse(req.body);
 
   if (!result.success) {
-    return errorResponse(result.error.errors[0]?.message || 'Validation failed', 400, res);
+    return errorResponse(result.error.issues[0]?.message || 'Validation failed', 400, res);
   }
 
   try {

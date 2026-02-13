@@ -44,7 +44,7 @@ router.post('/register', async (req, res) => {
   const result = registerSchema.safeParse(req.body);
 
   if (!result.success) {
-    return errorResponse(result.error.errors[0]?.message || 'Validation failed', 400, res);
+    return errorResponse(result.error.issues[0]?.message || 'Validation failed', 400, res);
   }
 
   try {
@@ -68,7 +68,7 @@ router.post('/login', async (req, res) => {
   const result = loginSchema.safeParse(req.body);
 
   if (!result.success) {
-    return errorResponse(result.error.errors[0]?.message || 'Validation failed', 400, res);
+    return errorResponse(result.error.issues[0]?.message || 'Validation failed', 400, res);
   }
 
   try {
