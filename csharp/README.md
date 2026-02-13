@@ -1,13 +1,12 @@
-# Ruby Examples
+# C# Examples
 
-OpenTelemetry instrumentation examples for Ruby applications.
+OpenTelemetry instrumentation examples for .NET applications.
 
 ## Projects
 
 | Project | Description |
 | ------- | ----------- |
-| [rails8-sqlite](./rails8-sqlite) | Rails 8.1.1 with auto-instrumentation, SQLite, and OIDC authentication |
-| [ruby27-rails52-mysql8](./ruby27-rails52-mysql8) | Rails 5.2.8 with Ruby 2.7.7, MySQL 8, and Scout APM integration |
+| [dotnet-sqlserver](./dotnet-sqlserver) | .NET 9 ASP.NET Core + EF Core + Azure SQL Edge with Minimal APIs, rate limiting, and full OTel instrumentation |
 
 ## Contributing
 

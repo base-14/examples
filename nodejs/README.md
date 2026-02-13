@@ -9,6 +9,7 @@ OpenTelemetry instrumentation examples for Node.js applications.
 | [express5-postgres](./express5-postgres) | Express 5 + TypeScript + PostgreSQL 18 + BullMQ + Socket.io with background jobs and WebSocket support |
 | [nestjs-postgres](./nestjs-postgres) | NestJS 11 + TypeScript + PostgreSQL 18 + BullMQ + Socket.io with enterprise architecture and background jobs |
 | [nextjs-api-mongodb](./nextjs-api-mongodb) | Next.js 16 + TypeScript + MongoDB 8 + BullMQ with REST API routes and background jobs |
+| [fastify-postgres](./fastify-postgres) | Fastify 5 + TypeScript + PostgreSQL 18 + Drizzle ORM + BullMQ with Pino structured logging |
 | [express-typescript-mongodb](./express-typescript-mongodb) | Express + TypeScript + MongoDB with auto-instrumentation and Redis |
 
 ## Contributing

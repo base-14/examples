@@ -1,13 +1,12 @@
-# Ruby Examples
+# Rust Examples
 
-OpenTelemetry instrumentation examples for Ruby applications.
+OpenTelemetry instrumentation examples for Rust applications.
 
 ## Projects
 
 | Project | Description |
 | ------- | ----------- |
-| [rails8-sqlite](./rails8-sqlite) | Rails 8.1.1 with auto-instrumentation, SQLite, and OIDC authentication |
-| [ruby27-rails52-mysql8](./ruby27-rails52-mysql8) | Rails 5.2.8 with Ruby 2.7.7, MySQL 8, and Scout APM integration |
+| [axum-postgres](./axum-postgres) | Axum + SQLx + PostgreSQL 18 with JWT auth, PostgreSQL-native job queue, custom spans, and full OTel instrumentation |
 
 ## Contributing
 
