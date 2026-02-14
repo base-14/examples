@@ -1,0 +1,72 @@
+[package]
+name = "actix-postgres"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.92"
+description = "Production-ready Rust API with Actix Web, PostgreSQL, and OpenTelemetry"
+license = "MIT"
+
+[[bin]]
+name = "api"
+path = "src/main.rs"
+
+[[bin]]
+name = "worker"
+path = "src/bin/worker.rs"
+
+[dependencies]
+# Web Framework
+actix-web = "4.12"
+actix-rt = "2"
+tracing-actix-web = "0.7"
+
+# Async Runtime
+tokio = { version = "1.49.0", features = ["full", "tracing"] }
+
+# Database
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "macros",
+    "migrate",
+    "uuid",
+    "time",
+    "json"
+]}
+
+# OpenTelemetry
+opentelemetry = "0.31.0"
+opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio", "logs"] }
+opentelemetry-otlp = { version = "0.31.0", features = ["grpc-tonic", "trace", "logs"] }
+opentelemetry-appender-tracing = "0.31.0"
+
+# Tracing
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-opentelemetry = "0.32.0"
+
+# Authentication
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
+argon2 = "0.5.3"
+
+# Serialization
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+uuid = { version = "1.19.0", features = ["v4", "serde"] }
+time = { version = "0.3.47", features = ["serde", "formatting", "macros"] }
+thiserror = "2.0.17"
+anyhow = "1.0.100"
+dotenvy = "0.15"
+
+[dev-dependencies]
+tokio-test = "0.4"
+reqwest = { version = "0.12", features = ["json"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

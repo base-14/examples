@@ -1,0 +1,72 @@
+# OpenTelemetry Collector Configuration
+# Rust Actix Web + PostgreSQL Example
+
+extensions:
+  oauth2client:
+    client_id: ${env:SCOUT_CLIENT_ID}
+    client_secret: ${env:SCOUT_CLIENT_SECRET}
+    token_url: ${env:SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+  health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+  filter/noisy:
+    traces:
+      span:
+        - 'name == "pg-pool.connect"'
+        - 'IsMatch(name, "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")'
+        - 'IsMatch(name, ".*/api/health")'
+
+exporters:
+  otlphttp/b14:
+    endpoint: ${env:SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  debug:
+    verbosity: basic
+
+service:
+  extensions: [oauth2client, health_check, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/noisy, batch]
+      exporters: [otlphttp/b14, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/b14, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/b14, debug]
