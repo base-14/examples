@@ -1,4 +1,4 @@
-.PHONY: build build-api build-worker test clean run run-api run-worker docker-up docker-down docker-logs docker-build test-api lint format build-lint check
+.PHONY: build build-api build-worker test clean run run-api run-worker docker-up docker-down docker-logs docker-build test-api verify-scout lint format build-lint check
 
 build: build-api build-worker
 
@@ -37,6 +37,9 @@ docker-logs:
 
 test-api:
 	./scripts/test-api.sh
+
+verify-scout:
+	./scripts/verify-scout.sh
 
 lint:
 	cargo clippy --all-targets
