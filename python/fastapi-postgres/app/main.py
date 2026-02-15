@@ -15,7 +15,7 @@ setup_telemetry(otel_endpoint.replace("http://", ""))
 app = FastAPI()
 
 app.add_middleware(MetricsMiddleware)
-FastAPIInstrumentor.instrument_app(app)
+FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])
 RequestsInstrumentor().instrument()
 
 origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")

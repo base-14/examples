@@ -30,11 +30,11 @@ gunicorn>=23.0
 # OpenTelemetry (Dec 2025 latest)
 opentelemetry-sdk>=1.39
 opentelemetry-exporter-otlp>=1.39
-opentelemetry-instrumentation-flask>=0.60b
-opentelemetry-instrumentation-sqlalchemy>=0.60b
-opentelemetry-instrumentation-celery>=0.60b
-opentelemetry-instrumentation-redis>=0.60b
-opentelemetry-instrumentation-logging>=0.60b
+opentelemetry-instrumentation-flask>=0.60b1
+opentelemetry-instrumentation-sqlalchemy>=0.60b1
+opentelemetry-instrumentation-celery>=0.60b1
+opentelemetry-instrumentation-redis>=0.60b1
+opentelemetry-instrumentation-logging>=0.60b1
 
 # Testing
 pytest>=8.0

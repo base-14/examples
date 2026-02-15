@@ -32,10 +32,10 @@ dependencies = [
     "opentelemetry-sdk>=1.39",
     "opentelemetry-exporter-otlp>=1.39",
     "opentelemetry-instrumentation-django>=0.60b",
-    "opentelemetry-instrumentation-psycopg>=0.59b",
-    "opentelemetry-instrumentation-celery>=0.59b",
-    "opentelemetry-instrumentation-redis>=0.59b",
-    "opentelemetry-instrumentation-logging>=0.59b",
+    "opentelemetry-instrumentation-psycopg>=0.60b1",
+    "opentelemetry-instrumentation-celery>=0.60b1",
+    "opentelemetry-instrumentation-redis>=0.60b1",
+    "opentelemetry-instrumentation-logging>=0.60b1",
 ]
 
 [project.optional-dependencies]

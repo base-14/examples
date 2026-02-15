@@ -19,13 +19,13 @@ dependencies = [
     "pydantic (>=2.12.5,<3.0.0)",
     "python-dotenv (>=1.1.1,<2.0.0)",
     "python-environ (>=0.4.54,<0.5.0)",
-    "opentelemetry-distro (>=0.60b0,<0.61b0)",
+    "opentelemetry-distro (>=0.60b1)",
     "opentelemetry-exporter-otlp (>=1.39.0,<1.40.0)",
-    "opentelemetry-instrumentation-celery (>=0.60b0,<0.61b0)",
-    "opentelemetry-instrumentation-fastapi (>=0.60b0,<0.61b0)",
-    "opentelemetry-instrumentation-sqlalchemy (>=0.60b0,<0.61b0)",
-    "opentelemetry-instrumentation-redis (>=0.60b0,<0.61b0)",
-    "opentelemetry-instrumentation-logging (>=0.60b0,<0.61b0)"
+    "opentelemetry-instrumentation-celery (>=0.60b1)",
+    "opentelemetry-instrumentation-fastapi (>=0.60b1)",
+    "opentelemetry-instrumentation-sqlalchemy (>=0.60b1)",
+    "opentelemetry-instrumentation-redis (>=0.60b1)",
+    "opentelemetry-instrumentation-logging (>=0.60b1)"
 ]
 
 

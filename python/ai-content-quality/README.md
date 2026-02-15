@@ -169,7 +169,7 @@ docker compose up -d
 docker compose down -v
 ```
 
-The OTel Collector (`otel-collector-config.yaml`) is configured with `memory_limiter`, `batch` processing, and `otlphttp` export to Base14 Scout with OAuth2 authentication, retry, and gzip compression.
+The OTel Collector (`otel-collector-config.yaml`) is configured with `memory_limiter`, `batch` processing, and `otlp_http` export to Base14 Scout with OAuth2 authentication, retry, and gzip compression.
 
 ## Dashboards
 

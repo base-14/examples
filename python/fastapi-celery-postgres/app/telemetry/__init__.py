@@ -85,7 +85,7 @@ def setup_telemetry(app, engine):
     init_telemetry()
 
     # Auto-instrument FastAPI (includes HTTP metrics)
-    FastAPIInstrumentor.instrument_app(app)
+    FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])
     logger.info("FastAPI auto-instrumentation enabled (traces + metrics)")
 
     # Auto-instrument SQLAlchemy

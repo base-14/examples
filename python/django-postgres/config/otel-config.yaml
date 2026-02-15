@@ -29,6 +29,16 @@ processors:
     check_interval: 1s
     limit_mib: 256
     spike_limit_mib: 64
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:SCOUT_ENVIRONMENT}
+        action: upsert
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*/health.*")'
   transform/pii:
     error_mode: ignore
     log_statements:
@@ -45,7 +55,7 @@ processors:
 exporters:
   debug:
     verbosity: detailed
-  otlphttp/scout:
+  otlp_http/scout:
     endpoint: ${env:SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
@@ -64,13 +74,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, transform/pii, batch]
-      exporters: [debug, otlphttp/scout]
+      processors: [memory_limiter, filter/noisy, resource, transform/pii, batch]
+      exporters: [debug, otlp_http/scout]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [debug, otlphttp/scout]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug, otlp_http/scout]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, transform/pii, batch]
-      exporters: [debug, otlphttp/scout]
+      processors: [memory_limiter, resource, transform/pii, batch]
+      exporters: [debug, otlp_http/scout]

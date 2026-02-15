@@ -148,7 +148,7 @@ services:
       start_period: 30s
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.141.0
+    image: otel/opentelemetry-collector-contrib:0.144.0
     container_name: otel-collector
     deploy:
       resources:
@@ -158,21 +158,20 @@ services:
     command: ["--config=/etc/otel-config.yaml"]
     volumes:
       - ./config/otel-config.yaml:/etc/otel-config.yaml:ro
+    env_file:
+      - path: .env
+        required: false
     environment:
-      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT}
-      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID}
-      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET}
-      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL}
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-http://localhost:4318}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
     ports:
       - "4318:4318"
       - "4317:4317"
       - "13133:13133"
       - "55679:55679"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:13133/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
     logging: *logging
     depends_on:
       rabbitmq:

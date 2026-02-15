@@ -1,208 +1,255 @@
 #!/bin/bash
 
-# FastAPI + PostgreSQL + OpenTelemetry API Testing Script
-# This script tests all API endpoints and generates telemetry data
+# FastAPI + PostgreSQL API Testing Script
 
 set -e
 
-echo "=== FastAPI + PostgreSQL API Testing Script ==="
-echo ""
+BASE_URL="${API_BASE_URL:-http://localhost:8000}"
+PASS_COUNT=0
+FAIL_COUNT=0
 
-# Generate random suffix for unique emails
-SUFFIX=$(date +%s)
-API_URL=${API_URL:-http://localhost:8000}
-PASSED=0
-FAILED=0
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-# Test helper function
-test_endpoint() {
+pass() { echo -e "${GREEN}PASS${NC}: $1"; PASS_COUNT=$((PASS_COUNT + 1)); }
+fail() { echo -e "${RED}FAIL${NC}: $1 (expected $2, got $3)"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+
+check_status() {
     local description=$1
-    local method=$2
-    local endpoint=$3
-    local data=$4
-    local expected_status=$5
-    local headers=$6
-
-    local status=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$API_URL$endpoint" \
-        -H "Content-Type: application/json" \
-        $headers \
-        ${data:+-d "$data"})
-
-    if [ "$status" = "$expected_status" ]; then
-        echo "✓ $description (status: $status)"
-        PASSED=$((PASSED + 1))
+    local expected=$2
+    local actual=$3
+    if [ "$expected" = "$actual" ]; then
+        pass "$description"
     else
-        echo "✗ $description (expected: $expected_status, got: $status)"
-        FAILED=$((FAILED + 1))
+        fail "$description" "$expected" "$actual"
     fi
 }
 
-# Extract JSON value helper
-extract_json() {
-    local json=$1
-    local key=$2
-    echo "$json" | grep -o "\"$key\"[[:space:]]*:[[:space:]]*[^,}]*" | sed 's/.*:[[:space:]]*//;s/"//g'
-}
+TIMESTAMP=$(date +%s)
 
-# Test health endpoint
-echo "[1/8] Testing health endpoint..."
-curl -s $API_URL/ > /dev/null
-echo "✓ GET / - Health check passed"
+echo -e "${YELLOW}=== FastAPI + PostgreSQL API Tests ===${NC}"
 echo ""
 
-# Register users
-echo "[2/8] Registering test users..."
-USER1_RESPONSE=$(curl -L -s -X POST $API_URL/users \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"email\": \"alice-$SUFFIX@example.com\",
-    \"password\": \"securepass123\"
-  }")
+# ------------------------------------------------------------------
+# 1. Health check
+# ------------------------------------------------------------------
+echo "1. Health Check"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/")
+check_status "GET / (health)" "200" "$STATUS"
 
-USER1_ID=$(echo "$USER1_RESPONSE" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | sed 's/.*:[[:space:]]*//')
-
-USER2_RESPONSE=$(curl -L -s -X POST $API_URL/users \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"email\": \"bob-$SUFFIX@example.com\",
-    \"password\": \"securepass456\"
-  }")
-
-USER2_ID=$(echo "$USER2_RESPONSE" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | sed 's/.*:[[:space:]]*//')
-
-echo "✓ Users registered (Alice: ID $USER1_ID, Bob: ID $USER2_ID)"
+# ------------------------------------------------------------------
+# 2. Register users
+# ------------------------------------------------------------------
 echo ""
+echo "2. User Registration"
 
-# Login users
-echo "[3/8] Logging in users..."
-TOKEN1_RESPONSE=$(curl -s -X POST $API_URL/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=alice-$SUFFIX@example.com&password=securepass123")
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/users/" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"alice-${TIMESTAMP}@example.com\",\"password\":\"securepass1\"}")
+STATUS=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+check_status "POST /users/ (create user alice)" "201" "$STATUS"
 
-TOKEN1=$(echo "$TOKEN1_RESPONSE" | grep -o '"access_token"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:[[:space:]]*"//;s/"$//')
+USER1_ID=$(echo "$BODY" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | sed 's/.*:[[:space:]]*//')
 
-TOKEN2_RESPONSE=$(curl -s -X POST $API_URL/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=bob-$SUFFIX@example.com&password=securepass456")
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/users/" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"bob-${TIMESTAMP}@example.com\",\"password\":\"securepass2\"}")
+STATUS=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+check_status "POST /users/ (create user bob)" "201" "$STATUS"
 
-TOKEN2=$(echo "$TOKEN2_RESPONSE" | grep -o '"access_token"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:[[:space:]]*"//;s/"$//')
+USER2_ID=$(echo "$BODY" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | sed 's/.*:[[:space:]]*//')
 
-if [ -n "$TOKEN1" ] && [ -n "$TOKEN2" ]; then
-    echo "✓ Users logged in successfully"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/users/" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"alice-${TIMESTAMP}@example.com\",\"password\":\"securepass1\"}")
+check_status "POST /users/ (duplicate email)" "500" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/users/" \
+    -H "Content-Type: application/json" \
+    -d '{"email":"bad","password":"short"}')
+check_status "POST /users/ (invalid data)" "422" "$STATUS"
+
+# ------------------------------------------------------------------
+# 3. Login
+# ------------------------------------------------------------------
+echo ""
+echo "3. Authentication"
+
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=alice-${TIMESTAMP}@example.com&password=securepass1")
+STATUS=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+check_status "POST /login (valid credentials alice)" "200" "$STATUS"
+
+TOKEN1=$(echo "$BODY" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=bob-${TIMESTAMP}@example.com&password=securepass2")
+STATUS=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+check_status "POST /login (valid credentials bob)" "200" "$STATUS"
+
+TOKEN2=$(echo "$BODY" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=wrong@example.com&password=wrongpass")
+check_status "POST /login (invalid credentials)" "403" "$STATUS"
+
+# ------------------------------------------------------------------
+# 4. Get user by ID (requires auth)
+# ------------------------------------------------------------------
+echo ""
+echo "4. Get User"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/users/$USER1_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+check_status "GET /users/:id (authenticated)" "200" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/users/$USER1_ID")
+check_status "GET /users/:id (no auth)" "401" "$STATUS"
+
+# ------------------------------------------------------------------
+# 5. Create posts
+# ------------------------------------------------------------------
+echo ""
+echo "5. Create Posts"
+
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/posts/" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -d '{"title":"First Post","content":"Hello from the test script","published":true}')
+STATUS=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+check_status "POST /posts/ (create post 1)" "201" "$STATUS"
+
+POST1_ID=$(echo "$BODY" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | sed 's/.*:[[:space:]]*//')
+
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/posts/" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -d '{"title":"Second Post","content":"Another post for testing","published":true}')
+STATUS=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+check_status "POST /posts/ (create post 2)" "201" "$STATUS"
+
+POST2_ID=$(echo "$BODY" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | sed 's/.*:[[:space:]]*//')
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/posts/" \
+    -H "Content-Type: application/json" \
+    -d '{"title":"No Auth Post","content":"Should fail","published":true}')
+check_status "POST /posts/ (no auth)" "401" "$STATUS"
+
+# ------------------------------------------------------------------
+# 6. List posts
+# ------------------------------------------------------------------
+echo ""
+echo "6. List Posts"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/posts/?limit=10" \
+    -H "Authorization: Bearer $TOKEN1")
+check_status "GET /posts/ (list posts)" "200" "$STATUS"
+
+# ------------------------------------------------------------------
+# 7. Get single post
+# ------------------------------------------------------------------
+echo ""
+echo "7. Get Single Post"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/posts/$POST1_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+check_status "GET /posts/:id" "200" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/posts/999999" \
+    -H "Authorization: Bearer $TOKEN1")
+check_status "GET /posts/:id (not found)" "404" "$STATUS"
+
+# ------------------------------------------------------------------
+# 8. Update post
+# ------------------------------------------------------------------
+echo ""
+echo "8. Update Post"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/posts/$POST1_ID" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -d '{"title":"Updated First Post","content":"Updated content","published":true}')
+check_status "PUT /posts/:id (owner)" "200" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/posts/$POST1_ID" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN2" \
+    -d '{"title":"Hijack","content":"Should fail","published":true}')
+check_status "PUT /posts/:id (not owner)" "403" "$STATUS"
+
+# ------------------------------------------------------------------
+# 9. Vote
+# ------------------------------------------------------------------
+echo ""
+echo "9. Votes"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/vote/" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN2" \
+    -d "{\"post_id\":$POST1_ID,\"voted\":true}")
+check_status "POST /vote/ (add vote)" "201" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/vote/" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN2" \
+    -d "{\"post_id\":$POST1_ID,\"voted\":true}")
+check_status "POST /vote/ (duplicate vote)" "409" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/vote/" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN2" \
+    -d "{\"post_id\":$POST1_ID,\"voted\":false}")
+check_status "POST /vote/ (remove vote)" "201" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/vote/" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN2" \
+    -d '{"post_id":999999,"voted":true}')
+check_status "POST /vote/ (non-existent post)" "404" "$STATUS"
+
+# ------------------------------------------------------------------
+# 10. Delete post
+# ------------------------------------------------------------------
+echo ""
+echo "10. Delete Post"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/posts/$POST1_ID" \
+    -H "Authorization: Bearer $TOKEN2")
+check_status "DELETE /posts/:id (not owner)" "403" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/posts/$POST1_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+check_status "DELETE /posts/:id (owner)" "204" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/posts/$POST2_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+check_status "DELETE /posts/:id (cleanup post 2)" "204" "$STATUS"
+
+# ------------------------------------------------------------------
+# Summary
+# ------------------------------------------------------------------
+echo ""
+echo -e "${YELLOW}=== Test Summary ===${NC}"
+echo -e "Passed: ${GREEN}$PASS_COUNT${NC}"
+echo -e "Failed: ${RED}$FAIL_COUNT${NC}"
+TOTAL=$((PASS_COUNT + FAIL_COUNT))
+echo "Total:  $TOTAL"
+
+if [ "$FAIL_COUNT" -eq 0 ]; then
+    echo -e "${GREEN}All tests passed!${NC}"
+    exit 0
 else
-    echo "✗ Login failed"
+    echo -e "${RED}Some tests failed!${NC}"
     exit 1
 fi
-echo ""
-
-# Create posts
-echo "[4/8] Creating posts..."
-POST1_RESPONSE=$(curl -L -s -X POST $API_URL/posts \
-  -H "Authorization: Bearer $TOKEN1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Getting Started with FastAPI",
-    "content": "A comprehensive guide to FastAPI and OpenTelemetry integration",
-    "published": true
-  }')
-
-POST1_ID=$(echo "$POST1_RESPONSE" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | sed 's/.*:[[:space:]]*//')
-
-POST2_RESPONSE=$(curl -L -s -X POST $API_URL/posts \
-  -H "Authorization: Bearer $TOKEN1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "OpenTelemetry Instrumentation",
-    "content": "Automatic instrumentation for Python applications",
-    "published": true
-  }')
-
-POST2_ID=$(echo "$POST2_RESPONSE" | grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' | sed 's/.*:[[:space:]]*//')
-
-echo "✓ Created 2 posts (IDs: $POST1_ID, $POST2_ID)"
-echo ""
-
-# List posts
-echo "[5/8] Listing posts..."
-POSTS_RESPONSE=$(curl -s -X GET "$API_URL/posts?limit=10" \
-  -H "Authorization: Bearer $TOKEN1")
-
-POSTS_COUNT=$(echo "$POSTS_RESPONSE" | grep -o '"id"' | wc -l | tr -d ' ')
-echo "✓ GET /posts returned $POSTS_COUNT posts"
-echo ""
-
-# Get specific post
-echo "[6/8] Testing post details..."
-POST_RESPONSE=$(curl -s -X GET $API_URL/posts/$POST1_ID \
-  -H "Authorization: Bearer $TOKEN1")
-
-POST_TITLE=$(echo "$POST_RESPONSE" | grep -o '"title"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:[[:space:]]*"//;s/"$//' | head -1)
-echo "✓ GET /posts/$POST1_ID returned: \"$POST_TITLE\""
-echo ""
-
-# Update post
-echo "[7/8] Updating post..."
-UPDATE_RESPONSE=$(curl -s -X PUT $API_URL/posts/$POST1_ID \
-  -H "Authorization: Bearer $TOKEN1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Getting Started with FastAPI - Updated",
-    "content": "An updated comprehensive guide to FastAPI",
-    "published": true
-  }')
-
-UPDATED_TITLE=$(echo "$UPDATE_RESPONSE" | grep -o '"title"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*:[[:space:]]*"//;s/"$//')
-echo "✓ Updated post $POST1_ID: \"$UPDATED_TITLE\""
-echo ""
-
-# Test votes
-echo "[8/8] Testing votes..."
-VOTE_RESPONSE=$(curl -L -s -X POST $API_URL/vote \
-  -H "Authorization: Bearer $TOKEN2" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"post_id\": $POST1_ID,
-    \"dir\": 1
-  }")
-
-echo "✓ Bob voted on post $POST1_ID"
-
-# Check for vote count
-POST_WITH_VOTES=$(curl -s -X GET $API_URL/posts/$POST1_ID \
-  -H "Authorization: Bearer $TOKEN1")
-
-VOTES=$(echo "$POST_WITH_VOTES" | grep -o '"votes"[[:space:]]*:[[:space:]]*[0-9]*' | sed 's/.*:[[:space:]]*//')
-echo "✓ Post $POST1_ID now has $VOTES vote(s)"
-echo ""
-
-# Check telemetry
-echo "Checking OpenTelemetry traces..."
-TRACE_COUNT=$(docker logs otel-collector 2>&1 | grep -c "Span" || echo "0")
-if [ "$TRACE_COUNT" -gt 0 ]; then
-  echo "✓ OTel Collector has captured telemetry (found $TRACE_COUNT span references)"
-else
-  echo "⚠ No telemetry found in OTel Collector logs (this may be normal if using Scout directly)"
-fi
-echo ""
-
-# Cleanup - delete post
-echo "Cleanup: Deleting test post..."
-curl -s -X DELETE $API_URL/posts/$POST2_ID \
-  -H "Authorization: Bearer $TOKEN1" > /dev/null
-echo "✓ Deleted post $POST2_ID"
-echo ""
-
-# Summary
-echo "=== Test Summary ==="
-echo "✓ Health check: Working"
-echo "✓ User registration: Working"
-echo "✓ JWT authentication: Working"
-echo "✓ Post CRUD: Working"
-echo "✓ Votes: Working"
-echo "✓ OpenTelemetry: $([ "$TRACE_COUNT" -gt 0 ] && echo "Capturing telemetry" || echo "Check Scout dashboard")"
-echo ""
-echo "Passed: $PASSED"
-echo "Failed: $FAILED"
-echo ""
-echo "View traces in Scout dashboard using your credentials:"
-echo "  SCOUT_ENDPOINT, SCOUT_CLIENT_ID, SCOUT_CLIENT_SECRET"

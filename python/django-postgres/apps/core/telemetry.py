@@ -74,7 +74,7 @@ def setup_telemetry() -> None:
 
     _otel_log_handler = LoggingHandler(level=logging.DEBUG, logger_provider=logger_provider)
 
-    DjangoInstrumentor().instrument()
+    DjangoInstrumentor().instrument(excluded_urls="health")
     PsycopgInstrumentor().instrument()
     RedisInstrumentor().instrument()
     CeleryInstrumentor().instrument()
