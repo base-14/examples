@@ -72,7 +72,21 @@ echo ""
 echo "----------------------------------------"
 echo "1. Health Check"
 echo "----------------------------------------"
-test_endpoint "GET" "/api/health" "200" "Health check returns 200"
+HEALTH_OK=0
+for i in $(seq 1 10); do
+  HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
+  if [ "$HEALTH_STATUS" = "200" ]; then
+    HEALTH_OK=1
+    break
+  fi
+  echo "  Waiting for healthy status (attempt $i/10)..."
+  sleep 3
+done
+if [ "$HEALTH_OK" = "1" ]; then
+  test_endpoint "GET" "/api/health" "200" "Health check returns 200"
+else
+  test_endpoint "GET" "/api/health" "200" "Health check returns 200"
+fi
 
 echo "----------------------------------------"
 echo "2. User Registration"

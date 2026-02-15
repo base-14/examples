@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getConnectionStatus } from '@/lib/db';
+import { connectDB, getConnectionStatus } from '@/lib/db';
 import { withSpan } from '@/lib/telemetry';
 import { emailQueue, analyticsQueue, getQueueStats } from '@/lib/queue';
 import { config } from '@/lib/config';
@@ -71,6 +71,7 @@ async function checkRedis(): Promise<{
 
 export async function GET(): Promise<NextResponse<HealthStatus>> {
   return withSpan('health.check', async () => {
+    await connectDB().catch(() => {});
     const [mongoStatus, redisStatus, emailStats, analyticsStats] = await Promise.all([
       Promise.resolve(getConnectionStatus()),
       checkRedis(),

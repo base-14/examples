@@ -18,12 +18,13 @@ test_endpoint() {
   local data="$5"
   local token="$6"
 
-  local headers=(-H "Content-Type: application/json")
+  local headers=()
   if [ -n "$token" ]; then
     headers+=(-H "Authorization: Bearer $token")
   fi
 
   if [ -n "$data" ]; then
+    headers+=(-H "Content-Type: application/json")
     response=$(curl -s -w "\n%{http_code}" -X "$method" "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
   else
     response=$(curl -s -w "\n%{http_code}" -X "$method" "${headers[@]}" "$BASE_URL$endpoint")

@@ -305,7 +305,7 @@ if [ -n "$XSS_ID" ]; then
 fi
 
 echo "Checking OpenTelemetry traces..."
-TRACE_COUNT=$(docker logs otel-collector 2>&1 | grep -c "Span" || echo "0")
+TRACE_COUNT=$(docker compose logs otel-collector 2>&1 | grep -c "Span" || echo "0")
 if [ "$TRACE_COUNT" -gt 0 ]; then
   echo "✓ OTel Collector has captured telemetry (found $TRACE_COUNT span references)"
 else

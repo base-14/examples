@@ -430,6 +430,41 @@ docker compose up --build app
 | OTel Collector | <http://localhost:4318>        | Telemetry ingestion |
 | OTel Health    | <http://localhost:13133>       | Collector health    |
 
+## OpenTelemetry Configuration
+
+### Dependencies
+
+```json
+"@opentelemetry/api": "^1.9.0",
+"@opentelemetry/sdk-node": "^0.211.0",
+"@opentelemetry/auto-instrumentations-node": "^0.69.0",
+"@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
+"@opentelemetry/exporter-metrics-otlp-http": "^0.211.0",
+"@opentelemetry/exporter-logs-otlp-http": "^0.211.0",
+"@opentelemetry/resources": "^2.4.0",
+"@opentelemetry/semantic-conventions": "^1.39.0"
+```
+
+### Implementation
+
+Telemetry is initialized in `src/telemetry.ts` and must be imported before all other modules:
+
+- NodeSDK with OTLP HTTP exporters for traces, metrics, and logs
+- Auto-instrumentations enabled with health endpoint filtering
+- Graceful shutdown on SIGTERM
+
+### Custom Instrumentation Example
+
+```typescript
+import { trace } from '@opentelemetry/api';
+const tracer = trace.getTracer('article-service');
+
+const span = tracer.startSpan('article.create');
+span.setAttribute('user.id', userId);
+// ... business logic
+span.end();
+```
+
 ## Troubleshooting
 
 ### No traces appearing in Scout
@@ -502,6 +537,16 @@ docker compose up --build app
 
    ```bash
    docker exec express5-postgres-app env | grep -E '(DATABASE|REDIS|OTEL)'
+   ```
+
+### WebSocket connection issues
+
+1. **Verify Socket.io is running** on the expected port
+2. **Check CORS settings** if connecting from a different origin
+3. **View connection logs**:
+
+   ```bash
+   docker compose logs app | grep -i socket
    ```
 
 ## Resources

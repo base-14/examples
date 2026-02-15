@@ -18,10 +18,10 @@ echo ""
 echo -e "${YELLOW}1. Checking OTel Collector Health${NC}"
 echo "----------------------------------------"
 
-COLLECTOR_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$OTEL_ENDPOINT/v1/traces" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
+COLLECTOR_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:13133/" 2>/dev/null || echo "000")
 
-if [ "$COLLECTOR_HEALTH" = "200" ] || [ "$COLLECTOR_HEALTH" = "400" ]; then
-  echo -e "${GREEN}✓${NC} OTel Collector is accepting traces at $OTEL_ENDPOINT"
+if [ "$COLLECTOR_HEALTH" = "200" ]; then
+  echo -e "${GREEN}✓${NC} OTel Collector is healthy"
 else
   echo -e "${RED}✗${NC} OTel Collector not responding (HTTP $COLLECTOR_HEALTH)"
   echo "  Make sure the collector is running: docker compose up otel-collector"

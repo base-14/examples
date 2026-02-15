@@ -3,6 +3,22 @@
 
 services:
   # ==========================================================================
+  # Database Migration (runs once before app starts)
+  # ==========================================================================
+  db-migrate:
+    build:
+      context: .
+      target: runtime
+    command: ["node", "dist/db/migrate.js"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fastify_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ==========================================================================
   # Fastify Application
   # ==========================================================================
   app:
@@ -23,12 +39,12 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       otel-collector:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -55,12 +71,12 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       otel-collector:
-        condition: service_healthy
+        condition: service_started
     networks:
       - app-network
 
@@ -123,11 +139,6 @@ services:
       SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
       SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-}
       SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:13133/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
     networks:
       - app-network
 

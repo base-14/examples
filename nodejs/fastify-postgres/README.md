@@ -302,6 +302,31 @@ docker compose up --build app worker
 | OTel Collector | <http://localhost:4318>     | Telemetry ingestion |
 | OTel Health    | <http://localhost:13133>    | Collector health    |
 
+## OpenTelemetry Configuration
+
+### Dependencies
+
+```json
+"@opentelemetry/api": "^1.9.0",
+"@opentelemetry/sdk-node": "^0.211.0",
+"@opentelemetry/auto-instrumentations-node": "^0.69.0",
+"@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
+"@opentelemetry/exporter-metrics-otlp-http": "^0.211.0",
+"@opentelemetry/exporter-logs-otlp-http": "^0.211.0",
+"@opentelemetry/resources": "^2.4.0",
+"@opentelemetry/semantic-conventions": "^1.39.0",
+"@fastify/otel": "^0.16.0"
+```
+
+### Implementation
+
+Telemetry is initialized in `src/telemetry.ts` and must be imported before all other modules:
+
+- NodeSDK with OTLP HTTP exporters for traces, metrics, and logs
+- `@fastify/otel` plugin for Fastify-specific span enrichment (replaces default auto-instrumentation for Fastify)
+- Health and metrics endpoints filtered from tracing
+- Graceful shutdown on SIGTERM
+
 ## Troubleshooting
 
 ### No traces appearing in Scout

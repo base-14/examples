@@ -29,10 +29,12 @@ processors:
     limit_mib: 256
     check_interval: 1s
   filter/noisy:
+    error_mode: ignore
     traces:
       span:
         - 'name == "pg-pool.connect"'
         - 'IsMatch(name, "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")'
+        - 'IsMatch(name, ".*/health.*")'
   resource:
     attributes:
       - key: deployment.environment

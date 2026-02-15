@@ -62,7 +62,7 @@ services:
       - app-network
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.144.0
     container_name: otel-collector
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
@@ -71,11 +71,15 @@ services:
       - "4318:4318"   # OTLP HTTP receiver
       - "55679:55679" # zpages extension
       - "13133:13133" # health_check extension
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
-      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
     networks:
       - app-network
 
