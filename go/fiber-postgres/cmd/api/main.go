@@ -95,7 +95,9 @@ func main() {
 
 	app.Use(recover.New())
 	app.Use(requestid.New())
-	app.Use(otelfiber.Middleware())
+	app.Use(otelfiber.Middleware(otelfiber.WithNext(func(c *fiber.Ctx) bool {
+		return c.Path() == "/api/health"
+	})))
 	app.Use(middleware.Metrics())
 
 	api := app.Group("/api")

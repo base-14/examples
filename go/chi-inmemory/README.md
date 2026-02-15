@@ -36,7 +36,7 @@ Service name: `go-parking-lot-otel` (configurable)
 - **Language**: Go 1.25.7
 - **HTTP Router**: go-chi/chi v5
 - **Storage**: In-memory (no database)
-- **OTel Collector**: opentelemetry-collector-contrib 0.115.1
+- **OTel Collector**: opentelemetry-collector-contrib 0.144.0
 - **Observability**: base14 Scout (traces + metrics via OTLP)
 - **Container**: Docker + Docker Compose
 

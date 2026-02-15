@@ -22,7 +22,7 @@ services:
       otel-collector:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,6 +40,8 @@ services:
       OTEL_SERVICE_NAME: "go-echo-postgres"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_started
       otel-collector:
@@ -69,7 +71,7 @@ services:
       - redis_data:/data
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.116.1
+    image: otel/opentelemetry-collector-contrib:0.144.0
     command: ["--config=/etc/otel-config.yaml"]
     volumes:
       - ./config/otel-config.yaml:/etc/otel-config.yaml:ro
@@ -85,6 +87,7 @@ services:
       - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
       - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
       - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
 
 volumes:
   postgres_data:

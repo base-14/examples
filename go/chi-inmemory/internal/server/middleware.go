@@ -30,6 +30,11 @@ func RequestIDMiddleware(next http.Handler) http.Handler {
 
 func TracingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" || r.URL.Path == "/metrics" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		ctx, span := tracer.Start(r.Context(), r.Method+" "+r.URL.Path,
 			trace.WithAttributes(
 				attribute.String("http.method", r.Method),

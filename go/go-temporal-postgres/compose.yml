@@ -203,7 +203,7 @@ services:
         condition: service_healthy
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.142.0
+    image: otel/opentelemetry-collector-contrib:0.144.0
     command: ["--config=/etc/otel-config.yaml"]
     volumes:
       - ./config/otel-config.yaml:/etc/otel-config.yaml:ro

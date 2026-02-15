@@ -26,9 +26,14 @@ processors:
   memory_limiter:
     limit_mib: 256
     check_interval: 1s
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*/health.*")'
 
 exporters:
-  otlphttp/b14:
+  otlp_http/b14:
     endpoint: ${SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
@@ -49,13 +54,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, filter/noisy]
+      exporters: [otlp_http/b14, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      exporters: [otlp_http/b14, debug]
     logs:
       receivers: [otlp]
       processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      exporters: [otlp_http/b14, debug]

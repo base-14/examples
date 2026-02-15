@@ -481,6 +481,31 @@ docker compose down -v
 | OTel Collector | <http://localhost:4318>        | Telemetry ingestion |
 | OTel Health    | <http://localhost:13133>       | Collector health    |
 
+## OpenTelemetry Configuration
+
+### Dependencies
+
+From `go.mod`:
+
+```
+go.opentelemetry.io/otel v1.39.0
+go.opentelemetry.io/otel/sdk v1.39.0
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.39.0
+go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.39.0
+go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.64.0
+github.com/uptrace/opentelemetry-go-extra/otelgorm v0.3.2
+```
+
+### Implementation
+
+Telemetry is initialized in `internal/telemetry/telemetry.go`:
+
+- Tracer and meter providers with OTLP HTTP exporters
+- Resource attributes: service name, version, deployment environment, namespace
+- W3C trace context + baggage propagation
+- Always-sample strategy with 60-second metric export interval
+- Echo middleware via `otelecho` and GORM instrumentation via `otelgorm`
+
 ## Troubleshooting
 
 ### Application won't start

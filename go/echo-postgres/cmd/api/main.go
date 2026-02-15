@@ -55,6 +55,10 @@ func main() {
 	}
 	defer database.Close()
 
+	if err := database.Migrate(); err != nil {
+		logging.Logger().Fatal().Err(err).Msg("failed to run database migrations")
+	}
+
 	redisAddr := parseRedisAddr(cfg.RedisURL)
 	jobClient, err := jobs.NewClient(redisAddr)
 	if err != nil {
@@ -75,7 +79,9 @@ func main() {
 
 	e.Use(echomiddleware.Recover())
 	e.Use(echomiddleware.RequestID())
-	e.Use(otelecho.Middleware(cfg.OTelServiceName))
+	e.Use(otelecho.Middleware(cfg.OTelServiceName, otelecho.WithSkipper(func(c echo.Context) bool {
+		return c.Path() == "/api/health"
+	})))
 	e.Use(middleware.Metrics())
 	e.HTTPErrorHandler = middleware.ErrorHandler
 
