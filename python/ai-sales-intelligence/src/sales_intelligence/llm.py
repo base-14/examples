@@ -425,7 +425,7 @@ class LLMClient:
                 "gen_ai.user.message",
                 attributes={
                     "gen_ai.prompt": scrub_prompt(prompt)[:1000],
-                    "gen_ai.system": scrub_prompt(system)[:500],
+                    "gen_ai.system_instructions": scrub_prompt(system)[:500],
                 },
             )
 

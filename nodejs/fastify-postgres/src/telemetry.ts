@@ -7,6 +7,7 @@
 
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { FastifyOtelInstrumentation } from '@fastify/otel';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
@@ -54,7 +55,11 @@ const sdk = new NodeSDK({
       '@opentelemetry/instrumentation-fs': {
         enabled: false,
       },
+      '@opentelemetry/instrumentation-fastify': {
+        enabled: false,
+      },
     }),
+    new FastifyOtelInstrumentation({ registerOnInitialization: true }),
   ],
 });
 
