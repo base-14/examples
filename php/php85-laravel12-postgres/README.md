@@ -68,7 +68,7 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 | open-telemetry/exporter-otlp | 1.3+ | OTLP exporter |
 | open-telemetry/opentelemetry-auto-laravel | 1.2+ | Auto-instrumentation |
 | mismatch/opentelemetry-auto-redis | 0.3+ | Redis auto-instrumentation |
-| OTel Collector | 0.140.0 | Telemetry pipeline |
+| OTel Collector | 0.144.0 | Telemetry pipeline |
 
 ## Prerequisites
 

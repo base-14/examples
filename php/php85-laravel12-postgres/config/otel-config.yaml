@@ -36,9 +36,14 @@ processors:
     logs:
       log_record:
         - 'IsMatch(body, ".*chr\\(\\).*deprecated.*")'
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*/health.*")'
 
 exporters:
-  otlphttp/scout:
+  otlp_http/scout:
     endpoint: ${SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
@@ -59,13 +64,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlphttp/scout, debug]
+      processors: [memory_limiter, filter/noisy, batch]
+      exporters: [otlp_http/scout, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/scout, debug]
+      exporters: [otlp_http/scout, debug]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, filter/logs, batch]
-      exporters: [otlphttp/scout, debug]
+      exporters: [otlp_http/scout, debug]
