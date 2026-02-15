@@ -1,16 +1,16 @@
 .PHONY: build test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout build-lint
 
 build:
-	./mvnw package -DskipTests
+	./gradlew build -x test
 
 test:
-	./mvnw test
+	./gradlew test
 
 clean:
-	./mvnw clean
+	./gradlew clean
 
 dev:
-	./mvnw quarkus:dev
+	./gradlew bootRun
 
 docker-build:
 	docker compose build
@@ -32,6 +32,6 @@ verify-scout:
 
 build-lint: build
 	@echo "Build completed successfully"
-	./mvnw verify -DskipTests
+	./gradlew check -x test
 
 .DEFAULT_GOAL := build

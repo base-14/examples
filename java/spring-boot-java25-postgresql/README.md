@@ -188,6 +188,28 @@ docker-compose up db -d    # Start PostgreSQL only
 
 All logs include `trace_id` and `span_id` for correlation.
 
+## OpenTelemetry Configuration
+
+### Dependencies
+
+From `build.gradle` (BOM-managed):
+
+```groovy
+implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.23.0")
+implementation "io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter"
+implementation "io.micrometer:micrometer-tracing-bridge-otel"
+```
+
+### Implementation
+
+Configured via `application.properties`:
+
+- Automatic instrumentation for JDBC, Spring WebMVC, and Logback
+- OTLP exporter with HTTP/Protobuf protocol
+- Always-on sampling (100%), 30-second metric export interval
+- W3C trace context propagation
+- Custom business metrics via Micrometer counters
+
 ## Troubleshooting
 
 ### Collector connection failed
@@ -239,7 +261,7 @@ logging.level.io.opentelemetry=DEBUG
 | OpenTelemetry Instrumentation | 2.23.0 |
 | OpenTelemetry SDK | 1.55.0 |
 | PostgreSQL | 17.7 |
-| OTel Collector | 0.140.0 |
+| OTel Collector | 0.144.0 |
 | Gradle | 9.2.1 |
 | Java | 25 |
 

@@ -18,18 +18,23 @@ services:
       retries: 10
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.128.0
+    image: otel/opentelemetry-collector-contrib:0.144.0
     container_name: otel-collector
     ports:
       - "4317:4317"  # OTLP gRPC receiver
       - "4318:4318"  # OTLP HTTP receiver
+      - "13133:13133"  # Health check
     volumes:
       - ./config/otel-config.yml:/etc/otelcol-contrib/config.yaml
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
-      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
     restart: unless-stopped
 
   spring-service:

@@ -26,17 +26,22 @@ processors:
   memory_limiter:  # Prevent OOM
     limit_mib: 256
     check_interval: 1s
-
-  # Batch processor (optional) - groups telemetry for efficient export
-  # Uncomment for high-volume production scenarios (100+ requests/sec)
-  # Remember to add 'batch' to pipeline processors below
-  # batch:
-  #   timeout: 1s
-  #   send_batch_size: 1024
-  #   send_batch_max_size: 2048
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*/actuator/.*")'
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${SCOUT_ENVIRONMENT}
+        action: upsert
 
 exporters:
-  otlphttp/b14:  # Export to base14 Scout
+  otlp_http/b14:  # Export to base14 Scout
     endpoint: ${SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
@@ -57,13 +62,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, filter/noisy, resource, batch]
+      exporters: [otlp_http/b14, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]
