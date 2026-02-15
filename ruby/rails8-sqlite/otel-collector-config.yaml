@@ -13,7 +13,7 @@ receivers:
 exporters:
   debug:
     verbosity: detailed
-  otlphttp:
+  otlp_http:
     endpoint: "http://65.2.130.60:4318"
     tls:
       insecure: true
@@ -32,14 +32,14 @@ service:
   pipelines:
     logs:
       receivers: [otlp]
-      exporters: [otlphttp ]
+      exporters: [otlp_http ]
     metrics:
       receivers: [otlp]
-      exporters: [otlphttp ]
+      exporters: [otlp_http ]
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlphttp]
+      exporters: [otlp_http]
   telemetry:
     logs:
       level: "info"
