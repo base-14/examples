@@ -2,49 +2,105 @@
 
 A production-ready ASP.NET Core 9 REST API demonstrating full OpenTelemetry instrumentation with Minimal APIs, Entity Framework Core, and Azure SQL Edge.
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/dotnet)
+
 ## Stack Profile
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| .NET SDK | 9.0 | Latest stable |
-| ASP.NET Core | 9.0 | Minimal APIs |
-| C# | 13 | Latest language version |
-| Azure SQL Edge | latest | SQL Server compatible, ARM64 native |
-| Entity Framework Core | 9.0.0 | Latest ORM version |
-| OpenTelemetry | 1.15.0 | Traces, metrics, logs via OTLP |
-| BCrypt.Net-Next | 4.0.3 | Password hashing |
+| Component | Version | Status | Notes |
+|-----------|---------|--------|-------|
+| **.NET SDK** | 9.0 | Active | Latest stable |
+| **ASP.NET Core** | 9.0 | Active | Minimal APIs |
+| **C#** | 13 | Active | Latest language version |
+| **Azure SQL Edge** | latest | Active | SQL Server compatible, ARM64 native |
+| **Entity Framework Core** | 9.0.0 | Active | Latest ORM version |
+| **OpenTelemetry** | 1.15.0 | Active | Traces, metrics, logs via OTLP |
+| **BCrypt.Net-Next** | 4.0.3 | Active | Password hashing |
 
-## Features
+**Version Selection**: Latest Stable
+**Verified**: 2026-02-15
 
-- RESTful API with JWT authentication
-- SQL Server-native job queue using `READPAST` pattern
-- Full OpenTelemetry instrumentation (traces, metrics, logs via OTLP)
-- Custom spans with business metrics
-- HTTP request metrics (count, duration histogram)
-- Trace ID included in error responses
-- Trace context propagation to background jobs
-- Multi-stage Docker builds
-- Built-in rate limiting
-- Security headers
+**Why This Stack**: .NET 9 with Minimal APIs for lightweight endpoint routing and EF Core 9 for
+SQL Server integration. Azure SQL Edge provides ARM64-native SQL Server compatibility for all platforms.
+
+## What's Instrumented
+
+### Automatic Instrumentation
+
+- ✅ HTTP requests and responses (ASP.NET Core instrumentation)
+- ✅ Database queries (EF Core + SqlClient instrumentation)
+- ✅ HTTP client calls (HttpClient instrumentation)
+- ✅ .NET runtime metrics (GC, thread pool, assembly count)
+- ✅ Distributed trace propagation (W3C Trace Context)
+
+### Custom Instrumentation
+
+- **Traces**: User authentication, article CRUD, favorites via custom ActivitySource
+- **Attributes**: User ID, article slug, job metadata, error context
+- **Logs**: Structured logs with trace correlation via OpenTelemetry logging provider
+- **Metrics**: Auth attempts/failures, article counts, favorite counts, job metrics
+
+### What Requires Manual Work
+
+- Business-specific custom spans use `ActivitySource.StartActivity()`
+- Custom metrics defined via `System.Diagnostics.Metrics` API
+- Background job trace propagation (demonstrated with SQL Server READPAST pattern)
+
+## Prerequisites
+
+1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
+2. **base14 Scout Account** - [Sign up](https://base14.io)
+3. **.NET 9 SDK** (for local development only)
 
 ## Quick Start
 
+### 1. Clone and Navigate
+
 ```bash
-# Start all services
-docker compose up -d
+git clone https://github.com/base-14/examples.git
+cd examples/csharp/dotnet-sqlserver
+```
 
-# Wait for services to be ready
-sleep 10
+### 2. Set base14 Scout Credentials
 
-# Run integration tests
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your Scout credentials:
+
+```bash
+SCOUT_ENDPOINT=https://your-tenant.base14.io:4318
+SCOUT_CLIENT_ID=your_client_id
+SCOUT_CLIENT_SECRET=your_client_secret
+SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
+SCOUT_ENVIRONMENT=development
+```
+
+New to Scout? See [Scout Setup Guide](https://docs.base14.io/get-started/scout-setup)
+
+### 3. Start Services
+
+```bash
+docker compose up -d --build
+```
+
+### 4. Run API Tests
+
+```bash
 ./scripts/test-api.sh
+```
 
-# View logs
-docker compose logs -f api
+### 5. Verify Telemetry
 
-# Verify telemetry
+```bash
 ./scripts/verify-scout.sh
 ```
+
+### 6. View Traces in Scout
+
+1. Log in to [base14 Scout](https://app.base14.io)
+2. Navigate to **Services** → **dotnet-sqlserver-api**
+3. Click any trace to see the distributed view
 
 ## API Endpoints
 
@@ -62,6 +118,34 @@ docker compose logs -f api
 | DELETE | /api/articles/:slug | Owner | Delete article |
 | POST | /api/articles/:slug/favorite | Yes | Favorite article |
 | DELETE | /api/articles/:slug/favorite | Yes | Unfavorite article |
+
+### Example Requests
+
+**Register user**:
+
+```bash
+curl -X POST http://localhost:8080/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "alice@example.com", "name": "Alice", "password": "password123"}'
+```
+
+**Login**:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "alice@example.com", "password": "password123"}' \
+  | jq -r '.token')
+```
+
+**Create article** (authenticated):
+
+```bash
+curl -X POST http://localhost:8080/api/articles \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"title": "My Article", "body": "Article content here", "description": "A brief description"}'
+```
 
 ## Project Structure
 
@@ -199,9 +283,33 @@ docker build -f Dockerfile.worker -t dotnet-sqlserver-worker .
 | sqlserver | 1433 | Azure SQL Edge |
 | otel-collector | 4317, 4318 | OpenTelemetry Collector |
 
-## Key Patterns
+## OpenTelemetry Configuration
 
-### Custom Spans in Services
+### Dependencies
+
+From `src/Api/Api.csproj`:
+
+```xml
+<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.0" />
+<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
+<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.0" />
+<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
+<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.0" />
+<PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.15.0-beta.1" />
+```
+
+### Implementation
+
+Telemetry is configured in `src/Api/Telemetry/TelemetrySetup.cs`:
+
+- Tracing: ASP.NET Core, HttpClient, SqlClient, and custom ActivitySources
+- Metrics: ASP.NET Core, HttpClient, Runtime, and custom meter `DotnetSqlServer.Metrics`
+- Logging: OpenTelemetry logging provider with trace correlation
+- All exported via OTLP to the collector
+
+Custom metrics are defined in `src/Api/Telemetry/Metrics.cs` using `System.Diagnostics.Metrics`.
+
+### Custom Instrumentation Example
 
 ```csharp
 private static readonly ActivitySource ActivitySource = new("DotnetSqlServer.ArticleService");
@@ -210,35 +318,75 @@ public async Task<ArticleResponse> CreateAsync(int userId, CreateArticleRequest 
 {
     using var activity = ActivitySource.StartActivity("article.create");
     activity?.SetTag("user.id", userId);
-    // Business logic here
+    // Business logic...
     AppMetrics.ArticlesCreated.Add(1);
     return response;
 }
 ```
 
-### Error Handling with trace_id
+## Database Schema
 
-```csharp
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        var traceId = Activity.Current?.TraceId.ToString();
-        context.Response.StatusCode = 500;
-        await context.Response.WriteAsJsonAsync(new
-        {
-            error = "Internal server error",
-            trace_id = traceId
-        });
-    });
-});
+Schema is managed by EF Core code-first migrations. Entities defined in `src/Api/Data/Entities/`.
+Tables: `Users`, `Articles`, `Favorites`, and `Jobs` (SQL Server-native queue with READPAST hint
+and trace context propagation).
+
+## Troubleshooting
+
+### No traces appearing in Scout
+
+```bash
+# Check collector logs for export errors
+docker compose logs otel-collector
+
+# Verify Scout credentials are set
+grep SCOUT .env
+
+# Test collector health
+curl http://localhost:13133/health
 ```
 
-### Minimal APIs with Route Groups
+### Database connection errors
 
-```csharp
-var api = app.MapGroup("/api");
-api.MapHealthEndpoints();
-api.MapAuthEndpoints();
-api.MapArticleEndpoints();
+```bash
+# Check SQL Server is healthy
+docker compose ps sqlserver
+
+# SQL Server can take 30+ seconds to start
+# Check logs for "SQL Server is now ready for client connections"
+docker compose logs sqlserver
 ```
+
+### Application won't start
+
+```bash
+# Check API logs for startup errors
+docker compose logs api
+
+# Common causes: connection string wrong, JWT secret too short (min 32 chars), port conflict
+```
+
+### Background jobs not processing
+
+```bash
+# Check worker logs
+docker compose logs worker
+
+# Worker polls every 1000ms by default (JobProcessor__PollingIntervalMs)
+```
+
+### EF Core migration errors
+
+```bash
+# Migrations run automatically on startup via AppDbContext
+# If schema is stale, recreate volumes
+docker compose down -v && docker compose up -d --build
+```
+
+## Resources
+
+- [ASP.NET Core Documentation](https://learn.microsoft.com/en-us/aspnet/core/)
+- [Entity Framework Core](https://learn.microsoft.com/en-us/ef/core/)
+- [OpenTelemetry .NET](https://opentelemetry.io/docs/languages/net/)
+- [.NET Minimal APIs](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis)
+- [base14 Scout](https://base14.io)
+- [base14 Documentation](https://docs.base14.io)

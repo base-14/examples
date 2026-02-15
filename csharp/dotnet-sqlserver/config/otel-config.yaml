@@ -31,9 +31,14 @@ processors:
   batch:
     timeout: 10s
     send_batch_size: 1024
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*/health.*")'
 
 exporters:
-  otlphttp/b14:
+  otlp_http/b14:
     endpoint: ${env:SCOUT_ENDPOINT}
     auth:
       authenticator: oauth2client
@@ -54,13 +59,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlphttp/b14, debug]
+      processors: [memory_limiter, filter/noisy, batch]
+      exporters: [otlp_http/b14, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/b14, debug]
+      exporters: [otlp_http/b14, debug]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/b14, debug]
+      exporters: [otlp_http/b14, debug]
