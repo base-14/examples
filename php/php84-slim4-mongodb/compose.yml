@@ -1,0 +1,89 @@
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
+  OTEL_PHP_AUTOLOAD_ENABLED: "true"
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=development
+
+x-mongo-env: &mongo-env
+  MONGO_URI: mongodb://mongo:27017
+  MONGO_DATABASE: slim_app
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.144.0
+    container_name: slim4-otel-collector
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+      - "55679:55679"
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+    restart: unless-stopped
+    networks:
+      - slim4-network
+
+  mongo:
+    image: mongo:8
+    container_name: slim4-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - slim4-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: slim4-app
+    environment:
+      <<: [*otel-env, *mongo-env]
+      OTEL_SERVICE_NAME: php-slim4-mongodb-otel
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production-use-a-long-random-string}
+      APP_DEBUG: "true"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - slim4-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: slim4-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./public:/var/www/html/public:ro
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - slim4-network
+
+volumes:
+  mongo-data:
+
+networks:
+  slim4-network:
+    driver: bridge
