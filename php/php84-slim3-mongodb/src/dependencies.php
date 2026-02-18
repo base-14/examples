@@ -1,0 +1,44 @@
+<?php
+
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
+use OpenTelemetry\Contrib\Logs\Monolog\Handler as OTelHandler;
+use OpenTelemetry\API\Globals;
+
+$container = $app->getContainer();
+
+$container['logger'] = function () {
+    $logger = new Logger('slim-app');
+    $logger->pushHandler(new StreamHandler('php://stderr', Logger::DEBUG));
+
+    try {
+        $loggerProvider = Globals::loggerProvider();
+        $logger->pushHandler(new OTelHandler($loggerProvider, Logger::DEBUG));
+    } catch (\Throwable $e) {
+        // OTel logger not available, continue with stderr only
+    }
+
+    return $logger;
+};
+
+$container['mongo'] = function () {
+    $uri = $_ENV['MONGO_URI'] ?? 'mongodb://mongo:27017';
+    return new MongoDB\Client($uri);
+};
+
+$container['db'] = function ($c) {
+    $database = $_ENV['MONGO_DATABASE'] ?? 'slim_app';
+    return $c['mongo']->selectDatabase($database);
+};
+
+$container['userRepository'] = function ($c) {
+    return new App\Repositories\UserRepository($c['db']);
+};
+
+$container['articleRepository'] = function ($c) {
+    return new App\Repositories\ArticleRepository($c['db']);
+};
+
+$container['jwt_secret'] = function () {
+    return $_ENV['JWT_SECRET'] ?? 'change-this-secret-in-production-use-a-long-random-string';
+};
