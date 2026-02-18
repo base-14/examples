@@ -4,7 +4,6 @@ namespace App\Middleware;
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
-use OpenTelemetry\API\Trace\Span;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -29,7 +28,6 @@ class JwtMiddleware implements MiddlewareInterface
 
         if (empty($authHeader) || !preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
             $this->logger->warning('Authentication failed: missing or malformed token');
-            $this->recordAuthFailure('Token required');
             return $this->json(new Response(), ['error' => 'Token required'], 401);
         }
 
@@ -42,16 +40,8 @@ class JwtMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         } catch (\Exception $e) {
             $this->logger->warning('Authentication failed: invalid token', ['reason' => $e->getMessage()]);
-            $this->recordAuthFailure('Invalid token');
             return $this->json(new Response(), ['error' => 'Invalid token'], 401);
         }
-    }
-
-    private function recordAuthFailure(string $reason): void
-    {
-        $span = Span::getCurrent();
-        $span->setAttribute('app.auth.result', 'failed');
-        $span->setAttribute('app.auth.failure_reason', $reason);
     }
 
     private function json(ResponseInterface $response, mixed $data, int $status = 200): ResponseInterface

@@ -4,7 +4,6 @@ namespace App\Controllers;
 
 use App\Repositories\UserRepository;
 use App\Telemetry\Metrics;
-use App\Telemetry\TracesOperations;
 use Firebase\JWT\JWT;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -12,8 +11,6 @@ use Psr\Log\LoggerInterface;
 
 class AuthController
 {
-    use TracesOperations;
-
     private UserRepository $userRepository;
     private LoggerInterface $logger;
     private string $jwtSecret;
@@ -27,75 +24,65 @@ class AuthController
 
     public function register(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
-        return $this->withSpan('auth.register', function ($span) use ($request, $response) {
-            $data = $request->getParsedBody();
+        $data = $request->getParsedBody();
 
-            if (empty($data['name']) || empty($data['email']) || empty($data['password'])) {
-                $this->logger->warning('Registration validation failed', ['reason' => 'missing fields']);
-                return $this->json($response, ['error' => 'Name, email and password are required'], 422);
-            }
+        if (empty($data['name']) || empty($data['email']) || empty($data['password'])) {
+            $this->logger->warning('Registration validation failed', ['reason' => 'missing fields']);
+            return $this->json($response, ['error' => 'Name, email and password are required'], 422);
+        }
 
-            if ($this->userRepository->findByEmail($data['email'])) {
-                $this->logger->warning('Registration failed: duplicate email', ['email' => $data['email']]);
-                return $this->json($response, ['error' => 'Email already taken'], 422);
-            }
+        if ($this->userRepository->findByEmail($data['email'])) {
+            $this->logger->warning('Registration failed: duplicate email', ['email' => $data['email']]);
+            return $this->json($response, ['error' => 'Email already taken'], 422);
+        }
 
-            $user = $this->userRepository->create($data);
-            $span->setAttribute('enduser.id', $user['id']);
+        $user = $this->userRepository->create($data);
+        $token = $this->generateToken($user);
+        Metrics::authRegistration();
 
-            $token = $this->generateToken($user);
-            Metrics::authRegistration();
+        $this->logger->info('User registered', ['user.id' => $user['id']]);
 
-            $this->logger->info('User registered', ['user.id' => $user['id']]);
-
-            return $this->json($response, [
-                'user' => [
-                    'id' => $user['id'],
-                    'name' => $user['name'],
-                    'email' => $user['email'],
-                    'token' => $token,
-                ],
-            ], 201);
-        }, ['app.auth.action' => 'register']);
+        return $this->json($response, [
+            'user' => [
+                'id' => $user['id'],
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'token' => $token,
+            ],
+        ], 201);
     }
 
     public function login(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
-        return $this->withSpan('auth.login', function ($span) use ($request, $response) {
-            $data = $request->getParsedBody();
+        $data = $request->getParsedBody();
 
-            if (empty($data['email']) || empty($data['password'])) {
-                $this->logger->warning('Login validation failed', ['reason' => 'missing fields']);
-                Metrics::authLoginFailed();
-                return $this->json($response, ['error' => 'Email and password are required'], 422);
-            }
+        if (empty($data['email']) || empty($data['password'])) {
+            $this->logger->warning('Login validation failed', ['reason' => 'missing fields']);
+            Metrics::authLoginFailed();
+            return $this->json($response, ['error' => 'Email and password are required'], 422);
+        }
 
-            $user = $this->userRepository->findByEmail($data['email']);
+        $user = $this->userRepository->findByEmail($data['email']);
 
-            if (!$user || !password_verify($data['password'], $user['password'])) {
-                $span->setAttribute('app.auth.result', 'failed');
-                $this->logger->warning('Login failed: invalid credentials', ['email' => $data['email']]);
-                Metrics::authLoginFailed();
-                return $this->json($response, ['error' => 'Invalid credentials'], 401);
-            }
+        if (!$user || !password_verify($data['password'], $user['password'])) {
+            $this->logger->warning('Login failed: invalid credentials', ['email' => $data['email']]);
+            Metrics::authLoginFailed();
+            return $this->json($response, ['error' => 'Invalid credentials'], 401);
+        }
 
-            $span->setAttribute('enduser.id', $user['id']);
-            $span->setAttribute('app.auth.result', 'success');
+        $token = $this->generateToken($user);
+        Metrics::authLoginSuccess();
 
-            $token = $this->generateToken($user);
-            Metrics::authLoginSuccess();
+        $this->logger->info('User logged in', ['user.id' => $user['id']]);
 
-            $this->logger->info('User logged in', ['user.id' => $user['id']]);
-
-            return $this->json($response, [
-                'user' => [
-                    'id' => $user['id'],
-                    'name' => $user['name'],
-                    'email' => $user['email'],
-                    'token' => $token,
-                ],
-            ]);
-        }, ['app.auth.action' => 'login']);
+        return $this->json($response, [
+            'user' => [
+                'id' => $user['id'],
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'token' => $token,
+            ],
+        ]);
     }
 
     public function me(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface

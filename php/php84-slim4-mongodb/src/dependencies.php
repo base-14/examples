@@ -4,22 +4,19 @@ use App\Controllers\AuthController;
 use App\Middleware\JwtMiddleware;
 use App\Repositories\ArticleRepository;
 use App\Repositories\UserRepository;
-use App\Telemetry\OtelLevelFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use MongoDB\Client;
 use MongoDB\Database;
 use OpenTelemetry\API\Globals;
-use App\Telemetry\OtelLogHandler;
+use OpenTelemetry\Contrib\Logs\Monolog\Handler as OtelLogHandler;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 return [
     LoggerInterface::class => function () {
         $logger = new Logger('slim-app');
-        $stderrHandler = new StreamHandler('php://stderr', Logger::DEBUG);
-        $stderrHandler->setFormatter(new OtelLevelFormatter());
-        $logger->pushHandler($stderrHandler);
+        $logger->pushHandler(new StreamHandler('php://stderr', Logger::DEBUG));
 
         try {
             $loggerProvider = Globals::loggerProvider();
