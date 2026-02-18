@@ -25,21 +25,20 @@ trait TracesOperations
         $span = $tracer->spanBuilder($name)
             ->setSpanKind($spanKind)
             ->startSpan();
+        $scope = $span->activate();
 
         foreach ($attributes as $key => $value) {
             $span->setAttribute($key, $value);
         }
 
         try {
-            $result = $callback($span);
-            $span->setStatus(StatusCode::STATUS_OK);
-
-            return $result;
+            return $callback($span);
         } catch (\Exception $e) {
             $span->recordException($e);
             $span->setStatus(StatusCode::STATUS_ERROR, $e->getMessage());
             throw $e;
         } finally {
+            $scope->detach();
             $span->end();
         }
     }

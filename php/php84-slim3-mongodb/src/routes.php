@@ -4,7 +4,6 @@ use App\Controllers\HealthController;
 use App\Controllers\MetricsController;
 use App\Controllers\AuthController;
 use App\Controllers\ArticleController;
-use App\Middleware\JwtMiddleware;
 
 // System endpoints
 $app->get('/api/health', HealthController::class . ':health');
@@ -28,4 +27,4 @@ $app->group('', function () use ($app) {
     $app->delete('/api/articles/{id}', ArticleController::class . ':delete');
     $app->post('/api/articles/{id}/favorite', ArticleController::class . ':favorite');
     $app->delete('/api/articles/{id}/favorite', ArticleController::class . ':unfavorite');
-})->add(new JwtMiddleware());
+})->add($app->getContainer()['jwtMiddleware']);

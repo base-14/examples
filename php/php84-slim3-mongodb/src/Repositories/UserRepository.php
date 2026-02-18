@@ -17,7 +17,11 @@ class UserRepository
 
     public function findById(string $id): ?array
     {
-        $doc = $this->collection->findOne(['_id' => new ObjectId($id)]);
+        try {
+            $doc = $this->collection->findOne(['_id' => new ObjectId($id)]);
+        } catch (\MongoDB\Driver\Exception\InvalidArgumentException $e) {
+            return null;
+        }
         return $doc ? $this->toArray($doc) : null;
     }
 

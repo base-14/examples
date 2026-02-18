@@ -6,6 +6,7 @@ use App\Telemetry\Metrics;
 use App\Telemetry\TracesOperations;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Slim\Container;
 
 class ArticleController
@@ -13,10 +14,12 @@ class ArticleController
     use TracesOperations;
 
     private Container $container;
+    private LoggerInterface $logger;
 
     public function __construct(Container $container)
     {
         $this->container = $container;
+        $this->logger = $container['logger'];
     }
 
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -29,8 +32,7 @@ class ArticleController
             $repo = $this->container['articleRepository'];
             $articles = $repo->findAll($limit, $offset);
 
-            $span->setAttribute('db.operation', 'find');
-            $span->setAttribute('articles.count', count($articles));
+            $span->setAttribute('app.articles.count', count($articles));
 
             return $response->withJson([
                 'articles' => $articles,
@@ -46,14 +48,14 @@ class ArticleController
             $article = $repo->findById($args['id']);
 
             if (!$article) {
+                $this->logger->warning('Article not found', ['article.id' => $args['id']]);
                 return $response->withJson(['error' => 'Article not found'], 404);
             }
 
-            $span->setAttribute('article.id', $article['id']);
-            $span->setAttribute('db.operation', 'findOne');
+            $span->setAttribute('app.article.id', $article['id']);
 
             return $response->withJson(['article' => $article]);
-        }, ['article.id' => $args['id']]);
+        }, ['app.article.id' => $args['id']]);
     }
 
     public function create(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -63,6 +65,7 @@ class ArticleController
             $user = $request->getAttribute('user');
 
             if (empty($data['title']) || empty($data['body'])) {
+                $this->logger->warning('Article validation failed', ['reason' => 'missing fields']);
                 return $response->withJson(['error' => 'Title and body are required'], 422);
             }
 
@@ -71,14 +74,15 @@ class ArticleController
             $repo = $this->container['articleRepository'];
             $article = $repo->create($data);
 
-            $span->setAttribute('user.id', $user['sub']);
-            $span->setAttribute('article.id', $article['id']);
-            $span->setAttribute('db.operation', 'insertOne');
+            $span->setAttribute('enduser.id', $user['sub']);
+            $span->setAttribute('app.article.id', $article['id']);
 
             Metrics::articleCreated();
 
+            $this->logger->info('Article created', ['article.id' => $article['id'], 'user.id' => $user['sub']]);
+
             return $response->withJson(['article' => $article], 201);
-        }, ['db.operation' => 'insertOne']);
+        });
     }
 
     public function update(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
@@ -89,22 +93,23 @@ class ArticleController
             $article = $repo->findById($args['id']);
 
             if (!$article) {
+                $this->logger->warning('Article not found', ['article.id' => $args['id']]);
                 return $response->withJson(['error' => 'Article not found'], 404);
             }
 
             if ($article['author_id'] !== $user['sub']) {
+                $this->logger->warning('Forbidden: not article owner', ['article.id' => $args['id'], 'user.id' => $user['sub']]);
                 return $response->withJson(['error' => 'Forbidden'], 403);
             }
 
             $data = $request->getParsedBody();
             $updated = $repo->update($args['id'], $data);
 
-            $span->setAttribute('user.id', $user['sub']);
-            $span->setAttribute('article.id', $args['id']);
-            $span->setAttribute('db.operation', 'updateOne');
+            $span->setAttribute('enduser.id', $user['sub']);
+            $span->setAttribute('app.article.id', $args['id']);
 
             return $response->withJson(['article' => $updated]);
-        }, ['article.id' => $args['id']]);
+        }, ['app.article.id' => $args['id']]);
     }
 
     public function delete(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
@@ -115,23 +120,26 @@ class ArticleController
             $article = $repo->findById($args['id']);
 
             if (!$article) {
+                $this->logger->warning('Article not found', ['article.id' => $args['id']]);
                 return $response->withJson(['error' => 'Article not found'], 404);
             }
 
             if ($article['author_id'] !== $user['sub']) {
+                $this->logger->warning('Forbidden: not article owner', ['article.id' => $args['id'], 'user.id' => $user['sub']]);
                 return $response->withJson(['error' => 'Forbidden'], 403);
             }
 
             $repo->delete($args['id']);
 
-            $span->setAttribute('user.id', $user['sub']);
-            $span->setAttribute('article.id', $args['id']);
-            $span->setAttribute('db.operation', 'deleteOne');
+            $span->setAttribute('enduser.id', $user['sub']);
+            $span->setAttribute('app.article.id', $args['id']);
 
             Metrics::articleDeleted();
 
+            $this->logger->info('Article deleted', ['article.id' => $args['id'], 'user.id' => $user['sub']]);
+
             return $response->withJson(['message' => 'Article deleted']);
-        }, ['article.id' => $args['id']]);
+        }, ['app.article.id' => $args['id']]);
     }
 
     public function favorite(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
@@ -142,19 +150,19 @@ class ArticleController
             $article = $repo->findById($args['id']);
 
             if (!$article) {
+                $this->logger->warning('Article not found', ['article.id' => $args['id']]);
                 return $response->withJson(['error' => 'Article not found'], 404);
             }
 
             $updated = $repo->addFavorite($args['id'], $user['sub']);
 
-            $span->setAttribute('user.id', $user['sub']);
-            $span->setAttribute('article.id', $args['id']);
-            $span->setAttribute('db.operation', 'updateOne');
+            $span->setAttribute('enduser.id', $user['sub']);
+            $span->setAttribute('app.article.id', $args['id']);
 
             Metrics::articleFavorited();
 
             return $response->withJson(['article' => $updated]);
-        }, ['article.id' => $args['id']]);
+        }, ['app.article.id' => $args['id']]);
     }
 
     public function unfavorite(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
@@ -165,18 +173,18 @@ class ArticleController
             $article = $repo->findById($args['id']);
 
             if (!$article) {
+                $this->logger->warning('Article not found', ['article.id' => $args['id']]);
                 return $response->withJson(['error' => 'Article not found'], 404);
             }
 
             $updated = $repo->removeFavorite($args['id'], $user['sub']);
 
-            $span->setAttribute('user.id', $user['sub']);
-            $span->setAttribute('article.id', $args['id']);
-            $span->setAttribute('db.operation', 'updateOne');
+            $span->setAttribute('enduser.id', $user['sub']);
+            $span->setAttribute('app.article.id', $args['id']);
 
             Metrics::articleUnfavorited();
 
             return $response->withJson(['article' => $updated]);
-        }, ['article.id' => $args['id']]);
+        }, ['app.article.id' => $args['id']]);
     }
 }

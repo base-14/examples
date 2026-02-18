@@ -22,33 +22,54 @@ stacks using Base14 Scout.
 
 - MongoDB operations via `opentelemetry-auto-mongodb`
   (find, insertOne, updateOne, deleteOne)
-- Span attributes: `db.system=mongodb`, `db.name`,
-  `db.mongodb.collection`, `db.operation`
+
+Auto-instrumented span attributes follow OTel semantic conventions and are
+managed entirely by the official libraries. Do not duplicate these manually.
 
 ### Manual Instrumentation
 
-- **Traces**: Root HTTP span per request (TelemetryMiddleware),
-  all article and auth operations
-- **Attributes**: `user.id`, `article.id`, `db.operation`,
-  `http.method`, `http.status_code`, `error.type`
-- **Logs**: Structured logs with trace correlation via Monolog + OTel handler
-- **Metrics**: Application counters (auth, articles, API requests/response times)
-- **Error Handling**: Exception recording with error type classification
+- **Traces**: Root HTTP span per request (`TelemetryMiddleware`),
+  business logic spans for all article and auth operations
+  (via `TracesOperations` trait with span scope activation)
+- **Span attributes**: `enduser.id`, `app.article.id`, `app.articles.count`,
+  `app.auth.action`, `app.auth.result`, `app.auth.failure_reason`
+- **Logs**: Structured logs with automatic trace correlation via Monolog +
+  custom `OtelLogHandler` (maps Monolog levels to OTel severity: WARN, ERROR, FATAL)
+- **Metrics**: Application counters with `app.` namespace
+  (`app.user.logins`, `app.article.creates`, etc.)
+- **Error handling**: Custom error handler records exceptions on active span,
+  sets span status to ERROR, logs with trace context
 
 ### Span Hierarchy Example
 
 ```text
-POST /api/articles (SERVER, TelemetryMiddleware)
-  +-- article.create (INTERNAL, ArticleController)
-       +-- mongodb.insertOne (CLIENT, auto-mongodb)
+POST /api/articles        (SERVER   - TelemetryMiddleware, scope activated)
+  +-- article.create      (INTERNAL - TracesOperations, scope activated)
+       +-- mongodb.insert  (CLIENT  - auto-mongodb)
 ```
+
+Span scope activation (`$span->activate()` / `$scope->detach()`) ensures
+child spans and logs automatically inherit the correct trace context.
+
+### OTel Semantic Convention Compliance
+
+- Span status: UNSET for success (not OK), ERROR only for 5xx/exceptions
+- Log severity:
+  - `WARN` (not WARNING)
+  - `ERROR` (not CRITICAL/ALERT)
+  - `FATAL` (for EMERGENCY)
+- Custom attributes namespaced with `app.` prefix
+- User identification via `enduser.id` (semconv standard)
+- Resource attribute: `deployment.environment.name` (`deployment.environment` is deprecated)
+- No duplicate span attributes: auto-instrumented MongoDB attributes are not set manually
 
 ### Slim 3 Notes
 
 Slim 3 is EOL and produces deprecation warnings on PHP 8.4. These are suppressed
 via `php.ini` (`error_reporting = E_ALL & ~E_DEPRECATED & ~E_NOTICE`). The
 `opentelemetry-auto-slim` package only supports Slim 4+, so HTTP spans are
-created manually via `TelemetryMiddleware`.
+created manually via `TelemetryMiddleware`. See the `php84-slim4-mongodb`
+example for the modern approach.
 
 ## Technology Stack
 
@@ -128,9 +149,11 @@ docker compose up --build
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` | Collector |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | Export protocol |
 | `OTEL_PHP_AUTOLOAD_ENABLED` | `true` | Enable auto-instrumentation |
+| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment.name=development` | Resource attributes |
 | `MONGO_URI` | `mongodb://mongo:27017` | MongoDB connection |
 | `MONGO_DATABASE` | `slim_app` | Database name |
-| `JWT_SECRET` | - | JWT signing key |
+| `JWT_SECRET` | - | JWT signing key (required, fails fast if missing) |
+| `APP_DEBUG` | `false` | Show error details in responses |
 
 ## API Endpoints
 

@@ -1,19 +1,23 @@
 <?php
 
+use App\Middleware\JwtMiddleware;
+use App\Telemetry\OtelLevelFormatter;
+use App\Telemetry\OtelLogHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
-use OpenTelemetry\Contrib\Logs\Monolog\Handler as OTelHandler;
 use OpenTelemetry\API\Globals;
 
 $container = $app->getContainer();
 
 $container['logger'] = function () {
     $logger = new Logger('slim-app');
-    $logger->pushHandler(new StreamHandler('php://stderr', Logger::DEBUG));
+    $stderrHandler = new StreamHandler('php://stderr', Logger::DEBUG);
+    $stderrHandler->setFormatter(new OtelLevelFormatter());
+    $logger->pushHandler($stderrHandler);
 
     try {
         $loggerProvider = Globals::loggerProvider();
-        $logger->pushHandler(new OTelHandler($loggerProvider, Logger::DEBUG));
+        $logger->pushHandler(new OtelLogHandler($loggerProvider, Logger::DEBUG));
     } catch (\Throwable $e) {
         // OTel logger not available, continue with stderr only
     }
@@ -40,5 +44,13 @@ $container['articleRepository'] = function ($c) {
 };
 
 $container['jwt_secret'] = function () {
-    return $_ENV['JWT_SECRET'] ?? 'change-this-secret-in-production-use-a-long-random-string';
+    $secret = $_ENV['JWT_SECRET'] ?? null;
+    if ($secret === null || $secret === '') {
+        throw new \RuntimeException('JWT_SECRET environment variable is required');
+    }
+    return $secret;
+};
+
+$container['jwtMiddleware'] = function ($c) {
+    return new JwtMiddleware($c['logger'], $c['jwt_secret']);
 };

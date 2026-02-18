@@ -210,6 +210,149 @@ if [ -n "$ARTICLE1_ID" ]; then
     fi
 fi
 
+# Error scenarios
+echo ""
+echo "=== Error Scenarios ==="
+
+# 404 - Article not found
+NOT_FOUND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/articles/000000000000000000000000" \
+    -H "Accept: application/json")
+if [ "$NOT_FOUND_STATUS" -eq 404 ]; then
+    echo "[PASS] Article not found (HTTP 404)"
+    ((PASSED++))
+else
+    echo "[FAIL] Article not found - Expected 404, got $NOT_FOUND_STATUS"
+    ((FAILED++))
+fi
+
+# 404 - Invalid ObjectId
+INVALID_ID_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/articles/invalid-id" \
+    -H "Accept: application/json")
+if [ "$INVALID_ID_STATUS" -eq 404 ]; then
+    echo "[PASS] Invalid article ID (HTTP 404)"
+    ((PASSED++))
+else
+    echo "[FAIL] Invalid article ID - Expected 404, got $INVALID_ID_STATUS"
+    ((FAILED++))
+fi
+
+# 401 - Missing auth token
+NO_AUTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/articles" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d '{"title":"Test","body":"Test"}')
+if [ "$NO_AUTH_STATUS" -eq 401 ]; then
+    echo "[PASS] Missing auth token (HTTP 401)"
+    ((PASSED++))
+else
+    echo "[FAIL] Missing auth token - Expected 401, got $NO_AUTH_STATUS"
+    ((FAILED++))
+fi
+
+# 401 - Invalid auth token
+BAD_TOKEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/articles" \
+    -H "Authorization: Bearer invalid.token.here" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d '{"title":"Test","body":"Test"}')
+if [ "$BAD_TOKEN_STATUS" -eq 401 ]; then
+    echo "[PASS] Invalid auth token (HTTP 401)"
+    ((PASSED++))
+else
+    echo "[FAIL] Invalid auth token - Expected 401, got $BAD_TOKEN_STATUS"
+    ((FAILED++))
+fi
+
+# 422 - Registration validation
+REG_VALIDATION_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/register" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d '{}')
+if [ "$REG_VALIDATION_STATUS" -eq 422 ]; then
+    echo "[PASS] Registration validation (HTTP 422)"
+    ((PASSED++))
+else
+    echo "[FAIL] Registration validation - Expected 422, got $REG_VALIDATION_STATUS"
+    ((FAILED++))
+fi
+
+# 422 - Duplicate email registration
+DUP_EMAIL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/register" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d "{\"name\":\"Alice Duplicate\",\"email\":\"alice-$SUFFIX@example.com\",\"password\":\"password123\"}")
+if [ "$DUP_EMAIL_STATUS" -eq 422 ]; then
+    echo "[PASS] Duplicate email registration (HTTP 422)"
+    ((PASSED++))
+else
+    echo "[FAIL] Duplicate email - Expected 422, got $DUP_EMAIL_STATUS"
+    ((FAILED++))
+fi
+
+# 422 - Login validation
+LOGIN_VALIDATION_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/login" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d '{}')
+if [ "$LOGIN_VALIDATION_STATUS" -eq 422 ]; then
+    echo "[PASS] Login validation (HTTP 422)"
+    ((PASSED++))
+else
+    echo "[FAIL] Login validation - Expected 422, got $LOGIN_VALIDATION_STATUS"
+    ((FAILED++))
+fi
+
+# 401 - Invalid credentials
+BAD_CREDS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/login" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d '{"email":"nobody@example.com","password":"wrongpassword"}')
+if [ "$BAD_CREDS_STATUS" -eq 401 ]; then
+    echo "[PASS] Invalid credentials (HTTP 401)"
+    ((PASSED++))
+else
+    echo "[FAIL] Invalid credentials - Expected 401, got $BAD_CREDS_STATUS"
+    ((FAILED++))
+fi
+
+# 422 - Article creation validation
+ART_VALIDATION_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/articles" \
+    -H "Authorization: Bearer $ALICE_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d '{}')
+if [ "$ART_VALIDATION_STATUS" -eq 422 ]; then
+    echo "[PASS] Article creation validation (HTTP 422)"
+    ((PASSED++))
+else
+    echo "[FAIL] Article creation validation - Expected 422, got $ART_VALIDATION_STATUS"
+    ((FAILED++))
+fi
+
+# 403 - Forbidden (Bob tries to update Alice's article)
+TEMP_ARTICLE=$(curl -s -X POST "$API_URL/api/articles" \
+    -H "Authorization: Bearer $ALICE_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"title":"Temp Article","body":"For forbidden test"}')
+TEMP_ID=$(echo "$TEMP_ARTICLE" | jq -r '.article.id // empty')
+if [ -n "$TEMP_ID" ]; then
+    FORBIDDEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$API_URL/api/articles/$TEMP_ID" \
+        -H "Authorization: Bearer $BOB_TOKEN" \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
+        -d '{"title":"Hacked"}')
+    if [ "$FORBIDDEN_STATUS" -eq 403 ]; then
+        echo "[PASS] Forbidden update by non-owner (HTTP 403)"
+        ((PASSED++))
+    else
+        echo "[FAIL] Forbidden update - Expected 403, got $FORBIDDEN_STATUS"
+        ((FAILED++))
+    fi
+    # Clean up temp article
+    curl -s -o /dev/null -X DELETE "$API_URL/api/articles/$TEMP_ID" \
+        -H "Authorization: Bearer $ALICE_TOKEN"
+fi
+
 # Telemetry check
 echo ""
 echo "=== Telemetry ==="

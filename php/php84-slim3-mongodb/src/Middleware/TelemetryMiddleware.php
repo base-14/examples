@@ -37,19 +37,11 @@ class TelemetryMiddleware
                 $span->setAttribute('http.route', $pattern);
             }
 
-            $statusCode = $response->getStatusCode();
-            $span->setAttribute('http.status_code', $statusCode);
-
-            if ($statusCode >= 400) {
-                $span->setStatus(StatusCode::STATUS_ERROR, "HTTP $statusCode");
-            } else {
-                $span->setStatus(StatusCode::STATUS_OK);
-            }
+            $span->setAttribute('http.status_code', $response->getStatusCode());
 
             return $response;
         } catch (\Exception $e) {
             $span->recordException($e);
-            $span->setAttribute('error.type', get_class($e));
             $span->setStatus(StatusCode::STATUS_ERROR, $e->getMessage());
             throw $e;
         } finally {
