@@ -6,7 +6,7 @@ to a Slim 4 application. No Docker required.
 ## 1. Install PHP extensions
 
 ```bash
-pecl install opentelemetry-1.2.1 mongodb-2.2.1
+pecl install opentelemetry mongodb
 ```
 
 Enable them in your `php.ini`:
@@ -15,6 +15,10 @@ Enable them in your `php.ini`:
 extension=opentelemetry
 extension=mongodb
 ```
+
+The `opentelemetry` extension is required for auto-instrumentation
+to hook into PHP's internals. Without it, the SDK packages have
+nothing to work with.
 
 ## 2. Install composer dependencies
 
@@ -32,13 +36,17 @@ composer require \
   guzzlehttp/psr7:^2.8
 ```
 
-The `opentelemetry-auto-slim` package automatically instruments
-Slim 4 HTTP requests, creating root SERVER spans with route
-pattern names. No manual `TelemetryMiddleware` required.
+What each package does:
 
-The `opentelemetry-auto-mongodb` package automatically creates
-spans for all MongoDB driver operations. Do not duplicate these
-attributes manually in your application code.
+- **sdk** — Core OTel PHP SDK (creates spans, manages context)
+- **exporter-otlp** — Sends telemetry over OTLP protocol
+- **opentelemetry-auto-slim** — Auto-instruments every Slim route
+  (creates spans for each HTTP request with zero application code)
+- **opentelemetry-auto-mongodb** — Auto-creates spans for all
+  MongoDB driver operations
+- **opentelemetry-logger-monolog** — Bridges Monolog to OTel logs,
+  automatically attaches `traceId` and `spanId` for correlation
+- **guzzle7-adapter + psr7** — HTTP transport for the OTLP exporter
 
 ## 3. Set environment variables
 
@@ -56,9 +64,13 @@ export OTEL_LOGS_EXPORTER=otlp
 export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development
 ```
 
+`OTEL_PHP_AUTOLOAD_ENABLED=true` is the key switch. It tells the
+SDK to automatically discover and activate the auto-instrumentation
+packages. Without it, the packages sit idle.
+
 Use `deployment.environment.name` (not the deprecated `deployment.environment`).
 
-## 4. Bootstrap Slim 4 with PHP-DI
+## 4. Bootstrap Slim 4 with exception recording
 
 Slim 4 requires a PSR-11 container (we use PHP-DI) and explicit
 PSR-7 implementation (`slim/psr7`):
@@ -89,13 +101,10 @@ $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 
-// Your custom middleware
 $app->add(new \App\Middleware\SecurityHeadersMiddleware());
 
-// Routes
 require __DIR__ . '/../src/routes.php';
 
-// Error handler with span recording
 $displayErrors = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
 $errorMiddleware = $app->addErrorMiddleware($displayErrors, true, true);
 $errorMiddleware->setDefaultErrorHandler(function (
@@ -105,10 +114,12 @@ $errorMiddleware->setDefaultErrorHandler(function (
     bool $logErrors,
     bool $logErrorDetails,
 ) use ($app) {
+    // Record exception on the auto-instrumented span
     $span = Span::getCurrent();
     $span->recordException($exception);
     $span->setStatus(StatusCode::STATUS_ERROR, $exception->getMessage());
 
+    // Log with trace correlation (traceId/spanId attached automatically)
     $logger = $app->getContainer()->get(LoggerInterface::class);
     $logger->error('Unhandled exception', [
         'exception' => $exception,
@@ -134,19 +145,15 @@ $errorMiddleware->setDefaultErrorHandler(function (
 $app->run();
 ```
 
-Key differences from Slim 3:
-
-- `AppFactory::create()` instead of `new \Slim\App()`
-- `addBodyParsingMiddleware()` for JSON request body parsing
-- `addRoutingMiddleware()` for route resolution
-- `addErrorMiddleware()` for error handling
-- No `determineRouteBeforeAppMiddleware` setting needed
-- Custom error handler records exceptions on the active span
+The three lines that record exceptions on spans are the only OTel
+API calls in the entire entry point. `Span::getCurrent()` retrieves
+the auto-instrumented span — no manual span creation needed.
 
 ## 5. Register shutdown handlers
 
 Create `src/Telemetry/Shutdown.php` to flush telemetry on
-process exit:
+process exit. This is important for php-fpm workers that can
+exit before the SDK flushes its buffer:
 
 ```php
 <?php
@@ -199,297 +206,35 @@ class Shutdown
 }
 ```
 
-## 6. HTTP spans are automatic
-
-With `opentelemetry-auto-slim` installed and
-`OTEL_PHP_AUTOLOAD_ENABLED=true`, every Slim 4 request
-automatically gets a root SERVER span with:
-
-- Span name: `{METHOD} {route_pattern}` (e.g. `GET /api/articles/{id}`)
-- Semantic convention attributes (`http.request.method`, `http.route`, `http.response.status_code`)
-- HTTP server metrics (request duration, count)
-
-No manual `TelemetryMiddleware` is needed (unlike Slim 3).
-Do not create duplicate HTTP metrics or span attributes in your
-application code; the auto-instrumentation handles these.
-
-## 7. Write PSR-15 middleware
-
-Slim 4 uses PSR-15 `MiddlewareInterface` instead of Slim 3's
-callable middleware:
+Bootstrap it from `src/telemetry.php`:
 
 ```php
 <?php
-
-namespace App\Middleware;
-
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-
-class SecurityHeadersMiddleware implements MiddlewareInterface
-{
-    public function process(
-        ServerRequestInterface $request,
-        RequestHandlerInterface $handler
-    ): ResponseInterface {
-        $response = $handler->handle($request);
-
-        return $response
-            ->withHeader('X-Content-Type-Options', 'nosniff')
-            ->withHeader('X-Frame-Options', 'DENY');
-    }
-}
+use App\Telemetry\Shutdown;
+Shutdown::register();
 ```
 
-Key differences from Slim 3:
+## 6. Wire up the logger with OTel correlation
 
-- Implements `MiddlewareInterface` with `process()` method
-- Uses `$handler->handle($request)` instead of `$next($request, $response)`
-- No `$response` parameter; create `new \Slim\Psr7\Response()` when
-  needed (e.g. for 401 errors in JWT middleware)
-
-## 8. Add business logic spans with scope activation
-
-Create a `TracesOperations` trait to wrap any operation in a
-child span. The key detail is **scope activation**: calling
-`$span->activate()` makes the span current in context, so child
-spans (like auto-instrumented MongoDB operations) properly nest
-and logs automatically get trace correlation.
+Register Monolog with both a stderr handler and the stock OTel
+log handler. The OTel handler automatically attaches `traceId` and
+`spanId` to every log record — no manual trace context injection:
 
 ```php
-<?php
-
-namespace App\Telemetry;
-
-use OpenTelemetry\API\Globals;
-use OpenTelemetry\API\Trace\SpanKind;
-use OpenTelemetry\API\Trace\StatusCode;
-
-trait TracesOperations
-{
-    protected function withSpan(
-        string $name,
-        callable $callback,
-        array $attributes = [],
-        int $spanKind = SpanKind::KIND_INTERNAL,
-        string $tracerName = 'slim-app'
-    ): mixed {
-        $tracer = Globals::tracerProvider()->getTracer($tracerName);
-        $span = $tracer->spanBuilder($name)
-            ->setSpanKind($spanKind)
-            ->startSpan();
-        $scope = $span->activate();
-
-        foreach ($attributes as $k => $v) {
-            $span->setAttribute($k, $v);
-        }
-
-        try {
-            return $callback($span);
-        } catch (\Exception $e) {
-            $span->recordException($e);
-            $span->setStatus(
-                StatusCode::STATUS_ERROR,
-                $e->getMessage()
-            );
-            throw $e;
-        } finally {
-            $scope->detach();
-            $span->end();
-        }
-    }
-}
-```
-
-Important conventions:
-
-- Do **not** set `STATUS_OK` on success. OTel convention is to leave
-  span status as UNSET for successful operations.
-- Only set `STATUS_ERROR` for exceptions (5xx). Do not set it for
-  4xx client errors (those are expected application behavior).
-- Namespace custom attributes with `app.` prefix (e.g. `app.article.id`).
-- Use `enduser.id` for user identification (OTel semantic convention).
-
-Use it in your controllers with constructor-injected logger:
-
-```php
-use App\Repositories\ArticleRepository;
-use App\Telemetry\Metrics;
-use App\Telemetry\TracesOperations;
-use Psr\Log\LoggerInterface;
-
-class ArticleController
-{
-    use TracesOperations;
-
-    private ArticleRepository $articleRepository;
-    private LoggerInterface $logger;
-
-    public function __construct(
-        ArticleRepository $articleRepository,
-        LoggerInterface $logger
-    ) {
-        $this->articleRepository = $articleRepository;
-        $this->logger = $logger;
-    }
-
-    public function create($request, $response)
-    {
-        return $this->withSpan(
-            'article.create',
-            function ($span) use ($request, $response) {
-                $data = $request->getParsedBody();
-                $user = $request->getAttribute('user');
-
-                if (empty($data['title']) || empty($data['body'])) {
-                    $this->logger->warning('Article validation failed',
-                        ['reason' => 'missing fields']);
-                    return $this->json($response,
-                        ['error' => 'Title and body are required'], 422);
-                }
-
-                $article = $this->articleRepository->create($data);
-
-                $span->setAttribute('enduser.id', $user['sub']);
-                $span->setAttribute('app.article.id', $article['id']);
-
-                Metrics::articleCreated();
-                $this->logger->info('Article created',
-                    ['article.id' => $article['id'],
-                     'user.id' => $user['sub']]);
-
-                $response->getBody()->write(json_encode([
-                    'article' => $article,
-                ]));
-                return $response
-                    ->withHeader('Content-Type', 'application/json')
-                    ->withStatus(201);
-            }
-        );
-    }
-}
-```
-
-Note: Slim 4 does not have `$response->withJson()`. Write JSON
-to the response body manually and set the Content-Type header.
-
-## 9. Map log severity to OTel conventions
-
-Monolog uses level names like `WARNING`, `CRITICAL`, and `ALERT`
-that don't match OTel's severity model (`WARN`, `ERROR`, `FATAL`).
-Two components handle this mapping:
-
-**For stderr output** -- `OtelLevelFormatter` extends Monolog's
-`LineFormatter` and replaces level names in the formatted string:
-
-```php
-<?php
-
-namespace App\Telemetry;
-
-use Monolog\Formatter\LineFormatter;
-use Monolog\LogRecord;
-
-class OtelLevelFormatter extends LineFormatter
-{
-    private const LEVEL_MAP = [
-        'DEBUG' => 'DEBUG', 'INFO' => 'INFO', 'NOTICE' => 'INFO',
-        'WARNING' => 'WARN', 'ERROR' => 'ERROR',
-        'CRITICAL' => 'ERROR', 'ALERT' => 'ERROR',
-        'EMERGENCY' => 'FATAL',
-    ];
-
-    public function format(LogRecord $record): string
-    {
-        $output = parent::format($record);
-        $monologLevel = $record->level->getName();
-        $otelLevel = self::LEVEL_MAP[$monologLevel] ?? $monologLevel;
-        if ($monologLevel !== $otelLevel) {
-            $output = str_replace($monologLevel, $otelLevel, $output);
-        }
-        return $output;
-    }
-}
-```
-
-**For the OTel pipeline** -- `OtelLogHandler` extends the stock OTel
-Monolog handler and overrides `write()` to set `SeverityText`
-correctly before emitting the log record:
-
-```php
-<?php
-
-namespace App\Telemetry;
-
-use OpenTelemetry\API\Logs as API;
-use OpenTelemetry\Contrib\Logs\Monolog\Handler as OTelHandler;
-
-class OtelLogHandler extends OTelHandler
-{
-    private const LEVEL_MAP = [
-        'DEBUG' => 'DEBUG', 'INFO' => 'INFO', 'NOTICE' => 'INFO',
-        'WARNING' => 'WARN', 'ERROR' => 'ERROR',
-        'CRITICAL' => 'ERROR', 'ALERT' => 'ERROR',
-        'EMERGENCY' => 'FATAL',
-    ];
-
-    protected function write($record): void
-    {
-        $formatted = $record['formatted'];
-        $monologLevel = $record['level_name'];
-        $otelLevel = self::LEVEL_MAP[$monologLevel] ?? $monologLevel;
-
-        $logRecord = (new API\LogRecord())
-            ->setTimestamp(
-                (int) $record['datetime']->format('Uu') * 1000)
-            ->setSeverityNumber(
-                API\Severity::fromPsr3($monologLevel))
-            ->setSeverityText($otelLevel)
-            ->setBody($formatted['message']);
-
-        foreach (['context', 'extra'] as $key) {
-            if (isset($formatted[$key])
-                && count($formatted[$key]) > 0) {
-                $logRecord->setAttribute($key, $formatted[$key]);
-            }
-        }
-
-        $this->getLogger($record['channel'])->emit($logRecord);
-    }
-}
-```
-
-Why not use a Monolog Processor? Monolog 3's `LogRecord` is
-immutable via ArrayAccess, and using `LogRecord::with(levelName:)`
-causes `zend_mm_heap corrupted` due to a memory conflict with
-the PHP OTel extension.
-
-## 10. Wire up the logger
-
-Register both handlers in your DI container:
-
-```php
-use App\Telemetry\OtelLevelFormatter;
-use App\Telemetry\OtelLogHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use OpenTelemetry\API\Globals;
+use OpenTelemetry\Contrib\Logs\Monolog\Handler as OtelLogHandler;
 use Psr\Log\LoggerInterface;
 
 return [
     LoggerInterface::class => function () {
         $logger = new Logger('slim-app');
-
-        $stderrHandler = new StreamHandler('php://stderr', Logger::DEBUG);
-        $stderrHandler->setFormatter(new OtelLevelFormatter());
-        $logger->pushHandler($stderrHandler);
+        $logger->pushHandler(new StreamHandler('php://stderr', Logger::DEBUG));
 
         try {
             $loggerProvider = Globals::loggerProvider();
-            $logger->pushHandler(
-                new OtelLogHandler($loggerProvider, Logger::DEBUG));
+            $logger->pushHandler(new OtelLogHandler($loggerProvider, Logger::DEBUG));
         } catch (\Throwable $e) {
             // OTel logger not available, continue with stderr only
         }
@@ -499,11 +244,7 @@ return [
 ];
 ```
 
-With span scope activation (step 8), the OTel Monolog handler
-automatically attaches `traceId` and `spanId` to every log record.
-No manual trace context injection needed.
-
-## 11. Define application metrics
+## 7. Add business metrics
 
 Create counters with `app.` namespace prefix. Do not add a `.total`
 suffix to counter names (the metric type already implies it).
@@ -545,15 +286,109 @@ class Metrics
 }
 ```
 
-## 12. Verify
+Call these from your controllers as simple one-liners:
 
-With auto-slim + auto-mongodb + TracesOperations, a typical
-request produces this span hierarchy:
+```php
+Metrics::authLoginSuccess();
+Metrics::articleCreated();
+```
+
+No span wrapping, no trace context management. The counters flow
+through the `OTEL_METRICS_EXPORTER=otlp` pipeline independently.
+
+## 8. HTTP spans are automatic
+
+With `opentelemetry-auto-slim` installed and
+`OTEL_PHP_AUTOLOAD_ENABLED=true`, every Slim 4 request
+automatically gets:
+
+- Root SERVER span named `{METHOD} {route_pattern}` (e.g. `GET /api/articles/{id}`)
+- Controller-level INTERNAL span (e.g. `ArticleController::create`)
+- Semantic convention attributes (`http.request.method`, `http.route`, `http.response.status_code`)
+- HTTP server metrics (request duration, count)
+
+No manual `TelemetryMiddleware` is needed (unlike Slim 3).
+Do not create duplicate HTTP metrics or span attributes in your
+application code.
+
+## 9. MongoDB spans are automatic
+
+With `opentelemetry-auto-mongodb`, every MongoDB driver operation
+gets a CLIENT span with:
+
+- Span name: `MongoDB {collection}.{operation}` (e.g. `MongoDB articles.insert`)
+- Semantic convention attributes (`db.system.name`, `db.namespace`, `db.operation.name`, `db.query.text`)
+
+These nest as children of the auto-instrumented controller span.
+Do not duplicate these attributes in your application code.
+
+## 10. Write clean controllers
+
+With auto-instrumentation handling traces, your controllers stay
+focused on business logic. The only OTel touchpoint is the
+`Metrics::*` one-liner calls:
+
+```php
+use App\Repositories\ArticleRepository;
+use App\Telemetry\Metrics;
+use Psr\Log\LoggerInterface;
+
+class ArticleController
+{
+    private ArticleRepository $articleRepository;
+    private LoggerInterface $logger;
+
+    public function __construct(
+        ArticleRepository $articleRepository,
+        LoggerInterface $logger
+    ) {
+        $this->articleRepository = $articleRepository;
+        $this->logger = $logger;
+    }
+
+    public function create($request, $response)
+    {
+        $data = $request->getParsedBody();
+        $user = $request->getAttribute('user');
+
+        if (empty($data['title']) || empty($data['body'])) {
+            $this->logger->warning('Article validation failed',
+                ['reason' => 'missing fields']);
+            return $this->json($response,
+                ['error' => 'Title and body are required'], 422);
+        }
+
+        $data['author_id'] = $user['sub'];
+        $article = $this->articleRepository->create($data);
+        Metrics::articleCreated();
+
+        $this->logger->info('Article created',
+            ['article.id' => $article['id'],
+             'user.id' => $user['sub']]);
+
+        $response->getBody()->write(json_encode([
+            'article' => $article,
+        ]));
+        return $response
+            ->withHeader('Content-Type', 'application/json')
+            ->withStatus(201);
+    }
+}
+```
+
+The logger calls produce OTel log records with trace correlation.
+The `Metrics::articleCreated()` call increments a counter. Neither
+requires any span or context management.
+
+## 11. Verify
+
+A typical request produces this span hierarchy, all from
+auto-instrumentation:
 
 ```text
-POST /api/articles        (SERVER  - auto-slim)
-  +-- article.create      (INTERNAL - your controller)
-       +-- mongodb.insert  (CLIENT  - auto-mongodb)
+POST /api/articles              (SERVER   - auto-slim)
+  +-- ArticleController::create (INTERNAL - auto-slim)
+       +-- MongoDB articles.insert (CLIENT - auto-mongodb)
 ```
 
 Start an OTel Collector locally and point
@@ -561,6 +396,7 @@ Start an OTel Collector locally and point
 
 ```bash
 curl -X POST http://localhost:8080/api/articles \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title":"Hello","body":"World"}'
 ```
@@ -568,7 +404,7 @@ curl -X POST http://localhost:8080/api/articles \
 Check the collector output for:
 
 - Spans with your service name and proper parent-child nesting
-- Logs with `SeverityText: WARN` (not WARNING) and `traceId`/`spanId` correlation
+- Logs with `traceId`/`spanId` correlation
 - Metrics with `app.` prefix (e.g. `app.user.logins`, `app.article.creates`)
 
 ## What you get for free
@@ -577,11 +413,12 @@ With `OTEL_PHP_AUTOLOAD_ENABLED=true`, the OTel SDK
 auto-configures TracerProvider, MeterProvider, and LoggerProvider
 from environment variables. No PHP SDK setup code needed.
 
-The `opentelemetry-auto-slim` package automatically creates root
-SERVER spans for every Slim 4 request with route pattern names
-(low cardinality, e.g. `/api/articles/{id}` not `/api/articles/abc123`)
-and HTTP server metrics.
+The only manual code in this example:
 
-The `opentelemetry-auto-mongodb` package automatically creates
-spans for all MongoDB driver operations with semantic convention
-attributes. Do not duplicate these in your application code.
+1. **3 lines** in the error handler to record exceptions on spans
+2. **Stock OTel Monolog handler** for log-trace correlation
+3. **Metrics class** with static counter methods for business metrics
+4. **Shutdown handler** to flush telemetry in php-fpm
+
+Everything else — HTTP spans, controller spans, MongoDB spans,
+semantic convention attributes — is fully automatic.
