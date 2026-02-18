@@ -1,19 +1,16 @@
 <?php
 
 use App\Middleware\JwtMiddleware;
-use App\Telemetry\OtelLevelFormatter;
-use App\Telemetry\OtelLogHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use OpenTelemetry\API\Globals;
+use OpenTelemetry\Contrib\Logs\Monolog\Handler as OtelLogHandler;
 
 $container = $app->getContainer();
 
 $container['logger'] = function () {
     $logger = new Logger('slim-app');
-    $stderrHandler = new StreamHandler('php://stderr', Logger::DEBUG);
-    $stderrHandler->setFormatter(new OtelLevelFormatter());
-    $logger->pushHandler($stderrHandler);
+    $logger->pushHandler(new StreamHandler('php://stderr', Logger::DEBUG));
 
     try {
         $loggerProvider = Globals::loggerProvider();

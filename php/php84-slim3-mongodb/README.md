@@ -1,6 +1,6 @@
 # Slim 3 + PHP 8.4 + MongoDB + OpenTelemetry
 
-Legacy Slim 3 (EOL) micro-framework with manual OpenTelemetry instrumentation,
+Legacy Slim 3 (EOL) micro-framework with OpenTelemetry instrumentation,
 MongoDB, and PHP-FPM + Nginx. Demonstrates how to add observability to older PHP
 stacks using Base14 Scout.
 
@@ -18,7 +18,7 @@ stacks using Base14 Scout.
 
 ## What's Instrumented
 
-### Automatic Instrumentation
+### Automatic (zero application code)
 
 - MongoDB operations via `opentelemetry-auto-mongodb`
   (find, insertOne, updateOne, deleteOne)
@@ -26,42 +26,30 @@ stacks using Base14 Scout.
 Auto-instrumented span attributes follow OTel semantic conventions and are
 managed entirely by the official libraries. Do not duplicate these manually.
 
-### Manual Instrumentation
+### Manual (minimal application code)
 
-- **Traces**: Root HTTP span per request (`TelemetryMiddleware`),
-  business logic spans for all article and auth operations
-  (via `TracesOperations` trait with span scope activation)
-- **Span attributes**: `enduser.id`, `app.article.id`, `app.articles.count`,
-  `app.auth.action`, `app.auth.result`, `app.auth.failure_reason`
-- **Logs**: Structured logs with automatic trace correlation via Monolog +
-  custom `OtelLogHandler` (maps Monolog levels to OTel severity: WARN, ERROR, FATAL)
-- **Metrics**: Application counters with `app.` namespace
-  (`app.user.logins`, `app.article.creates`, etc.)
-- **Error handling**: Custom error handler records exceptions on active span,
-  sets span status to ERROR, logs with trace context
+- **HTTP traces**: Root SERVER span per request via `TelemetryMiddleware`
+  with scope activation (required because `opentelemetry-auto-slim` only
+  supports Slim 4+)
+- **Exceptions on spans**: Error handler records exceptions on the active
+  span and sets span status to ERROR
+- **Log-trace correlation**: Monolog wired to OTel via the stock
+  `opentelemetry-logger-monolog` handler — logs automatically carry
+  `traceId` and `spanId`
+- **Business metrics**: Application counters with `app.` namespace
+  (`app.user.logins`, `app.article.creates`, etc.) via `Telemetry\Metrics`
+- **Shutdown flush**: `Telemetry\Shutdown` ensures php-fpm flushes pending
+  telemetry before process exit
 
 ### Span Hierarchy Example
 
 ```text
-POST /api/articles        (SERVER   - TelemetryMiddleware, scope activated)
-  +-- article.create      (INTERNAL - TracesOperations, scope activated)
-       +-- mongodb.insert  (CLIENT  - auto-mongodb)
+POST /api/articles           (SERVER - TelemetryMiddleware)
+  +-- MongoDB articles.insert (CLIENT - auto-mongodb)
 ```
 
-Span scope activation (`$span->activate()` / `$scope->detach()`) ensures
-child spans and logs automatically inherit the correct trace context.
-
-### OTel Semantic Convention Compliance
-
-- Span status: UNSET for success (not OK), ERROR only for 5xx/exceptions
-- Log severity:
-  - `WARN` (not WARNING)
-  - `ERROR` (not CRITICAL/ALERT)
-  - `FATAL` (for EMERGENCY)
-- Custom attributes namespaced with `app.` prefix
-- User identification via `enduser.id` (semconv standard)
-- Resource attribute: `deployment.environment.name` (`deployment.environment` is deprecated)
-- No duplicate span attributes: auto-instrumented MongoDB attributes are not set manually
+The `TelemetryMiddleware` creates and activates the root span scope, so
+MongoDB auto-instrumented spans and logs inherit the correct trace context.
 
 ### Slim 3 Notes
 
@@ -83,6 +71,7 @@ example for the modern approach.
 | open-telemetry/sdk | ^1.13 | Telemetry SDK |
 | open-telemetry/exporter-otlp | ^1.4 | OTLP exporter |
 | opentelemetry-auto-mongodb | ^0.2 | MongoDB auto-instrumentation |
+| opentelemetry-logger-monolog | ^1.1 | Log-trace correlation |
 | OTel Collector | 0.144.0 | Telemetry pipeline |
 
 ## Prerequisites
@@ -149,6 +138,9 @@ docker compose up --build
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` | Collector |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | Export protocol |
 | `OTEL_PHP_AUTOLOAD_ENABLED` | `true` | Enable auto-instrumentation |
+| `OTEL_TRACES_EXPORTER` | `otlp` | Traces export format |
+| `OTEL_METRICS_EXPORTER` | `otlp` | Metrics export format |
+| `OTEL_LOGS_EXPORTER` | `otlp` | Logs export format |
 | `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment.name=development` | Resource attributes |
 | `MONGO_URI` | `mongodb://mongo:27017` | MongoDB connection |
 | `MONGO_DATABASE` | `slim_app` | Database name |

@@ -63,13 +63,18 @@ echo "[4/4] Waiting for traces to export (5 seconds)..."
 sleep 5
 
 # Check collector logs for export success
-EXPORT_SUCCESS=$(docker logs otel-collector 2>&1 | grep -c "Exporting data" || true)
-SPANS_SENT=$(docker logs otel-collector 2>&1 | grep -c "TracesExporter" || true)
+TRACES_EXPORTED=$(docker logs otel-collector 2>&1 | grep -c '"otelcol.signal": "traces"' || true)
+METRICS_EXPORTED=$(docker logs otel-collector 2>&1 | grep -c '"otelcol.signal": "metrics"' || true)
+LOGS_EXPORTED=$(docker logs otel-collector 2>&1 | grep -c '"otelcol.signal": "logs"' || true)
+EXPORT_ERRORS=$(docker logs otel-collector 2>&1 | grep -ciE "(failed to|connection refused|unauthorized)" || true)
 
 echo ""
 echo "=== Verification Results ==="
-if [ "$EXPORT_SUCCESS" -gt 0 ] || [ "$SPANS_SENT" -gt 0 ]; then
-    echo "OK - Traces are being exported to Scout"
+if [ "$TRACES_EXPORTED" -gt 0 ]; then
+    echo "OK - Traces are being exported ($TRACES_EXPORTED batches)"
+    [ "$METRICS_EXPORTED" -gt 0 ] && echo "OK - Metrics are being exported ($METRICS_EXPORTED batches)"
+    [ "$LOGS_EXPORTED" -gt 0 ] && echo "OK - Logs are being exported ($LOGS_EXPORTED batches)"
+    [ "$EXPORT_ERRORS" -gt 0 ] && echo "WARN - $EXPORT_ERRORS export errors detected (check: docker compose logs otel-collector)"
     echo ""
     echo "View your traces at:"
     echo "  1. Login to your Scout dashboard"
