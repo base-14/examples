@@ -50,6 +50,7 @@ Production-ready examples for integrating OpenTelemetry with
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
 | **Rails 8** | Rails 8 + SQLite | [rails8-sqlite](./ruby/rails8-sqlite) | OIDC auth, auto-instrumentation |
+| **Rails 6.1 (Legacy)** | Rails 6.1 + Ruby 3.0 + MySQL 8 | [ruby30-rails61-mysql](./ruby/ruby30-rails61-mysql) | Pinned OTel gems, custom spans, log correlation |
 | **Rails 5 (Legacy)** | Rails 5.2 + Ruby 2.7 + MySQL 8 | [ruby27-rails52-mysql8](./ruby/ruby27-rails52-mysql8) | Scout APM integration |
 
 ### PHP

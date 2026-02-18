@@ -1,0 +1,15 @@
+source "https://rubygems.org"
+
+ruby "~> 3.0.0"
+
+gem "rails", "~> 6.1.0"
+gem "mysql2", "~> 0.5"
+gem "puma", "~> 5.0"
+gem "logger", "1.4.3"
+
+# OpenTelemetry — core gems pinned to last Ruby 3.0 compatible versions
+gem "opentelemetry-api", "1.4.0"
+gem "opentelemetry-sdk", "1.7.0"
+gem "opentelemetry-exporter-otlp", "0.29.1"
+gem "opentelemetry-instrumentation-rails", "0.34.1"
+gem "opentelemetry-instrumentation-mysql2", "0.28.0"

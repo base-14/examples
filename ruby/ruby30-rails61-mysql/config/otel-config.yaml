@@ -1,0 +1,71 @@
+extensions:
+  oauth2client:
+    client_id: ${SCOUT_CLIENT_ID}
+    client_secret: ${SCOUT_CLIENT_SECRET}
+    token_url: ${SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true  # Development only — use proper TLS in production
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*/health.*")'
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${SCOUT_ENVIRONMENT}
+        action: upsert
+
+exporters:
+  otlp_http/b14:
+    endpoint: ${SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true  # Development only — use proper TLS in production
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [oauth2client, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/noisy, resource, batch]
+      exporters: [otlp_http/b14, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]
