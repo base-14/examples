@@ -4,7 +4,7 @@ Modern Slim 4 micro-framework with automatic HTTP span instrumentation via
 `opentelemetry-auto-slim`, MongoDB, and PHP-FPM + Nginx. Demonstrates how to
 add observability to PHP applications using Base14 Scout.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/php)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/slim)
 
 ## Stack Profile
 

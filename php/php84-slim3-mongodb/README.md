@@ -4,7 +4,7 @@ Legacy Slim 3 (EOL) micro-framework with OpenTelemetry instrumentation,
 MongoDB, and PHP-FPM + Nginx. Demonstrates how to add observability to older PHP
 stacks using Base14 Scout.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/php)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/slim)
 
 ## Stack Profile
 

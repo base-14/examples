@@ -3,7 +3,7 @@
 Legacy Rails 6.1 API application on Ruby 3.0 with OpenTelemetry for traces,
 DB correlation, and log correlation.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails-legacy#ruby-30--rails-61)
 
 ## Why This Stack
 
@@ -277,10 +277,10 @@ docker compose down -v && docker compose up --build
 
 ## Resources
 
-- [Rails Auto-Instrumentation Guide][rails-guide]
+- [Rails Legacy Instrumentation Guide][rails-guide]
 - [OpenTelemetry Ruby][otel-ruby]
 - [Base14 Scout][scout]
 
-[rails-guide]: https://docs.base14.io/instrument/apps/auto-instrumentation/rails
+[rails-guide]: https://docs.base14.io/instrument/apps/auto-instrumentation/rails-legacy#ruby-30--rails-61
 [otel-ruby]: https://opentelemetry.io/docs/languages/ruby/
 [scout]: https://base14.io/scout
