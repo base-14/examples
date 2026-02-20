@@ -9,6 +9,7 @@ import type { AnalysisResult } from "../types/pipeline.ts";
 import { embedChunks } from "./embed.ts";
 import { extractClauses } from "./extract.ts";
 import { ingestDocument } from "./ingest.ts";
+import { routeDocument } from "./route.ts";
 import { scoreRisks } from "./score.ts";
 import { generateSummary } from "./summarize.ts";
 
@@ -106,86 +107,114 @@ export async function analyzeContract(
         return result;
       });
 
-      // ── Stage 2: Embed ────────────────────────────────────────────────────
-      await tracer.startActiveSpan("pipeline_stage embed", async (span) => {
-        span.setAttribute("pipeline.stage", "embed");
+      // contractId is set inside the ingest callback — extract to a const so TypeScript knows it's string
+      if (!contractId) throw new Error("Contract ID not set after ingest stage");
+      const id = contractId;
 
-        const embedStart = Date.now();
-        const embedResult = await embedChunks(ingestResult.chunks, inject);
-        const embedDurationS = (Date.now() - embedStart) / 1000;
-        await insertChunks(pool, contractId!, ingestResult.chunks, embedResult.embeddings);
+      // ── Stage 0: Route ────────────────────────────────────────────────────
+      const routeResult = await tracer.startActiveSpan("pipeline_stage route", async (span) => {
+        span.setAttribute("pipeline.stage", "route");
 
-        span.setAttribute("embedding.chunk_count", ingestResult.chunks.length);
-        span.setAttribute("embedding.dimensions", 1536);
-        span.setAttribute("embedding.batch_count", embedResult.batch_count);
-        span.setAttribute("gen_ai.usage.input_tokens", embedResult.total_tokens);
+        const result = await routeDocument(ingestResult.full_text);
 
-        tokenUsage.record(embedResult.total_tokens, {
-          "gen_ai.token.type": "input",
-          "gen_ai.request.model": "text-embedding-3-small",
-          "pipeline.stage": "embed",
-        });
-        embeddingDuration.record(embedDurationS, {
-          "embedding.model": "text-embedding-3-small",
-        });
-        totalTokens += embedResult.total_tokens;
-
-        span.end();
-      });
-
-      // ── Stage 3: Extract ──────────────────────────────────────────────────
-      const extractResult = await tracer.startActiveSpan("pipeline_stage extract", async (span) => {
-        span.setAttribute("pipeline.stage", "extract");
-
-        const result = await extractClauses(ingestResult.full_text, inject);
-        await insertClauses(pool, contractId!, result.extraction.clauses);
-
-        const presentClauses = result.extraction.clauses.filter((c) => c.present);
-        const avgConfidence =
-          presentClauses.length > 0
-            ? presentClauses.reduce((s, c) => s + c.confidence, 0) / presentClauses.length
-            : 0;
-
-        span.setAttribute("extraction.clauses_found", presentClauses.length);
-        span.setAttribute(
-          "extraction.clause_types",
-          presentClauses.map((c) => c.clause_type).join(","),
-        );
-        span.setAttribute("extraction.confidence_avg", Math.round(avgConfidence * 100) / 100);
-        span.setAttribute("extraction.parties_count", result.extraction.parties.length);
-        span.setAttribute("extraction.contract_type", result.extraction.contract_type);
+        span.setAttribute("route.document_type", result.document_type);
+        span.setAttribute("route.complexity", result.complexity);
+        span.setAttribute("route.requires_full_analysis", result.requires_full_analysis);
         span.setAttribute("gen_ai.usage.input_tokens", result.input_tokens);
-        span.setAttribute("gen_ai.usage.output_tokens", result.output_tokens);
-
-        clausesExtracted.record(presentClauses.length, {
-          contract_type: result.extraction.contract_type,
-        });
-        tokenUsage.record(result.input_tokens, {
-          "gen_ai.token.type": "input",
-          "gen_ai.request.model": "claude-sonnet-4-6",
-          "pipeline.stage": "extract",
-        });
-        tokenUsage.record(result.output_tokens, {
-          "gen_ai.token.type": "output",
-          "gen_ai.request.model": "claude-sonnet-4-6",
-          "pipeline.stage": "extract",
-        });
-        aiCost.add(result.cost_usd, {
-          "gen_ai.request.model": "claude-sonnet-4-6",
-          "pipeline.stage": "extract",
-        });
-        totalTokens += result.input_tokens + result.output_tokens;
-        totalCost += result.cost_usd;
-
-        await updateContractStatus(
-          pool,
-          contractId!,
-          "processing",
-          result.extraction.contract_type,
-        );
         span.end();
+
+        if (result.document_type === "unknown") {
+          throw Object.assign(new Error("Document is not a recognized contract type"), {
+            code: "UNSUPPORTED_TYPE",
+          });
+        }
+
+        totalTokens += result.input_tokens;
+        totalCost += result.cost_usd;
         return result;
       });
+
+      // ── Stages 2 & 3: Embed + Extract (concurrent — both need only ingest output) ──
+      const [, extractResult] = await Promise.all([
+        tracer.startActiveSpan("pipeline_stage embed", async (span) => {
+          span.setAttribute("pipeline.stage", "embed");
+
+          const embedStart = Date.now();
+          const embedResult = await embedChunks(ingestResult.chunks, inject);
+          const embedDurationS = (Date.now() - embedStart) / 1000;
+          await insertChunks(pool, id, ingestResult.chunks, embedResult.embeddings);
+
+          span.setAttribute("embedding.chunk_count", ingestResult.chunks.length);
+          span.setAttribute("embedding.dimensions", 1536);
+          span.setAttribute("embedding.batch_count", embedResult.batch_count);
+          span.setAttribute("gen_ai.usage.input_tokens", embedResult.total_tokens);
+
+          tokenUsage.record(embedResult.total_tokens, {
+            "gen_ai.token.type": "input",
+            "gen_ai.request.model": "text-embedding-3-small",
+            "pipeline.stage": "embed",
+          });
+          embeddingDuration.record(embedDurationS, {
+            "embedding.model": "text-embedding-3-small",
+          });
+          totalTokens += embedResult.total_tokens;
+
+          span.end();
+        }),
+
+        tracer.startActiveSpan("pipeline_stage extract", async (span) => {
+          span.setAttribute("pipeline.stage", "extract");
+
+          const result = await extractClauses(
+            ingestResult.full_text,
+            inject,
+            routeResult.document_type,
+          );
+          await insertClauses(pool, id, result.extraction.clauses);
+
+          const presentClauses = result.extraction.clauses.filter((c) => c.present);
+          const avgConfidence =
+            presentClauses.length > 0
+              ? presentClauses.reduce((s, c) => s + c.confidence, 0) / presentClauses.length
+              : 0;
+
+          span.setAttribute("extraction.clauses_found", presentClauses.length);
+          span.setAttribute(
+            "extraction.clause_types",
+            presentClauses.map((c) => c.clause_type).join(","),
+          );
+          span.setAttribute("extraction.confidence_avg", Math.round(avgConfidence * 100) / 100);
+          span.setAttribute("extraction.parties_count", result.extraction.parties.length);
+          span.setAttribute("extraction.contract_type", result.extraction.contract_type);
+          span.setAttribute("extraction.eval_iterations", result.eval_iterations);
+          span.setAttribute("gen_ai.usage.input_tokens", result.input_tokens);
+          span.setAttribute("gen_ai.usage.output_tokens", result.output_tokens);
+
+          clausesExtracted.record(presentClauses.length, {
+            contract_type: result.extraction.contract_type,
+          });
+          tokenUsage.record(result.input_tokens, {
+            "gen_ai.token.type": "input",
+            "gen_ai.request.model": "claude-sonnet-4-6",
+            "pipeline.stage": "extract",
+          });
+          tokenUsage.record(result.output_tokens, {
+            "gen_ai.token.type": "output",
+            "gen_ai.request.model": "claude-sonnet-4-6",
+            "pipeline.stage": "extract",
+          });
+          aiCost.add(result.cost_usd, {
+            "gen_ai.request.model": "claude-sonnet-4-6",
+            "pipeline.stage": "extract",
+          });
+          totalTokens += result.input_tokens + result.output_tokens;
+          totalCost += result.cost_usd;
+
+          await updateContractStatus(pool, id, "processing", result.extraction.contract_type);
+          span.end();
+          return result;
+        }),
+      ]);
 
       // ── Stage 4: Score ────────────────────────────────────────────────────
       const scoreResult = await tracer.startActiveSpan("pipeline_stage score", async (span) => {
@@ -200,7 +229,7 @@ export async function analyzeContract(
         span.setAttribute("validation.has_liability_cap", hasLiabilityCap);
 
         const result = await scoreRisks(extractResult.extraction);
-        await insertRisks(pool, contractId!, result.risks.clause_risks);
+        await insertRisks(pool, id, result.risks.clause_risks);
 
         const criticalCount = result.risks.clause_risks.filter(
           (r) => r.risk_level === "critical",
@@ -284,10 +313,12 @@ export async function analyzeContract(
       };
 
       const traceId = rootSpan.spanContext().traceId;
-      await insertAnalysis(pool, contractId!, analysisResult, traceId);
-      await updateContractStatus(pool, contractId!, "complete");
+      await insertAnalysis(pool, id, analysisResult, traceId);
+      await updateContractStatus(pool, id, "complete");
 
-      rootSpan.setAttribute("pipeline.total_stages", 5);
+      rootSpan.setAttribute("pipeline.total_stages", 6);
+      rootSpan.setAttribute("route.document_type", routeResult.document_type);
+      rootSpan.setAttribute("route.complexity", routeResult.complexity);
       rootSpan.setAttribute("pipeline.status", "complete");
       rootSpan.setAttribute("pipeline.total_tokens", totalTokens);
       rootSpan.setAttribute("pipeline.total_cost_usd", Math.round(totalCost * 10_000) / 10_000);

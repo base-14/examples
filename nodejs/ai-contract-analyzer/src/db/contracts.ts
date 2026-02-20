@@ -17,7 +17,9 @@ export async function createContract(
      RETURNING *`,
     [data.filename, data.content_type, data.full_text, data.page_count, data.total_characters],
   );
-  return result.rows[0]!;
+  const inserted = result.rows[0];
+  if (!inserted) throw new Error("INSERT into contracts returned no rows");
+  return inserted;
 }
 
 export async function findContractById(pool: Pool, id: string): Promise<ContractRow | null> {

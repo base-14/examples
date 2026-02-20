@@ -39,8 +39,9 @@ export async function insertChunks(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i]!;
+    for (const [i, chunk] of chunks.entries()) {
+      const embedding = embeddings[i];
+      if (!embedding) throw new Error(`Missing embedding at chunk index ${i}`);
       await client.query(
         `INSERT INTO chunks (contract_id, chunk_index, text, page_start, page_end, character_count, embedding)
          VALUES ($1, $2, $3, $4, $5, $6, $7::vector)`,
@@ -51,7 +52,7 @@ export async function insertChunks(
           chunk.page_start,
           chunk.page_end,
           chunk.character_count,
-          pgvector.toSql(embeddings[i]!),
+          pgvector.toSql(embedding),
         ],
       );
     }

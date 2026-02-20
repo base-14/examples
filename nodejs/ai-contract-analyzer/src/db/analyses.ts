@@ -33,7 +33,9 @@ export async function insertAnalysis(
       traceId ?? null,
     ],
   );
-  return row.rows[0]!;
+  const inserted = row.rows[0];
+  if (!inserted) throw new Error("INSERT into analyses returned no rows");
+  return inserted;
 }
 
 export async function findAnalysisByContract(

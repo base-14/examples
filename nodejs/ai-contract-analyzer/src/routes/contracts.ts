@@ -54,6 +54,7 @@ contracts.post("/contracts", async (c) => {
       span.end();
       const code = (err as { code?: string }).code;
       if (code === "PARSE_ERROR") return c.json({ error: (err as Error).message }, 422);
+      if (code === "UNSUPPORTED_TYPE") return c.json({ error: (err as Error).message }, 415);
       return c.json({ error: "analysis failed" }, 500);
     }
   });

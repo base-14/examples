@@ -47,7 +47,8 @@ query.post("/contracts/:id/query", async (c) => {
         model: openai.embedding("text-embedding-3-small"),
         values: [question],
       });
-      const queryEmbedding = embeddings[0]!;
+      const [queryEmbedding] = embeddings;
+      if (!queryEmbedding) throw new Error("Embedding generation returned no results");
 
       const relevantChunks = await similaritySearch(pool, queryEmbedding, 5, id);
 

@@ -42,7 +42,8 @@ search.post("/search", async (c) => {
         model: openai.embedding("text-embedding-3-small"),
         values: [query],
       });
-      const queryEmbedding = embeddings[0]!;
+      const [queryEmbedding] = embeddings;
+      if (!queryEmbedding) throw new Error("Embedding generation returned no results");
 
       const results = await similaritySearch(pool, queryEmbedding, limit, contract_id);
 

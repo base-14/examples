@@ -1,5 +1,22 @@
 import type { Clause, CUADClauseType, RiskLevel } from "./clauses.ts";
 
+export type DocumentType =
+  | "nda"
+  | "employment"
+  | "service_agreement"
+  | "lease"
+  | "partnership"
+  | "unknown";
+export type DocumentComplexity = "simple" | "standard" | "complex";
+
+export interface RouteResult {
+  document_type: DocumentType;
+  complexity: DocumentComplexity;
+  requires_full_analysis: boolean;
+  input_tokens: number;
+  cost_usd: number;
+}
+
 export interface ChunkData {
   index: number;
   text: string;

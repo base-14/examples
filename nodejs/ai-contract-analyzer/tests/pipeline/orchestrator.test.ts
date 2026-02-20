@@ -1,6 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Mock all LLM-dependent pipeline stages before importing orchestrator
+vi.mock("../../src/pipeline/route.ts", () => ({
+  routeDocument: vi.fn().mockResolvedValue({
+    document_type: "nda",
+    complexity: "standard",
+    requires_full_analysis: true,
+    input_tokens: 500,
+    cost_usd: 0.0004,
+  }),
+}));
+
 vi.mock("../../src/pipeline/ingest.ts", () => ({
   ingestDocument: vi.fn().mockResolvedValue({
     contract_id: "test-id",
