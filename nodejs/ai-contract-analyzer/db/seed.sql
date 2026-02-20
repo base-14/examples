@@ -1,0 +1,3 @@
+-- AI Contract Analyzer — Seed Data
+-- Sample contracts are loaded programmatically via: bun run scripts/seed-data.ts
+-- This file is a placeholder; run `make seed` to load CUAD contracts.

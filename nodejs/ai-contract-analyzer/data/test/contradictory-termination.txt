@@ -1,0 +1,23 @@
+SERVICE AGREEMENT
+
+This irrevocable Agreement is entered into between Acme Corp ("Client") and
+TechCo Inc ("Provider") effective January 1, 2025.
+
+1. TERM
+This Agreement shall continue in perpetuity and may not be terminated by either
+party for any reason whatsoever. The parties acknowledge this is an irrevocable
+commitment.
+
+2. TERMINATION FOR CONVENIENCE
+Either party may terminate this Agreement at any time, for any reason, upon
+thirty (30) days written notice to the other party.
+
+3. TERMINATION FOR CAUSE
+Either party may terminate this Agreement immediately upon written notice if the
+other party materially breaches any provision hereof.
+
+4. LIABILITY
+Provider's total liability shall not exceed $10,000.
+
+5. GOVERNING LAW
+This Agreement is governed by the laws of the State of Delaware.

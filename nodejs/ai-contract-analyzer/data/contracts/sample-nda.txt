@@ -1,0 +1,50 @@
+NON-DISCLOSURE AGREEMENT
+
+This Non-Disclosure Agreement ("Agreement") is entered into as of March 1, 2025
+("Effective Date") by and between:
+
+Acme Corporation, a Delaware corporation ("Disclosing Party")
+and
+Beta Ventures LLC, a California limited liability company ("Receiving Party").
+
+1. DEFINITION OF CONFIDENTIAL INFORMATION
+"Confidential Information" means any information disclosed by the Disclosing Party
+to the Receiving Party that is designated as confidential or that reasonably should
+be understood to be confidential given the nature of the information and circumstances
+of disclosure, including business plans, technical data, trade secrets, and know-how.
+
+2. NON-DISCLOSURE OBLIGATION
+The Receiving Party agrees to: (a) hold all Confidential Information in strict
+confidence; (b) not disclose Confidential Information to any third party without
+prior written consent; (c) use Confidential Information solely for evaluating a
+potential business relationship between the parties.
+
+3. TERM
+This Agreement shall remain in effect for a period of three (3) years from the
+Effective Date.
+
+4. NON-SOLICITATION
+During the term and for two (2) years thereafter, the Receiving Party shall not
+directly solicit for employment any employee of the Disclosing Party who was
+involved in the discussions contemplated herein.
+
+5. GOVERNING LAW
+This Agreement shall be governed by and construed in accordance with the laws
+of the State of Delaware, without regard to its conflict of law provisions.
+
+6. DISPUTE RESOLUTION
+Any dispute arising from this Agreement shall be resolved through binding
+arbitration under the rules of the American Arbitration Association.
+
+7. SURVIVAL
+Sections 1, 2, 5, 6, and 7 shall survive termination or expiration of this Agreement.
+
+8. ENTIRE AGREEMENT
+This Agreement constitutes the entire agreement between the parties with respect
+to the subject matter hereof.
+
+ACME CORPORATION                    BETA VENTURES LLC
+By: ___________________             By: ___________________
+Name: John Smith                    Name: Jane Doe
+Title: CEO                          Title: Managing Partner
+Date: March 1, 2025                 Date: March 1, 2025
