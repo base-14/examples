@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     fallback_provider: str = "google"
     fallback_model: str = "gemini-2.0-flash"
+    ollama_base_url: str = "http://localhost:11434"
 
     request_timeout: float = 60.0
 

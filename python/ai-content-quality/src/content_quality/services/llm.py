@@ -79,12 +79,14 @@ PROVIDER_SEMCONV_NAMES: dict[str, str] = {
     "openai": "openai",
     "google": "gcp.gemini",
     "anthropic": "anthropic",
+    "ollama": "ollama",
 }
 
 PROVIDER_SERVERS: dict[str, str] = {
     "openai": "api.openai.com",
     "gcp.gemini": "generativelanguage.googleapis.com",
     "anthropic": "api.anthropic.com",
+    "ollama": "localhost",
 }
 
 
@@ -120,6 +122,7 @@ def create_llm(
     temperature: float = 0.3,
     api_key: str = "",
     timeout: float = 30.0,
+    ollama_base_url: str = "http://localhost:11434",
 ) -> LLM:
     if provider == "openai":
         from llama_index.llms.openai import OpenAI
@@ -136,7 +139,19 @@ def create_llm(
 
         return Anthropic(model=model, temperature=temperature, api_key=api_key, timeout=timeout)
 
-    raise ValueError(f"Unknown LLM provider: {provider!r}. Choose from: openai, google, anthropic")
+    if provider == "ollama":
+        from llama_index.llms.ollama import Ollama
+
+        return Ollama(
+            model=model,
+            base_url=ollama_base_url,
+            temperature=temperature,
+            request_timeout=timeout,
+        )
+
+    raise ValueError(
+        f"Unknown LLM provider: {provider!r}. Choose from: openai, google, anthropic, ollama"
+    )
 
 
 def _on_retry(retry_state: RetryCallState) -> None:
@@ -493,6 +508,7 @@ def get_llm_client() -> LLMClient:
         temperature=settings.llm_temperature,
         api_key=api_keys.get(settings.llm_provider, ""),
         timeout=settings.llm_timeout,
+        ollama_base_url=settings.ollama_base_url,
     )
     fallback_llm: LLM | None = None
     if settings.fallback_provider and settings.fallback_provider != settings.llm_provider:
@@ -502,6 +518,7 @@ def get_llm_client() -> LLMClient:
             temperature=settings.llm_temperature,
             api_key=api_keys.get(settings.fallback_provider, ""),
             timeout=settings.llm_timeout,
+            ollama_base_url=settings.ollama_base_url,
         )
     return LLMClient(
         provider=settings.llm_provider,

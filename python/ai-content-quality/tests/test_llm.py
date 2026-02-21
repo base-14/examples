@@ -1072,6 +1072,20 @@ def test_create_llm_unknown_provider_raises() -> None:
         create_llm(provider="unknown_provider")
 
 
+def test_create_llm_ollama_uses_base_url() -> None:
+    mock_ollama_cls = MagicMock()
+    with patch.dict("sys.modules", {"llama_index.llms.ollama": MagicMock(Ollama=mock_ollama_cls)}):
+        create_llm(
+            provider="ollama",
+            model="llama3.2",
+            ollama_base_url="http://my-ollama:11434",
+        )
+    mock_ollama_cls.assert_called_once()
+    call_kwargs = mock_ollama_cls.call_args.kwargs
+    assert call_kwargs["model"] == "llama3.2"
+    assert call_kwargs["base_url"] == "http://my-ollama:11434"
+
+
 # ---------------------------------------------------------------------------
 # generate_structured — provider fallback
 # ---------------------------------------------------------------------------

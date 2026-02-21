@@ -32,6 +32,7 @@ dependencies = [
     "llama-index-llms-openai>=0.6.18",
     "llama-index-llms-google-genai>=0.8.7",
     "llama-index-llms-anthropic>=0.10.8",
+    "llama-index-llms-ollama>=0.6.1",
 
     # Utilities
     "tenacity>=9.1.4",
