@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     google_api_key: str = ""
     anthropic_api_key: str = ""
+    fallback_provider: str = "google"
+    fallback_model: str = "gemini-2.0-flash"
 
     request_timeout: float = 60.0
 

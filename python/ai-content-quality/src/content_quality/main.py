@@ -14,7 +14,7 @@ from content_quality.middleware import MetricsMiddleware
 from content_quality.models.requests import ContentRequest  # noqa: TC001
 from content_quality.models.responses import ImproveResult, ReviewResult, ScoreResult  # noqa: TC001
 from content_quality.services.analyzer import ContentAnalyzer
-from content_quality.services.llm import create_llm
+from content_quality.services.llm import get_llm_client
 from content_quality.telemetry import instrument_fastapi, setup_telemetry
 
 
@@ -31,18 +31,8 @@ setup_telemetry(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    app.state.llm = create_llm(
-        provider=settings.llm_provider,
-        model=settings.llm_model,
-        temperature=settings.llm_temperature,
-        api_key={
-            "openai": settings.openai_api_key,
-            "google": settings.google_api_key,
-            "anthropic": settings.anthropic_api_key,
-        }.get(settings.llm_provider, ""),
-        timeout=settings.llm_timeout,
-    )
-    app.state.analyzer = ContentAnalyzer(app.state.llm)
+    app.state.llm_client = get_llm_client()
+    app.state.analyzer = ContentAnalyzer(app.state.llm_client)
     yield
 
 

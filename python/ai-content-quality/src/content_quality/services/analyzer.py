@@ -1,13 +1,15 @@
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from llama_index.core import PromptTemplate
-from llama_index.core.llms import LLM
 from opentelemetry import metrics, trace
 
 from content_quality.config import get_settings
 from content_quality.models.responses import ImproveResult, ReviewResult, ScoreResult
-from content_quality.services.llm import generate_structured
 from content_quality.services.prompts import load_prompt
+
+
+if TYPE_CHECKING:
+    from content_quality.services.llm import LLMClient
 
 
 evaluation_score = metrics.get_meter("gen_ai.client").create_histogram(
@@ -20,8 +22,8 @@ QUALITY_ISSUE_WEIGHTS = {"high": 3, "medium": 2, "low": 1}
 
 
 class ContentAnalyzer:
-    def __init__(self, llm: LLM) -> None:
-        self.llm = llm
+    def __init__(self, llm_client: LLMClient) -> None:
+        self.llm_client = llm_client
         settings = get_settings()
         self._review_prompt = load_prompt(f"review_{settings.review_prompt_version}")
         self._improve_prompt = load_prompt(f"improve_{settings.improve_prompt_version}")
@@ -30,8 +32,7 @@ class ContentAnalyzer:
     async def review(self, content: str, content_type: str = "general") -> ReviewResult:
         result = cast(
             "ReviewResult",
-            await generate_structured(
-                self.llm,
+            await self.llm_client.generate_structured(
                 PromptTemplate(self._review_prompt.user),
                 ReviewResult,
                 content,
@@ -67,8 +68,7 @@ class ContentAnalyzer:
     async def improve(self, content: str, content_type: str = "general") -> ImproveResult:
         return cast(
             "ImproveResult",
-            await generate_structured(
-                self.llm,
+            await self.llm_client.generate_structured(
                 PromptTemplate(self._improve_prompt.user),
                 ImproveResult,
                 content,
@@ -81,8 +81,7 @@ class ContentAnalyzer:
     async def score(self, content: str, content_type: str = "general") -> ScoreResult:
         result = cast(
             "ScoreResult",
-            await generate_structured(
-                self.llm,
+            await self.llm_client.generate_structured(
                 PromptTemplate(self._score_prompt.user),
                 ScoreResult,
                 content,
