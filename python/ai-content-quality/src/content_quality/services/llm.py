@@ -251,7 +251,7 @@ class LLMClient:
 
                 duration = time.perf_counter() - start
 
-                response_model, finish_reason = _set_response_attrs(chat_response, span, model_name)
+                response_model, _ = _set_response_attrs(chat_response, span, model_name)
 
                 common_attrs = _build_common_attrs(
                     model_name, response_model, server_address, self.provider
@@ -263,15 +263,15 @@ class LLMClient:
                     chat_response, common_attrs, model_name, content_type, endpoint, span
                 )
                 if _is_content_capture_enabled():
-                    _record_span_event(
-                        span,
-                        system_prompt,
-                        formatted_prompt,
-                        str(chat_response.message.content),
-                        finish_reason,
-                        event_attrs=_build_event_metadata(
-                            model_name, response_model, server_address, chat_response, finish_reason
-                        ),
+                    user_event: dict[str, str] = {
+                        "gen_ai.prompt": scrub_pii(formatted_prompt)[:1000],
+                    }
+                    if system_prompt:
+                        user_event["gen_ai.system_instructions"] = scrub_pii(system_prompt)[:500]
+                    span.add_event("gen_ai.user.message", user_event)
+                    span.add_event(
+                        "gen_ai.assistant.message",
+                        {"gen_ai.completion": scrub_pii(str(chat_response.message.content))[:2000]},
                     )
 
                 raw_content = _strip_markdown_json(str(chat_response.message.content))
@@ -425,66 +425,6 @@ def _record_token_metrics(
             "Token usage unavailable from additional_kwargs -- "
             "token and cost metrics will not be recorded for this call"
         )
-
-
-def _build_event_metadata(
-    model_name: str,
-    response_model: str,
-    server_address: str,
-    chat_response: object,
-    finish_reason: str | None,
-) -> dict[str, str | int | list[str]]:
-    additional = getattr(chat_response, "additional_kwargs", None) or {}
-    raw = getattr(chat_response, "raw", None)
-    raw_get = _raw_get(raw)
-    attrs: dict[str, str | int | list[str]] = {
-        "gen_ai.operation.name": "chat",
-        "gen_ai.request.model": model_name,
-        "gen_ai.response.model": response_model,
-        "server.port": 443,
-    }
-    if server_address:
-        attrs["server.address"] = server_address
-    response_id = additional.get("id") or raw_get("id")
-    if response_id:
-        attrs["gen_ai.response.id"] = response_id
-    if finish_reason:
-        attrs["gen_ai.response.finish_reasons"] = [finish_reason]
-    input_toks, output_toks = _extract_token_counts(additional, raw)
-    if input_toks is not None:
-        attrs["gen_ai.usage.input_tokens"] = int(input_toks)
-    if output_toks is not None:
-        attrs["gen_ai.usage.output_tokens"] = int(output_toks)
-    return attrs
-
-
-def _record_span_event(
-    span: trace.Span,
-    system_prompt: str,
-    user_prompt: str,
-    assistant_content: str,
-    finish_reason: str | None = None,
-    *,
-    event_attrs: dict[str, str | int | list[str]] | None = None,
-) -> None:
-    attrs: dict[str, str | int | list[str]] = {}
-    if event_attrs:
-        attrs.update(event_attrs)
-    if system_prompt:
-        attrs["gen_ai.system_instructions"] = json.dumps(
-            [{"type": "text", "content": scrub_pii(system_prompt)[:500]}]
-        )
-    attrs["gen_ai.input.messages"] = json.dumps(
-        [{"role": "user", "parts": [{"type": "text", "content": scrub_pii(user_prompt)[:500]}]}]
-    )
-    output_msg: dict[str, object] = {
-        "role": "assistant",
-        "parts": [{"type": "text", "content": scrub_pii(assistant_content)[:500]}],
-    }
-    if finish_reason:
-        output_msg["finish_reason"] = finish_reason
-    attrs["gen_ai.output.messages"] = json.dumps([output_msg])
-    span.add_event("gen_ai.client.inference.operation.details", attrs)
 
 
 def _calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:

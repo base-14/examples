@@ -1,4 +1,3 @@
-import json
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -9,13 +8,11 @@ from pydantic import BaseModel
 import content_quality.services.llm as llm_mod
 from content_quality.services.llm import (
     LLMClient,
-    _build_event_metadata,
     _calculate_cost,
     _extract_raw_usage,
     _is_content_capture_enabled,
     _on_retry,
     _raw_get,
-    _record_span_event,
     _record_token_metrics,
     _set_initial_span_attrs,
     _set_response_attrs,
@@ -139,118 +136,6 @@ def test_content_capture_enabled_case_insensitive() -> None:
 def test_content_capture_disabled_when_false() -> None:
     with patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "false"}):
         assert _is_content_capture_enabled() is False
-
-
-# ---------------------------------------------------------------------------
-# Consolidated span event
-# ---------------------------------------------------------------------------
-
-
-def test_span_event_consolidated_with_system_prompt() -> None:
-    span = MagicMock()
-    event_attrs = {
-        "gen_ai.operation.name": "chat",
-        "gen_ai.request.model": "gpt-4.1-nano",
-        "gen_ai.response.model": "gpt-4.1-nano",
-        "server.port": 443,
-        "server.address": "api.openai.com",
-    }
-    _record_span_event(
-        span, "sys prompt", "user prompt", "assistant reply", event_attrs=event_attrs
-    )
-    span.add_event.assert_called_once()
-    name = span.add_event.call_args.args[0]
-    assert name == "gen_ai.client.inference.operation.details"
-    attrs = span.add_event.call_args.args[1]
-    assert attrs["gen_ai.operation.name"] == "chat"
-    assert attrs["gen_ai.request.model"] == "gpt-4.1-nano"
-    assert attrs["server.port"] == 443
-    assert attrs["server.address"] == "api.openai.com"
-    assert "gen_ai.system_instructions" in attrs
-    assert "gen_ai.input.messages" in attrs
-    assert "gen_ai.output.messages" in attrs
-    sys_inst = json.loads(attrs["gen_ai.system_instructions"])
-    assert sys_inst == [{"type": "text", "content": "sys prompt"}]
-    input_msgs = json.loads(attrs["gen_ai.input.messages"])
-    assert input_msgs == [{"role": "user", "parts": [{"type": "text", "content": "user prompt"}]}]
-    output_msgs = json.loads(attrs["gen_ai.output.messages"])
-    assert output_msgs == [
-        {"role": "assistant", "parts": [{"type": "text", "content": "assistant reply"}]}
-    ]
-
-
-def test_span_event_skips_system_instructions_when_empty() -> None:
-    span = MagicMock()
-    _record_span_event(span, "", "user prompt", "assistant reply")
-    span.add_event.assert_called_once()
-    attrs = span.add_event.call_args.args[1]
-    assert "gen_ai.system_instructions" not in attrs
-    assert "gen_ai.input.messages" in attrs
-    assert "gen_ai.output.messages" in attrs
-
-
-def test_span_event_truncates_to_500_chars() -> None:
-    span = MagicMock()
-    long_text = "x" * 1000
-    _record_span_event(span, long_text, long_text, long_text)
-    attrs = span.add_event.call_args.args[1]
-    sys_inst = json.loads(attrs["gen_ai.system_instructions"])
-    assert len(sys_inst[0]["content"]) <= 500
-    input_msgs = json.loads(attrs["gen_ai.input.messages"])
-    assert len(input_msgs[0]["parts"][0]["content"]) <= 500
-    output_msgs = json.loads(attrs["gen_ai.output.messages"])
-    assert len(output_msgs[0]["parts"][0]["content"]) <= 500
-
-
-def test_span_event_scrubs_pii() -> None:
-    span = MagicMock()
-    _record_span_event(span, "", "Email john@example.com", "Call 555-123-4567")
-    attrs = span.add_event.call_args.args[1]
-    input_msgs = json.loads(attrs["gen_ai.input.messages"])
-    user_content = input_msgs[0]["parts"][0]["content"]
-    assert "[EMAIL]" in user_content
-    assert "john@example.com" not in user_content
-    output_msgs = json.loads(attrs["gen_ai.output.messages"])
-    asst_content = output_msgs[0]["parts"][0]["content"]
-    assert "[PHONE]" in asst_content
-
-
-def test_span_event_includes_finish_reason() -> None:
-    span = MagicMock()
-    _record_span_event(span, "", "user prompt", "assistant reply", finish_reason="stop")
-    attrs = span.add_event.call_args.args[1]
-    output_msgs = json.loads(attrs["gen_ai.output.messages"])
-    assert output_msgs[0]["finish_reason"] == "stop"
-
-
-def test_build_event_metadata_full() -> None:
-    resp = _make_chat_response(
-        input_tokens=200,
-        output_tokens=100,
-        response_id="msg_123",
-        finish_reason="stop",
-    )
-    attrs = _build_event_metadata("gpt-4.1-nano", "gpt-4.1-nano", "api.openai.com", resp, "stop")
-    assert attrs["gen_ai.operation.name"] == "chat"
-    assert attrs["gen_ai.request.model"] == "gpt-4.1-nano"
-    assert attrs["gen_ai.response.model"] == "gpt-4.1-nano"
-    assert attrs["server.port"] == 443
-    assert attrs["server.address"] == "api.openai.com"
-    assert attrs["gen_ai.response.id"] == "msg_123"
-    assert attrs["gen_ai.response.finish_reasons"] == ["stop"]
-    assert attrs["gen_ai.usage.input_tokens"] == 200
-    assert attrs["gen_ai.usage.output_tokens"] == 100
-
-
-def test_build_event_metadata_minimal() -> None:
-    resp = _make_chat_response(input_tokens=None, output_tokens=None)
-    attrs = _build_event_metadata("gpt-4.1-nano", "gpt-4.1-nano", "", resp, None)
-    assert attrs["gen_ai.operation.name"] == "chat"
-    assert "server.address" not in attrs
-    assert "gen_ai.response.id" not in attrs
-    assert "gen_ai.response.finish_reasons" not in attrs
-    assert "gen_ai.usage.input_tokens" not in attrs
-    assert "gen_ai.usage.output_tokens" not in attrs
 
 
 # ---------------------------------------------------------------------------
@@ -468,33 +353,6 @@ def test_set_response_attrs_from_anthropic_raw_dict() -> None:
     span.set_attribute.assert_any_call("gen_ai.response.model", "claude-3-5-haiku-20241022")
     span.set_attribute.assert_any_call("gen_ai.response.id", "msg_abc123")
     span.set_attribute.assert_any_call("gen_ai.response.finish_reasons", ["end_turn"])
-
-
-# ---------------------------------------------------------------------------
-# _build_event_metadata — Anthropic-style (tokens in raw dict)
-# ---------------------------------------------------------------------------
-
-
-def test_build_event_metadata_from_anthropic_raw_dict() -> None:
-    resp = MagicMock()
-    resp.additional_kwargs = {}
-    resp.raw = {
-        "id": "msg_xyz",
-        "usage": {"input_tokens": 500, "output_tokens": 200},
-    }
-
-    attrs = _build_event_metadata(
-        "claude-3-5-haiku-20241022",
-        "claude-3-5-haiku-20241022",
-        "api.anthropic.com",
-        resp,
-        "end_turn",
-    )
-
-    assert attrs["gen_ai.response.id"] == "msg_xyz"
-    assert attrs["gen_ai.usage.input_tokens"] == 500
-    assert attrs["gen_ai.usage.output_tokens"] == 200
-    assert attrs["gen_ai.response.finish_reasons"] == ["end_turn"]
 
 
 # ---------------------------------------------------------------------------
@@ -765,7 +623,7 @@ async def test_generate_records_cost() -> None:
 @patch.object(llm_mod, "cost_counter", MagicMock())
 @patch.object(llm_mod, "token_usage", MagicMock())
 @patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_adds_consolidated_span_event_with_pii_scrubbed() -> None:
+async def test_generate_emits_user_and_assistant_span_events() -> None:
     client, tracer, span = _setup_generate_mocks()
 
     with (
@@ -781,17 +639,63 @@ async def test_generate_adds_consolidated_span_event_with_pii_scrubbed() -> None
             endpoint="/review",
         )
 
-    span.add_event.assert_called_once()
-    event_name = span.add_event.call_args.args[0]
-    assert event_name == "gen_ai.client.inference.operation.details"
+    assert span.add_event.call_count == 2
+    assert span.add_event.call_args_list[0].args[0] == "gen_ai.user.message"
+    assert span.add_event.call_args_list[1].args[0] == "gen_ai.assistant.message"
 
-    attrs = span.add_event.call_args.args[1]
-    sys_inst = json.loads(attrs["gen_ai.system_instructions"])
-    assert "[EMAIL]" in sys_inst[0]["content"]
-    assert "john@test.com" not in sys_inst[0]["content"]
+    user_attrs = span.add_event.call_args_list[0].args[1]
+    assert "gen_ai.prompt" in user_attrs
+    assert "[EMAIL]" in user_attrs["gen_ai.system_instructions"]
+    assert "john@test.com" not in user_attrs["gen_ai.system_instructions"]
 
-    assert "gen_ai.input.messages" in attrs
-    assert "gen_ai.output.messages" in attrs
+    asst_attrs = span.add_event.call_args_list[1].args[1]
+    assert "gen_ai.completion" in asst_attrs
+
+
+@patch.object(llm_mod, "cost_counter", MagicMock())
+@patch.object(llm_mod, "token_usage", MagicMock())
+@patch.object(llm_mod, "operation_duration", MagicMock())
+async def test_generate_user_event_omits_system_instructions_when_no_system_prompt() -> None:
+    client, tracer, span = _setup_generate_mocks()
+
+    with (
+        patch.object(llm_mod, "tracer", tracer),
+        patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
+    ):
+        await LLMClient.generate_structured.__wrapped__(
+            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
+        )
+
+    user_attrs = span.add_event.call_args_list[0].args[1]
+    assert "gen_ai.system_instructions" not in user_attrs
+    assert "gen_ai.prompt" in user_attrs
+
+
+@patch.object(llm_mod, "cost_counter", MagicMock())
+@patch.object(llm_mod, "token_usage", MagicMock())
+@patch.object(llm_mod, "operation_duration", MagicMock())
+async def test_generate_span_events_truncate_content() -> None:
+    client, tracer, span = _setup_generate_mocks()
+    long_response = _make_chat_response(content='{"answer": "' + "x" * 2500 + '"}')
+    client.llm.achat = AsyncMock(return_value=long_response)
+
+    with (
+        patch.object(llm_mod, "tracer", tracer),
+        patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
+    ):
+        await LLMClient.generate_structured.__wrapped__(
+            client,
+            _make_prompt_template(),
+            FakeResult,
+            "test",
+            system_prompt="y" * 1000,
+            endpoint="/review",
+        )
+
+    user_attrs = span.add_event.call_args_list[0].args[1]
+    assert len(user_attrs["gen_ai.system_instructions"]) <= 500
+    asst_attrs = span.add_event.call_args_list[1].args[1]
+    assert len(asst_attrs["gen_ai.completion"]) <= 2000
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
