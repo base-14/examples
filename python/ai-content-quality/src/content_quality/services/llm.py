@@ -410,17 +410,32 @@ def _extract_raw_usage(raw: object) -> dict[str, Any]:
 
 def _extract_token_counts(additional: dict[str, Any], raw: object) -> tuple[int | None, int | None]:
     raw_usage = _extract_raw_usage(raw)
-    input_tokens = (
-        additional.get("prompt_tokens")
-        or additional.get("input_tokens")
-        or (additional.get("usage") or {}).get("input_tokens")
-        or raw_usage.get("input_tokens")
+    nested_usage: dict[str, Any] = additional.get("usage") or {}
+    input_tokens = next(
+        (
+            v
+            for v in (
+                additional.get("prompt_tokens"),
+                additional.get("input_tokens"),
+                nested_usage.get("input_tokens"),
+                raw_usage.get("input_tokens"),
+            )
+            if v is not None
+        ),
+        None,
     )
-    output_tokens = (
-        additional.get("completion_tokens")
-        or additional.get("output_tokens")
-        or (additional.get("usage") or {}).get("output_tokens")
-        or raw_usage.get("output_tokens")
+    output_tokens = next(
+        (
+            v
+            for v in (
+                additional.get("completion_tokens"),
+                additional.get("output_tokens"),
+                nested_usage.get("output_tokens"),
+                raw_usage.get("output_tokens"),
+            )
+            if v is not None
+        ),
+        None,
     )
     return input_tokens, output_tokens
 

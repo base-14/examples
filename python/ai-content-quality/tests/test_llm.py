@@ -10,6 +10,7 @@ from content_quality.services.llm import (
     LLMClient,
     _calculate_cost,
     _extract_raw_usage,
+    _extract_token_counts,
     _is_content_capture_enabled,
     _on_retry,
     _raw_get,
@@ -277,6 +278,38 @@ def test_extract_raw_usage_returns_empty_for_none() -> None:
 
 def test_extract_raw_usage_returns_empty_for_dict_without_usage() -> None:
     assert _extract_raw_usage({"id": "msg_123", "model": "claude"}) == {}
+
+
+# ---------------------------------------------------------------------------
+# _extract_token_counts — zero-value handling
+# ---------------------------------------------------------------------------
+
+
+def test_extract_token_counts_returns_zero_not_none() -> None:
+    """0 tokens is a valid value and must not be skipped by falsy or-chain."""
+    additional = {"prompt_tokens": 0, "completion_tokens": 0}
+    input_tokens, output_tokens = _extract_token_counts(additional, None)
+    assert input_tokens == 0
+    assert output_tokens == 0
+
+
+def test_extract_token_counts_prefers_first_non_none_key() -> None:
+    additional = {"prompt_tokens": 10, "input_tokens": 99}
+    input_tokens, _ = _extract_token_counts(additional, None)
+    assert input_tokens == 10
+
+
+def test_extract_token_counts_falls_back_to_raw_usage() -> None:
+    raw = {"usage": {"input_tokens": 42, "output_tokens": 21}}
+    input_tokens, output_tokens = _extract_token_counts({}, raw)
+    assert input_tokens == 42
+    assert output_tokens == 21
+
+
+def test_extract_token_counts_returns_none_when_absent() -> None:
+    input_tokens, output_tokens = _extract_token_counts({}, None)
+    assert input_tokens is None
+    assert output_tokens is None
 
 
 def test_raw_get_from_dict() -> None:
