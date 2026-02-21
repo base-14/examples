@@ -69,6 +69,12 @@ retry_counter = meter.create_counter(
     unit="1",
 )
 
+fallback_counter = meter.create_counter(
+    name="gen_ai.client.fallback.count",
+    description="GenAI provider fallback count",
+    unit="1",
+)
+
 PROVIDER_SEMCONV_NAMES: dict[str, str] = {
     "openai": "openai",
     "google": "gcp.gemini",
@@ -194,12 +200,6 @@ class LLMClient:
         self.fallback_model = fallback_model
         self.fallback_llm = fallback_llm
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        before_sleep=_on_retry,
-        reraise=True,
-    )
     async def generate_structured(
         self,
         prompt_template: PromptTemplate,
@@ -209,19 +209,64 @@ class LLMClient:
         endpoint: str = "",
         system_prompt: str = "",
     ) -> BaseModel:
-        model_name = self.llm.metadata.model_name
-        server_address = PROVIDER_SERVERS.get(self.provider, "")
+        try:
+            return await self._generate_with_retry(
+                prompt_template, output_cls, content, content_type, endpoint, system_prompt
+            )
+        except Exception:
+            if self.fallback_llm is not None:
+                fallback_counter.add(
+                    1,
+                    {
+                        "gen_ai.provider.name": self.provider,
+                        "gen_ai.fallback.provider": self.fallback_provider,
+                    },
+                )
+                return await self._generate_with_retry(
+                    prompt_template,
+                    output_cls,
+                    content,
+                    content_type,
+                    endpoint,
+                    system_prompt,
+                    _override_llm=self.fallback_llm,
+                    _override_provider=self.fallback_provider,
+                )
+            raise
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        before_sleep=_on_retry,
+        reraise=True,
+    )
+    async def _generate_with_retry(
+        self,
+        prompt_template: PromptTemplate,
+        output_cls: type[BaseModel],
+        content: str,
+        content_type: str = "general",
+        endpoint: str = "",
+        system_prompt: str = "",
+        *,
+        _override_llm: LLM | None = None,
+        _override_provider: str = "",
+    ) -> BaseModel:
+        llm = _override_llm if _override_llm is not None else self.llm
+        provider = _override_provider or self.provider
+        model_name = llm.metadata.model_name
+        server_address = PROVIDER_SERVERS.get(provider, "")
 
         with tracer.start_as_current_span(f"gen_ai.chat {model_name}") as span:
             _set_initial_span_attrs(
                 span,
-                self.llm,
+                llm,
                 model_name,
                 server_address,
                 content_type,
                 content,
                 endpoint,
-                self.provider,
+                provider,
             )
 
             start = time.perf_counter()
@@ -242,19 +287,19 @@ class LLMClient:
                     ChatMessage(role="user", content=formatted_prompt),
                 ]
                 achat_kwargs: dict[str, Any] = {}
-                if self.provider == "gcp.gemini":
+                if provider == "gcp.gemini":
                     achat_kwargs["generation_config"] = {
                         "response_mime_type": "application/json",
                         "response_schema": output_cls,
                     }
-                chat_response = await self.llm.achat(messages, **achat_kwargs)
+                chat_response = await llm.achat(messages, **achat_kwargs)
 
                 duration = time.perf_counter() - start
 
                 response_model, _ = _set_response_attrs(chat_response, span, model_name)
 
                 common_attrs = _build_common_attrs(
-                    model_name, response_model, server_address, self.provider
+                    model_name, response_model, server_address, provider
                 )
                 span.set_attribute("gen_ai.client.operation.duration", duration)
 
@@ -296,7 +341,7 @@ class LLMClient:
                                     ),
                                 )
                             )
-                            correction_response = await self.llm.achat(messages, **achat_kwargs)
+                            correction_response = await llm.achat(messages, **achat_kwargs)
                             raw_content = _strip_markdown_json(
                                 str(correction_response.message.content)
                             )
@@ -312,8 +357,8 @@ class LLMClient:
                 error_counter.add(
                     1,
                     {
-                        "gen_ai.request.model": self.llm.metadata.model_name,
-                        "gen_ai.provider.name": self.provider,
+                        "gen_ai.request.model": llm.metadata.model_name,
+                        "gen_ai.provider.name": provider,
                         "error.type": type(e).__name__,
                     },
                 )

@@ -470,7 +470,7 @@ async def test_generate_creates_span_with_correct_name() -> None:
     client, tracer, _span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -484,7 +484,7 @@ async def test_generate_sets_content_attributes_on_span() -> None:
     client, tracer, span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -509,7 +509,7 @@ async def test_generate_sets_model_attributes_on_span() -> None:
     client, tracer, span = _setup_generate_mocks(model_name="gemini-2.0-flash", provider="google")
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/score"
         )
 
@@ -525,7 +525,7 @@ async def test_generate_sets_temperature_on_span() -> None:
     client.llm.temperature = 0.7
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -540,7 +540,7 @@ async def test_generate_skips_temperature_when_not_available() -> None:
     del client.llm.temperature
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -560,7 +560,7 @@ async def test_generate_records_operation_duration() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "operation_duration", mock_duration),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -580,7 +580,7 @@ async def test_generate_records_token_histograms() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "token_usage", mock_tokens),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -602,7 +602,7 @@ async def test_generate_records_cost() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "cost_counter", mock_cost),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -630,7 +630,7 @@ async def test_generate_emits_user_and_assistant_span_events() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -662,7 +662,7 @@ async def test_generate_user_event_omits_system_instructions_when_no_system_prom
         patch.object(llm_mod, "tracer", tracer),
         patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -683,7 +683,7 @@ async def test_generate_span_events_truncate_content() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -709,7 +709,7 @@ async def test_generate_skips_span_event_when_content_capture_disabled() -> None
         patch.dict(os.environ, {}, clear=False),
     ):
         os.environ.pop("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", None)
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -725,7 +725,7 @@ async def test_generate_sets_response_model_on_span() -> None:
     )
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -739,7 +739,7 @@ async def test_generate_response_model_falls_back_to_request_model() -> None:
     client, tracer, span = _setup_generate_mocks(model_name="gpt-4.1-nano")
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -757,7 +757,7 @@ async def test_generate_common_attrs_include_server_address_and_response_model()
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "token_usage", mock_tokens),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -789,7 +789,7 @@ async def test_generate_error_records_exception_on_span() -> None:
         patch.object(llm_mod, "tracer", tracer),
         pytest.raises(RuntimeError, match="LLM crashed"),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -821,7 +821,7 @@ async def test_generate_error_increments_error_counter() -> None:
         patch.object(llm_mod, "error_counter", mock_errors),
         pytest.raises(ValueError, match="bad response"),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -892,7 +892,7 @@ async def test_generate_returns_parsed_pydantic_model() -> None:
     client, tracer, _span = _setup_generate_mocks(content='{"answer": "42"}')
 
     with patch.object(llm_mod, "tracer", tracer):
-        result = await LLMClient.generate_structured.__wrapped__(
+        result = await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -907,7 +907,7 @@ async def test_generate_passes_system_prompt_as_first_message() -> None:
     client, tracer, _span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -929,7 +929,7 @@ async def test_generate_includes_json_schema_in_system_message() -> None:
     client, tracer, _span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -962,7 +962,7 @@ async def test_generate_retries_on_validation_error() -> None:
     tracer.start_as_current_span.return_value = span
 
     with patch.object(llm_mod, "tracer", tracer):
-        result = await LLMClient.generate_structured.__wrapped__(
+        result = await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -994,7 +994,7 @@ async def test_generate_raises_after_max_parse_retries() -> None:
         patch.object(llm_mod, "tracer", tracer),
         pytest.raises(ValidationError),
     ):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -1054,7 +1054,7 @@ async def test_generate_sets_response_id_and_finish_reason_on_span() -> None:
     )
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient.generate_structured.__wrapped__(
+        await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -1070,3 +1070,70 @@ async def test_generate_sets_response_id_and_finish_reason_on_span() -> None:
 def test_create_llm_unknown_provider_raises() -> None:
     with pytest.raises(ValueError, match="Unknown LLM provider"):
         create_llm(provider="unknown_provider")
+
+
+# ---------------------------------------------------------------------------
+# generate_structured — provider fallback
+# ---------------------------------------------------------------------------
+
+
+async def test_generate_uses_fallback_when_primary_fails() -> None:
+    fallback_llm = _make_llm("gemini-2.0-flash")
+    fallback_chat_resp = _make_chat_response(content='{"answer": "from fallback"}')
+    fallback_llm.achat = AsyncMock(return_value=fallback_chat_resp)
+
+    client = LLMClient(
+        provider="openai",
+        model="gpt-4.1-nano",
+        llm=_make_llm(),
+        fallback_provider="google",
+        fallback_model="gemini-2.0-flash",
+        fallback_llm=fallback_llm,
+    )
+    client.llm.achat = AsyncMock(side_effect=RuntimeError("primary down"))
+
+    span = MagicMock()
+    span.__enter__ = MagicMock(return_value=span)
+    span.__exit__ = MagicMock(return_value=False)
+    mock_tracer = MagicMock()
+    mock_tracer.start_as_current_span.return_value = span
+    mock_fallback_ctr = MagicMock()
+
+    with (
+        patch.object(llm_mod, "tracer", mock_tracer),
+        patch.object(llm_mod, "fallback_counter", mock_fallback_ctr),
+        patch.object(llm_mod, "token_usage", MagicMock()),
+        patch.object(llm_mod, "operation_duration", MagicMock()),
+        patch.object(llm_mod, "cost_counter", MagicMock()),
+    ):
+        result = await client.generate_structured(
+            _make_prompt_template(), FakeResult, "test", endpoint="/review"
+        )
+
+    assert isinstance(result, FakeResult)
+    assert result.answer == "from fallback"
+    mock_fallback_ctr.add.assert_called_once_with(
+        1, {"gen_ai.provider.name": "openai", "gen_ai.fallback.provider": "gcp.gemini"}
+    )
+
+
+async def test_generate_raises_when_no_fallback_configured() -> None:
+    client = _make_client()
+    client.llm.achat = AsyncMock(side_effect=RuntimeError("primary down"))
+
+    span = MagicMock()
+    span.__enter__ = MagicMock(return_value=span)
+    span.__exit__ = MagicMock(return_value=False)
+    mock_tracer = MagicMock()
+    mock_tracer.start_as_current_span.return_value = span
+
+    with (
+        patch.object(llm_mod, "tracer", mock_tracer),
+        patch.object(llm_mod, "token_usage", MagicMock()),
+        patch.object(llm_mod, "operation_duration", MagicMock()),
+        patch.object(llm_mod, "cost_counter", MagicMock()),
+        pytest.raises(RuntimeError, match="primary down"),
+    ):
+        await client.generate_structured(
+            _make_prompt_template(), FakeResult, "test", endpoint="/review"
+        )
