@@ -1,0 +1,74 @@
+{
+  "description": "Primary provider fails after retries, fallback provider succeeds",
+  "setup": {
+    "primary_provider": "anthropic",
+    "primary_model": "claude-sonnet-4-20250514",
+    "fallback_provider": "openai",
+    "fallback_model": "gpt-4.1-mini"
+  },
+  "mock_behavior": {
+    "primary": "raise Exception('Service unavailable') on all 3 attempts",
+    "fallback": {
+      "content": "Fallback response",
+      "input_tokens": 10,
+      "output_tokens": 4,
+      "model": "gpt-4.1-mini",
+      "response_id": "chatcmpl_xyz789",
+      "finish_reason": "stop"
+    }
+  },
+  "expected_spans": [
+    {
+      "name": "gen_ai.chat claude-sonnet-4-20250514",
+      "status": "ERROR",
+      "attributes": {
+        "gen_ai.provider.name": "anthropic",
+        "error.type": "Exception"
+      },
+      "note": "Primary span has ERROR status after exhausting retries"
+    },
+    {
+      "name": "gen_ai.chat gpt-4.1-mini",
+      "status": "OK",
+      "attributes": {
+        "gen_ai.provider.name": "openai",
+        "gen_ai.response.model": "gpt-4.1-mini",
+        "gen_ai.usage.input_tokens": 10,
+        "gen_ai.usage.output_tokens": 4,
+        "server.address": "api.openai.com",
+        "server.port": 443
+      }
+    }
+  ],
+  "expected_metrics": [
+    {
+      "name": "gen_ai.client.retry.count",
+      "value": 2,
+      "note": "2 retries before exhausting attempts (3 total attempts = 2 retries)"
+    },
+    {
+      "name": "gen_ai.client.fallback.count",
+      "value": 1,
+      "attrs": {
+        "gen_ai.provider.name": "anthropic",
+        "gen_ai.fallback.provider": "openai"
+      }
+    },
+    {
+      "name": "gen_ai.client.error.count",
+      "value": 1,
+      "attrs": {
+        "gen_ai.provider.name": "anthropic",
+        "error.type": "Exception"
+      }
+    },
+    {
+      "name": "gen_ai.client.token.usage",
+      "note": "Recorded for fallback (openai) response only"
+    },
+    {
+      "name": "gen_ai.client.cost",
+      "note": "Recorded for fallback (openai) response only"
+    }
+  ]
+}

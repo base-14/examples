@@ -1,0 +1,134 @@
+version: "1.0"
+# OTel GenAI Semantic Conventions v1.29+
+# https://opentelemetry.io/docs/specs/semconv/gen-ai/
+#
+# This file is the canonical specification for the LLM gateway contract
+# shared across all Base14 AI examples. Each language implements this
+# contract independently in idiomatic code.
+
+providers:
+  anthropic:
+    server_address: "api.anthropic.com"
+    server_port: 443
+    semconv_name: "anthropic"
+  openai:
+    server_address: "api.openai.com"
+    server_port: 443
+    semconv_name: "openai"
+  google:
+    server_address: "generativelanguage.googleapis.com"
+    server_port: 443
+    semconv_name: "google"
+  ollama:
+    server_address: "localhost"        # overridden by OLLAMA_BASE_URL env var
+    server_port: 11434                 # NOT 443 — Ollama runs on 11434
+    semconv_name: "ollama"
+    openai_compatible: true            # uses OpenAI SDK with custom base_url
+
+spans:
+  chat_completion:
+    name_format: "gen_ai.chat {model}"
+    attributes:
+      required:
+        - gen_ai.operation.name: "chat"
+        - gen_ai.provider.name: "{provider_semconv_name}"   # NOT gen_ai.system (deprecated)
+      conditionally_required:
+        - gen_ai.request.model: "{model}"
+      recommended:
+        - server.address: "{server_address}"
+        - server.port: "{server_port}"
+        - gen_ai.request.temperature: "{temperature}"
+        - gen_ai.request.max_tokens: "{max_tokens}"
+        - gen_ai.response.model: "{response_model}"
+        - gen_ai.response.id: "{response_id}"
+        - gen_ai.response.finish_reasons: ["{finish_reason}"]
+        - gen_ai.usage.input_tokens: "{input_tokens}"
+        - gen_ai.usage.output_tokens: "{output_tokens}"
+        - gen_ai.usage.cost_usd: "{calculated_cost}"
+      custom:
+        - gen_ai.agent.name: "{agent_name}"     # for per-agent cost attribution
+        - campaign_id: "{campaign_id}"           # for per-campaign cost attribution
+    events:
+      - name: "gen_ai.user.message"
+        condition: "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
+        attributes:
+          - gen_ai.prompt: "{scrubbed_prompt, max 1000 chars}"
+          - gen_ai.system_instructions: "{scrubbed_system, max 500 chars, omit if empty}"
+      - name: "gen_ai.assistant.message"
+        condition: "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
+        attributes:
+          - gen_ai.completion: "{scrubbed_completion, max 2000 chars}"
+    error_attributes:
+      - error.type: "{exception class name}"
+
+metrics:
+  - name: gen_ai.client.token.usage
+    type: histogram
+    unit: "{token}"
+    description: "Number of tokens used per LLM call, split by type"
+    required_attrs:
+      - gen_ai.operation.name
+      - gen_ai.provider.name
+      - gen_ai.request.model
+      - gen_ai.token.type   # "input" or "output"
+
+  - name: gen_ai.client.operation.duration
+    type: histogram
+    unit: s
+    description: "Wall-clock duration of LLM API call"
+    required_attrs:
+      - gen_ai.operation.name
+      - gen_ai.provider.name
+
+  - name: gen_ai.client.cost
+    type: counter
+    unit: usd
+    description: "Cumulative cost of LLM calls in USD"
+    optional_attrs:
+      - gen_ai.agent.name
+      - campaign_id
+
+  - name: gen_ai.client.retry.count
+    type: counter
+    unit: "{retry}"
+    description: "Number of retry attempts (excludes initial attempt)"
+
+  - name: gen_ai.client.fallback.count
+    type: counter
+    unit: "{fallback}"
+    description: "Number of times fallback provider was triggered"
+
+  - name: gen_ai.client.error.count
+    type: counter
+    unit: "{error}"
+    description: "Number of LLM call errors by type"
+    required_attrs:
+      - gen_ai.provider.name
+      - error.type
+
+error_resilience:
+  retry:
+    max_attempts: 3
+    backoff: exponential
+    multiplier: 1
+    min_wait_s: 1
+    max_wait_s: 10
+    retry_on: all_exceptions   # NOT network-only — catch everything
+  fallback:
+    enabled: true
+    strategy: provider_switch
+    record_metric: gen_ai.client.fallback.count
+
+content_capture:
+  env_var: OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
+  default: false
+  pii_scrubbing: required
+  truncation:
+    prompt: 1000
+    system: 500
+    completion: 2000
+
+pricing:
+  source: "_shared/pricing.json"
+  load_at: startup
+  fallback_cost: 0.0   # unknown models cost $0.00, not an error

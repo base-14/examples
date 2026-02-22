@@ -5,6 +5,7 @@ import re
 import time
 from collections.abc import Callable
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from llama_index.core import PromptTemplate
@@ -103,24 +104,23 @@ def _is_content_capture_enabled() -> bool:
     )
 
 
-PRICING: dict[str, dict[str, float]] = {
-    # OpenAI
-    "gpt-5.2": {"input": 1.75, "output": 14.0},
-    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
-    "gpt-4.1-nano": {"input": 0.10, "output": 0.40},
-    # Google Gemini
-    "gemini-3.0-flash-preview": {"input": 0.50, "output": 3.0},
-    "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
-    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
-    # Anthropic
-    "claude-opus-4-6": {"input": 5.0, "output": 25.0},
-    "claude-opus-4-5-20251101": {"input": 15.0, "output": 75.0},
-    "claude-opus-4-1-20250805": {"input": 15.0, "output": 75.0},
-    "claude-sonnet-4-5-20250929": {"input": 3.0, "output": 15.0},
-    "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
-    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
-    "claude-3-5-haiku-20241022": {"input": 0.80, "output": 4.0},
-}
+def _load_pricing() -> dict[str, dict[str, float]]:
+    pricing_path = Path(__file__).parents[5] / "_shared" / "pricing.json"
+    try:
+        with pricing_path.open() as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"pricing.json not found at {pricing_path}. "
+            "Ensure _shared/pricing.json exists at the repo root."
+        ) from None
+    return {
+        model: {"input": info["input"], "output": info["output"]}
+        for model, info in data["models"].items()
+    }
+
+
+PRICING: dict[str, dict[str, float]] = _load_pricing()
 
 
 def create_llm(

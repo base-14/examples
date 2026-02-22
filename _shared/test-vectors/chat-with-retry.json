@@ -1,0 +1,56 @@
+{
+  "description": "Transient failure on first attempt, success on second retry — no fallback triggered",
+  "setup": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "fallback_provider": "openai",
+    "fallback_model": "gpt-4.1-mini"
+  },
+  "mock_behavior": {
+    "attempt_1": "raise Exception('Rate limit')",
+    "attempt_2": {
+      "content": "Success on retry",
+      "input_tokens": 12,
+      "output_tokens": 6,
+      "model": "claude-sonnet-4-20250514",
+      "response_id": "msg_retry123",
+      "finish_reason": "end_turn"
+    }
+  },
+  "expected_span": {
+    "name": "gen_ai.chat claude-sonnet-4-20250514",
+    "status": "OK",
+    "attributes": {
+      "gen_ai.provider.name": "anthropic",
+      "gen_ai.response.model": "claude-sonnet-4-20250514",
+      "gen_ai.usage.input_tokens": 12,
+      "gen_ai.usage.output_tokens": 6,
+      "server.address": "api.anthropic.com",
+      "server.port": 443
+    },
+    "note": "Span is OK — retry is transparent to the caller"
+  },
+  "expected_metrics": [
+    {
+      "name": "gen_ai.client.retry.count",
+      "value": 1,
+      "attrs": {
+        "gen_ai.provider.name": "anthropic",
+        "error.type": "Exception",
+        "retry.attempt": 1
+      },
+      "note": "1 retry recorded (the first retry attempt)"
+    },
+    {
+      "name": "gen_ai.client.token.usage",
+      "records": [
+        {"value": 12, "attrs": {"gen_ai.token.type": "input"}},
+        {"value": 6,  "attrs": {"gen_ai.token.type": "output"}}
+      ]
+    }
+  ],
+  "not_expected": [
+    {"metric": "gen_ai.client.fallback.count", "note": "Retry succeeded, no fallback needed"},
+    {"metric": "gen_ai.client.error.count", "note": "No unhandled error — retry succeeded"}
+  ]
+}

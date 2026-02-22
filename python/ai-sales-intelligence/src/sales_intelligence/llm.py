@@ -10,8 +10,10 @@ spans automatically. This module adds CUSTOM instrumentation for:
 - Business context (agent name, campaign ID) - enables cost attribution
 """
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from opentelemetry import metrics, trace
@@ -21,26 +23,23 @@ from sales_intelligence.config import LLMProvider, get_settings
 from sales_intelligence.pii import scrub_completion, scrub_prompt
 
 
-# Model pricing per million tokens (Jan 2026)
-# This enables cost tracking via gen_ai.client.cost metric
-MODEL_PRICING: dict[str, dict[str, float]] = {
-    # Anthropic
-    "claude-opus-4-20250514": {"input": 15.0, "output": 75.0},
-    "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
-    "claude-haiku-3-5-20241022": {"input": 0.80, "output": 4.0},
-    # Google Gemini 3
-    "gemini-3-flash": {"input": 0.50, "output": 3.0},
-    "gemini-3-pro-preview": {"input": 2.0, "output": 12.0},
-    # Google Gemini 2.x (legacy)
-    "gemini-2.5-pro": {"input": 1.25, "output": 10.0},
-    "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
-    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
-    # OpenAI
-    "gpt-4o": {"input": 2.50, "output": 10.0},
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    "o1": {"input": 15.0, "output": 60.0},
-    "o1-mini": {"input": 1.10, "output": 4.40},
-}
+def _load_pricing() -> dict[str, dict[str, float]]:
+    pricing_path = Path(__file__).parents[4] / "_shared" / "pricing.json"
+    try:
+        with pricing_path.open() as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"pricing.json not found at {pricing_path}. "
+            "Ensure _shared/pricing.json exists at the repo root."
+        ) from None
+    return {
+        model: {"input": info["input"], "output": info["output"]}
+        for model, info in data["models"].items()
+    }
+
+
+PRICING: dict[str, dict[str, float]] = _load_pricing()
 
 # Provider server addresses for OTel server.address attribute
 PROVIDER_SERVERS: dict[LLMProvider, str] = {
@@ -328,7 +327,7 @@ def _get_api_key(provider: LLMProvider) -> str:
 
 def _calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     """Calculate cost in USD for a model call."""
-    pricing = MODEL_PRICING.get(model, {"input": 0.0, "output": 0.0})
+    pricing = PRICING.get(model, {"input": 0.0, "output": 0.0})
     return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
 

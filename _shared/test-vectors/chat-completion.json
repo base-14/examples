@@ -1,0 +1,86 @@
+{
+  "description": "Successful Anthropic completion — verifies required span attributes, events, and metrics",
+  "input": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "prompt": "Hello",
+    "system": "You are helpful.",
+    "temperature": 0.7,
+    "max_tokens": 1024
+  },
+  "mock_response": {
+    "content": "Hi there!",
+    "input_tokens": 12,
+    "output_tokens": 5,
+    "model": "claude-sonnet-4-20250514",
+    "response_id": "msg_abc123",
+    "finish_reason": "end_turn"
+  },
+  "expected_span": {
+    "name": "gen_ai.chat claude-sonnet-4-20250514",
+    "attributes": {
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "anthropic",
+      "gen_ai.request.model": "claude-sonnet-4-20250514",
+      "gen_ai.request.temperature": 0.7,
+      "gen_ai.request.max_tokens": 1024,
+      "gen_ai.response.model": "claude-sonnet-4-20250514",
+      "gen_ai.response.id": "msg_abc123",
+      "gen_ai.response.finish_reasons": ["end_turn"],
+      "gen_ai.usage.input_tokens": 12,
+      "gen_ai.usage.output_tokens": 5,
+      "server.address": "api.anthropic.com",
+      "server.port": 443,
+      "gen_ai.usage.cost_usd_approx": 0.000111
+    },
+    "events": [
+      {
+        "name": "gen_ai.user.message",
+        "note": "Only present when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
+      },
+      {
+        "name": "gen_ai.assistant.message",
+        "note": "Only present when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
+      }
+    ],
+    "status": "OK"
+  },
+  "expected_metrics": [
+    {
+      "name": "gen_ai.client.token.usage",
+      "records": [
+        {
+          "value": 12,
+          "attrs": {
+            "gen_ai.operation.name": "chat",
+            "gen_ai.provider.name": "anthropic",
+            "gen_ai.request.model": "claude-sonnet-4-20250514",
+            "gen_ai.token.type": "input"
+          }
+        },
+        {
+          "value": 5,
+          "attrs": {
+            "gen_ai.operation.name": "chat",
+            "gen_ai.provider.name": "anthropic",
+            "gen_ai.request.model": "claude-sonnet-4-20250514",
+            "gen_ai.token.type": "output"
+          }
+        }
+      ]
+    },
+    {
+      "name": "gen_ai.client.operation.duration",
+      "note": "A positive duration value is recorded"
+    },
+    {
+      "name": "gen_ai.client.cost",
+      "note": "approx 0.000111 USD — 12 input * $3.0/M + 5 output * $15.0/M"
+    }
+  ],
+  "not_expected": [
+    {"metric": "gen_ai.client.retry.count", "note": "No retries on success"},
+    {"metric": "gen_ai.client.fallback.count", "note": "No fallback on success"},
+    {"metric": "gen_ai.client.error.count", "note": "No errors on success"}
+  ]
+}

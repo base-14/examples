@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sales_intelligence.llm import LLMClient, _calculate_cost
+from sales_intelligence.llm import PRICING, LLMClient, _calculate_cost
 
 
 class TestCostCalculation:
@@ -137,3 +137,19 @@ class TestLLMClient:
         )
 
         assert result == "Response"
+
+
+def test_pricing_loaded_from_shared_json() -> None:
+    """PRICING dict is loaded from _shared/pricing.json, not an inline dict.
+
+    gpt-4.1 is in _shared/pricing.json but NOT in the old inline PRICING dict.
+    If PRICING is still inline, this test fails (KeyError or zero cost).
+    """
+    assert "gpt-4.1" in PRICING, (
+        "gpt-4.1 not found in PRICING — pricing may still be inline dict, not loaded from _shared/pricing.json"
+    )
+    assert PRICING["gpt-4.1"]["input"] == pytest.approx(2.0)
+    assert PRICING["gpt-4.1"]["output"] == pytest.approx(8.0)
+
+    cost = _calculate_cost("gpt-4.1", 1_000_000, 0)
+    assert cost == pytest.approx(2.0)

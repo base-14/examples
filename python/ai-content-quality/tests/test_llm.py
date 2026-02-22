@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 import content_quality.services.llm as llm_mod
 from content_quality.services.llm import (
+    PRICING,
     LLMClient,
     _calculate_cost,
     _extract_raw_usage,
@@ -1198,3 +1199,25 @@ async def test_generate_raises_when_no_fallback_configured() -> None:
         await client.generate_structured(
             _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
+
+
+# ---------------------------------------------------------------------------
+# PRICING — loaded from _shared/pricing.json
+# ---------------------------------------------------------------------------
+
+
+def test_pricing_loaded_from_shared_json() -> None:
+    """PRICING dict is loaded from _shared/pricing.json, not an inline dict.
+
+    gpt-4.1 is in _shared/pricing.json but NOT in the old inline PRICING dict.
+    If PRICING is still inline, this test fails (KeyError or zero cost).
+    """
+    assert "gpt-4.1" in PRICING, (
+        "gpt-4.1 not found in PRICING — pricing may still be inline dict, not loaded from _shared/pricing.json"
+    )
+    assert PRICING["gpt-4.1"]["input"] == pytest.approx(2.0)
+    assert PRICING["gpt-4.1"]["output"] == pytest.approx(8.0)
+
+    # Cost for 1M input tokens at $2.00/M = $2.00
+    cost = _calculate_cost("gpt-4.1", 1_000_000, 0)
+    assert cost == pytest.approx(2.0)
