@@ -5,6 +5,7 @@ import { findClausesByContract } from "../db/clauses.ts";
 import { findContractById, listContracts } from "../db/contracts.ts";
 import { getPool } from "../db/pool.ts";
 import { findRisksByContract } from "../db/risks.ts";
+import { logger } from "../logger.ts";
 import { analyzeContract } from "../pipeline/orchestrator.ts";
 
 const tracer = trace.getTracer("ai-contract-analyzer");
@@ -20,7 +21,7 @@ contracts.post("/contracts", async (c) => {
   }
 
   const allowed = ["application/pdf", "text/plain"];
-  if (!allowed.includes(file.type)) {
+  if (!allowed.some((t) => file.type === t || file.type.startsWith(`${t};`))) {
     return c.json(
       { error: `unsupported file type '${file.type}', use application/pdf or text/plain` },
       415,
@@ -49,6 +50,10 @@ contracts.post("/contracts", async (c) => {
         201,
       );
     } catch (err) {
+      logger.error("Contract analysis failed", {
+        filename: file.name,
+        error: (err as Error).message,
+      });
       span.recordException(err as Error);
       span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
       span.end();

@@ -1,6 +1,6 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getCapableModel } from "../providers.ts";
 import type { ExtractionResult, RiskResult, SummaryResult } from "../types/pipeline.ts";
 
 const SummarySchema = z.object({
@@ -65,10 +65,12 @@ ${
     .join("\n") || "(none)"
 }`;
 
+  const capableDescriptor = getCapableModel();
   const { object, usage } = await generateObject({
-    model: anthropic("claude-sonnet-4-6"),
+    model: capableDescriptor.model,
     schema: SummarySchema,
     maxOutputTokens: 2_000,
+    experimental_telemetry: { isEnabled: true, functionId: "pipeline.summarize" },
     system: `You are a senior attorney writing a contract review memo for a business client.
 Write in clear, plain English — no Latin phrases, no unnecessary jargon.
 The executive summary should explain what this contract does, who it protects, and what the key concerns are.
@@ -77,10 +79,12 @@ Negotiation points should be specific and actionable.`,
     prompt,
   });
 
-  // claude-sonnet-4-6 pricing: $3/M input, $15/M output
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
-  const costUsd = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
+  const costUsd =
+    (inputTokens * capableDescriptor.inputCostPerMToken +
+      outputTokens * capableDescriptor.outputCostPerMToken) /
+    1_000_000;
 
   return {
     summary: object,

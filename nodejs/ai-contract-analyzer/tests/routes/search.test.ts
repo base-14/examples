@@ -11,9 +11,11 @@ vi.mock("ai", () => ({
   }),
 }));
 
-vi.mock("@ai-sdk/openai", () => ({
-  openai: Object.assign(vi.fn(), {
-    embedding: vi.fn().mockReturnValue("mock-embedding-model"),
+vi.mock("../../src/providers.ts", () => ({
+  getEmbeddingModel: vi.fn().mockReturnValue({
+    model: "mock-embedding-model",
+    dimensions: 768,
+    costPerMToken: 0.02,
   }),
 }));
 

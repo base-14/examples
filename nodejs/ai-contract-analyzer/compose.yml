@@ -8,8 +8,15 @@ services:
       - OTEL_SERVICE_NAME=ai-contract-analyzer
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_ENABLED=true
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-}
+      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
       - PORT=3000
     volumes:
@@ -35,7 +42,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]

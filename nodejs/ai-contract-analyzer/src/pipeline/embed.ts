@@ -1,5 +1,5 @@
-import { openai } from "@ai-sdk/openai";
 import { embedMany } from "ai";
+import { getEmbeddingModel } from "../providers.ts";
 import type { ChunkData } from "../types/pipeline.ts";
 
 const BATCH_SIZE = 20;
@@ -26,11 +26,11 @@ export async function embedChunks(
   const allEmbeddings: number[][] = [];
   let totalTokens = 0;
 
-  // Batch to stay within OpenAI rate limits
+  const embeddingDescriptor = getEmbeddingModel();
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE);
     const { embeddings, usage } = await embedMany({
-      model: openai.embedding("text-embedding-3-small"),
+      model: embeddingDescriptor.model,
       values: batch,
     });
     allEmbeddings.push(...embeddings);

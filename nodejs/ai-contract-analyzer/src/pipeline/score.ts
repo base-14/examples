@@ -1,6 +1,6 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getFastModel } from "../providers.ts";
 import { CUAD_CLAUSE_TYPES } from "../types/clauses.ts";
 import type { ExtractionResult, RiskResult } from "../types/pipeline.ts";
 
@@ -11,7 +11,16 @@ const RiskSchema = z.object({
     z.object({
       clause_type: z.enum(CUAD_CLAUSE_TYPES),
       risk_level: RiskLevelEnum,
-      risk_factors: z.array(z.string()),
+      risk_factors: z.preprocess(
+        (v) =>
+          typeof v === "string"
+            ? v
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : v,
+        z.array(z.string()),
+      ),
       recommendation: z.string(),
     }),
   ),
@@ -54,10 +63,12 @@ Missing clause types: ${missingClauses || "(none missing)"}
 
 Assess the risk level for each present clause and identify which missing clauses are concerning.`;
 
+  const fastDescriptor = getFastModel();
   const { object, usage } = await generateObject({
-    model: anthropic("claude-haiku-4-5-20251001"),
+    model: fastDescriptor.model,
     schema: RiskSchema,
     maxOutputTokens: 3_000,
+    experimental_telemetry: { isEnabled: true, functionId: "pipeline.score" },
     system: `You are a contract risk analyst. For each present clause, assess:
 - risk_level: critical (immediate action), high (significant concern), medium (review), low (acceptable), none (standard)
 - risk_factors: specific reasons the clause poses risk
@@ -69,10 +80,12 @@ Set overall_risk to the highest risk level found across all clauses.`,
     prompt,
   });
 
-  // claude-haiku-4-5 pricing: $0.80/M input, $4/M output
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
-  const costUsd = (inputTokens * 0.8 + outputTokens * 4) / 1_000_000;
+  const costUsd =
+    (inputTokens * fastDescriptor.inputCostPerMToken +
+      outputTokens * fastDescriptor.outputCostPerMToken) /
+    1_000_000;
 
   return {
     risks: object,

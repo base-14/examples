@@ -18,21 +18,14 @@ export async function insertRisks(
 ): Promise<void> {
   if (risks.length === 0) return;
 
-  const clauseTypes = risks.map((r) => r.clause_type);
-  const riskLevels = risks.map((r) => r.risk_level);
-  const riskFactors = risks.map((r) => r.risk_factors);
-  const recommendations = risks.map((r) => r.recommendation ?? null);
-
-  await pool.query(
-    `INSERT INTO risks (contract_id, clause_type, risk_level, risk_factors, recommendation)
-     SELECT $1::uuid, * FROM unnest(
-       $2::text[],
-       $3::text[],
-       $4::text[][],
-       $5::text[]
-     ) AS t(clause_type, risk_level, risk_factors, recommendation)`,
-    [contract_id, clauseTypes, riskLevels, riskFactors, recommendations],
-  );
+  for (const r of risks) {
+    const factors = Array.isArray(r.risk_factors) ? r.risk_factors : [String(r.risk_factors)];
+    await pool.query(
+      `INSERT INTO risks (contract_id, clause_type, risk_level, risk_factors, recommendation)
+       VALUES ($1::uuid, $2, $3, $4::text[], $5)`,
+      [contract_id, r.clause_type, r.risk_level, factors, r.recommendation ?? null],
+    );
+  }
 }
 
 export async function findRisksByContract(pool: Pool, contract_id: string): Promise<RiskRow[]> {

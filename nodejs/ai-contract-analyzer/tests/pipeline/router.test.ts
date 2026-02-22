@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@ai-sdk/anthropic", () => ({
-  anthropic: vi.fn().mockReturnValue("mock-haiku-model"),
+vi.mock("../../src/providers.ts", () => ({
+  getFastModel: vi.fn().mockReturnValue({
+    model: "mock-fast-model",
+    inputCostPerMToken: 0.8,
+    outputCostPerMToken: 4,
+  }),
 }));
 
 vi.mock("ai", () => ({
@@ -38,11 +42,11 @@ describe("routeDocument", () => {
     expect(call.prompt.length).toBe(3000);
   });
 
-  it("uses haiku model for cost efficiency", async () => {
-    const { anthropic } = await import("@ai-sdk/anthropic");
+  it("uses fast model for cost efficiency", async () => {
+    const { getFastModel } = await import("../../src/providers.ts");
 
     await routeDocument("contract text");
 
-    expect(vi.mocked(anthropic)).toHaveBeenCalledWith("claude-haiku-4-5-20251001");
+    expect(vi.mocked(getFastModel)).toHaveBeenCalled();
   });
 });

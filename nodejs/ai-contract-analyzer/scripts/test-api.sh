@@ -41,7 +41,7 @@ UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/contracts" 
   -F "file=@data/contracts/sample-nda.txt;type=text/plain")
 
 UPLOAD_STATUS=$(echo "$UPLOAD_RESPONSE" | tail -1)
-UPLOAD_BODY=$(echo "$UPLOAD_RESPONSE" | head -n -1)
+UPLOAD_BODY=$(echo "$UPLOAD_RESPONSE" | sed '$d')
 
 check "POST /api/contracts returns 201" "$UPLOAD_STATUS" "201"
 

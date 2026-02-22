@@ -2,7 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // vi.mock is hoisted — factory must not reference module-level variables
 vi.mock("ai", () => ({ generateObject: vi.fn() }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn().mockReturnValue("mock-model") }));
+vi.mock("../../src/providers.ts", () => ({
+  getCapableModel: vi.fn().mockReturnValue({
+    model: "mock-capable-model",
+    inputCostPerMToken: 3,
+    outputCostPerMToken: 15,
+  }),
+  getFastModel: vi.fn().mockReturnValue({
+    model: "mock-fast-model",
+    inputCostPerMToken: 0.8,
+    outputCostPerMToken: 4,
+  }),
+}));
 
 import { generateObject } from "ai";
 import { extractClauses } from "../../src/pipeline/extract.ts";

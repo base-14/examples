@@ -5,6 +5,8 @@ import { insertChunks } from "../db/chunks.ts";
 import { insertClauses } from "../db/clauses.ts";
 import { createContract, updateContractStatus } from "../db/contracts.ts";
 import { insertRisks } from "../db/risks.ts";
+import { logger } from "../logger.ts";
+import { getCapableModel, getEmbeddingModel, getFastModel } from "../providers.ts";
 import type { AnalysisResult } from "../types/pipeline.ts";
 import { embedChunks } from "./embed.ts";
 import { extractClauses } from "./extract.ts";
@@ -66,6 +68,8 @@ export async function analyzeContract(
     rootSpan.setAttribute("document.filename", file.name);
     rootSpan.setAttribute("document.size_bytes", file.size);
     rootSpan.setAttribute("document.content_type", file.type);
+
+    logger.info("Contract analysis started", { filename: file.name, size_bytes: file.size });
 
     let contractId: string | undefined;
     let totalTokens = 0;
@@ -144,20 +148,30 @@ export async function analyzeContract(
           const embedDurationS = (Date.now() - embedStart) / 1000;
           await insertChunks(pool, id, ingestResult.chunks, embedResult.embeddings);
 
+          const embeddingDescriptor = getEmbeddingModel();
+          const embedModelId = embeddingDescriptor.modelId;
+          const embedCostUsd =
+            (embedResult.total_tokens * embeddingDescriptor.costPerMToken) / 1_000_000;
+
           span.setAttribute("embedding.chunk_count", ingestResult.chunks.length);
-          span.setAttribute("embedding.dimensions", 1536);
+          span.setAttribute("embedding.dimensions", embeddingDescriptor.dimensions);
           span.setAttribute("embedding.batch_count", embedResult.batch_count);
           span.setAttribute("gen_ai.usage.input_tokens", embedResult.total_tokens);
 
           tokenUsage.record(embedResult.total_tokens, {
             "gen_ai.token.type": "input",
-            "gen_ai.request.model": "text-embedding-3-small",
+            "gen_ai.request.model": embedModelId,
             "pipeline.stage": "embed",
           });
           embeddingDuration.record(embedDurationS, {
-            "embedding.model": "text-embedding-3-small",
+            "embedding.model": embedModelId,
+          });
+          aiCost.add(embedCostUsd, {
+            "gen_ai.request.model": embedModelId,
+            "pipeline.stage": "embed",
           });
           totalTokens += embedResult.total_tokens;
+          totalCost += embedCostUsd;
 
           span.end();
         }),
@@ -193,18 +207,19 @@ export async function analyzeContract(
           clausesExtracted.record(presentClauses.length, {
             contract_type: result.extraction.contract_type,
           });
+          const capableModelId = getCapableModel().modelId;
           tokenUsage.record(result.input_tokens, {
             "gen_ai.token.type": "input",
-            "gen_ai.request.model": "claude-sonnet-4-6",
+            "gen_ai.request.model": capableModelId,
             "pipeline.stage": "extract",
           });
           tokenUsage.record(result.output_tokens, {
             "gen_ai.token.type": "output",
-            "gen_ai.request.model": "claude-sonnet-4-6",
+            "gen_ai.request.model": capableModelId,
             "pipeline.stage": "extract",
           });
           aiCost.add(result.cost_usd, {
-            "gen_ai.request.model": "claude-sonnet-4-6",
+            "gen_ai.request.model": capableModelId,
             "pipeline.stage": "extract",
           });
           totalTokens += result.input_tokens + result.output_tokens;
@@ -250,12 +265,13 @@ export async function analyzeContract(
           contract_type: extractResult.extraction.contract_type,
           "risk.overall": result.risks.overall_risk,
         });
+        const fastModelId = getFastModel().modelId;
         tokenUsage.record(result.input_tokens + result.output_tokens, {
-          "gen_ai.request.model": "claude-haiku-4-5-20251001",
+          "gen_ai.request.model": fastModelId,
           "pipeline.stage": "score",
         });
         aiCost.add(result.cost_usd, {
-          "gen_ai.request.model": "claude-haiku-4-5-20251001",
+          "gen_ai.request.model": fastModelId,
           "pipeline.stage": "score",
         });
         totalTokens += result.input_tokens + result.output_tokens;
@@ -283,12 +299,13 @@ export async function analyzeContract(
           span.setAttribute("gen_ai.usage.input_tokens", result.input_tokens);
           span.setAttribute("gen_ai.usage.output_tokens", result.output_tokens);
 
+          const capableModelIdForSummary = getCapableModel().modelId;
           tokenUsage.record(result.input_tokens + result.output_tokens, {
-            "gen_ai.request.model": "claude-sonnet-4-6",
+            "gen_ai.request.model": capableModelIdForSummary,
             "pipeline.stage": "summarize",
           });
           aiCost.add(result.cost_usd, {
-            "gen_ai.request.model": "claude-sonnet-4-6",
+            "gen_ai.request.model": capableModelIdForSummary,
             "pipeline.stage": "summarize",
           });
           totalTokens += result.input_tokens + result.output_tokens;
@@ -329,12 +346,22 @@ export async function analyzeContract(
         "risk.overall": scoreResult.risks.overall_risk,
       });
 
+      logger.info("Contract analysis complete", {
+        filename: file.name,
+        duration_ms: totalDurationMs,
+        total_tokens: totalTokens,
+        overall_risk: scoreResult.risks.overall_risk,
+      });
       rootSpan.end();
       return { ...analysisResult, trace_id: traceId };
     } catch (err) {
       if (contractId) {
         await updateContractStatus(pool, contractId, "error").catch(() => {});
       }
+      logger.error("Contract analysis failed", {
+        filename: file.name,
+        error: (err as Error).message,
+      });
       rootSpan.recordException(err as Error);
       rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
       rootSpan.end();

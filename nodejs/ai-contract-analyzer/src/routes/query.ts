@@ -1,5 +1,3 @@
-import { anthropic } from "@ai-sdk/anthropic";
-import { openai } from "@ai-sdk/openai";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { embedMany, generateText } from "ai";
 import { Hono } from "hono";
@@ -8,6 +6,7 @@ import { similaritySearch } from "../db/chunks.ts";
 import { findClausesByContract } from "../db/clauses.ts";
 import { findContractById } from "../db/contracts.ts";
 import { getPool } from "../db/pool.ts";
+import { getCapableModel, getEmbeddingModel } from "../providers.ts";
 
 const tracer = trace.getTracer("ai-contract-analyzer");
 const query = new Hono();
@@ -44,7 +43,7 @@ query.post("/contracts/:id/query", async (c) => {
     try {
       // Embed the question and find semantically similar contract chunks
       const { embeddings } = await embedMany({
-        model: openai.embedding("text-embedding-3-small"),
+        model: getEmbeddingModel().model,
         values: [question],
       });
       const [queryEmbedding] = embeddings;
@@ -65,8 +64,9 @@ query.post("/contracts/:id/query", async (c) => {
         .join("\n\n");
 
       const { text, usage } = await generateText({
-        model: anthropic("claude-sonnet-4-6"),
+        model: getCapableModel().model,
         maxOutputTokens: 1_000,
+        experimental_telemetry: { isEnabled: true, functionId: "route.query" },
         system: `You are a contract analysis assistant. Answer questions about the following contract strictly based on the provided text. If the answer cannot be found in the contract, say so clearly.
 
 Contract: ${contract.filename}

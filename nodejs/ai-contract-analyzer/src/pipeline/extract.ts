@@ -1,6 +1,6 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getCapableModel, getFastModel } from "../providers.ts";
 import { CLAUSES_BY_TYPE, ClauseSchema, CUAD_CLAUSE_TYPES } from "../types/clauses.ts";
 import type { ExtractionResult } from "../types/pipeline.ts";
 
@@ -84,20 +84,24 @@ export async function extractClauses(
         ? `${fullText}\n\nPrevious extraction had these issues — please fix them:\n${feedback.map((f) => `- ${f}`).join("\n")}`
         : fullText;
 
+    const capableDescriptor = getCapableModel();
     const { object, usage: genUsage } = await generateObject({
-      model: anthropic("claude-sonnet-4-6"),
+      model: capableDescriptor.model,
       schema: ExtractionSchema,
       maxOutputTokens: 8_000,
       system: systemPrompt,
       prompt: generatorPrompt,
+      experimental_telemetry: { isEnabled: true, functionId: "pipeline.extract.generate" },
     });
 
     const genInput = genUsage.inputTokens ?? 0;
     const genOutput = genUsage.outputTokens ?? 0;
     totalInputTokens += genInput;
     totalOutputTokens += genOutput;
-    // claude-sonnet-4-6: $3/M input, $15/M output
-    totalCostUsd += (genInput * 3 + genOutput * 15) / 1_000_000;
+    totalCostUsd +=
+      (genInput * capableDescriptor.inputCostPerMToken +
+        genOutput * capableDescriptor.outputCostPerMToken) /
+      1_000_000;
     lastExtraction = object;
 
     // ── Evaluator (different model — catches different failure modes) ───────
@@ -125,20 +129,24 @@ Check for:
 3. contract_type missing or implausible
 4. parties array empty when parties are visible in the excerpt`;
 
+    const fastDescriptor = getFastModel();
     const { object: evaluation, usage: evalUsage } = await generateObject({
-      model: anthropic("claude-haiku-4-5-20251001"),
+      model: fastDescriptor.model,
       schema: EvaluationSchema,
       system:
         "You are a contract data validator. Return passed=true only if none of the listed issues are present.",
       prompt: evalPrompt,
+      experimental_telemetry: { isEnabled: true, functionId: "pipeline.extract.evaluate" },
     });
 
     const evalInput = evalUsage.inputTokens ?? 0;
     const evalOutput = evalUsage.outputTokens ?? 0;
     totalInputTokens += evalInput;
     totalOutputTokens += evalOutput;
-    // claude-haiku-4-5: $0.80/M input, $4/M output
-    totalCostUsd += (evalInput * 0.8 + evalOutput * 4) / 1_000_000;
+    totalCostUsd +=
+      (evalInput * fastDescriptor.inputCostPerMToken +
+        evalOutput * fastDescriptor.outputCostPerMToken) /
+      1_000_000;
 
     if (evaluation.passed) break;
     feedback = evaluation.issues;

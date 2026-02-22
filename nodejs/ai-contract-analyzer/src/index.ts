@@ -1,8 +1,6 @@
-// Telemetry must be initialized before any other imports
-import "./telemetry.ts";
-
 import { Hono } from "hono";
 import { config } from "./config.ts";
+import { logger } from "./logger.ts";
 import { requestMetrics } from "./middleware/metrics.ts";
 import { contracts } from "./routes/contracts.ts";
 import { health } from "./routes/health.ts";
@@ -20,7 +18,7 @@ app.route("/api", search);
 
 app.notFound((c) => c.json({ error: "not found" }, 404));
 app.onError((err, c) => {
-  console.error("Unhandled error", err);
+  logger.error("Unhandled error", { error: String(err) });
   return c.json({ error: "internal server error" }, 500);
 });
 

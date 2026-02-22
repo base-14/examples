@@ -24,8 +24,12 @@ vi.mock("ai", () => ({
   }),
 }));
 
-vi.mock("@ai-sdk/anthropic", () => ({
-  anthropic: vi.fn().mockReturnValue("mock-model"),
+vi.mock("../../src/providers.ts", () => ({
+  getFastModel: vi.fn().mockReturnValue({
+    model: "mock-fast-model",
+    inputCostPerMToken: 0.8,
+    outputCostPerMToken: 4,
+  }),
 }));
 
 import { scoreRisks } from "../../src/pipeline/score.ts";

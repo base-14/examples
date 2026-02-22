@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS chunks (
   page_start INTEGER NOT NULL,
   page_end INTEGER NOT NULL,
   character_count INTEGER NOT NULL,
-  embedding VECTOR(1536),
+  embedding VECTOR(768),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

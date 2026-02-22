@@ -4,7 +4,7 @@ install:
 	bun install
 
 dev:
-	bun run --watch src/index.ts
+	bun run --watch --preload ./src/telemetry.ts src/index.ts
 
 check: lint typecheck test
 

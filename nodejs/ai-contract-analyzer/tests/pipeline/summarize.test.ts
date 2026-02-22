@@ -22,8 +22,12 @@ vi.mock("ai", () => ({
   }),
 }));
 
-vi.mock("@ai-sdk/anthropic", () => ({
-  anthropic: vi.fn().mockReturnValue("mock-model"),
+vi.mock("../../src/providers.ts", () => ({
+  getCapableModel: vi.fn().mockReturnValue({
+    model: "mock-capable-model",
+    inputCostPerMToken: 3,
+    outputCostPerMToken: 15,
+  }),
 }));
 
 import { generateSummary } from "../../src/pipeline/summarize.ts";

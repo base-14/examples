@@ -1,4 +1,3 @@
-import { openai } from "@ai-sdk/openai";
 import { metrics, SpanStatusCode, trace } from "@opentelemetry/api";
 import { embedMany } from "ai";
 import { Hono } from "hono";
@@ -6,6 +5,7 @@ import { z } from "zod";
 import { similaritySearch } from "../db/chunks.ts";
 import { findContractById } from "../db/contracts.ts";
 import { getPool } from "../db/pool.ts";
+import { getEmbeddingModel } from "../providers.ts";
 
 const tracer = trace.getTracer("ai-contract-analyzer");
 const meter = metrics.getMeter("ai-contract-analyzer");
@@ -39,7 +39,7 @@ search.post("/search", async (c) => {
 
     try {
       const { embeddings } = await embedMany({
-        model: openai.embedding("text-embedding-3-small"),
+        model: getEmbeddingModel().model,
         values: [query],
       });
       const [queryEmbedding] = embeddings;

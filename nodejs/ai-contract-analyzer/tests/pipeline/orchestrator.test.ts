@@ -1,5 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/providers.ts", () => ({
+  getCapableModel: vi.fn().mockReturnValue({
+    modelId: "mock-capable-model",
+    model: "mock-capable-model",
+    inputCostPerMToken: 3,
+    outputCostPerMToken: 15,
+  }),
+  getFastModel: vi.fn().mockReturnValue({
+    modelId: "mock-fast-model",
+    model: "mock-fast-model",
+    inputCostPerMToken: 0.8,
+    outputCostPerMToken: 4,
+  }),
+  getEmbeddingModel: vi.fn().mockReturnValue({
+    modelId: "mock-embedding-model",
+    model: "mock-embedding-model",
+    dimensions: 768,
+    costPerMToken: 0.02,
+  }),
+}));
+
 // Mock all LLM-dependent pipeline stages before importing orchestrator
 vi.mock("../../src/pipeline/route.ts", () => ({
   routeDocument: vi.fn().mockResolvedValue({
