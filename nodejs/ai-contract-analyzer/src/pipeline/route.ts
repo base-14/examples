@@ -28,7 +28,6 @@ export async function routeDocument(fullText: string): Promise<RouteResult> {
     system: `You are a legal document classifier. Identify the document type, complexity, and whether it requires full analysis.
 Be conservative: if in doubt about document type, use "unknown". If in doubt about complexity, go higher.`,
     prompt: preview,
-    experimental_telemetry: { isEnabled: true, functionId: "pipeline.route" },
   });
 
   const inputTokens = usage.inputTokens ?? 0;

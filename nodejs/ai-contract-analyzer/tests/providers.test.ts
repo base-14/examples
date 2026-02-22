@@ -31,8 +31,8 @@ import { MODEL_PRICING } from "../src/providers.ts";
 describe("MODEL_PRICING", () => {
   it("is loaded from _shared/pricing.json, not an inline dict", () => {
     expect(MODEL_PRICING["gpt-4o"]).toBeDefined();
-    expect(MODEL_PRICING["gpt-4o"].input).toBeCloseTo(2.5);
-    expect(MODEL_PRICING["gpt-4o"].output).toBeCloseTo(10.0);
+    expect(MODEL_PRICING["gpt-4o"]!.input).toBeCloseTo(2.5);
+    expect(MODEL_PRICING["gpt-4o"]!.output).toBeCloseTo(10.0);
   });
 
   it("covers all models in _shared/pricing.json", () => {

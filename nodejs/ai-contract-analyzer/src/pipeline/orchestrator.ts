@@ -1,12 +1,14 @@
 import { metrics, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { Pool } from "pg";
+import { config } from "../config.ts";
 import { insertAnalysis } from "../db/analyses.ts";
 import { insertChunks } from "../db/chunks.ts";
 import { insertClauses } from "../db/clauses.ts";
 import { createContract, updateContractStatus } from "../db/contracts.ts";
 import { insertRisks } from "../db/risks.ts";
+import { costCounter, tokenUsageHistogram } from "../llm/middleware.ts";
 import { logger } from "../logger.ts";
-import { getCapableModel, getEmbeddingModel, getFastModel } from "../providers.ts";
+import { getEmbeddingModel } from "../providers.ts";
 import type { AnalysisResult } from "../types/pipeline.ts";
 import { embedChunks } from "./embed.ts";
 import { extractClauses } from "./extract.ts";
@@ -29,14 +31,6 @@ const clausesExtracted = meter.createHistogram("contract.clauses.extracted", {
 const riskScore = meter.createHistogram("contract.risk.score", {
   description: "Risk score distribution per contract",
   unit: "1",
-});
-const tokenUsage = meter.createHistogram("gen_ai.client.token.usage", {
-  description: "LLM token usage per pipeline stage",
-  unit: "{token}",
-});
-const aiCost = meter.createCounter("gen_ai.client.cost", {
-  description: "LLM cost per pipeline stage",
-  unit: "usd",
 });
 const embeddingDuration = meter.createHistogram("contract.embedding.duration", {
   description: "Time to generate embeddings for all chunks",
@@ -158,17 +152,21 @@ export async function analyzeContract(
           span.setAttribute("embedding.batch_count", embedResult.batch_count);
           span.setAttribute("gen_ai.usage.input_tokens", embedResult.total_tokens);
 
-          tokenUsage.record(embedResult.total_tokens, {
-            "gen_ai.token.type": "input",
+          // Embedding token usage — gen_ai.operation.name + provider required by contract
+          const embedProviderName = config.embeddingProvider;
+          tokenUsageHistogram.record(embedResult.total_tokens, {
+            "gen_ai.operation.name": "embeddings",
+            "gen_ai.provider.name": embedProviderName,
             "gen_ai.request.model": embedModelId,
-            "pipeline.stage": "embed",
+            "gen_ai.token.type": "input",
           });
           embeddingDuration.record(embedDurationS, {
             "embedding.model": embedModelId,
           });
-          aiCost.add(embedCostUsd, {
+          costCounter.add(embedCostUsd, {
+            "gen_ai.operation.name": "embeddings",
+            "gen_ai.provider.name": embedProviderName,
             "gen_ai.request.model": embedModelId,
-            "pipeline.stage": "embed",
           });
           totalTokens += embedResult.total_tokens;
           totalCost += embedCostUsd;
@@ -206,21 +204,6 @@ export async function analyzeContract(
 
           clausesExtracted.record(presentClauses.length, {
             contract_type: result.extraction.contract_type,
-          });
-          const capableModelId = getCapableModel().modelId;
-          tokenUsage.record(result.input_tokens, {
-            "gen_ai.token.type": "input",
-            "gen_ai.request.model": capableModelId,
-            "pipeline.stage": "extract",
-          });
-          tokenUsage.record(result.output_tokens, {
-            "gen_ai.token.type": "output",
-            "gen_ai.request.model": capableModelId,
-            "pipeline.stage": "extract",
-          });
-          aiCost.add(result.cost_usd, {
-            "gen_ai.request.model": capableModelId,
-            "pipeline.stage": "extract",
           });
           totalTokens += result.input_tokens + result.output_tokens;
           totalCost += result.cost_usd;
@@ -265,15 +248,6 @@ export async function analyzeContract(
           contract_type: extractResult.extraction.contract_type,
           "risk.overall": result.risks.overall_risk,
         });
-        const fastModelId = getFastModel().modelId;
-        tokenUsage.record(result.input_tokens + result.output_tokens, {
-          "gen_ai.request.model": fastModelId,
-          "pipeline.stage": "score",
-        });
-        aiCost.add(result.cost_usd, {
-          "gen_ai.request.model": fastModelId,
-          "pipeline.stage": "score",
-        });
         totalTokens += result.input_tokens + result.output_tokens;
         totalCost += result.cost_usd;
 
@@ -299,15 +273,6 @@ export async function analyzeContract(
           span.setAttribute("gen_ai.usage.input_tokens", result.input_tokens);
           span.setAttribute("gen_ai.usage.output_tokens", result.output_tokens);
 
-          const capableModelIdForSummary = getCapableModel().modelId;
-          tokenUsage.record(result.input_tokens + result.output_tokens, {
-            "gen_ai.request.model": capableModelIdForSummary,
-            "pipeline.stage": "summarize",
-          });
-          aiCost.add(result.cost_usd, {
-            "gen_ai.request.model": capableModelIdForSummary,
-            "pipeline.stage": "summarize",
-          });
           totalTokens += result.input_tokens + result.output_tokens;
           totalCost += result.cost_usd;
 

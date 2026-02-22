@@ -20,6 +20,8 @@ const ConfigSchema = z
     ollamaBaseUrl: z.string().default("http://localhost:11434"),
     llmModelCapable: z.string().optional(),
     llmModelFast: z.string().optional(),
+    llmProviderFallback: z.enum(["anthropic", "google", "ollama"]).optional(),
+    llmModelFallback: z.string().optional(),
     embeddingModel: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -68,6 +70,8 @@ const parsed = ConfigSchema.safeParse({
   ollamaBaseUrl: Bun.env.OLLAMA_BASE_URL,
   llmModelCapable: Bun.env.LLM_MODEL_CAPABLE,
   llmModelFast: Bun.env.LLM_MODEL_FAST,
+  llmProviderFallback: Bun.env.LLM_PROVIDER_FALLBACK,
+  llmModelFallback: Bun.env.LLM_MODEL_FALLBACK,
   embeddingModel: Bun.env.EMBEDDING_MODEL,
 });
 

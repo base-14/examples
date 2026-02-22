@@ -91,7 +91,6 @@ export async function extractClauses(
       maxOutputTokens: 8_000,
       system: systemPrompt,
       prompt: generatorPrompt,
-      experimental_telemetry: { isEnabled: true, functionId: "pipeline.extract.generate" },
     });
 
     const genInput = genUsage.inputTokens ?? 0;
@@ -136,7 +135,6 @@ Check for:
       system:
         "You are a contract data validator. Return passed=true only if none of the listed issues are present.",
       prompt: evalPrompt,
-      experimental_telemetry: { isEnabled: true, functionId: "pipeline.extract.evaluate" },
     });
 
     const evalInput = evalUsage.inputTokens ?? 0;

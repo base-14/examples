@@ -68,7 +68,6 @@ Assess the risk level for each present clause and identify which missing clauses
     model: fastDescriptor.model,
     schema: RiskSchema,
     maxOutputTokens: 3_000,
-    experimental_telemetry: { isEnabled: true, functionId: "pipeline.score" },
     system: `You are a contract risk analyst. For each present clause, assess:
 - risk_level: critical (immediate action), high (significant concern), medium (review), low (acceptable), none (standard)
 - risk_factors: specific reasons the clause poses risk

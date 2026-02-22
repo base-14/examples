@@ -61,9 +61,9 @@ exporters:
       max_elapsed_time: 300s
 
   debug:
-    verbosity: basic
-    sampling_initial: 5
-    sampling_thereafter: 200
+    verbosity: detailed
+    sampling_initial: 100
+    sampling_thereafter: 100
 
 service:
   extensions: [health_check, zpages, oauth2client]

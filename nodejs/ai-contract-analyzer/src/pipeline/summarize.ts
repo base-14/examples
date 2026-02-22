@@ -70,7 +70,6 @@ ${
     model: capableDescriptor.model,
     schema: SummarySchema,
     maxOutputTokens: 2_000,
-    experimental_telemetry: { isEnabled: true, functionId: "pipeline.summarize" },
     system: `You are a senior attorney writing a contract review memo for a business client.
 Write in clear, plain English — no Latin phrases, no unnecessary jargon.
 The executive summary should explain what this contract does, who it protects, and what the key concerns are.

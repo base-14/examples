@@ -25,11 +25,13 @@ if (otelEnabled) {
   const sdk = new NodeSDK({
     serviceName,
     traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
-    metricReaders: [new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics` }),
-      exportIntervalMillis: 15_000,
-      exportTimeoutMillis: 10_000,
-    })],
+    metricReaders: [
+      new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics` }),
+        exportIntervalMillis: 15_000,
+        exportTimeoutMillis: 10_000,
+      }),
+    ],
     instrumentations: [new PgInstrumentation()],
   });
   sdk.start();

@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/config.ts", () => ({
+  config: {
+    embeddingProvider: "openai",
+    llmProvider: "anthropic",
+    ollamaBaseUrl: "http://localhost:11434",
+  },
+}));
+
 vi.mock("../../src/providers.ts", () => ({
   getCapableModel: vi.fn().mockReturnValue({
     modelId: "mock-capable-model",

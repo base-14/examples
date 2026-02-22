@@ -1,95 +1,82 @@
 # AI Contract Analyzer
 
-A production-grade contract analysis pipeline built with **Bun + Hono + Vercel AI SDK + Anthropic Claude**, demonstrating how to build and observe a multi-stage AI document processing pipeline with [OpenTelemetry](https://opentelemetry.io/) and [Base14 Scout](https://base14.io).
+AI-powered contract analysis pipeline demonstrating **multi-stage LLM observability** with OpenTelemetry GenAI semantic conventions and Base14 Scout.
+
+**Stack**: Bun 1.2 · Hono 4 · Vercel AI SDK 6 · Anthropic / Google / Ollama · PostgreSQL 18 + pgvector · OpenTelemetry
 
 ---
 
-## What It Does
+## Why Multi-Stage Observability?
 
-Legal teams spend 2-4 hours per contract on initial review. This pipeline compresses that to ~20 seconds by:
+Single LLM call observability is solved. Multi-stage pipelines are not. When a contract analysis takes 25 seconds, you can't tell from a single span whether the bottleneck is extraction (the LLM), embedding (the model), or ingest (PDF parsing). When cost spikes, you don't know which stage caused it.
 
-1. **Ingesting** the document (PDF or plain text) and splitting it into semantic chunks
-2. **Embedding** each chunk with OpenAI `text-embedding-3-small` for semantic search
-3. **Extracting** all 41 [CUAD clause types](https://www.atticusprojectai.org/cuad) using Claude Sonnet with structured output
-4. **Scoring** risk level per clause with Claude Haiku
-5. **Summarizing** in plain English for attorney review with Claude Sonnet
+This project shows how to instrument a six-stage AI pipeline so every trace answers those questions:
 
-Every stage emits structured OpenTelemetry spans. You get a single trace showing the full pipeline with token counts, latency, cost, and extraction confidence — all visible in Scout.
+```
+analyze_contract                                      23.4s   $0.042
+  pipeline_stage ingest       (pdf-parse + chunk)      0.8s
+  pipeline_stage route        (classify doc type)      0.3s   $0.0001
+  pipeline_stage embed ───┐   (embedding model)        1.4s   $0.0002
+  pipeline_stage extract ─┘   (CUAD clause extract)   17.1s   $0.031
+  pipeline_stage score        (risk per clause)        3.1s   $0.001
+  pipeline_stage summarize    (plain-English summary)  1.7s   $0.008
+
+  ✅ Bottleneck: extract (73% of time)
+  ✅ Cost driver: extract (74% of cost)
+  ✅ Embed + extract ran concurrently — saved ~1.4s
+```
+
+Every span carries `gen_ai.provider.name`, `gen_ai.request.model`, token counts, and cost. Swap to Google or Ollama with a single env var — the traces look identical.
 
 ---
 
-## Architecture
+## Pipeline
 
 ```
 POST /api/contracts
     │
-    ├─ pipeline_stage ingest      (pdf-parse, chunking)
-    ├─ pipeline_stage embed       (OpenAI text-embedding-3-small)
-    ├─ pipeline_stage extract     (claude-sonnet-4-6, generateObject + Zod)
-    ├─ pipeline_stage score       (claude-haiku-4-5, generateObject + Zod)
-    └─ pipeline_stage summarize   (claude-sonnet-4-6, generateObject + Zod)
+    ├─ ingest      Parse PDF or plain text, split into chunks
+    ├─ route       Fast model classifies document type + complexity
+    ├─ embed  ─┐   Embedding model indexes chunks for semantic search   (concurrent)
+    ├─ extract ┘   Capable model extracts 41 CUAD clause types
+    ├─ score       Capable model scores risk level per clause
+    └─ summarize   Capable model writes plain-English summary for review
          │
          └─ PostgreSQL 18 + pgvector
               ├─ contracts, analyses
               ├─ clauses, risks
-              └─ chunks (VECTOR(1536), HNSW index)
-
-OTel Collector → Base14 Scout
+              └─ chunks  VECTOR(768), HNSW index
 ```
-
-### Tech Stack
-
-| Component | Choice |
-|---|---|
-| Runtime | Bun 1.2+ |
-| HTTP | Hono 4.12 |
-| AI Framework | Vercel AI SDK 6 |
-| LLM | Anthropic Claude (Sonnet 4.6 + Haiku 4.5) |
-| Embeddings | OpenAI text-embedding-3-small |
-| Observability | OpenLLMetry (`@traceloop/node-server-sdk`) |
-| Database | PostgreSQL 18 + pgvector |
 
 ---
 
 ## Quick Start
 
-### 1. Prerequisites
+### Prerequisites
 
 - [Bun](https://bun.sh) 1.2+
 - Docker + Docker Compose
-- An Anthropic API key
-- An OpenAI API key (for embeddings)
-- A Base14 Scout account (for production traces; optional for local dev)
+- An API key for your chosen LLM provider (none needed for Ollama)
 
-### 2. Configure
+### Setup
 
 ```bash
 cp .env.example .env
-# Edit .env — set ANTHROPIC_API_KEY and OPENAI_API_KEY at minimum
-```
+# Set LLM_PROVIDER and the matching API key (see Configuration below)
 
-### 3. Start infrastructure
-
-```bash
-make docker-up
-# Starts PostgreSQL 18 + pgvector and the OTel Collector
-```
-
-### 4. Install and run
-
-```bash
-make install
+docker compose up -d postgres otel-collector
+bun install
+bun run db:migrate
 bun run dev
 ```
 
-### 5. Analyze a contract
+### Analyze a contract
 
 ```bash
 curl -X POST http://localhost:3000/api/contracts \
   -F "file=@data/contracts/sample-nda.txt;type=text/plain"
 ```
 
-Response:
 ```json
 {
   "contract_id": "abc-123",
@@ -100,46 +87,26 @@ Response:
 }
 ```
 
-### 6. Seed sample contracts
-
-```bash
-make seed
-# Loads all contracts from data/contracts/ through the full pipeline
-```
-
 ---
 
-## API Reference
+## API
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Health check with DB connectivity |
-| `POST` | `/api/contracts` | Upload + analyze a contract |
+| `POST` | `/api/contracts` | Upload and analyze a contract |
 | `GET` | `/api/contracts` | List all analyzed contracts |
-| `GET` | `/api/contracts/:id` | Full analysis result (clauses, risks, summary) |
+| `GET` | `/api/contracts/:id` | Full result — clauses, risks, summary |
 | `POST` | `/api/contracts/:id/query` | Ask a question about a specific contract |
 | `POST` | `/api/search` | Semantic search across all contracts |
 
-### Upload a contract
-
 ```bash
-curl -X POST http://localhost:3000/api/contracts \
-  -F "file=@contract.pdf;type=application/pdf"
-```
-
-Accepts: `application/pdf`, `text/plain`
-
-### Query a contract
-
-```bash
+# Ask a question about a contract
 curl -X POST http://localhost:3000/api/contracts/abc-123/query \
   -H "Content-Type: application/json" \
   -d '{"question": "What is the liability cap?"}'
-```
 
-### Semantic search
-
-```bash
+# Semantic search
 curl -X POST http://localhost:3000/api/search \
   -H "Content-Type: application/json" \
   -d '{"query": "indemnification obligations", "limit": 5}'
@@ -149,127 +116,190 @@ curl -X POST http://localhost:3000/api/search \
 
 ## Observability
 
-### What You See in Scout
+### Instrumentation Approach
 
-Every contract analysis produces a single trace with child spans:
+GenAI telemetry is handled by a custom `LanguageModelV3Middleware` in `src/llm/middleware.ts`, not by the `@traceloop/node-server-sdk` auto-instrumentation. Auto-instrumentation wraps individual SDK calls but doesn't understand the pipeline — it can't attribute cost to a stage, correlate a retry to a specific span, or differentiate embedding tokens from extraction tokens.
 
-```
-analyze_contract                              ~20s
-  pipeline_stage ingest                       0.8s
-    document.page_count: 24
-    document.chunks_created: 52
-  pipeline_stage embed                        1.4s
-    gen_ai.usage.input_tokens: 12000
-    embedding.batch_count: 3
-  pipeline_stage extract                     14.2s
-    gen_ai.request.model: claude-sonnet-4-6
-    gen_ai.usage.input_tokens: 25000
-    extraction.clauses_found: 18
-    extraction.confidence_avg: 0.84
-  pipeline_stage score                        3.2s
-    gen_ai.request.model: claude-haiku-4-5-20251001
-    risk.overall: high
-    risk.critical_count: 2
-  pipeline_stage summarize                    2.4s
-    gen_ai.request.model: claude-sonnet-4-6
-    summary.word_count: 340
-```
+The custom middleware wraps every `doGenerate` call at the model layer, so all routes — pipeline stages, `/query`, `/search` — are instrumented identically with no per-route wiring.
 
-### OpenLLMetry Auto-Instrumentation
+### What's Instrumented
 
-All Vercel AI SDK calls are automatically instrumented by `@traceloop/node-server-sdk`. No manual wiring needed — GenAI semantic convention spans with `gen_ai.*` attributes appear automatically on every LLM call.
+| Layer | Instrumentation | Type | What You Get |
+|---|---|---|---|
+| HTTP server | Hono `requestMetrics` middleware | Custom | `http.server.request.duration`, `http.server.request.count` per method/path/status |
+| HTTP server | `@opentelemetry/instrumentation-http` | Auto | Request spans with `http.method`, `http.route`, `http.status_code` |
+| Database | `@opentelemetry/instrumentation-pg` | Auto | Query spans with SQL and duration |
+| LLM calls | `LanguageModelV3Middleware` | Custom | `gen_ai.chat {model}` spans with GenAI semconv attributes, retry, cost |
+| LLM metrics | `LanguageModelV3Middleware` | Custom | Token usage, cost, operation duration, retry count, fallback count, error count |
+| Pipeline stages | `orchestrator.ts` | Custom | `pipeline_stage {name}` child spans with stage-specific attributes |
+| Logs | `@opentelemetry/sdk-logs` | Custom | OTLP log export correlated with active trace via `trace_id` / `span_id` |
+
+### Span Attributes
+
+Each `gen_ai.chat {model}` span carries:
+
+| Attribute | Example |
+|---|---|
+| `gen_ai.operation.name` | `chat` |
+| `gen_ai.provider.name` | `anthropic` |
+| `gen_ai.request.model` | `claude-sonnet-4-6` |
+| `gen_ai.response.model` | `claude-sonnet-4-6` |
+| `gen_ai.response.id` | `msg_abc123` |
+| `gen_ai.response.finish_reasons` | `["end_turn"]` |
+| `gen_ai.usage.input_tokens` | `25000` |
+| `gen_ai.usage.output_tokens` | `820` |
+| `gen_ai.usage.cost_usd` | `0.031` |
+| `server.address` | `api.anthropic.com` |
+| `error.type` | `Error` (on failure) |
+
+Span events: `gen_ai.user.message` (prompt, truncated to 1000 chars; system prompt to 500) and `gen_ai.assistant.message` (completion, truncated to 2000).
 
 ### Metrics
 
 | Metric | Type | Description |
 |---|---|---|
+| `gen_ai.client.operation.duration` | Histogram | LLM call duration per model |
+| `gen_ai.client.token.usage` | Histogram | Tokens per call, split by `gen_ai.token.type` (`input` / `output`) |
+| `gen_ai.client.cost` | Counter | Cost in USD per model |
+| `gen_ai.client.retry.count` | Counter | Retry attempts per model |
+| `gen_ai.client.fallback.count` | Counter | Fallback activations per primary provider |
+| `gen_ai.client.error.count` | Counter | Failed calls per model and error type |
 | `contract.analysis.duration` | Histogram | End-to-end pipeline duration |
 | `contract.clauses.extracted` | Histogram | Clauses found per contract |
 | `contract.risk.score` | Histogram | Risk score distribution |
-| `gen_ai.client.token.usage` | Histogram | Token usage per model per stage |
-| `gen_ai.client.cost` | Counter | Cost per model per stage |
-| `contract.search.similarity` | Histogram | Search result similarity scores |
+| `contract.embedding.duration` | Histogram | Embedding generation duration |
+| `http.server.request.duration` | Histogram | HTTP request duration per route |
+| `http.server.request.count` | Counter | HTTP request count per route and status |
+
+### Retry and Fallback
+
+The middleware retries every error (not just network errors) with exponential backoff — 3 attempts, 1–10s. If a fallback provider is configured, it activates after all retries are exhausted and records `gen_ai.client.fallback.count`. Both the retry loop and fallback are covered by unit tests in `tests/llm/middleware.test.ts`.
 
 ---
 
-## Failure Injection
-
-The `scripts/inject-failures.ts` toolkit demonstrates 7 failure scenarios. Each produces a distinct trace pattern in Scout.
+## Configuration
 
 ```bash
-# Run a specific scenario
-bun run scripts/inject-failures.ts hallucination
-bun run scripts/inject-failures.ts token-overflow
-bun run scripts/inject-failures.ts embedding-failure
-bun run scripts/inject-failures.ts malformed-pdf
-bun run scripts/inject-failures.ts encrypted-pdf
-bun run scripts/inject-failures.ts batch-overload
-bun run scripts/inject-failures.ts contradictory-clauses
-
-# Run all scenarios
-bun run scripts/inject-failures.ts
+cp .env.example .env
 ```
 
-| Scenario | What happens | What Scout shows |
+| Variable | Default | Description |
 |---|---|---|
-| `hallucination` | Minimal contract forces over-extraction | Low `extraction.confidence_avg`, clauses with no text excerpt |
-| `token-overflow` | 675K+ char document exceeds 200K context | `document.total_characters` >> threshold, console warning |
-| `embedding-failure` | Simulated 429 from OpenAI | Embed span `SpanStatus=ERROR`, `http_status=429` |
-| `malformed-pdf` | Corrupted file upload | Ingest span `PARSE_ERROR`, pipeline aborts |
-| `encrypted-pdf` | Password-protected PDF | Same `PARSE_ERROR` path as corrupted |
-| `batch-overload` | All contracts uploaded concurrently | Cost counter spike, concurrent `analyze_contract` spans |
-| `contradictory-clauses` | Contract has irrevocable + termination-for-convenience | Score stage flags contradiction |
+| `LLM_PROVIDER` | `anthropic` | LLM provider: `anthropic`, `google`, `ollama` |
+| `LLM_MODEL_CAPABLE` | _(provider default)_ | Model for extract / score / summarize |
+| `LLM_MODEL_FAST` | _(provider default)_ | Model for routing |
+| `LLM_PROVIDER_FALLBACK` | — | Fallback provider if primary exhausts retries |
+| `LLM_MODEL_FALLBACK` | — | Model to use on the fallback provider |
+| `EMBEDDING_PROVIDER` | `openai` | Embedding provider: `openai`, `google`, `ollama` |
+| `EMBEDDING_MODEL` | _(provider default)_ | Embedding model override |
+| `ANTHROPIC_API_KEY` | — | Required when `LLM_PROVIDER=anthropic` |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | — | Required when `LLM_PROVIDER=google` or `EMBEDDING_PROVIDER=google` |
+| `OPENAI_API_KEY` | — | Required when `EMBEDDING_PROVIDER=openai` |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Required when using Ollama |
+| `DATABASE_URL` | `postgresql://...@localhost:5434/contract_analyzer` | PostgreSQL connection string |
+| `OTEL_ENABLED` | `true` | Set to `false` to disable telemetry |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTel Collector endpoint |
+| `OTEL_SERVICE_NAME` | `ai-contract-analyzer` | Service name in traces |
+| `SCOUT_CLIENT_ID` / `SCOUT_CLIENT_SECRET` | — | Base14 Scout OAuth credentials |
+
+**Provider defaults:**
+
+| Provider | Capable model | Fast model |
+|---|---|---|
+| Anthropic | `claude-sonnet-4-6` | `claude-haiku-4-5-20251001` |
+| Google | `gemini-2.5-flash` | `gemini-2.0-flash` |
+| Ollama | `llama3.1:8b` | `llama3.2` |
 
 ---
 
 ## Development
 
 ```bash
-make install        # Install dependencies
-make dev            # Run with file watching
-make check          # lint + typecheck + tests
-make test           # Unit tests only
-make test-api       # API smoke tests (server must be running)
-make docker-up      # Start PostgreSQL + OTel Collector
-make docker-down    # Stop and remove containers + volumes
-```
-
-### Running Tests
-
-```bash
-make test
-# or
-vitest run
-
-# With coverage
-vitest run --coverage
+bun run dev          # Run with file watching
+bun run check        # lint + typecheck + tests (42 tests, 11 files)
+bun run test         # Unit tests only
+bun run test:api     # API smoke tests (server must be running)
+docker compose up -d # Start PostgreSQL + OTel Collector
+docker compose down -v
 ```
 
 Tests are fully mocked — no database or API keys required.
 
 ---
 
-## Cost Estimate
+## Project Structure
 
-Per contract analysis (20-page document):
+```
+src/
+├── llm/
+│   └── middleware.ts       # LanguageModelV3Middleware — spans, retry, metrics, fallback  ⭐
+├── pipeline/
+│   ├── orchestrator.ts     # Six-stage pipeline coordinator with trace per stage  ⭐
+│   ├── ingest.ts           # PDF / plain-text parsing, chunking
+│   ├── route.ts            # Document type classification
+│   ├── embed.ts            # Embedding generation (batched)
+│   ├── extract.ts          # CUAD clause extraction with structured output
+│   ├── score.ts            # Risk scoring per clause
+│   └── summarize.ts        # Plain-English summary
+├── routes/
+│   ├── contracts.ts        # POST /api/contracts, GET /api/contracts/:id
+│   ├── query.ts            # POST /api/contracts/:id/query
+│   ├── search.ts           # POST /api/search
+│   └── health.ts           # GET /health
+├── middleware/
+│   └── metrics.ts          # HTTP request duration + count metrics
+├── db/                     # pg query helpers (contracts, chunks, clauses, risks, analyses)
+├── providers.ts            # Model construction — applies middleware, pricing, fallback  ⭐
+├── config.ts               # Typed env var config
+├── telemetry.ts            # OTel SDK setup (traces, metrics, logs)
+└── logger.ts               # Structured JSON logger with trace correlation
 
-| Stage | Model | Typical Cost |
-|---|---|---|
-| Embed | text-embedding-3-small | ~$0.0002 |
-| Extract | claude-sonnet-4-6 | ~$0.031 |
-| Score | claude-haiku-4-5 | ~$0.001 |
-| Summarize | claude-sonnet-4-6 | ~$0.008 |
-| **Total** | | **~$0.040** |
+tests/
+├── llm/middleware.test.ts  # Retry, fallback, pass-through behavioral tests  ⭐
+├── pipeline/               # Orchestrator, extract, score, summarize, ingest, router
+└── routes/                 # contracts, search HTTP handler tests
 
-At 50 contracts/day: ~$2/day, ~$60/month.
+⭐ = Key observability files
+```
+
+---
+
+## Troubleshooting
+
+### No traces in Scout
+
+```bash
+# Check collector is running and accepting data
+docker compose ps
+curl -s -o /dev/null -w "%{http_code}" http://localhost:4318/v1/traces  # expect 405
+
+# Check zpages for pipeline debug
+open http://localhost:55679/debug/tracez
+```
+
+Verify `OTEL_ENABLED` is not `false` and `SCOUT_CLIENT_ID` / `SCOUT_CLIENT_SECRET` are set.
+
+### LLM calls failing
+
+Check the API key for your active provider. The middleware retries 3 times with exponential backoff before throwing, so transient errors won't surface immediately. Set `LLM_PROVIDER_FALLBACK` to route to a secondary provider after retries are exhausted.
+
+### Database connection issues
+
+```bash
+docker compose ps
+docker compose logs postgres
+docker compose exec postgres psql -U postgres -c "SELECT 1;"
+```
+
+The app connects to port `5434` by default (mapped from container port 5432 to avoid conflicts).
 
 ---
 
 ## References
 
-- [Vercel AI SDK — Structured Output](https://sdk.vercel.ai/docs/ai-sdk-core/generating-structured-data)
-- [OpenLLMetry Documentation](https://www.traceloop.com/docs/openllmetry/getting-started-ts)
-- [Hono Documentation](https://hono.dev/)
-- [pgvector for Node.js](https://github.com/pgvector/pgvector-node)
-- [CUAD Dataset](https://www.atticusprojectai.org/cuad)
 - [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+- [Vercel AI SDK — Middleware](https://sdk.vercel.ai/docs/ai-sdk-core/middleware)
+- [Vercel AI SDK — Structured Output](https://sdk.vercel.ai/docs/ai-sdk-core/generating-structured-data)
+- [CUAD Dataset](https://www.atticusprojectai.org/cuad)
+- [pgvector for Node.js](https://github.com/pgvector/pgvector-node)
+- [Base14 Scout Documentation](https://docs.base14.io/)
