@@ -62,7 +62,7 @@
     "ioredis": "^5.9.1",
     "isomorphic-dompurify": "^2.33.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^8.20.1",
+    "mongoose": "^9.2.1",
     "socket.io": "^4.8.1",
     "winston": "^3.17.0",
     "zod": "^4.1.13"
