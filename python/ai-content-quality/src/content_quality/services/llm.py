@@ -89,6 +89,13 @@ PROVIDER_SERVERS: dict[str, str] = {
     "ollama": "localhost",
 }
 
+PROVIDER_PORTS: dict[str, int] = {
+    "openai": 443,
+    "gcp.gemini": 443,
+    "anthropic": 443,
+    "ollama": 11434,
+}
+
 
 def _is_content_capture_enabled() -> bool:
     return (
@@ -184,7 +191,7 @@ def _set_initial_span_attrs(
     span.set_attribute("gen_ai.provider.name", provider)
     if server_address:
         span.set_attribute("server.address", server_address)
-    span.set_attribute("server.port", 443)
+    span.set_attribute("server.port", PROVIDER_PORTS.get(provider, 443))
     span.set_attribute("gen_ai.output.type", "json")
     temperature = getattr(llm, "temperature", None)
     if temperature is not None:
@@ -470,7 +477,7 @@ def _build_common_attrs(
     }
     if server_address:
         attrs["server.address"] = server_address
-        attrs["server.port"] = 443
+        attrs["server.port"] = PROVIDER_PORTS.get(provider, 443)
     return attrs
 
 

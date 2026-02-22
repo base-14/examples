@@ -1105,6 +1105,20 @@ def test_create_llm_unknown_provider_raises() -> None:
         create_llm(provider="unknown_provider")
 
 
+@patch.object(llm_mod, "cost_counter", MagicMock())
+@patch.object(llm_mod, "token_usage", MagicMock())
+@patch.object(llm_mod, "operation_duration", MagicMock())
+async def test_generate_sets_port_11434_for_ollama() -> None:
+    client, tracer, span = _setup_generate_mocks(model_name="llama3.2", provider="ollama")
+
+    with patch.object(llm_mod, "tracer", tracer):
+        await LLMClient._generate_with_retry.__wrapped__(
+            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
+        )
+
+    span.set_attribute.assert_any_call("server.port", 11434)
+
+
 def test_create_llm_ollama_uses_base_url() -> None:
     mock_ollama_cls = MagicMock()
     with patch.dict("sys.modules", {"llama_index.llms.ollama": MagicMock(Ollama=mock_ollama_cls)}):
