@@ -14,6 +14,7 @@ services:
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
     volumes:
       - ./data:/app/data
+      - ../../_shared:/app/_shared:ro
     depends_on:
       postgres:
         condition: service_healthy

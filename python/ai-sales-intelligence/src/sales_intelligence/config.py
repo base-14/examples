@@ -31,9 +31,9 @@ class Settings(BaseSettings):
 
     # LLM Provider Configuration
     llm_provider: LLMProvider = "anthropic"
-    llm_model: str = "claude-sonnet-4-20250514"
+    llm_model: str = "claude-sonnet-4-6"
     fallback_provider: LLMProvider = "google"
-    fallback_model: str = "gemini-3-flash"
+    fallback_model: str = "gemini-2.0-flash"
 
     # LLM API Keys (only the configured provider's key is required)
     anthropic_api_key: str = Field(default="")

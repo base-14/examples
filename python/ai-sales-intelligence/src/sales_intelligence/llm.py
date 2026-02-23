@@ -24,19 +24,21 @@ from sales_intelligence.pii import scrub_completion, scrub_prompt
 
 
 def _load_pricing() -> dict[str, dict[str, float]]:
-    pricing_path = Path(__file__).parents[4] / "_shared" / "pricing.json"
-    try:
-        with pricing_path.open() as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            f"pricing.json not found at {pricing_path}. "
-            "Ensure _shared/pricing.json exists at the repo root."
-        ) from None
-    return {
-        model: {"input": info["input"], "output": info["output"]}
-        for model, info in data["models"].items()
-    }
+    this_file = Path(__file__)
+    for depth in (4, 2):
+        if depth < len(this_file.parents):
+            candidate = this_file.parents[depth] / "_shared" / "pricing.json"
+            if candidate.exists():
+                with candidate.open() as f:
+                    data = json.load(f)
+                return {
+                    model: {"input": info["input"], "output": info["output"]}
+                    for model, info in data["models"].items()
+                }
+    raise FileNotFoundError(
+        "pricing.json not found. Ensure _shared/pricing.json exists at the repo root "
+        "and _shared/ is mounted into the container."
+    )
 
 
 PRICING: dict[str, dict[str, float]] = _load_pricing()
