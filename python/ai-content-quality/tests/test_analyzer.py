@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 
@@ -11,6 +11,7 @@ from content_quality.models.responses import (
     ScoreResult,
 )
 from content_quality.services.analyzer import ContentAnalyzer
+from content_quality.services.llm import LLMClient
 from content_quality.services.prompts import PromptPair
 
 
@@ -19,7 +20,7 @@ MOCK_PROMPT = PromptPair(system="test system", user="test {content}")
 
 @pytest.fixture
 def mock_llm_client() -> MagicMock:
-    return MagicMock()
+    return create_autospec(LLMClient, instance=True)
 
 
 @pytest.fixture
@@ -37,8 +38,8 @@ def analyzer(mock_llm_client: MagicMock) -> ContentAnalyzer:
 async def test_review_returns_review_result(
     analyzer: ContentAnalyzer, mock_llm_client: MagicMock
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ReviewResult(issues=[], summary="No issues", overall_quality="excellent")
+    mock_llm_client.generate_structured.return_value = ReviewResult(
+        issues=[], summary="No issues", overall_quality="excellent"
     )
     result = await analyzer.review("Good content")
     assert isinstance(result, ReviewResult)
@@ -48,8 +49,8 @@ async def test_review_returns_review_result(
 async def test_review_passes_content_type(
     analyzer: ContentAnalyzer, mock_llm_client: MagicMock
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ReviewResult(issues=[], summary="Clean", overall_quality="good")
+    mock_llm_client.generate_structured.return_value = ReviewResult(
+        issues=[], summary="Clean", overall_quality="good"
     )
     await analyzer.review("Content", content_type="technical")
     mock_llm_client.generate_structured.assert_called_once()
@@ -61,8 +62,8 @@ async def test_review_passes_content_type(
 async def test_review_passes_system_prompt(
     analyzer: ContentAnalyzer, mock_llm_client: MagicMock
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ReviewResult(issues=[], summary="OK", overall_quality="good")
+    mock_llm_client.generate_structured.return_value = ReviewResult(
+        issues=[], summary="OK", overall_quality="good"
     )
     await analyzer.review("Content")
     call_kwargs = mock_llm_client.generate_structured.call_args
@@ -72,11 +73,9 @@ async def test_review_passes_system_prompt(
 async def test_improve_returns_improve_result(
     analyzer: ContentAnalyzer, mock_llm_client: MagicMock
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ImproveResult(
-            suggestions=[ImprovementSuggestion(original="bad", improved="good", reason="clarity")],
-            summary="One fix",
-        )
+    mock_llm_client.generate_structured.return_value = ImproveResult(
+        suggestions=[ImprovementSuggestion(original="bad", improved="good", reason="clarity")],
+        summary="One fix",
     )
     result = await analyzer.improve("Some content")
     assert isinstance(result, ImproveResult)
@@ -86,8 +85,8 @@ async def test_improve_returns_improve_result(
 async def test_improve_passes_content_type(
     analyzer: ContentAnalyzer, mock_llm_client: MagicMock
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ImproveResult(suggestions=[], summary="Good")
+    mock_llm_client.generate_structured.return_value = ImproveResult(
+        suggestions=[], summary="Good"
     )
     await analyzer.improve("Content", content_type="marketing")
     call_kwargs = mock_llm_client.generate_structured.call_args
@@ -98,12 +97,10 @@ async def test_improve_passes_content_type(
 async def test_score_returns_score_result(
     analyzer: ContentAnalyzer, mock_llm_client: MagicMock
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ScoreResult(
-            score=75,
-            breakdown=ScoreBreakdown(clarity=80, accuracy=70, engagement=75, originality=72),
-            summary="Decent",
-        )
+    mock_llm_client.generate_structured.return_value = ScoreResult(
+        score=75,
+        breakdown=ScoreBreakdown(clarity=80, accuracy=70, engagement=75, originality=72),
+        summary="Decent",
     )
     result = await analyzer.score("Content to score")
     assert isinstance(result, ScoreResult)
@@ -111,12 +108,10 @@ async def test_score_returns_score_result(
 
 
 async def test_score_passes_endpoint(analyzer: ContentAnalyzer, mock_llm_client: MagicMock) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ScoreResult(
-            score=50,
-            breakdown=ScoreBreakdown(clarity=50, accuracy=50, engagement=50, originality=50),
-            summary="Average",
-        )
+    mock_llm_client.generate_structured.return_value = ScoreResult(
+        score=50,
+        breakdown=ScoreBreakdown(clarity=50, accuracy=50, engagement=50, originality=50),
+        summary="Average",
     )
     await analyzer.score("Content", content_type="blog")
     call_kwargs = mock_llm_client.generate_structured.call_args
@@ -128,15 +123,13 @@ async def test_review_emits_evaluation_event(
     analyzer: ContentAnalyzer,
     mock_llm_client: MagicMock,
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ReviewResult(
-            issues=[
-                ContentIssue(type="hyperbole", description="Exaggerated", severity="high"),
-                ContentIssue(type="grammar", description="Typo", severity="low"),
-            ],
-            summary="Issues found",
-            overall_quality="fair",
-        )
+    mock_llm_client.generate_structured.return_value = ReviewResult(
+        issues=[
+            ContentIssue(type="hyperbole", description="Exaggerated", severity="high"),
+            ContentIssue(type="grammar", description="Typo", severity="low"),
+        ],
+        summary="Issues found",
+        overall_quality="fair",
     )
 
     with (
@@ -163,12 +156,10 @@ async def test_score_emits_evaluation_event(
     analyzer: ContentAnalyzer,
     mock_llm_client: MagicMock,
 ) -> None:
-    mock_llm_client.generate_structured = AsyncMock(
-        return_value=ScoreResult(
-            score=45,
-            breakdown=ScoreBreakdown(clarity=50, accuracy=40, engagement=45, originality=42),
-            summary="Below average",
-        )
+    mock_llm_client.generate_structured.return_value = ScoreResult(
+        score=45,
+        breakdown=ScoreBreakdown(clarity=50, accuracy=40, engagement=45, originality=42),
+        summary="Below average",
     )
 
     with (

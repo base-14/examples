@@ -25,6 +25,8 @@ services:
       - IMPROVE_PROMPT_VERSION=${IMPROVE_PROMPT_VERSION:-v1}
       - SCORE_PROMPT_VERSION=${SCORE_PROMPT_VERSION:-v1}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    volumes:
+      - ../../_shared:/app/_shared:ro
     depends_on:
       otel-collector:
         condition: service_started

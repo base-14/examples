@@ -157,8 +157,8 @@ if [ "${SKIP_REQUESTS:-}" != "1" ]; then
   echo "  $(green "sent") GET /health"
 
   echo ""
-  echo "  $(dim "Waiting 15s for batch export to collector...")"
-  sleep 15
+  echo "  $(dim "Waiting 30s for batch export to collector...")"
+  sleep 30
 fi
 
 # ---------------------------------------------------------------------------
@@ -167,14 +167,14 @@ fi
 if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
   echo ""
   echo "$(cyan "=== 3. Collector Debug Log Verification ===")"
-  echo "$(dim "    Checking last 500 lines of collector logs for expected telemetry")"
+  echo "$(dim "    Checking last 3 minutes of collector logs for expected telemetry")"
   echo ""
 
-  LOGS=$(docker compose logs otel-collector --tail=500 --no-log-prefix 2>/dev/null || echo "")
+  LOGS=$(docker compose logs otel-collector --since=3m --no-log-prefix 2>/dev/null || echo "")
 
   if [ -z "$LOGS" ]; then
     echo "  $(yellow "WARN: Could not read collector logs. Are you in the project directory?")"
-    echo "  $(dim  "       Try: cd $(pwd) && docker compose logs otel-collector --tail=100")"
+    echo "  $(dim  "       Try: cd $(pwd) && docker compose logs otel-collector --since=3m")"
   else
     # --- Spans ---
     echo "  $(dim "--- Trace Spans ---")"
@@ -197,8 +197,9 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
 
     # --- Span events ---
     echo "  $(dim "--- Span Events ---")"
-    warn_log  "Event: gen_ai.client.inference.operation.details" "gen_ai.client.inference.operation.details" "$LOGS"
-    warn_log  "Event: gen_ai.evaluation.result"  "gen_ai.evaluation.result" "$LOGS"
+    warn_log  "Event: gen_ai.user.message"        "gen_ai.user.message"       "$LOGS"
+    warn_log  "Event: gen_ai.assistant.message"   "gen_ai.assistant.message"  "$LOGS"
+    warn_log  "Event: gen_ai.evaluation.result"   "gen_ai.evaluation.result"  "$LOGS"
 
     # --- PII scrubbing (should NOT appear in logs) ---
     echo "  $(dim "--- PII Scrubbing (should be absent) ---")"
@@ -263,7 +264,7 @@ echo "  $(cyan "Trace Explorer:")"
 echo "    [ ] Traces show nested spans: HTTP → chat {model} → LlamaIndex"
 echo "    [ ] chat spans have content.type, content.length, server.address attributes"
 echo "    [ ] chat spans have gen_ai.request.temperature attribute"
-echo "    [ ] gen_ai.client.inference.operation.details event shows [EMAIL] not raw emails"
+echo "    [ ] gen_ai.user.message / gen_ai.assistant.message events present on chat spans"
 echo "    [ ] Event content fields are truncated to ~500 chars"
 echo "    [ ] 422 error traces have error.type=RequestValidationError and ERROR status"
 echo "    [ ] 404 error traces have error status on HTTP span"
