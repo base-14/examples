@@ -15,10 +15,12 @@ def test_settings_defaults():
     assert settings.app_name == "ai-sales-intelligence"
     assert settings.debug is False
     assert settings.log_level == "INFO"
-    assert settings.llm_provider == "anthropic"
-    assert settings.llm_model == "claude-sonnet-4-20250514"
-    assert settings.fallback_provider == "google"
-    assert settings.fallback_model == "gemini-3-flash"
+    assert settings.llm_provider == "google"
+    assert settings.llm_model_capable == "gemini-2.5-pro"
+    assert settings.llm_model_fast == "gemini-2.5-flash"
+    assert settings.fallback_provider == "anthropic"
+    assert settings.fallback_model == "claude-haiku-4-5-20251001"
+    assert settings.ollama_base_url == "http://localhost:11434"
     assert settings.otel_service_name == "ai-sales-intelligence"
 
 
@@ -51,3 +53,27 @@ def test_get_settings_cached():
     settings2 = get_settings()
 
     assert settings1 is settings2
+
+
+def test_ollama_is_valid_provider():
+    """ollama is accepted as a valid LLM_PROVIDER value."""
+    os.environ["LLM_PROVIDER"] = "ollama"
+    try:
+        from sales_intelligence.config import Settings
+
+        settings = Settings()
+        assert settings.llm_provider == "ollama"
+    finally:
+        os.environ.pop("LLM_PROVIDER", None)
+
+
+def test_ollama_base_url_from_env():
+    """OLLAMA_BASE_URL env var is picked up by settings."""
+    os.environ["OLLAMA_BASE_URL"] = "http://host.docker.internal:11434"
+    try:
+        from sales_intelligence.config import Settings
+
+        settings = Settings()
+        assert settings.ollama_base_url == "http://host.docker.internal:11434"
+    finally:
+        os.environ.pop("OLLAMA_BASE_URL", None)

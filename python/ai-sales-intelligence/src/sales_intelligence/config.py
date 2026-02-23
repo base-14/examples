@@ -7,7 +7,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-LLMProvider = Literal["anthropic", "google", "openai"]
+LLMProvider = Literal["anthropic", "google", "openai", "ollama"]
 
 
 class Settings(BaseSettings):
@@ -30,10 +30,14 @@ class Settings(BaseSettings):
     )
 
     # LLM Provider Configuration
-    llm_provider: LLMProvider = "anthropic"
-    llm_model: str = "claude-sonnet-4-6"
-    fallback_provider: LLMProvider = "google"
-    fallback_model: str = "gemini-2.0-flash"
+    llm_provider: LLMProvider = "google"
+    llm_model_capable: str = "gemini-2.5-pro"
+    llm_model_fast: str = "gemini-2.5-flash"
+    fallback_provider: LLMProvider = "anthropic"
+    fallback_model: str = "claude-haiku-4-5-20251001"
+
+    # Ollama (used when llm_provider=ollama or fallback_provider=ollama)
+    ollama_base_url: str = "http://localhost:11434"
 
     # LLM API Keys (only the configured provider's key is required)
     anthropic_api_key: str = Field(default="")

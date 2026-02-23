@@ -78,6 +78,7 @@ async def evaluate_agent(state: AgentState) -> AgentState:
                     response = await llm.generate(
                         prompt=user_prompt,
                         system=system_prompt,
+                        model=llm.model_fast,
                         agent_name="evaluate",
                         campaign_id=state.campaign_id,
                     )

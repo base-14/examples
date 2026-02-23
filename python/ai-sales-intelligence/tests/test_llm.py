@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sales_intelligence.llm import PRICING, LLMClient, _calculate_cost
+from sales_intelligence.llm import PRICING, PROVIDER_PORTS, LLMClient, _calculate_cost
 
 
 class TestCostCalculation:
@@ -28,20 +28,73 @@ class TestCostCalculation:
         assert cost == 0.0
 
 
+class TestProviderPorts:
+    def test_ollama_port_is_11434(self):
+        assert PROVIDER_PORTS["ollama"] == 11434
+
+    def test_cloud_providers_use_443(self):
+        assert PROVIDER_PORTS["anthropic"] == 443
+        assert PROVIDER_PORTS["google"] == 443
+        assert PROVIDER_PORTS["openai"] == 443
+
+
+class TestOllamaProvider:
+    async def test_generate_returns_content(self):
+        """OllamaProvider generates via OpenAI-compatible endpoint."""
+        from sales_intelligence.llm import OllamaProvider
+
+        with patch("openai.AsyncOpenAI") as mock_cls:
+            mock_response = MagicMock()
+            mock_response.choices = [
+                MagicMock(
+                    message=MagicMock(content="Ollama says hi"),
+                    finish_reason="stop",
+                )
+            ]
+            mock_response.usage = MagicMock(prompt_tokens=8, completion_tokens=4)
+            mock_response.model = "qwen3:8b"
+            mock_response.id = "ollama-123"
+            mock_cls.return_value.chat.completions.create = AsyncMock(return_value=mock_response)
+
+            provider = OllamaProvider(api_key="", base_url="http://localhost:11434")
+            result = await provider.generate(
+                model="qwen3:8b",
+                system="You help.",
+                prompt="Hello",
+                temperature=0.5,
+                max_tokens=256,
+            )
+
+        assert result.content == "Ollama says hi"
+        assert result.input_tokens == 8
+        assert result.output_tokens == 4
+        assert result.model == "qwen3:8b"
+
+    def test_factory_creates_ollama_provider(self):
+        """_create_provider returns OllamaProvider for 'ollama'."""
+        from sales_intelligence.llm import OllamaProvider, _create_provider
+
+        with patch("openai.AsyncOpenAI"):
+            provider = _create_provider("ollama", api_key="", base_url="http://localhost:11434")
+        assert isinstance(provider, OllamaProvider)
+
+
 class TestLLMClient:
     @pytest.fixture
     def mock_settings(self):
         with patch("sales_intelligence.llm.get_settings") as mock:
             settings = MagicMock()
             settings.llm_provider = "anthropic"
-            settings.llm_model = "claude-sonnet-4-20250514"
+            settings.llm_model_capable = "claude-sonnet-4-6"
+            settings.llm_model_fast = "claude-haiku-4-5-20251001"
             settings.fallback_provider = "google"
-            settings.fallback_model = "gemini-3-flash"
+            settings.fallback_model = "gemini-2.5-flash"
             settings.default_temperature = 0.7
             settings.default_max_tokens = 1024
             settings.anthropic_api_key = "test-key"
             settings.google_api_key = "test-key"
             settings.openai_api_key = "test-key"
+            settings.ollama_base_url = "http://localhost:11434"
             mock.return_value = settings
             yield settings
 
@@ -55,11 +108,16 @@ class TestLLMClient:
         with patch("google.genai.Client") as mock:
             yield mock
 
+    def test_client_exposes_model_capable_and_fast(self, mock_settings):
+        client = LLMClient()
+        assert client.model_capable == "claude-sonnet-4-6"
+        assert client.model_fast == "claude-haiku-4-5-20251001"
+
     async def test_generate_anthropic(self, mock_settings, mock_anthropic, mock_google):
         mock_response = MagicMock()
         mock_response.content = [MagicMock(text="Hello world")]
         mock_response.usage = MagicMock(input_tokens=10, output_tokens=5)
-        mock_response.model = "claude-sonnet-4-20250514"
+        mock_response.model = "claude-sonnet-4-6"
         mock_response.id = "msg_123"
         mock_response.stop_reason = "end_turn"
 
@@ -84,7 +142,7 @@ class TestLLMClient:
 
         client = LLMClient()
         result = await client.generate(
-            prompt="Say hello", provider="google", model="gemini-3-flash"
+            prompt="Say hello", provider="google", model="gemini-2.5-flash"
         )
 
         assert result == "Hello from Google"
@@ -123,7 +181,7 @@ class TestLLMClient:
         mock_response = MagicMock()
         mock_response.content = [MagicMock(text="Response")]
         mock_response.usage = MagicMock(input_tokens=10, output_tokens=5)
-        mock_response.model = "claude-sonnet-4-20250514"
+        mock_response.model = "claude-sonnet-4-6"
         mock_response.id = "msg_123"
         mock_response.stop_reason = "end_turn"
 

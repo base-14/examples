@@ -69,6 +69,7 @@ async def score_agent(state: AgentState) -> AgentState:
                     response = await llm.generate(
                         prompt=user_prompt,
                         system=system_prompt,
+                        model=llm.model_fast,
                         agent_name="score",
                         campaign_id=state.campaign_id,
                     )

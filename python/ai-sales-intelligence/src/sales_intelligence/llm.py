@@ -48,6 +48,15 @@ PROVIDER_SERVERS: dict[LLMProvider, str] = {
     "anthropic": "api.anthropic.com",
     "google": "generativelanguage.googleapis.com",
     "openai": "api.openai.com",
+    "ollama": "localhost",
+}
+
+# Provider ports for OTel server.port attribute
+PROVIDER_PORTS: dict[LLMProvider, int] = {
+    "anthropic": 443,
+    "google": 443,
+    "openai": 443,
+    "ollama": 11434,
 }
 
 tracer = trace.get_tracer("gen_ai.client")
@@ -306,8 +315,57 @@ class OpenAIProvider(BaseLLMProvider):
         )
 
 
-def _create_provider(provider: LLMProvider, api_key: str) -> BaseLLMProvider:
+class OllamaProvider(BaseLLMProvider):
+    """Ollama local model provider (OpenAI-compatible API)."""
+
+    provider_name: LLMProvider = "ollama"
+    server_address: str = PROVIDER_SERVERS["ollama"]
+
+    def __init__(self, api_key: str, base_url: str = "http://localhost:11434") -> None:
+        from openai import AsyncOpenAI
+
+        self._client = AsyncOpenAI(api_key=api_key or "ollama", base_url=base_url)
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        before_sleep=_on_retry,
+    )
+    async def generate(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> LLMResponse:
+        response = await self._client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        choice = response.choices[0] if response.choices else None
+        content = choice.message.content if choice and choice.message else ""
+        finish_reason = choice.finish_reason if choice else None
+        usage = response.usage
+        return LLMResponse(
+            content=content or "",
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=response.model,
+            response_id=response.id,
+            finish_reason=finish_reason,
+        )
+
+
+def _create_provider(provider: LLMProvider, api_key: str, base_url: str = "") -> BaseLLMProvider:
     """Factory to create provider instance."""
+    if provider == "ollama":
+        return OllamaProvider(api_key=api_key, base_url=base_url or "http://localhost:11434")
     providers: dict[LLMProvider, type[BaseLLMProvider]] = {
         "anthropic": AnthropicProvider,
         "google": GoogleProvider,
@@ -323,6 +381,7 @@ def _get_api_key(provider: LLMProvider) -> str:
         "anthropic": settings.anthropic_api_key,
         "google": settings.google_api_key,
         "openai": settings.openai_api_key,
+        "ollama": "",
     }
     return keys[provider]
 
@@ -346,18 +405,20 @@ class LLMClient:
     def __init__(self) -> None:
         settings = get_settings()
         self._primary_provider = settings.llm_provider
-        self._primary_model = settings.llm_model
+        self.model_capable = settings.llm_model_capable
+        self.model_fast = settings.llm_model_fast
         self._fallback_provider = settings.fallback_provider
         self._fallback_model = settings.fallback_model
         self._temperature = settings.default_temperature
         self._max_tokens = settings.default_max_tokens
+        self._ollama_base_url = settings.ollama_base_url
         self._providers: dict[LLMProvider, BaseLLMProvider] = {}
 
     def _get_provider(self, provider: LLMProvider) -> BaseLLMProvider:
         """Lazy-load provider instance."""
         if provider not in self._providers:
             api_key = _get_api_key(provider)
-            self._providers[provider] = _create_provider(provider, api_key)
+            self._providers[provider] = _create_provider(provider, api_key, self._ollama_base_url)
         return self._providers[provider]
 
     async def generate(
@@ -389,7 +450,7 @@ class LLMClient:
             Generated text content
         """
         provider = provider or self._primary_provider
-        model = model or self._primary_model
+        model = model or self.model_capable
         temperature = temperature if temperature is not None else self._temperature
         max_tokens = max_tokens or self._max_tokens
 
@@ -407,8 +468,9 @@ class LLMClient:
             span.set_attribute("gen_ai.request.model", model)
 
             # === RECOMMENDED attributes ===
-            # server.address helps identify which endpoint was called
+            # server.address/port identify which endpoint was called
             span.set_attribute("server.address", llm_provider.server_address)
+            span.set_attribute("server.port", PROVIDER_PORTS[provider])
             span.set_attribute("gen_ai.request.temperature", temperature)
             span.set_attribute("gen_ai.request.max_tokens", max_tokens)
 
@@ -550,6 +612,7 @@ class LLMClient:
 
         # === RECOMMENDED ===
         base_attrs["server.address"] = PROVIDER_SERVERS[provider]
+        base_attrs["server.port"] = PROVIDER_PORTS[provider]
         base_attrs["gen_ai.response.model"] = response.model
 
         # Token usage histogram - separate input/output for analysis
