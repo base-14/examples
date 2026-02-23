@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { anthropic } from "@ai-sdk/anthropic";
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import {
@@ -44,6 +44,10 @@ const PROVIDER_META: Record<string, { semconvName: string; serverAddress: string
   openai: { semconvName: "openai", serverAddress: "api.openai.com" },
   ollama: { semconvName: "ollama", serverAddress: "localhost" },
 };
+
+const googleV1 = createGoogleGenerativeAI({
+  baseURL: "https://generativelanguage.googleapis.com/v1",
+});
 
 // Pricing per million tokens (USD) — loaded from _shared/pricing.json
 // Single source of truth shared across all AI examples in this repo.
@@ -160,7 +164,7 @@ export function getEmbeddingModel(): EmbeddingDescriptor {
       // providerOptions.google.outputDimensionality reduces gemini-embedding-001 (3072-dim)
       // to 768 to match the pgvector column dimension.
       model: wrapEmbeddingModel({
-        model: google.textEmbeddingModel(modelName),
+        model: googleV1.textEmbeddingModel(modelName),
         middleware: defaultEmbeddingSettingsMiddleware({
           settings: {
             providerOptions: { google: { outputDimensionality: EMBEDDING_DIMENSIONS } },

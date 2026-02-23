@@ -21,4 +21,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["bun", "run", "--preload", "./src/telemetry.ts", "src/index.ts"]

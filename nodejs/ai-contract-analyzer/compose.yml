@@ -21,6 +21,7 @@ services:
       - PORT=3000
     volumes:
       - ./data:/app/data
+      - ../../_shared:/_shared:ro
     depends_on:
       postgres:
         condition: service_healthy
