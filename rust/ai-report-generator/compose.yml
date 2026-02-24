@@ -1,0 +1,75 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: rust/ai-report-generator/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_PORT=8080
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/report_generator?sslmode=disable
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-gpt-4.1}
+      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-gpt-4.1-mini}
+      - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-anthropic}
+      - FALLBACK_MODEL=${FALLBACK_MODEL:-claude-haiku-4-5-20251001}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - OTEL_SERVICE_NAME=ai-report-generator
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+      - DEFAULT_TEMPERATURE=${DEFAULT_TEMPERATURE:-0.3}
+      - DEFAULT_MAX_TOKENS=${DEFAULT_MAX_TOKENS:-4096}
+    volumes:
+      - ../../_shared:/_shared:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: report_generator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.146.1
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+      - "55679:55679"
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+
+volumes:
+  pgdata:
