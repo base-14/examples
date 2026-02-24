@@ -1,0 +1,7 @@
+ai-data-analyst
+*.exe
+*.test
+*.out
+.env
+vendor/
+tmp/

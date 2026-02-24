@@ -14,6 +14,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Next.js** | Next.js 16 + TypeScript + MongoDB | [nextjs-api-mongodb](./nodejs/nextjs-api-mongodb) | BullMQ jobs, Mongoose, auto-instrumentation |
 | **Fastify** | Fastify 5 + TypeScript + PostgreSQL 18 | [fastify-postgres](./nodejs/fastify-postgres) | Drizzle ORM, BullMQ jobs, Pino logging |
 | **Express (Legacy)** | Express + TypeScript + MongoDB | [express-typescript-mongodb](./nodejs/express-typescript-mongodb) | MongoDB integration, Redis |
+| **AI Contract Analyzer** | Bun + Hono + Vercel AI SDK | [ai-contract-analyzer](./nodejs/ai-contract-analyzer) | GenAI observability, OpenLLMetry, multi-provider |
 
 ### Python
 
@@ -35,6 +36,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Echo + Temporal** | Echo 4 + Temporal + PostgreSQL 18 | [go-temporal-postgres](./go/go-temporal-postgres) | Workflow orchestration, microservice workers, simulation framework |
 | **Chi** | Chi + In-memory storage | [chi-inmemory](./go/chi-inmemory) | Custom instrumentation |
 | **Gin (Legacy)** | Gin 1.9.1 + PostgreSQL 14 | [go119-gin191-postgres](./go/go119-gin191-postgres) | Legacy Go 1.19 support |
+| **AI Data Analyst** | Chi + Direct OpenAI API + Native OTel SDK | [ai-data-analyst](./go/ai-data-analyst) | NL-to-SQL pipeline, GenAI observability, multi-provider |
 
 ### Java
 
