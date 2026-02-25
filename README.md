@@ -75,6 +75,7 @@ Production-ready examples for integrating OpenTelemetry with
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
 | **Axum** | Axum + SQLx + PostgreSQL 18 | [axum-postgres](./rust/axum-postgres) | JWT auth, PostgreSQL-native job queue, custom spans |
+| **AI Report Generator** | Axum + async-openai + PostgreSQL | [ai-report-generator](./rust/ai-report-generator) | GenAI observability, economic report pipeline, multi-provider |
 
 ### C\#
 

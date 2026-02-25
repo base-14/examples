@@ -7,6 +7,7 @@ OpenTelemetry instrumentation examples for Rust applications.
 | Project | Description |
 | ------- | ----------- |
 | [axum-postgres](./axum-postgres) | Axum + SQLx + PostgreSQL 18 with JWT auth, PostgreSQL-native job queue, custom spans, and full OTel instrumentation |
+| [ai-report-generator](./ai-report-generator) | Rust 1.92 + Axum + async-openai + PostgreSQL with economic report pipeline, multi-provider LLM (OpenAI/Google/Anthropic/Ollama), and GenAI observability |
 
 ## Contributing
 

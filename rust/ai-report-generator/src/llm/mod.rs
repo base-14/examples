@@ -23,6 +23,7 @@ pub struct GenerateResponse {
     pub output_tokens: u32,
     pub cost_usd: f64,
     pub finish_reason: String,
+    pub provider: String,
 }
 
 #[async_trait::async_trait]

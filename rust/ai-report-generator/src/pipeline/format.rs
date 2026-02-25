@@ -36,7 +36,6 @@ pub struct FormatParams<'a> {
     pub end_date: NaiveDate,
     pub duration: Duration,
     pub trace_id: String,
-    pub provider_name: &'a str,
 }
 
 #[tracing::instrument(
@@ -54,6 +53,11 @@ pub fn format_report(params: FormatParams<'_>) -> Result<Report, AppError> {
         + params.narrative.input_tokens
         + params.narrative.output_tokens;
 
+    let mut providers_used = vec![params.analysis.provider.clone()];
+    if params.narrative.provider != params.analysis.provider {
+        providers_used.push(params.narrative.provider.clone());
+    }
+
     let span = tracing::Span::current();
     span.record("report.title", &params.narrative.title);
     span.record("report.sections_count", params.narrative.sections.len());
@@ -69,7 +73,7 @@ pub fn format_report(params: FormatParams<'_>) -> Result<Report, AppError> {
         total_data_points: params.retrieve_result.total_data_points,
         total_tokens,
         total_cost_usd: params.analysis.cost_usd + params.narrative.cost_usd,
-        providers_used: vec![params.provider_name.to_string()],
+        providers_used,
         generation_duration_ms: params.duration.as_millis() as u64,
         trace_id: params.trace_id,
     })
@@ -99,6 +103,7 @@ mod tests {
             input_tokens: 500,
             output_tokens: 200,
             cost_usd: 0.01,
+            provider: "openai".to_string(),
         };
         let narrative = NarrativeResult {
             title: "Economic Overview 2023".to_string(),
@@ -116,6 +121,7 @@ mod tests {
             input_tokens: 800,
             output_tokens: 400,
             cost_usd: 0.02,
+            provider: "openai".to_string(),
         };
 
         let report = format_report(FormatParams {
@@ -127,7 +133,6 @@ mod tests {
             end_date: NaiveDate::from_ymd_opt(2023, 12, 31).unwrap(),
             duration: Duration::from_millis(5400),
             trace_id: "abc123trace".to_string(),
-            provider_name: "openai",
         })
         .unwrap();
 

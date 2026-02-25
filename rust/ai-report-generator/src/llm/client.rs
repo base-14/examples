@@ -74,6 +74,7 @@ impl LlmClient {
 
         match result {
             Ok(mut resp) => {
+                resp.provider = provider_name.to_string();
                 resp.cost_usd = calculate_cost(&resp.model, resp.input_tokens, resp.output_tokens);
 
                 span.record("gen_ai.response.model", resp.model.as_str());
@@ -127,7 +128,7 @@ impl LlmClient {
             }
             Err(err) => {
                 span.record("otel.status_code", "ERROR");
-                span.record("error.type", err.to_string().as_str());
+                span.record("error.type", classify_error(&err));
 
                 GEN_AI_ERROR_COUNT.add(
                     1,
@@ -177,8 +178,11 @@ impl LlmClient {
                     last_err = Some(err);
 
                     if attempt < max_retries - 1 {
-                        let delay = Duration::from_secs(1) * 2u32.pow(attempt);
-                        let delay = delay.min(Duration::from_secs(10));
+                        let base = Duration::from_secs(1) * 2u32.pow(attempt);
+                        let base = base.min(Duration::from_secs(10));
+                        // 25% jitter to avoid thundering herd
+                        let jitter_ms = fastrand::u64(0..=base.as_millis() as u64 / 4);
+                        let delay = base + Duration::from_millis(jitter_ms);
                         tokio::time::sleep(delay).await;
                     }
                 }
@@ -229,6 +233,37 @@ impl LlmClient {
     }
 }
 
+fn classify_error(err: &anyhow::Error) -> &'static str {
+    let msg = err.to_string().to_lowercase();
+    if msg.contains("rate limit") || msg.contains("429") {
+        "rate_limit"
+    } else if msg.contains("timeout") || msg.contains("timed out") || msg.contains("deadline") {
+        "timeout"
+    } else if msg.contains("401")
+        || msg.contains("403")
+        || msg.contains("auth")
+        || msg.contains("api key")
+    {
+        "auth_error"
+    } else if msg.contains("400") || msg.contains("422") || msg.contains("invalid") {
+        "invalid_request"
+    } else if msg.contains("500")
+        || msg.contains("502")
+        || msg.contains("503")
+        || msg.contains("server")
+    {
+        "server_error"
+    } else if msg.contains("connect")
+        || msg.contains("dns")
+        || msg.contains("network")
+        || msg.contains("reset")
+    {
+        "network_error"
+    } else {
+        "unknown_error"
+    }
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
@@ -243,6 +278,39 @@ fn truncate(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_classify_error_categories() {
+        let cases = vec![
+            ("rate limit exceeded", "rate_limit"),
+            ("status 429: too many requests", "rate_limit"),
+            ("context deadline exceeded: timeout", "timeout"),
+            ("request timed out", "timeout"),
+            ("401 unauthorized", "auth_error"),
+            ("403 forbidden", "auth_error"),
+            ("authentication failed", "auth_error"),
+            ("invalid api key", "auth_error"),
+            ("400 bad request", "invalid_request"),
+            ("422 unprocessable entity", "invalid_request"),
+            ("invalid model name", "invalid_request"),
+            ("500 internal server error", "server_error"),
+            ("502 bad gateway", "server_error"),
+            ("503 service unavailable", "server_error"),
+            ("connection refused", "network_error"),
+            ("dns resolution failed", "network_error"),
+            ("connection reset by peer", "network_error"),
+            ("something unexpected", "unknown_error"),
+        ];
+
+        for (msg, expected) in cases {
+            let err = anyhow::anyhow!("{}", msg);
+            assert_eq!(
+                classify_error(&err),
+                expected,
+                "classify_error({msg:?}) should be {expected:?}"
+            );
+        }
+    }
 
     #[test]
     fn test_truncate_short() {

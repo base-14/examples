@@ -53,7 +53,7 @@ pub async fn create_report(
         &state.pool,
         &state.llm_client,
         &state.config.llm_model_capable,
-        &state.config.llm_provider,
+        &state.config.llm_model_fast,
         &request,
     )
     .await?;

@@ -55,6 +55,7 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
 dotenvy = "0.15"
+fastrand = "2"
 async-trait = "0.1"
 
 [dev-dependencies]

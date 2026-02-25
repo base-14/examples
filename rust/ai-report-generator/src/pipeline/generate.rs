@@ -14,6 +14,7 @@ pub struct NarrativeResult {
     pub input_tokens: u32,
     pub output_tokens: u32,
     pub cost_usd: f64,
+    pub provider: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,12 +86,14 @@ pub async fn generate(
         .await
         .map_err(|e| AppError::Llm(e.to_string()))?;
 
-    let narrative = parse_narrative_response(
+    let provider = resp.provider.clone();
+    let mut narrative = parse_narrative_response(
         &resp.content,
         resp.input_tokens,
         resp.output_tokens,
         resp.cost_usd,
     )?;
+    narrative.provider = provider;
 
     let span = tracing::Span::current();
     span.record("narrative.title", &narrative.title);
@@ -124,6 +127,7 @@ fn parse_narrative_response(
             input_tokens,
             output_tokens,
             cost_usd,
+            provider: String::new(),
         }),
         Err(_) => Ok(NarrativeResult {
             title: "Economic Report".to_string(),
@@ -135,6 +139,7 @@ fn parse_narrative_response(
             input_tokens,
             output_tokens,
             cost_usd,
+            provider: String::new(),
         }),
     }
 }
@@ -153,6 +158,7 @@ mod tests {
         assert_eq!(result.sections[0].heading, "GDP");
         assert_eq!(result.input_tokens, 500);
         assert_eq!(result.output_tokens, 300);
+        assert!(result.provider.is_empty());
     }
 
     #[test]

@@ -95,6 +95,7 @@ impl Provider for OpenAIProvider {
             output_tokens,
             cost_usd: 0.0,
             finish_reason,
+            provider: String::new(),
         })
     }
 

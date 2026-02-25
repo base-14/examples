@@ -126,6 +126,7 @@ impl Provider for AnthropicProvider {
             output_tokens: resp.usage.output_tokens,
             cost_usd: 0.0,
             finish_reason: resp.stop_reason.unwrap_or_default(),
+            provider: String::new(),
         })
     }
 

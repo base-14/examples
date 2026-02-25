@@ -21,6 +21,7 @@ dependencies = [
  "axum",
  "chrono",
  "dotenvy",
+ "fastrand",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",

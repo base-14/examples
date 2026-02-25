@@ -74,10 +74,12 @@ mod tests {
 
     #[test]
     fn test_calculate_cost_known_model() {
+        assert!(
+            PRICING.contains_key("gpt-4.1"),
+            "pricing.json must contain gpt-4.1"
+        );
         let cost = calculate_cost("gpt-4.1", 1_000_000, 1_000_000);
-        if PRICING.contains_key("gpt-4.1") {
-            assert!(cost > 0.0, "cost should be positive for known model");
-        }
+        assert!(cost > 0.0, "cost should be positive for known model");
     }
 
     #[test]

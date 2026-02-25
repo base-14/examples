@@ -32,7 +32,7 @@ pub async fn generate_report(
     pool: &PgPool,
     llm_client: &LlmClient,
     model_capable: &str,
-    provider_name: &str,
+    model_fast: &str,
     request: &ReportRequest,
 ) -> Result<Report, AppError> {
     let start = std::time::Instant::now();
@@ -51,8 +51,8 @@ pub async fn generate_report(
     )
     .await?;
 
-    // Stage 2: Analyze trends via LLM (capable model)
-    let analysis = analyze::analyze(llm_client, model_capable, &data.indicators).await?;
+    // Stage 2: Analyze trends via LLM (fast model)
+    let analysis = analyze::analyze(llm_client, model_fast, &data.indicators).await?;
 
     // Stage 3: Generate narrative via LLM (capable model)
     let narrative =
@@ -69,7 +69,6 @@ pub async fn generate_report(
         end_date: request.end_date,
         duration,
         trace_id,
-        provider_name,
     })?;
 
     // Persist to database

@@ -13,6 +13,7 @@ pub struct AnalysisResult {
     pub input_tokens: u32,
     pub output_tokens: u32,
     pub cost_usd: f64,
+    pub provider: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,12 +95,14 @@ pub async fn analyze(
         .await
         .map_err(|e| AppError::Llm(e.to_string()))?;
 
-    let analysis = parse_analysis_response(
+    let provider = resp.provider.clone();
+    let mut analysis = parse_analysis_response(
         &resp.content,
         resp.input_tokens,
         resp.output_tokens,
         resp.cost_usd,
     )?;
+    analysis.provider = provider;
 
     let span = tracing::Span::current();
     span.record("analysis.trends_found", analysis.trends.len());
@@ -131,6 +134,7 @@ fn parse_analysis_response(
             input_tokens,
             output_tokens,
             cost_usd,
+            provider: String::new(),
         }),
         Err(_) => Ok(AnalysisResult {
             trends: vec![],
@@ -139,6 +143,7 @@ fn parse_analysis_response(
             input_tokens,
             output_tokens,
             cost_usd,
+            provider: String::new(),
         }),
     }
 }
@@ -216,6 +221,7 @@ mod tests {
         assert_eq!(result.key_findings.len(), 1);
         assert_eq!(result.input_tokens, 100);
         assert_eq!(result.output_tokens, 50);
+        assert!(result.provider.is_empty());
     }
 
     #[test]
@@ -227,6 +233,7 @@ mod tests {
         assert_eq!(result.key_findings.len(), 1);
         assert_eq!(result.input_tokens, 200);
         assert_eq!(result.output_tokens, 100);
+        assert!(result.provider.is_empty());
     }
 
     #[test]

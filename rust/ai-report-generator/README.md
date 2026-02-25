@@ -9,10 +9,10 @@ Economic report generation pipeline that retrieves FRED indicator data from Post
 ```
 Request → Retrieve → Analyze → Generate → Format → Report
              │           │          │          │
-          PostgreSQL   LLM call   LLM call   No LLM
+          PostgreSQL  gpt-4.1-mini gpt-4.1   No LLM
 ```
 
-4-stage pipeline with manual OTel spans at every stage. Two LLM calls per report: trend analysis (capable model) and narrative generation (capable model).
+4-stage pipeline with manual OTel spans at every stage. Two LLM calls per report: trend analysis (fast model) and narrative generation (capable model).
 
 ## Quick Start
 
@@ -83,7 +83,7 @@ make run      # run locally (needs DATABASE_URL)
 | --- | --- | --- |
 | OpenAI | gpt-4.1 (capable), gpt-4.1-mini (fast) | Default primary |
 | Google | gemini-2.0-flash | `LLM_PROVIDER=google` |
-| Anthropic | claude-haiku-4-5-20251001 | Default fallback; `LLM_PROVIDER=anthropic` for primary |
+| Anthropic | claude-haiku-4-5-20251001 | Default fallback (auto model switch via `FALLBACK_MODEL`); `LLM_PROVIDER=anthropic` for primary |
 | Ollama | Any local model | `LLM_PROVIDER=ollama` |
 
 ## Sample Reports
