@@ -66,6 +66,7 @@ func main() {
 		Metrics:              metrics,
 		PrimaryProvider:      cfg.LLMProvider,
 		FallbackProviderName: cfg.FallbackProvider,
+		FallbackModel:        cfg.FallbackModel,
 	}
 
 	// Pipeline

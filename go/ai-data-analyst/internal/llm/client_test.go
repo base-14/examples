@@ -14,17 +14,19 @@ import (
 )
 
 type mockProvider struct {
-	name    string
-	calls   int
-	failN   int
-	resp    *GenerateResponse
-	failErr error
+	name      string
+	calls     int
+	failN     int
+	resp      *GenerateResponse
+	failErr   error
+	lastModel string
 }
 
 func (m *mockProvider) Name() string { return m.name }
 
-func (m *mockProvider) Generate(_ context.Context, _ GenerateRequest) (*GenerateResponse, error) {
+func (m *mockProvider) Generate(_ context.Context, req GenerateRequest) (*GenerateResponse, error) {
 	m.calls++
+	m.lastModel = req.Model
 	if m.calls <= m.failN {
 		return nil, m.failErr
 	}
@@ -51,6 +53,11 @@ func newTestClient(t *testing.T, primary, fallback Provider) (*Client, *tracetes
 		fallbackName = fallback.Name()
 	}
 
+	fallbackModel := ""
+	if fallback != nil {
+		fallbackModel = "claude-haiku-4-5-20251001"
+	}
+
 	return &Client{
 		Primary:              primary,
 		Fallback:             fallback,
@@ -58,6 +65,7 @@ func newTestClient(t *testing.T, primary, fallback Provider) (*Client, *tracetes
 		Metrics:              metrics,
 		PrimaryProvider:      primaryName,
 		FallbackProviderName: fallbackName,
+		FallbackModel:        fallbackModel,
 	}, exporter
 }
 
@@ -152,6 +160,41 @@ func TestGenerateWithFallback(t *testing.T) {
 	assert.Equal(t, "Fallback response", resp.Content)
 	assert.Equal(t, 3, primary.calls)
 	assert.Equal(t, 1, fallback.calls)
+	assert.Equal(t, "claude-haiku-4-5-20251001", fallback.lastModel, "fallback should use FallbackModel, not the primary model")
+}
+
+func TestClassifyError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{"rate limit message", errors.New("rate limit exceeded"), "rate_limit"},
+		{"HTTP 429", errors.New("status 429: too many requests"), "rate_limit"},
+		{"timeout", errors.New("context deadline exceeded: timeout"), "timeout"},
+		{"deadline", errors.New("context deadline exceeded"), "timeout"},
+		{"HTTP 401", errors.New("401 unauthorized"), "auth_error"},
+		{"HTTP 403", errors.New("403 forbidden"), "auth_error"},
+		{"auth keyword", errors.New("authentication failed"), "auth_error"},
+		{"api key", errors.New("invalid api key"), "auth_error"},
+		{"HTTP 400", errors.New("400 bad request"), "invalid_request"},
+		{"HTTP 422", errors.New("422 unprocessable entity"), "invalid_request"},
+		{"invalid keyword", errors.New("invalid model name"), "invalid_request"},
+		{"HTTP 500", errors.New("500 internal server error"), "server_error"},
+		{"HTTP 502", errors.New("502 bad gateway"), "server_error"},
+		{"HTTP 503", errors.New("503 service unavailable"), "server_error"},
+		{"connection refused", errors.New("dial tcp: connect refused"), "network_error"},
+		{"dns failure", errors.New("dns resolution failed"), "network_error"},
+		{"connection reset", errors.New("connection reset by peer"), "network_error"},
+		{"unknown error", errors.New("something unexpected"), "unknown_error"},
+		{"nil error", nil, "unknown_error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, classifyError(tt.err))
+		})
+	}
 }
 
 func TestGenerateNoFallbackReturnsError(t *testing.T) {

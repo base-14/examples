@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"ai-data-analyst/internal/telemetry"
@@ -43,6 +44,7 @@ type Client struct {
 	Metrics              *telemetry.GenAIMetrics
 	PrimaryProvider      string
 	FallbackProviderName string
+	FallbackModel        string
 }
 
 func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerName string, req GenerateRequest) (*GenerateResponse, error) {
@@ -83,7 +85,7 @@ func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerNa
 
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
-		span.SetAttributes(attribute.String("error.type", fmt.Sprintf("%T", err)))
+		span.SetAttributes(attribute.String("error.type", classifyError(err)))
 		if c.Metrics != nil {
 			c.Metrics.ErrorCount.Add(ctx, 1,
 				telemetry.WithProviderModel(providerName, req.Model),
@@ -128,6 +130,7 @@ func (c *Client) GenerateWithRetry(ctx context.Context, provider Provider, provi
 	bo := backoff.NewExponentialBackOff()
 	bo.InitialInterval = 1 * time.Second
 	bo.MaxInterval = 10 * time.Second
+	bo.RandomizationFactor = 0.5 // symmetric ±50%: interval randomly in [0.5*base, 1.5*base]
 
 	resp, err := backoff.Retry(ctx, func() (*GenerateResponse, error) {
 		resp, err := c.GenerateOnce(ctx, provider, providerName, req)
@@ -163,7 +166,34 @@ func (c *Client) Generate(ctx context.Context, req GenerateRequest) (*GenerateRe
 		c.Metrics.FallbackCount.Add(ctx, 1)
 	}
 
-	return c.GenerateWithRetry(ctx, c.Fallback, c.FallbackProviderName, req)
+	fallbackReq := req
+	if c.FallbackModel != "" {
+		fallbackReq.Model = c.FallbackModel
+	}
+	return c.GenerateWithRetry(ctx, c.Fallback, c.FallbackProviderName, fallbackReq)
+}
+
+func classifyError(err error) string {
+	if err == nil {
+		return "unknown_error"
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "rate limit") || strings.Contains(msg, "429"):
+		return "rate_limit"
+	case strings.Contains(msg, "timeout") || strings.Contains(msg, "deadline"):
+		return "timeout"
+	case strings.Contains(msg, "401") || strings.Contains(msg, "403") || strings.Contains(msg, "auth") || strings.Contains(msg, "api key"):
+		return "auth_error"
+	case strings.Contains(msg, "400") || strings.Contains(msg, "422") || strings.Contains(msg, "invalid"):
+		return "invalid_request"
+	case strings.Contains(msg, "500") || strings.Contains(msg, "502") || strings.Contains(msg, "503") || strings.Contains(msg, "server"):
+		return "server_error"
+	case strings.Contains(msg, "connect") || strings.Contains(msg, "dns") || strings.Contains(msg, "network") || strings.Contains(msg, "reset"):
+		return "network_error"
+	default:
+		return "unknown_error"
+	}
 }
 
 func truncate(s string, max int) string {

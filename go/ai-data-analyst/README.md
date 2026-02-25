@@ -83,7 +83,7 @@ make test     # run tests
 | --- | --- | --- |
 | OpenAI | gpt-4.1 (capable), gpt-4.1-mini (fast) | Default primary |
 | Google | gemini-2.0-flash | `LLM_PROVIDER=google` |
-| Anthropic | claude-haiku-4-5-20251001 | Fallback |
+| Anthropic | claude-haiku-4-5-20251001 | Fallback (auto model switch via `FALLBACK_MODEL`) |
 | Ollama | Any local model | `LLM_PROVIDER=ollama` |
 
 ## Sample Questions
