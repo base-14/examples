@@ -1,0 +1,88 @@
+services:
+  app:
+    build:
+      context: .
+      additional_contexts:
+        _shared: ../../_shared
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/support
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/support
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: support
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL_CAPABLE: ${LLM_MODEL_CAPABLE:-gpt-4.1}
+      LLM_MODEL_FAST: ${LLM_MODEL_FAST:-gpt-4.1-mini}
+      FALLBACK_PROVIDER: ${FALLBACK_PROVIDER:-anthropic}
+      FALLBACK_MODEL: ${FALLBACK_MODEL:-claude-haiku-4-5-20251001}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      DEFAULT_TEMPERATURE: ${DEFAULT_TEMPERATURE:-0.3}
+      DEFAULT_MAX_TOKENS: ${DEFAULT_MAX_TOKENS:-1024}
+      PRICING_FILE: /app/pricing.json
+      OTEL_SERVICE_NAME: ai-customer-support
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: "true"
+      OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: support
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.146.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    environment:
+      B14_ENDPOINT: ${B14_ENDPOINT:-}
+      B14_CLIENT_ID: ${B14_CLIENT_ID:-}
+      B14_CLIENT_SECRET: ${B14_CLIENT_SECRET:-}
+      B14_TOKEN_URL: ${B14_TOKEN_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13133"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

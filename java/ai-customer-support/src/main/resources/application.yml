@@ -1,0 +1,69 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-customer-support
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:support}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:support}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${LLM_MODEL_CAPABLE:gpt-4.1}
+          temperature: ${DEFAULT_TEMPERATURE:0.3}
+      embedding:
+        options:
+          model: text-embedding-3-small
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      chat:
+        options:
+          model: ${LLM_MODEL_CAPABLE:claude-sonnet-4-6}
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${LLM_MODEL_CAPABLE:llama3.1:8b}
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        initialize-schema: false
+    chat:
+      observations:
+        include-input: false
+        include-output: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+    metrics:
+      export:
+        url: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
+  tracing:
+    sampling:
+      probability: 1.0
+
+app:
+  llm:
+    provider: ${LLM_PROVIDER:openai}
+    model-capable: ${LLM_MODEL_CAPABLE:gpt-4.1}
+    model-fast: ${LLM_MODEL_FAST:gpt-4.1-mini}
+    fallback-provider: ${FALLBACK_PROVIDER:anthropic}
+    fallback-model: ${FALLBACK_MODEL:claude-haiku-4-5-20251001}
+    max-tokens: ${DEFAULT_MAX_TOKENS:1024}
+    temperature: ${DEFAULT_TEMPERATURE:0.3}
