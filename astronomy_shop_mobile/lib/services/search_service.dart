@@ -1,16 +1,11 @@
 import 'package:opentelemetry/api.dart' as otel;
+
 import '../models/product.dart';
 import 'http_service.dart';
-import 'telemetry_service.dart';
 import 'products_api_service.dart';
+import 'telemetry_service.dart';
 
 class SearchResult {
-  final List<Product> products;
-  final String query;
-  final int totalResults;
-  final Duration searchTime;
-  final String source;
-
   const SearchResult({
     required this.products,
     required this.query,
@@ -18,20 +13,26 @@ class SearchResult {
     required this.searchTime,
     required this.source,
   });
+
+  final List<Product> products;
+  final String query;
+  final int totalResults;
+  final Duration searchTime;
+  final String source;
 }
 
 class SearchService {
+  SearchService._internal();
+
   static SearchService? _instance;
-  
+
   final HttpService _httpService = HttpService.instance;
   final TelemetryService _telemetryService = TelemetryService.instance;
   final ProductsApiService _productsApi = ProductsApiService.instance;
-  
+
   final Map<String, SearchResult> _searchCache = {};
   static const Duration _cacheTimeout = Duration(minutes: 5);
   final Map<String, DateTime> _cacheTimestamps = {};
-  
-  SearchService._internal();
   
   static SearchService get instance {
     _instance ??= SearchService._internal();

@@ -1,15 +1,18 @@
-import 'dart:io';
-import 'dart:math';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:opentelemetry/api.dart' as otel;
 import 'package:uuid/uuid.dart';
-import 'package:http/http.dart' as http;
 
 class TelemetryService {
+  TelemetryService._internal();
+
   static TelemetryService? _instance;
   static String? _accessToken;
   static DateTime? _tokenExpiry;
@@ -87,8 +90,6 @@ class TelemetryService {
   static const Duration _batchFlushInterval = Duration(seconds: 30);
   Timer? _batchTimer;
   bool _isFlushingBatch = false;
-
-  TelemetryService._internal();
 
   static TelemetryService get instance {
     _instance ??= TelemetryService._internal();

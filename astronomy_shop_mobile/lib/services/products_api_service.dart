@@ -5,17 +5,17 @@ import 'http_service.dart';
 import 'telemetry_service.dart';
 
 class ProductsApiService {
+  ProductsApiService._internal();
+
   static ProductsApiService? _instance;
-  
+
   final HttpService _httpService = HttpService.instance;
   final TelemetryService _telemetryService = TelemetryService.instance;
-  
+
   // Cache for performance
   List<Product>? _cachedProducts;
   DateTime? _lastFetch;
   static const Duration _cacheTimeout = Duration(minutes: 5);
-  
-  ProductsApiService._internal();
   
   static ProductsApiService get instance {
     _instance ??= ProductsApiService._internal();
@@ -55,7 +55,7 @@ class ProductsApiService {
       // Make API call
       span.addEvent('api_call_start');
       
-      final response = await _httpService.get(
+      final response = await _httpService.get<Map<String, dynamic>>(
         '/products',
         queryParams: {'currencyCode': currencyCode},
       );

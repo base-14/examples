@@ -1,18 +1,11 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import '../services/performance_service.dart';
+
 import '../services/image_cache_service.dart';
+import '../services/performance_service.dart';
 
 class CachedImage extends StatefulWidget {
-  final String imageUrl;
-  final double? width;
-  final double? height;
-  final BoxFit fit;
-  final Widget? errorWidget;
-  final Widget? placeholder;
-  final String? cacheKey;
-  final bool batteryAware;
-  
   const CachedImage({
     super.key,
     required this.imageUrl,
@@ -24,6 +17,15 @@ class CachedImage extends StatefulWidget {
     this.cacheKey,
     this.batteryAware = true,
   });
+
+  final String imageUrl;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+  final Widget? errorWidget;
+  final Widget? placeholder;
+  final String? cacheKey;
+  final bool batteryAware;
 
   @override
   State<CachedImage> createState() => _CachedImageState();

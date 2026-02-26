@@ -2,27 +2,27 @@ import 'package:flutter/services.dart';
 import 'telemetry_service.dart';
 
 class PerformanceMetrics {
-  final String operationName;
-  final DateTime startTime;
-  final Duration duration;
-  final Map<String, dynamic> metadata;
-  
   const PerformanceMetrics({
     required this.operationName,
     required this.startTime,
     required this.duration,
     this.metadata = const {},
   });
+
+  final String operationName;
+  final DateTime startTime;
+  final Duration duration;
+  final Map<String, dynamic> metadata;
   
   double get durationMs => duration.inMicroseconds / 1000.0;
 }
 
 class PerformanceService {
+  PerformanceService._();
+
   static PerformanceService? _instance;
   static PerformanceService get instance => _instance ??= PerformanceService._();
-  
-  PerformanceService._();
-  
+
   final Map<String, DateTime> _operationStarts = {};
   final List<PerformanceMetrics> _metrics = [];
   
@@ -54,12 +54,17 @@ class PerformanceService {
     
     _metrics.add(metrics);
     
-    TelemetryService.instance.recordEvent('performance_metric', attributes: {
+    final eventAttributes = <String, Object>{
       'operation_name': operationName,
       'duration_ms': metrics.durationMs,
       'session_id': TelemetryService.instance.sessionId,
-      ...?metadata,
-    });
+    };
+    if (metadata != null) {
+      for (final entry in metadata.entries) {
+        if (entry.value != null) eventAttributes[entry.key] = entry.value as Object;
+      }
+    }
+    TelemetryService.instance.recordEvent('performance_metric', attributes: eventAttributes);
     
     if (metrics.durationMs > 1000) {
       _recordSlowOperation(metrics);

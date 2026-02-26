@@ -1,39 +1,26 @@
 import 'package:flutter/foundation.dart';
-import 'telemetry_service.dart';
+
 import 'http_service.dart';
+import 'telemetry_service.dart';
 
 class Currency {
-  final String code;
-  final String name;
-  final String symbol;
-
   const Currency({
     required this.code,
     required this.name,
     required this.symbol,
   });
+
+  final String code;
+  final String name;
+  final String symbol;
 }
 
 class Money {
-  final String currencyCode;
-  final int units;
-  final int nanos;
-
   const Money({
     required this.currencyCode,
     required this.units,
     required this.nanos,
   });
-
-  double get amount => units + (nanos / 1000000000);
-
-  String get formattedAmount {
-    final currency = CurrencyService.currencies.firstWhere(
-      (c) => c.code == currencyCode,
-      orElse: () => Currency(code: currencyCode, name: currencyCode, symbol: currencyCode),
-    );
-    return '${currency.symbol}${amount.toStringAsFixed(2)}';
-  }
 
   factory Money.fromUsd(double usdAmount) {
     final units = usdAmount.floor();
@@ -45,24 +32,38 @@ class Money {
     );
   }
 
+  factory Money.fromJson(Map<String, dynamic> json) => Money(
+    currencyCode: (json['currencyCode'] as String?) ?? 'USD',
+    units: (json['units'] as int?) ?? 0,
+    nanos: (json['nanos'] as int?) ?? 0,
+  );
+
+  final String currencyCode;
+  final int units;
+  final int nanos;
+
+  double get amount => units + (nanos / 1000000000);
+
+  String get formattedAmount {
+    final currency = CurrencyService.currencies.firstWhere(
+      (c) => c.code == currencyCode,
+      orElse: () => Currency(code: currencyCode, name: currencyCode, symbol: currencyCode),
+    );
+    return '${currency.symbol}${amount.toStringAsFixed(2)}';
+  }
+
   Map<String, dynamic> toJson() => {
     'currencyCode': currencyCode,
     'units': units,
     'nanos': nanos,
   };
-
-  factory Money.fromJson(Map<String, dynamic> json) => Money(
-    currencyCode: json['currencyCode'] ?? 'USD',
-    units: json['units'] ?? 0,
-    nanos: json['nanos'] ?? 0,
-  );
 }
 
 class CurrencyService extends ChangeNotifier {
+  CurrencyService._();
+
   static CurrencyService? _instance;
   static CurrencyService get instance => _instance ??= CurrencyService._();
-
-  CurrencyService._();
 
   static const List<Currency> currencies = [
     Currency(code: 'USD', name: 'US Dollar', symbol: '\$'),
@@ -100,7 +101,7 @@ class CurrencyService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _httpService.get<List>(
+      final response = await _httpService.get<List<dynamic>>(
         '/currency',
       );
 

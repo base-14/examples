@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import '../models/checkout.dart';
 import '../services/cart_service.dart';
 import '../services/currency_service.dart';
-import '../services/telemetry_service.dart';
-import '../services/http_service.dart';
 import '../services/funnel_tracking_service.dart';
+import '../services/http_service.dart';
+import '../services/telemetry_service.dart';
 import 'order_confirmation_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -532,9 +533,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
 
         if (mounted) {
-          Navigator.pushReplacement(
+          Navigator.pushReplacement<void, void>(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => OrderConfirmationScreen(order: orderResponse.order),
             ),
           );

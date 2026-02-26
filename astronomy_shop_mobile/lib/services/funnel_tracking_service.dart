@@ -13,14 +13,16 @@ enum FunnelStage {
   orderPlaced('order_placed', 'Order Placed', 7),
   orderConfirmed('order_confirmed', 'Order Confirmed', 8);
 
+  const FunnelStage(this.eventName, this.displayName, this.order);
+
   final String eventName;
   final String displayName;
   final int order;
-
-  const FunnelStage(this.eventName, this.displayName, this.order);
 }
 
 class FunnelTrackingService {
+  FunnelTrackingService._internal();
+
   static FunnelTrackingService? _instance;
 
   FunnelStage? _currentStage;
@@ -35,8 +37,6 @@ class FunnelTrackingService {
 
   Timer? _abandonmentTimer;
   static const Duration _abandonmentThreshold = Duration(minutes: 5);
-
-  FunnelTrackingService._internal();
 
   static FunnelTrackingService get instance {
     _instance ??= FunnelTrackingService._internal();

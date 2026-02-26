@@ -3,16 +3,16 @@ import 'package:flutter/scheduler.dart';
 import '../services/telemetry_service.dart';
 
 class ErrorBoundary extends StatefulWidget {
-  final Widget child;
-  final String context;
-  final VoidCallback? onRetry;
-
   const ErrorBoundary({
     super.key,
     required this.child,
     required this.context,
     this.onRetry,
   });
+
+  final Widget child;
+  final String context;
+  final VoidCallback? onRetry;
 
   @override
   State<ErrorBoundary> createState() => _ErrorBoundaryState();
@@ -146,14 +146,14 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
 }
 
 class ErrorHandler extends StatefulWidget {
-  final Widget child;
-  final Function(Object error, StackTrace stackTrace) onError;
-
   const ErrorHandler({
     super.key,
     required this.child,
     required this.onError,
   });
+
+  final Widget child;
+  final void Function(Object error, StackTrace stackTrace) onError;
 
   @override
   State<ErrorHandler> createState() => _ErrorHandlerState();
@@ -182,12 +182,12 @@ class _ErrorHandlerState extends State<ErrorHandler> {
 }
 
 class AppErrorBoundary extends StatelessWidget {
-  final Widget child;
-
   const AppErrorBoundary({
     super.key,
     required this.child,
   });
+
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {

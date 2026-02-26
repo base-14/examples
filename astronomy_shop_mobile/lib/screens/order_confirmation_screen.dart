@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/checkout.dart';
-import '../services/telemetry_service.dart';
 import '../services/currency_service.dart';
 import '../services/funnel_tracking_service.dart';
+import '../services/telemetry_service.dart';
 import '../widgets/cached_image.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
-  final Order order;
-
   const OrderConfirmationScreen({
     super.key,
     required this.order,
   });
+
+  final Order order;
 
   @override
   State<OrderConfirmationScreen> createState() => _OrderConfirmationScreenState();

@@ -75,7 +75,7 @@ class CurrencySelectorDialog extends StatelessWidget {
       'current_currency': Provider.of<CurrencyService>(context, listen: false).selectedCurrency.code,
     });
 
-    await showDialog(
+    await showDialog<void>(
       context: context,
       builder: (BuildContext context) => const CurrencySelectorDialog(),
     );

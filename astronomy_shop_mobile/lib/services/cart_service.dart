@@ -1,15 +1,16 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/cart_item.dart';
 import '../models/product.dart';
-import 'telemetry_service.dart';
-import 'http_service.dart';
 import 'funnel_tracking_service.dart';
+import 'http_service.dart';
+import 'telemetry_service.dart';
 
 class CartService extends ChangeNotifier {
+  CartService._();
+
   static CartService? _instance;
   static CartService get instance => _instance ??= CartService._();
-  
-  CartService._();
 
   final Map<String, CartItem> _items = {};
   final HttpService _httpService = HttpService.instance;
@@ -219,12 +220,9 @@ class CartService extends ChangeNotifier {
         },
       };
 
-      final response = await _httpService.post(
+      final response = await _httpService.post<Map<String, dynamic>>(
         '/cart',
         body: cartData,
-        headers: {
-          'Content-Type': 'application/json',
-        },
       );
 
       TelemetryService.instance.recordEvent('cart_sync_success', attributes: {

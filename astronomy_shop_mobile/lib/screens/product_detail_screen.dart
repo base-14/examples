@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/product.dart';
-import '../services/telemetry_service.dart';
 import '../services/cart_service.dart';
 import '../services/currency_service.dart';
-import '../services/performance_service.dart';
 import '../services/funnel_tracking_service.dart';
+import '../services/performance_service.dart';
+import '../services/telemetry_service.dart';
 import '../widgets/cached_image.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  final Product product;
-
   const ProductDetailScreen({
     super.key,
     required this.product,
   });
+
+  final Product product;
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -227,7 +228,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     const SizedBox(width: 16),
                     OutlinedButton(
-                      onPressed: () => _onSharePressed(),
+                      onPressed: _onSharePressed,
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                       ),

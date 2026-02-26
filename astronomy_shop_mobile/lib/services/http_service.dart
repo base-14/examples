@@ -1,23 +1,25 @@
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:opentelemetry/api.dart' as otel;
-import 'telemetry_service.dart';
+
 import 'config_service.dart';
+import 'telemetry_service.dart';
 
 class HttpService {
-  static HttpService? _instance;
-
-  late final otel.Tracer _tracer;
-  late final http.Client _client;
-  late final ConfigService _config;
-
   HttpService._internal() {
     _tracer = TelemetryService.instance.tracer;
     _client = http.Client();
     _config = ConfigService.instance;
   }
+
+  static HttpService? _instance;
+
+  late final otel.Tracer _tracer;
+  late final http.Client _client;
+  late final ConfigService _config;
 
   static HttpService get instance {
     _instance ??= HttpService._internal();
@@ -68,16 +70,13 @@ class HttpService {
     List<T> Function(List<dynamic>)? fromJsonList,
   }) async {
     final uri = _buildUri(endpoint, queryParams);
-    final span = _tracer.startSpan('http_request');
+    final span = _tracer.startSpan(method);
     span.setAttributes([
-      otel.Attribute.fromString('http.method', method),
-      otel.Attribute.fromString('http.url', uri.toString()),
-      otel.Attribute.fromString('http.scheme', uri.scheme),
-      otel.Attribute.fromString('http.host', uri.host),
-      otel.Attribute.fromInt('http.port', uri.port),
-      otel.Attribute.fromString('http.target', uri.path),
+      otel.Attribute.fromString('http.request.method', method),
+      otel.Attribute.fromString('url.full', uri.toString()),
+      otel.Attribute.fromString('server.address', uri.host),
+      otel.Attribute.fromInt('server.port', uri.port),
       otel.Attribute.fromString('session.id', TelemetryService.instance.sessionId),
-      otel.Attribute.fromString('user_agent', '${TelemetryService.serviceName}/${TelemetryService.serviceVersion}'),
     ]);
     
     final startTime = DateTime.now();
@@ -99,6 +98,11 @@ class HttpService {
         otel.Attribute.fromString('span.id', currentSpanId),
         otel.Attribute.fromString('trace.propagated', 'true'),
       ]);
+
+      if (kDebugMode) {
+        print('🔗 $method $uri | traceparent: 00-${traceId.substring(0, 8)}...-${currentSpanId.substring(0, 8)}...-01');
+      }
+
       http.Response response;
       
       switch (method.toUpperCase()) {
@@ -121,16 +125,15 @@ class HttpService {
       final duration = endTime.difference(startTime);
       
       span.setAttributes([
-        otel.Attribute.fromInt('http.status_code', response.statusCode),
-        otel.Attribute.fromInt('http.response_size', response.body.length),
-        otel.Attribute.fromInt('http.duration_ms', duration.inMilliseconds),
+        otel.Attribute.fromInt('http.response.status_code', response.statusCode),
       ]);
-      
-      final isSuccess = response.statusCode >= 200 && response.statusCode < 300;
-      
-      if (isSuccess) {
-        span.setStatus(otel.StatusCode.ok);
-      } else {
+
+      final isSuccess = response.statusCode >= 200 && response.statusCode < 400;
+
+      if (response.statusCode >= 400) {
+        span.setAttributes([
+          otel.Attribute.fromString('error.type', '${response.statusCode}'),
+        ]);
         span.setStatus(otel.StatusCode.error, 'HTTP ${response.statusCode}');
       }
       
@@ -165,9 +168,9 @@ class HttpService {
       }
       
       span.end();
-      
-      _exportSpanToOTLP(span, traceId, currentSpanId, startTime, endTime);
-      
+
+      _exportSpanToOTLP(span, traceId, currentSpanId, method, uri, response.statusCode, startTime, endTime);
+
       return HttpResponse<T>(
         statusCode: response.statusCode,
         data: data,
@@ -176,22 +179,22 @@ class HttpService {
         errorMessage: errorMessage,
         duration: duration,
       );
-      
+
     } catch (e, stackTrace) {
       final endTime = DateTime.now();
       final duration = endTime.difference(startTime);
-      
+
       span.setAttributes([
         otel.Attribute.fromInt('http.duration_ms', duration.inMilliseconds),
         otel.Attribute.fromString('error.type', e.runtimeType.toString()),
         otel.Attribute.fromString('error.message', e.toString()),
       ]);
-      
+
       span.recordException(e, stackTrace: stackTrace);
       span.setStatus(otel.StatusCode.error, e.toString());
       span.end();
-      
-      _exportSpanToOTLP(span, traceId, currentSpanId, startTime, endTime);
+
+      _exportSpanToOTLP(span, traceId, currentSpanId, method, uri, 0, startTime, endTime);
       
       return HttpResponse<T>(
         statusCode: 0,
@@ -223,11 +226,12 @@ class HttpService {
     _client.close();
   }
   
-  Future<void> _exportSpanToOTLP(otel.Span span, String traceId, String spanId, DateTime startTime, DateTime endTime) async {
+  Future<void> _exportSpanToOTLP(otel.Span span, String traceId, String spanId, String method, Uri uri, int statusCode, DateTime startTime, DateTime endTime) async {
     try {
       final startTimeNano = startTime.microsecondsSinceEpoch * 1000;
       final endTimeNano = endTime.microsecondsSinceEpoch * 1000;
-      
+      final isError = statusCode == 0 || statusCode >= 400;
+
       final otlpPayload = {
         'resourceSpans': [
           {
@@ -250,16 +254,21 @@ class HttpService {
                   {
                     'traceId': traceId,
                     'spanId': spanId,
-                    'name': 'http_request',
+                    'name': method,
                     'kind': 3, // SPAN_KIND_CLIENT
                     'startTimeUnixNano': startTimeNano,
                     'endTimeUnixNano': endTimeNano,
                     'attributes': [
-                      {'key': 'http.method', 'value': {'stringValue': 'HTTP'}},
-                      {'key': 'http.url', 'value': {'stringValue': 'API Request'}},
-                      {'key': 'component', 'value': {'stringValue': 'http_client'}},
-                      {'key': 'span.kind', 'value': {'stringValue': 'client'}},
+                      {'key': 'http.request.method', 'value': {'stringValue': method}},
+                      {'key': 'url.full', 'value': {'stringValue': uri.toString()}},
+                      {'key': 'server.address', 'value': {'stringValue': uri.host}},
+                      {'key': 'server.port', 'value': {'intValue': uri.port}},
+                      if (statusCode > 0)
+                        {'key': 'http.response.status_code', 'value': {'intValue': statusCode}},
+                      if (isError)
+                        {'key': 'error.type', 'value': {'stringValue': statusCode > 0 ? '$statusCode' : 'network_error'}},
                     ],
+                    'status': {'code': isError ? 2 : 1},
                   }
                 ]
               }
@@ -267,7 +276,7 @@ class HttpService {
           }
         ]
       };
-      
+
       final response = await _client.post(
         Uri.parse(TelemetryService.otlpTracesEndpoint),
         headers: {
@@ -275,11 +284,18 @@ class HttpService {
         },
         body: jsonEncode(otlpPayload),
       );
-      
-      if (response.statusCode == 200) {
+
+      if (kDebugMode) {
+        if (response.statusCode == 200) {
+          print('✅ OTLP span sent: $method $uri (trace: ${traceId.substring(0, 8)}...)');
+        } else {
+          print('❌ OTLP span failed: $method (${response.statusCode})');
+        }
       }
     } catch (e) {
-      // Ignore export errors
+      if (kDebugMode) {
+        print('❌ OTLP export error: $e');
+      }
     }
   }
   
@@ -299,14 +315,6 @@ class HttpService {
 }
 
 class HttpResponse<T> {
-  final int statusCode;
-  final T? data;
-  final String rawResponse;
-  final bool isSuccess;
-  final String? errorMessage;
-  final Duration duration;
-  final Object? exception;
-  
   const HttpResponse({
     required this.statusCode,
     required this.data,
@@ -316,6 +324,14 @@ class HttpResponse<T> {
     required this.duration,
     this.exception,
   });
+
+  final int statusCode;
+  final T? data;
+  final String rawResponse;
+  final bool isSuccess;
+  final String? errorMessage;
+  final Duration duration;
+  final Object? exception;
   
   bool get hasError => !isSuccess || errorMessage != null;
   

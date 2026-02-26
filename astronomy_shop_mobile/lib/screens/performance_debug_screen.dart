@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/telemetry_service.dart';
+
 import '../services/image_cache_service.dart';
 import '../services/performance_service.dart';
+import '../services/telemetry_service.dart';
 import '../widgets/cached_image.dart';
 
 class PerformanceDebugScreen extends StatefulWidget {
@@ -150,7 +151,7 @@ class _PerformanceDebugScreenState extends State<PerformanceDebugScreen> {
             _buildInfoRow('Memory Usage', '${cacheInfo['memory_usage_mb']} MB'),
             _buildInfoRow('Max Memory', '${cacheInfo['max_memory_cache_mb']} MB'),
             if (cacheInfo['cache_directory'] != null)
-              _buildInfoRow('Cache Directory', cacheInfo['cache_directory']),
+              _buildInfoRow('Cache Directory', cacheInfo['cache_directory'] as String),
             const SizedBox(height: 8),
             Row(
               children: [

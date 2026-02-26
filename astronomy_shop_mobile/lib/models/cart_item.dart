@@ -1,15 +1,23 @@
 import 'product.dart';
 
 class CartItem {
-  final String productId;
-  final Product product;
-  final int quantity;
-
   const CartItem({
     required this.productId,
     required this.product,
     required this.quantity,
   });
+
+  factory CartItem.fromJson(Map<String, dynamic> json, Product product) {
+    return CartItem(
+      productId: json['productId']?.toString() ?? '',
+      product: product,
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  final String productId;
+  final Product product;
+  final int quantity;
 
   CartItem copyWith({
     int? quantity,
@@ -30,14 +38,6 @@ class CartItem {
       'productId': productId,
       'quantity': quantity,
     };
-  }
-
-  factory CartItem.fromJson(Map<String, dynamic> json, Product product) {
-    return CartItem(
-      productId: json['productId']?.toString() ?? '',
-      product: product,
-      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-    );
   }
 
   @override

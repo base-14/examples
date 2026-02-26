@@ -1,15 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:opentelemetry/api.dart' as otel;
-import 'telemetry_service.dart';
+
 import 'performance_service.dart';
+import 'telemetry_service.dart';
 
 class AppLifecycleObserver extends WidgetsBindingObserver {
-  final TelemetryService _telemetryService = TelemetryService.instance;
-  late final otel.Tracer _tracer;
-  
   AppLifecycleObserver() {
     _tracer = _telemetryService.tracer;
   }
+
+  final TelemetryService _telemetryService = TelemetryService.instance;
+  late final otel.Tracer _tracer;
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {

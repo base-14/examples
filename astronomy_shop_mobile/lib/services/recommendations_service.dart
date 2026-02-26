@@ -1,20 +1,21 @@
 import 'package:opentelemetry/api.dart' as otel;
+
 import '../models/product.dart';
+import 'cart_service.dart';
 import 'http_service.dart';
 import 'telemetry_service.dart';
-import 'cart_service.dart';
 
 class RecommendationsService {
+  RecommendationsService._internal();
+
   static RecommendationsService? _instance;
-  
+
   final HttpService _httpService = HttpService.instance;
   final TelemetryService _telemetryService = TelemetryService.instance;
-  
+
   List<Product>? _cachedRecommendations;
   DateTime? _lastFetch;
   static const Duration _cacheTimeout = Duration(minutes: 10);
-  
-  RecommendationsService._internal();
   
   static RecommendationsService get instance {
     _instance ??= RecommendationsService._internal();
@@ -64,7 +65,7 @@ class RecommendationsService {
         }
       }
       
-      final response = await _httpService.get<List>(
+      final response = await _httpService.get<List<dynamic>>(
         '/recommendations',
         queryParams: queryParams,
       );

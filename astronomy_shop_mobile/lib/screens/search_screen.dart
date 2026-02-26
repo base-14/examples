@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/product.dart';
-import '../services/search_service.dart';
 import '../services/currency_service.dart';
+import '../services/search_service.dart';
 import '../services/telemetry_service.dart';
 import '../widgets/cached_image.dart';
 import 'product_detail_screen.dart';
@@ -497,9 +498,9 @@ class _SearchScreenState extends State<SearchScreen> {
       'screen_name': 'search',
     });
 
-    Navigator.push(
+    Navigator.push<void>(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ProductDetailScreen(product: product),
       ),
     );

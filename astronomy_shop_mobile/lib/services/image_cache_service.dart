@@ -1,25 +1,27 @@
-import 'dart:io';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+
 import 'telemetry_service.dart';
 
 class ImageCacheService {
+  ImageCacheService._internal();
+
   static ImageCacheService? _instance;
-  
+
   final Map<String, Uint8List> _memoryCache = {};
   final Map<String, DateTime> _cacheTimestamps = {};
-  
+
   static const int _maxMemoryCacheSize = 50 * 1024 * 1024; // 50MB
   static const int _maxMemoryCacheItems = 100;
   static const Duration _cacheExpiration = Duration(hours: 24);
-  
+
   int _currentMemoryUsage = 0;
   Directory? _cacheDirectory;
-  
-  ImageCacheService._internal();
   
   static ImageCacheService get instance {
     _instance ??= ImageCacheService._internal();
@@ -52,10 +54,11 @@ class ImageCacheService {
     final telemetry = TelemetryService.instance;
     final batteryInfo = telemetry.getBatteryInfo();
     
-    if (batteryAware && batteryInfo['battery_level'] < 0.15) {
+    final batteryLevel = batteryInfo['battery_level'] as double;
+    if (batteryAware && batteryLevel < 0.15) {
       telemetry.recordEvent('image_cache_battery_skip', attributes: {
         'url': url,
-        'battery_level': batteryInfo['battery_level'],
+        'battery_level': batteryLevel,
       });
       return null;
     }
@@ -94,7 +97,7 @@ class ImageCacheService {
         telemetry.recordEvent('image_cache_download', attributes: {
           'url': url,
           'size_bytes': downloadedImage.length,
-          'battery_level': batteryInfo['battery_level'],
+          'battery_level': batteryLevel,
         });
       }
       
@@ -192,7 +195,7 @@ class ImageCacheService {
     try {
       final batteryInfo = TelemetryService.instance.getBatteryInfo();
       
-      if (batteryInfo['battery_level'] < 0.10) {
+      if ((batteryInfo['battery_level'] as double) < 0.10) {
         return null;
       }
       

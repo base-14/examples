@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
 class EnhancedLoadingWidget extends StatefulWidget {
-  final String? message;
-  final double size;
-  final Color? color;
-
   const EnhancedLoadingWidget({
     super.key,
     this.message,
     this.size = 48.0,
     this.color,
   });
+
+  final String? message;
+  final double size;
+  final Color? color;
 
   @override
   State<EnhancedLoadingWidget> createState() => _EnhancedLoadingWidgetState();
@@ -115,16 +115,16 @@ class _EnhancedLoadingWidgetState extends State<EnhancedLoadingWidget>
 }
 
 class ShimmerLoadingCard extends StatefulWidget {
-  final double height;
-  final double width;
-  final BorderRadius? borderRadius;
-
   const ShimmerLoadingCard({
     super.key,
     this.height = 120,
     this.width = double.infinity,
     this.borderRadius,
   });
+
+  final double height;
+  final double width;
+  final BorderRadius? borderRadius;
 
   @override
   State<ShimmerLoadingCard> createState() => _ShimmerLoadingCardState();

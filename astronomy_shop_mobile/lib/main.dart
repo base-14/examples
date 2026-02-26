@@ -2,26 +2,27 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'services/config_service.dart';
-import 'services/telemetry_service.dart';
-import 'services/app_lifecycle_observer.dart';
-import 'services/products_api_service.dart';
-import 'services/cart_service.dart';
-import 'services/currency_service.dart';
-import 'services/performance_service.dart';
-import 'services/error_handler_service.dart';
-import 'services/image_cache_service.dart';
-import 'services/funnel_tracking_service.dart';
-import 'widgets/currency_selector.dart';
-import 'widgets/cached_image.dart';
-import 'widgets/recommendations_section.dart';
-import 'widgets/error_boundary.dart';
-import 'widgets/enhanced_loading.dart';
+
 import 'models/product.dart';
-import 'screens/product_detail_screen.dart';
 import 'screens/cart_screen.dart';
-import 'screens/search_screen.dart';
 import 'screens/performance_debug_screen.dart';
+import 'screens/product_detail_screen.dart';
+import 'screens/search_screen.dart';
+import 'services/app_lifecycle_observer.dart';
+import 'services/cart_service.dart';
+import 'services/config_service.dart';
+import 'services/currency_service.dart';
+import 'services/error_handler_service.dart';
+import 'services/funnel_tracking_service.dart';
+import 'services/image_cache_service.dart';
+import 'services/performance_service.dart';
+import 'services/products_api_service.dart';
+import 'services/telemetry_service.dart';
+import 'widgets/cached_image.dart';
+import 'widgets/currency_selector.dart';
+import 'widgets/enhanced_loading.dart';
+import 'widgets/error_boundary.dart';
+import 'widgets/recommendations_section.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -89,11 +90,11 @@ class AstronomyShopApp extends StatelessWidget {
               brightness: Brightness.light,
             ),
             useMaterial3: true,
-            appBarTheme: AppBarTheme(
+            appBarTheme: const AppBarTheme(
               centerTitle: true,
               elevation: 0,
               scrolledUnderElevation: 4,
-              shape: const RoundedRectangleBorder(
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
               ),
             ),
@@ -188,9 +189,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         'screen_name': 'product_list',
                       });
 
-                      Navigator.push(
+                      Navigator.push<void>(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (context) => const CartScreen(),
                         ),
                       );
@@ -232,9 +233,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 'screen_name': 'product_list',
               });
 
-              Navigator.push(
+              Navigator.push<void>(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
                   builder: (context) => const SearchScreen(),
                 ),
               );
@@ -242,15 +243,15 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : () => _refreshProducts(),
+            onPressed: _isLoading ? null : _refreshProducts,
           ),
           if (kDebugMode)
             IconButton(
               icon: const Icon(Icons.settings),
               onPressed: () {
-                Navigator.push(
+                Navigator.push<void>(
                   context,
-                  MaterialPageRoute(
+                  MaterialPageRoute<void>(
                     builder: (context) => const PerformanceDebugScreen(),
                   ),
                 );
@@ -558,9 +559,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }, parentOperation: 'view_product');
 
     // Navigate to product detail screen
-    Navigator.push(
+    Navigator.push<void>(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ProductDetailScreen(product: product),
       ),
     );
@@ -568,14 +569,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
 }
 
 class ProductCard extends StatefulWidget {
-  final Product product;
-  final VoidCallback onTap;
-
   const ProductCard({
     super.key,
     required this.product,
     required this.onTap,
   });
+
+  final Product product;
+  final VoidCallback onTap;
 
   @override
   State<ProductCard> createState() => _ProductCardState();

@@ -1,13 +1,6 @@
 import '../services/config_service.dart';
 
 class Product {
-  final String id;
-  final String name;
-  final String description;
-  final double priceUsd;
-  final String imageUrl;
-  final List<String> categories;
-
   const Product({
     required this.id,
     required this.name,
@@ -49,6 +42,13 @@ class Product {
       categories: categoryList,
     );
   }
+
+  final String id;
+  final String name;
+  final String description;
+  final double priceUsd;
+  final String imageUrl;
+  final List<String> categories;
 
   Map<String, dynamic> toJson() {
     return {
@@ -114,14 +114,14 @@ class Product {
   
   String getFormattedPrice([dynamic currencyService]) {
     if (currencyService != null && currencyService.selectedCurrency != null) {
-      return currencyService.formatPrice(priceUsd);
+      return currencyService.formatPrice(priceUsd) as String;
     }
     return formattedPrice;
   }
-  
+
   double getConvertedPrice([dynamic currencyService]) {
     if (currencyService != null && currencyService.selectedCurrency != null) {
-      return currencyService.convertPrice(priceUsd);
+      return currencyService.convertPrice(priceUsd) as double;
     }
     return priceUsd;
   }

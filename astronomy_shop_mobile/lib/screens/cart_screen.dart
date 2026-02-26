@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/cart_item.dart';
 import '../services/cart_service.dart';
 import '../services/currency_service.dart';
-import '../services/telemetry_service.dart';
-import '../services/performance_service.dart';
 import '../services/funnel_tracking_service.dart';
+import '../services/performance_service.dart';
+import '../services/telemetry_service.dart';
 import '../widgets/cached_image.dart';
 import '../widgets/enhanced_loading.dart';
 import 'checkout_screen.dart';
@@ -212,7 +213,7 @@ class _CartScreenState extends State<CartScreen> {
             Column(
               children: [
                 ElevatedButton.icon(
-                  onPressed: () => _onContinueShopping(),
+                  onPressed: _onContinueShopping,
                   icon: const Icon(Icons.explore),
                   label: const Text('Explore Products'),
                   style: ElevatedButton.styleFrom(
@@ -287,7 +288,7 @@ class _CartScreenState extends State<CartScreen> {
       'screen_name': 'cart',
     });
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -359,9 +360,9 @@ class _CartScreenState extends State<CartScreen> {
       },
     );
 
-    Navigator.push(
+    Navigator.push<void>(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => const CheckoutScreen(),
       ),
     );
@@ -378,16 +379,16 @@ class _CartScreenState extends State<CartScreen> {
 }
 
 class CartItemCard extends StatelessWidget {
-  final CartItem item;
-  final Function(int) onQuantityChanged;
-  final VoidCallback onRemove;
-
   const CartItemCard({
     super.key,
     required this.item,
     required this.onQuantityChanged,
     required this.onRemove,
   });
+
+  final CartItem item;
+  final void Function(int) onQuantityChanged;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {

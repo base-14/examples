@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/product.dart';
-import '../services/recommendations_service.dart';
-import '../services/currency_service.dart';
-import '../services/telemetry_service.dart';
 import '../screens/product_detail_screen.dart';
+import '../services/currency_service.dart';
+import '../services/recommendations_service.dart';
+import '../services/telemetry_service.dart';
 import 'cached_image.dart';
 
 class RecommendationsSection extends StatefulWidget {
@@ -350,9 +351,9 @@ class _RecommendationsSectionState extends State<RecommendationsSection> {
       'screen_name': 'home',
     });
 
-    Navigator.push(
+    Navigator.push<void>(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ProductDetailScreen(product: product),
       ),
     );

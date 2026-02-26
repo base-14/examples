@@ -1,14 +1,9 @@
 import 'package:flutter/foundation.dart';
-import 'telemetry_service.dart';
+
 import 'performance_service.dart';
+import 'telemetry_service.dart';
 
 class ErrorDetails {
-  final String error;
-  final String? stackTrace;
-  final String? context;
-  final DateTime timestamp;
-  final Map<String, dynamic> metadata;
-  
   const ErrorDetails({
     required this.error,
     this.stackTrace,
@@ -16,6 +11,12 @@ class ErrorDetails {
     required this.timestamp,
     this.metadata = const {},
   });
+
+  final String error;
+  final String? stackTrace;
+  final String? context;
+  final DateTime timestamp;
+  final Map<String, dynamic> metadata;
   
   Map<String, dynamic> toJson() => {
     'error': error,
@@ -27,18 +28,16 @@ class ErrorDetails {
 }
 
 class ErrorHandlerService {
+  ErrorHandlerService._();
+
   static ErrorHandlerService? _instance;
   static ErrorHandlerService get instance => _instance ??= ErrorHandlerService._();
-  
-  ErrorHandlerService._();
   
   final List<ErrorDetails> _recentErrors = [];
   final int _maxRecentErrors = 50;
   
   void initialize() {
-    FlutterError.onError = (FlutterErrorDetails details) {
-      _handleFlutterError(details);
-    };
+    FlutterError.onError = _handleFlutterError;
     
     PlatformDispatcher.instance.onError = (error, stack) {
       _handlePlatformError(error, stack);
@@ -110,7 +109,7 @@ class ErrorHandlerService {
     TelemetryService.instance.recordEvent('error_occurred', attributes: {
       'error_message': errorDetails.error,
       'error_context': errorDetails.context ?? 'unknown',
-      'error_type': errorDetails.metadata['error_type'] ?? 'unknown',
+      'error_type': (errorDetails.metadata['error_type'] as String?) ?? 'unknown',
       'session_id': TelemetryService.instance.sessionId,
       'has_stack_trace': errorDetails.stackTrace != null,
       'error_timestamp': errorDetails.timestamp.millisecondsSinceEpoch,

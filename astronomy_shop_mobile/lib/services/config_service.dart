@@ -9,9 +9,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// - For production: Use HTTPS endpoints exclusively
 /// - See SECURITY.md for production deployment guidelines
 class ConfigService {
-  static ConfigService? _instance;
-
   ConfigService._internal();
+
+  static ConfigService? _instance;
 
   static ConfigService get instance {
     _instance ??= ConfigService._internal();
@@ -77,7 +77,7 @@ class ConfigService {
       // Simple warning for demo setup using HTTP
       if (kDebugMode) {
         final apiUri = Uri.parse(apiBaseUrl);
-        final otlpUri = Uri.parse(otlpEndpoint);
+        Uri.parse(otlpEndpoint); // validate OTLP endpoint URI
 
         if (apiUri.scheme == 'http') {
           debugPrint('[CONFIG WARNING] Using HTTP for API: $apiBaseUrl');
@@ -100,8 +100,9 @@ class ConfigService {
 
 /// Exception thrown when configuration is invalid
 class ConfigurationException implements Exception {
-  final String message;
   ConfigurationException(this.message);
+
+  final String message;
 
   @override
   String toString() => 'ConfigurationException: $message';
@@ -109,8 +110,9 @@ class ConfigurationException implements Exception {
 
 /// Exception thrown when security requirements are violated
 class SecurityException implements Exception {
-  final String message;
   SecurityException(this.message);
+
+  final String message;
 
   @override
   String toString() => 'SecurityException: $message';
