@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.support.model.Conversation;
+import com.example.support.model.EscalationDecision;
 import com.example.support.model.Message;
 import com.example.support.service.ConversationService;
 
@@ -37,6 +38,13 @@ public class ConversationController {
         return conversationService.findById(id)
             .zipWith(conversationService.getHistory(id).collectList())
             .map(tuple -> new ConversationDetail(tuple.getT1(), tuple.getT2()));
+    }
+
+    @PostMapping("/{id}/escalate")
+    public Mono<Void> escalate(@PathVariable UUID id) {
+        return conversationService.escalate(id,
+            EscalationDecision.escalate("manual_request",
+                EscalationDecision.EscalationPriority.HIGH, "Manually escalated via API"));
     }
 
     @PostMapping("/{id}/resolve")

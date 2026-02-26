@@ -3,7 +3,7 @@ services:
     build:
       context: .
       additional_contexts:
-        _shared: ../../_shared
+        shared: ../../_shared
     ports:
       - "8080:8080"
     environment:
@@ -25,7 +25,11 @@ services:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       DEFAULT_TEMPERATURE: ${DEFAULT_TEMPERATURE:-0.3}
       DEFAULT_MAX_TOKENS: ${DEFAULT_MAX_TOKENS:-1024}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       PRICING_FILE: /app/pricing.json
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
       OTEL_SERVICE_NAME: ai-customer-support
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -33,14 +37,14 @@ services:
       OTEL_METRICS_EXPORTER: otlp
       OTEL_LOGS_EXPORTER: otlp
       OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: "true"
-      OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"
+      OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: ${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
     depends_on:
       postgres:
         condition: service_healthy
       otel-collector:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -74,15 +78,13 @@ services:
     volumes:
       - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     environment:
-      B14_ENDPOINT: ${B14_ENDPOINT:-}
-      B14_CLIENT_ID: ${B14_CLIENT_ID:-}
-      B14_CLIENT_SECRET: ${B14_CLIENT_SECRET:-}
-      B14_TOKEN_URL: ${B14_TOKEN_URL:-}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-https://collector.base14.io}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:13133"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["NONE"]
 
 volumes:
   pgdata:

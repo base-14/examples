@@ -11,15 +11,19 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import com.example.support.telemetry.SupportMetrics;
+
 @Component
 public class OrderTools {
 
     private static final Logger log = LoggerFactory.getLogger(OrderTools.class);
 
     private final JdbcTemplate jdbc;
+    private final SupportMetrics metrics;
 
-    public OrderTools(JdbcTemplate jdbc) {
+    public OrderTools(JdbcTemplate jdbc, SupportMetrics metrics) {
         this.jdbc = jdbc;
+        this.metrics = metrics;
     }
 
     @Tool(description = "Look up order status and tracking info by order ID (e.g. ORD-12345)")
@@ -27,6 +31,7 @@ public class OrderTools {
         @ToolParam(description = "Order ID, e.g. ORD-12345") String orderId
     ) {
         log.info("Tool call: getOrderStatus({})", orderId);
+        metrics.recordToolCall("getOrderStatus", true);
         var rows = jdbc.queryForList(
             """
             SELECT o.order_id, o.status, o.tracking_number, o.estimated_delivery,
@@ -47,6 +52,7 @@ public class OrderTools {
         @ToolParam(description = "Maximum number of orders to return") int limit
     ) {
         log.info("Tool call: getOrderHistory(email={}, limit={})", email, limit);
+        metrics.recordToolCall("getOrderHistory", true);
         return jdbc.queryForList(
             """
             SELECT o.order_id, o.status, o.total_amount, o.created_at
@@ -62,6 +68,7 @@ public class OrderTools {
         @ToolParam(description = "Reason for the return") String reason
     ) {
         log.info("Tool call: initiateReturn(orderId={}, reason={})", orderId, reason);
+        metrics.recordToolCall("initiateReturn", true);
 
         var orders = jdbc.queryForList(
             "SELECT id, status, total_amount FROM orders WHERE order_id = ?", orderId);
@@ -96,6 +103,7 @@ public class OrderTools {
         @ToolParam(description = "Return ID, e.g. RET-67890") String returnId
     ) {
         log.info("Tool call: getReturnStatus({})", returnId);
+        metrics.recordToolCall("getReturnStatus", true);
         var rows = jdbc.queryForList(
             """
             SELECT r.return_id, r.reason, r.status, r.refund_amount, r.created_at,

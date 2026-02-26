@@ -1,7 +1,7 @@
 package com.example.support.llm;
 
-import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
@@ -24,10 +24,12 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 
 import com.example.support.config.AppConfig;
+import com.example.support.filter.PiiFilter;
 
 @Service
 public class LlmService {
@@ -41,6 +43,8 @@ public class LlmService {
     private final ChatModel fallbackModel;
     private final AppConfig config;
     private final Pricing pricing;
+    private final PiiFilter piiFilter;
+    private final boolean captureContent;
     private final Tracer tracer;
     private final DoubleHistogram tokenUsage;
     private final DoubleHistogram operationDuration;
@@ -50,15 +54,21 @@ public class LlmService {
     private final LongCounter errorCounter;
 
     public LlmService(
-        @Qualifier("primaryChatModel") ChatModel primaryModel,
-        @Qualifier("fallbackChatModel") ChatModel fallbackModel,
+        Map<String, ChatModel> chatModels,
         AppConfig config,
-        Pricing pricing
+        Pricing pricing,
+        PiiFilter piiFilter
     ) {
-        this.primaryModel = primaryModel;
-        this.fallbackModel = fallbackModel;
+        this.primaryModel = LlmConfig.resolveChatModel(config.provider(), chatModels);
+        this.fallbackModel = LlmConfig.resolveChatModel(config.fallbackProvider(), chatModels);
         this.config = config;
         this.pricing = pricing;
+        this.piiFilter = piiFilter;
+        this.captureContent = "true".equalsIgnoreCase(
+            System.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"));
+        log.info("Primary LLM: {} (capable={}, fast={}), Fallback: {} (model={})",
+            config.provider(), config.modelCapable(), config.modelFast(),
+            config.fallbackProvider(), config.fallbackModel());
 
         this.tracer = GlobalOpenTelemetry.getTracer("ai-customer-support");
         Meter meter = GlobalOpenTelemetry.getMeter("ai-customer-support");
@@ -78,7 +88,12 @@ public class LlmService {
     }
 
     public LlmResponse generate(String systemPrompt, String userPrompt, String model, String stage) {
-        var resp = generateWithRetry(primaryModel, config.provider(), model, systemPrompt, userPrompt, stage);
+        return generate(systemPrompt, userPrompt, model, stage, List.of());
+    }
+
+    public LlmResponse generate(String systemPrompt, String userPrompt, String model, String stage,
+                                 List<ToolCallback> toolCallbacks) {
+        var resp = generateWithRetry(primaryModel, config.provider(), model, systemPrompt, userPrompt, stage, toolCallbacks);
         if (resp != null) {
             return resp;
         }
@@ -87,7 +102,7 @@ public class LlmService {
         fallbackCounter.add(1);
 
         resp = generateWithRetry(fallbackModel, config.fallbackProvider(), config.fallbackModel(),
-            systemPrompt, userPrompt, stage);
+            systemPrompt, userPrompt, stage, toolCallbacks);
         if (resp != null) {
             return resp;
         }
@@ -99,18 +114,23 @@ public class LlmService {
         return generate(systemPrompt, userPrompt, config.modelCapable(), stage);
     }
 
+    public LlmResponse generateCapable(String systemPrompt, String userPrompt, String stage,
+                                         List<ToolCallback> toolCallbacks) {
+        return generate(systemPrompt, userPrompt, config.modelCapable(), stage, toolCallbacks);
+    }
+
     public LlmResponse generateFast(String systemPrompt, String userPrompt, String stage) {
         return generate(systemPrompt, userPrompt, config.modelFast(), stage);
     }
 
     private LlmResponse generateWithRetry(
         ChatModel chatModel, String providerName, String model,
-        String systemPrompt, String userPrompt, String stage
+        String systemPrompt, String userPrompt, String stage, List<ToolCallback> toolCallbacks
     ) {
         Exception lastError = null;
         for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
-                return generateOnce(chatModel, providerName, model, systemPrompt, userPrompt, stage);
+                return generateOnce(chatModel, providerName, model, systemPrompt, userPrompt, stage, toolCallbacks);
             } catch (Exception e) {
                 lastError = e;
                 log.warn("LLM call failed (attempt {}/{}): provider={} model={} error={}",
@@ -129,7 +149,7 @@ public class LlmService {
 
     private LlmResponse generateOnce(
         ChatModel chatModel, String providerName, String model,
-        String systemPrompt, String userPrompt, String stage
+        String systemPrompt, String userPrompt, String stage, List<ToolCallback> toolCallbacks
     ) {
         String spanName = "gen_ai.chat " + model;
         long start = System.nanoTime();
@@ -149,16 +169,18 @@ public class LlmService {
         }
 
         try (Scope ignored = span.makeCurrent()) {
-            span.addEvent("gen_ai.user.message", Attributes.of(
-                AttributeKey.stringKey("gen_ai.prompt"), truncate(userPrompt, 1000)
-            ));
-            if (systemPrompt != null && !systemPrompt.isEmpty()) {
+            if (captureContent) {
                 span.addEvent("gen_ai.user.message", Attributes.of(
-                    AttributeKey.stringKey("gen_ai.system_instructions"), truncate(systemPrompt, 500)
+                    AttributeKey.stringKey("gen_ai.prompt"), truncate(piiFilter.scrub(userPrompt), 1000)
                 ));
+                if (systemPrompt != null && !systemPrompt.isEmpty()) {
+                    span.addEvent("gen_ai.user.message", Attributes.of(
+                        AttributeKey.stringKey("gen_ai.system_instructions"), truncate(systemPrompt, 500)
+                    ));
+                }
             }
 
-            var prompt = buildPrompt(systemPrompt, userPrompt, model);
+            var prompt = buildPrompt(systemPrompt, userPrompt, model, toolCallbacks);
             ChatResponse response = chatModel.call(prompt);
 
             var generation = response.getResult();
@@ -183,9 +205,11 @@ public class LlmService {
                 span.setAttribute("gen_ai.response.finish_reasons", finishReason);
             }
 
-            span.addEvent("gen_ai.assistant.message", Attributes.of(
-                AttributeKey.stringKey("gen_ai.completion"), truncate(content, 2000)
-            ));
+            if (captureContent) {
+                span.addEvent("gen_ai.assistant.message", Attributes.of(
+                    AttributeKey.stringKey("gen_ai.completion"), truncate(piiFilter.scrub(content), 2000)
+                ));
+            }
 
             var attrs = providerModelAttrs(providerName, responseModel);
             tokenUsage.record(inputTokens, withTokenType(attrs, "input"));
@@ -210,19 +234,28 @@ public class LlmService {
         }
     }
 
-    private Prompt buildPrompt(String systemPrompt, String userPrompt, String model) {
+    private Prompt buildPrompt(String systemPrompt, String userPrompt, String model, List<ToolCallback> toolCallbacks) {
         var messages = new java.util.ArrayList<org.springframework.ai.chat.messages.Message>();
         if (systemPrompt != null && !systemPrompt.isEmpty()) {
             messages.add(new SystemMessage(systemPrompt));
         }
         messages.add(new UserMessage(userPrompt));
 
+        if (toolCallbacks != null && !toolCallbacks.isEmpty()) {
+            var options = ToolCallingChatOptions.builder()
+                .model(model)
+                .temperature(config.temperature())
+                .maxTokens(config.maxTokens())
+                .toolCallbacks(toolCallbacks)
+                .build();
+            return new Prompt(messages, options);
+        }
+
         var options = ChatOptions.builder()
             .model(model)
             .temperature(config.temperature())
             .maxTokens(config.maxTokens())
             .build();
-
         return new Prompt(messages, options);
     }
 

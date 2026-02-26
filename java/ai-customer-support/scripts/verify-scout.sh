@@ -143,9 +143,9 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
 
     # Database Spans (auto-instrumented by Java Agent)
     echo "  $(dim "--- Database Spans ---")"
-    warn_log  "Span: support SELECT"                "support SELECT"          "$LOGS_FILE"
-    warn_log  "Span: support INSERT"                "support INSERT"          "$LOGS_FILE"
-    warn_log  "Span: support UPDATE"                "support UPDATE"          "$LOGS_FILE"
+    warn_log  "Span: SELECT support.*"               "SELECT support\."        "$LOGS_FILE"
+    warn_log  "Span: INSERT support.*"               "INSERT support\."        "$LOGS_FILE"
+    warn_log  "Span: UPDATE support.*"               "UPDATE support\."        "$LOGS_FILE"
     warn_log  "Attr: db.system"                     "db.system"               "$LOGS_FILE"
 
     # GenAI Spans (manual)
@@ -177,10 +177,14 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Stage span: generate"                "Str(generate)"           "$LOGS_FILE"
     warn_log  "Stage span: route"                   "Str(route)"              "$LOGS_FILE"
 
-    # Span Events
+    # Span Events (only when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true)
     echo "  $(dim "--- Span Events ---")"
-    warn_log  "Event: gen_ai.user.message"          "gen_ai.user.message"     "$LOGS_FILE"
-    warn_log  "Event: gen_ai.assistant.message"     "gen_ai.assistant.message" "$LOGS_FILE"
+    if [ "${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}" = "true" ]; then
+      warn_log  "Event: gen_ai.user.message"          "gen_ai.user.message"     "$LOGS_FILE"
+      warn_log  "Event: gen_ai.assistant.message"     "gen_ai.assistant.message" "$LOGS_FILE"
+    else
+      echo "  $(dim "SKIP") Events gated by OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT (default: false)"
+    fi
 
     # Error telemetry
     echo "  $(dim "--- Error Telemetry ---")"

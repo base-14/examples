@@ -10,15 +10,19 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import com.example.support.telemetry.SupportMetrics;
+
 @Component
 public class ProductTools {
 
     private static final Logger log = LoggerFactory.getLogger(ProductTools.class);
 
     private final JdbcTemplate jdbc;
+    private final SupportMetrics metrics;
 
-    public ProductTools(JdbcTemplate jdbc) {
+    public ProductTools(JdbcTemplate jdbc, SupportMetrics metrics) {
         this.jdbc = jdbc;
+        this.metrics = metrics;
     }
 
     @Tool(description = "Search product catalog by name, description, or category")
@@ -27,6 +31,7 @@ public class ProductTools {
         @ToolParam(description = "Category filter (optional, empty string for all)") String category
     ) {
         log.info("Tool call: searchProducts(query={}, category={})", query, category);
+        metrics.recordToolCall("searchProducts", true);
 
         if (category != null && !category.isBlank()) {
             return jdbc.queryForList(
@@ -52,6 +57,7 @@ public class ProductTools {
         @ToolParam(description = "Product SKU") String sku
     ) {
         log.info("Tool call: getProductInfo({})", sku);
+        metrics.recordToolCall("getProductInfo", true);
         var rows = jdbc.queryForList(
             "SELECT name, description, category, price, sku, in_stock FROM products WHERE sku = ?", sku);
 

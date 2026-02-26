@@ -33,6 +33,11 @@ processors:
       span:
         - 'IsMatch(name, ".*/health.*")'
         - 'IsMatch(name, ".*/actuator.*")'
+        # HikariCP connection pool runs keepalive queries every ~30s on a
+        # housekeeper thread. The JDBC auto-instrumentation creates orphan
+        # single-span traces for these (no parent HTTP/pipeline context).
+        # Drop them to avoid polluting the trace store.
+        - 'attributes["thread.name"] != nil and IsMatch(attributes["thread.name"], "HikariPool.*housekeeper")'
 
   batch:
     timeout: 10s

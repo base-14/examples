@@ -86,6 +86,7 @@ public class SupportPipeline {
     }
 
     private PipelineResult runPipeline(String userMessage, UUID conversationId, List<Message> history) {
+        long startNanos = System.nanoTime();
         Span span = tracer.spanBuilder("support_conversation")
             .setAttribute("support.conversation_id", conversationId.toString())
             .startSpan();
@@ -124,6 +125,8 @@ public class SupportPipeline {
             if (escalation.shouldEscalate()) {
                 metrics.recordEscalation(escalation.reason(), escalation.priority().name());
             }
+            double durationSec = (System.nanoTime() - startNanos) / 1_000_000_000.0;
+            metrics.recordConversationDuration(durationSec, intent.intent().name(), escalation.shouldEscalate());
 
             // Record totals
             int totalTokens = intent.inputTokens() + intent.outputTokens()

@@ -5,11 +5,16 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.stereotype.Component;
 
 import com.example.support.llm.LlmResponse;
 import com.example.support.llm.LlmService;
 import com.example.support.model.IntentResult;
+import com.example.support.telemetry.SupportMetrics;
+import com.example.support.tools.OrderTools;
+import com.example.support.tools.ProductTools;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -31,6 +36,7 @@ public class ResponseGenerator {
         - Acknowledge complaints with empathy
         - Reference specific order/product details when available
         - If you don't know something, say so honestly
+        - Use the available tools to look up real order and product information
         - Never make up order statuses or tracking information
 
         Customer intent: %s (confidence: %.0f%%)
@@ -40,11 +46,22 @@ public class ResponseGenerator {
 
     private final LlmService llmService;
     private final ContextRetriever contextRetriever;
+    private final SupportMetrics metrics;
+    private final List<ToolCallback> toolCallbacks;
     private final Tracer tracer;
 
-    public ResponseGenerator(LlmService llmService, ContextRetriever contextRetriever) {
+    public ResponseGenerator(LlmService llmService, ContextRetriever contextRetriever,
+                             SupportMetrics metrics,
+                             OrderTools orderTools, ProductTools productTools) {
         this.llmService = llmService;
         this.contextRetriever = contextRetriever;
+        this.metrics = metrics;
+        this.toolCallbacks = List.of(
+            MethodToolCallbackProvider.builder()
+                .toolObjects(orderTools, productTools)
+                .build()
+                .getToolCallbacks()
+        );
         this.tracer = GlobalOpenTelemetry.getTracer("ai-customer-support");
     }
 
@@ -68,7 +85,7 @@ public class ResponseGenerator {
                 historySection
             );
 
-            LlmResponse response = llmService.generateCapable(systemPrompt, userMessage, "generate");
+            LlmResponse response = llmService.generateCapable(systemPrompt, userMessage, "generate", toolCallbacks);
 
             span.setAttribute("gen_ai.usage.input_tokens", (long) response.inputTokens());
             span.setAttribute("gen_ai.usage.output_tokens", (long) response.outputTokens());

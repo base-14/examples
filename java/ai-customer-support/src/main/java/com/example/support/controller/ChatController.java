@@ -8,6 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import com.example.support.pipeline.SupportPipeline;
 
@@ -44,7 +46,7 @@ public class ChatController {
     @PostMapping("/api/chat")
     public Mono<ChatResponseDto> chat(@RequestBody ChatRequest request) {
         if (request.message() == null || request.message().isBlank()) {
-            return Mono.error(new IllegalArgumentException("Message cannot be empty"));
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message cannot be empty"));
         }
 
         UUID conversationId = request.conversationId() != null
@@ -69,7 +71,7 @@ public class ChatController {
     @PostMapping(value = "/api/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chatStream(@RequestBody ChatRequest request) {
         if (request.message() == null || request.message().isBlank()) {
-            return Flux.error(new IllegalArgumentException("Message cannot be empty"));
+            return Flux.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message cannot be empty"));
         }
 
         UUID conversationId = request.conversationId() != null

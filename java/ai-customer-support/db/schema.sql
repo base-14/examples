@@ -9,12 +9,10 @@ CREATE TABLE kb_articles (
     answer TEXT NOT NULL,
     category VARCHAR(100),
     tags TEXT[],
-    embedding VECTOR(1536),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_kb_intent ON kb_articles(intent);
-CREATE INDEX idx_kb_embedding ON kb_articles USING hnsw (embedding vector_cosine_ops);
 
 -- Products
 CREATE TABLE products (
@@ -116,12 +114,4 @@ CREATE TABLE messages (
 
 CREATE INDEX idx_messages_conversation ON messages(conversation_id, created_at);
 
--- Spring AI vector store table (created by Spring AI, but we define it here for seed data)
-CREATE TABLE IF NOT EXISTS vector_store (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    content TEXT NOT NULL,
-    metadata JSONB,
-    embedding VECTOR(1536)
-);
-
-CREATE INDEX IF NOT EXISTS idx_vector_store_embedding ON vector_store USING hnsw (embedding vector_cosine_ops);
+-- vector_store table is created by Spring AI on startup with configured dimensions

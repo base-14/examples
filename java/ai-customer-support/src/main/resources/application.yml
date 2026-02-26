@@ -21,7 +21,7 @@ spring:
           temperature: ${DEFAULT_TEMPERATURE:0.3}
       embedding:
         options:
-          model: text-embedding-3-small
+          model: ${EMBEDDING_MODEL:text-embedding-3-small}
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}
       chat:
@@ -32,11 +32,14 @@ spring:
       chat:
         options:
           model: ${LLM_MODEL_CAPABLE:llama3.1:8b}
+      embedding:
+        options:
+          model: ${EMBEDDING_MODEL:embeddinggemma}
     vectorstore:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
-        dimensions: 1536
+        dimensions: ${EMBEDDING_DIMENSIONS:1536}
         initialize-schema: false
     chat:
       observations:
