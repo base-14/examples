@@ -39,11 +39,6 @@ export default defineConfig({
     hookTimeout: 30000,
     isolate: true,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: false,
-      },
-    },
 
     reporters: ['default', 'html', 'json'],
     outputFile: {

@@ -95,7 +95,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }
 
             (client.data as SocketData).user = user;
-            client.join(`user:${user.id}`);
+            await client.join(`user:${user.id}`);
 
             span.setAttributes({
               'socket.id': client.id,
@@ -156,7 +156,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('subscribe:articles')
-  handleSubscribeArticles(@ConnectedSocket() client: Socket) {
+  async handleSubscribeArticles(@ConnectedSocket() client: Socket) {
     const socketData = client.data as SocketData;
     const span = tracer.startSpan('socket.subscribe_articles', {
       attributes: {
@@ -170,7 +170,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new WsException('Not authenticated');
       }
 
-      client.join('articles');
+      await client.join('articles');
       span.addEvent('subscribed_to_articles');
       span.setStatus({ code: SpanStatusCode.OK });
 
@@ -185,7 +185,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('unsubscribe:articles')
-  handleUnsubscribeArticles(@ConnectedSocket() client: Socket) {
+  async handleUnsubscribeArticles(@ConnectedSocket() client: Socket) {
     const socketData = client.data as SocketData;
     const span = tracer.startSpan('socket.unsubscribe_articles', {
       attributes: {
@@ -195,7 +195,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     try {
-      client.leave('articles');
+      await client.leave('articles');
       span.addEvent('unsubscribed_from_articles');
       span.setStatus({ code: SpanStatusCode.OK });
 

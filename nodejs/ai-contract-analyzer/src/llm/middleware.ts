@@ -201,11 +201,11 @@ export function createSemconvMiddleware(
 
         // All retries exhausted
         const durationS = (Date.now() - startMs) / 1000;
-        const errorType = lastError!.constructor?.name ?? "UnknownError";
+        const errorType = lastError?.constructor?.name ?? "UnknownError";
 
-        span.recordException(lastError!);
+        span.recordException(lastError as Error);
         span.setAttribute("error.type", errorType);
-        span.setStatus({ code: SpanStatusCode.ERROR, message: lastError!.message });
+        span.setStatus({ code: SpanStatusCode.ERROR, message: lastError?.message });
 
         errorCounter.add(1, {
           "gen_ai.request.model": modelId,
@@ -239,7 +239,7 @@ export function withFallback(
     async wrapGenerate({ doGenerate, params, model }) {
       try {
         return await doGenerate();
-      } catch (err) {
+      } catch (_err) {
         fallbackCounter.add(1, {
           "gen_ai.request.model": model.modelId,
           "gen_ai.provider.name": primaryProviderName,
