@@ -5,4 +5,4 @@ from app.routes.auth import auth_bp
 from app.routes.health import health_bp
 
 
-__all__ = ["health_bp", "auth_bp", "articles_bp"]
+__all__ = ["articles_bp", "auth_bp", "health_bp"]

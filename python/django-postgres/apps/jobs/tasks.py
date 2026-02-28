@@ -65,7 +65,9 @@ def send_article_notification(
             span.set_status(Status(StatusCode.OK))
 
             duration_ms = (time.perf_counter() - start_time) * 1000
-            jobs_completed.add(1, {"job_name": "send_article_notification", "event_type": event_type})
+            jobs_completed.add(
+                1, {"job_name": "send_article_notification", "event_type": event_type}
+            )
             job_duration.record(duration_ms, {"job_name": "send_article_notification"})
 
             logger.info(f"Notification sent successfully for article {article_id}")
@@ -76,7 +78,9 @@ def send_article_notification(
             span.record_exception(exc)
 
             duration_ms = (time.perf_counter() - start_time) * 1000
-            jobs_failed.add(1, {"job_name": "send_article_notification", "error": type(exc).__name__})
+            jobs_failed.add(
+                1, {"job_name": "send_article_notification", "error": type(exc).__name__}
+            )
             job_duration.record(duration_ms, {"job_name": "send_article_notification"})
 
             logger.exception(f"Failed to send notification for article {article_id}")

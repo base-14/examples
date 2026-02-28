@@ -151,7 +151,7 @@ def create_llm(
     if provider == "ollama":
         from llama_index.llms.ollama import Ollama
 
-        return Ollama(
+        return Ollama(  # type: ignore[no-any-return]
             model=model,
             base_url=ollama_base_url,
             temperature=temperature,
@@ -393,7 +393,7 @@ def _raw_get(raw: object) -> Callable[[str], Any]:
     """Return a getter that works whether raw is a dict or an object."""
     if isinstance(raw, dict):
         return raw.get
-    return lambda key, default=None: getattr(raw, key, default)
+    return lambda key, default=None: getattr(raw, key, default)  # type: ignore[misc]
 
 
 def _extract_raw_usage(raw: object) -> dict[str, Any]:

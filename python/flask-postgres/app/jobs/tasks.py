@@ -35,9 +35,7 @@ job_duration = meter.create_histogram(
 
 
 @celery.task(bind=True, max_retries=3)
-def send_article_notification(
-    self: Task, article_id: int, event_type: str
-) -> dict[str, Any]:
+def send_article_notification(self: Task, article_id: int, event_type: str) -> dict[str, Any]:
     """Send notification for article events.
 
     Args:
@@ -68,20 +66,14 @@ def send_article_notification(
             with app.app_context():
                 from app.extensions import db
 
-                article = (
-                    db.session.query(Article)
-                    .filter(Article.id == article_id)
-                    .first()
-                )
+                article = db.session.query(Article).filter(Article.id == article_id).first()
 
                 if not article:
                     logger.warning(f"Article {article_id} not found for notification")
                     span.set_status(Status(StatusCode.ERROR, "Article not found"))
                     return {"status": "error", "error": "Article not found"}
 
-                logger.info(
-                    f"Sending {event_type} notification for article '{article.title}'"
-                )
+                logger.info(f"Sending {event_type} notification for article '{article.title}'")
 
                 # Simulate notification work
                 time.sleep(0.1)
@@ -110,4 +102,4 @@ def send_article_notification(
             job_duration.record(duration_ms, {"job_name": "send_article_notification"})
 
             logger.exception(f"Failed to send notification for article {article_id}")
-            raise self.retry(exc=exc, countdown=2**self.request.retries)
+            raise self.retry(exc=exc, countdown=2**self.request.retries) from exc

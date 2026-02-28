@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 
@@ -85,9 +85,7 @@ async def test_improve_returns_improve_result(
 async def test_improve_passes_content_type(
     analyzer: ContentAnalyzer, mock_llm_client: MagicMock
 ) -> None:
-    mock_llm_client.generate_structured.return_value = ImproveResult(
-        suggestions=[], summary="Good"
-    )
+    mock_llm_client.generate_structured.return_value = ImproveResult(suggestions=[], summary="Good")
     await analyzer.improve("Content", content_type="marketing")
     call_kwargs = mock_llm_client.generate_structured.call_args
     assert call_kwargs.kwargs["content_type"] == "marketing"

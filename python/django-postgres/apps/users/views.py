@@ -97,5 +97,5 @@ def get_user(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def logout(request: Request) -> Response:
+def logout(_request: Request) -> Response:
     return Response({"message": "Logged out successfully"})

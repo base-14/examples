@@ -46,10 +46,12 @@ def setup_telemetry() -> None:
     # Create resource - get_aggregated_resources automatically picks up OTEL_RESOURCE_ATTRIBUTES
     resource = get_aggregated_resources(
         detectors=[],
-        initial_resource=Resource.create({
-            "service.name": service_name,
-            "service.version": service_version,
-        }),
+        initial_resource=Resource.create(
+            {
+                "service.name": service_name,
+                "service.version": service_version,
+            }
+        ),
     )
 
     # ==========================================================================

@@ -59,12 +59,14 @@ def list_articles():
         article_dict["favorited"] = article.is_favorited_by(current_user)
         articles_data.append(article_dict)
 
-    return jsonify({
-        "articles": articles_data,
-        "total": pagination.total,
-        "page": page,
-        "per_page": per_page,
-    })
+    return jsonify(
+        {
+            "articles": articles_data,
+            "total": pagination.total,
+            "page": page,
+            "per_page": per_page,
+        }
+    )
 
 
 @articles_bp.route("/", methods=["POST"])

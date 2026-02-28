@@ -11,7 +11,7 @@ from rest_framework.response import Response
 
 
 @api_view(["GET"])
-def health_check(request: Request) -> Response:
+def health_check(_request: Request) -> Response:
     health: dict[str, Any] = {
         "status": "healthy",
         "components": {},

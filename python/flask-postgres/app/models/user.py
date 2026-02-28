@@ -25,10 +25,10 @@ class User(db.Model):
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    articles: Mapped[list["Article"]] = relationship(  # noqa: F821
+    articles: Mapped[list[Article]] = relationship(  # noqa: F821
         "Article", back_populates="author", lazy="dynamic"
     )
-    favorites: Mapped[list["Favorite"]] = relationship(  # noqa: F821
+    favorites: Mapped[list[Favorite]] = relationship(  # noqa: F821
         "Favorite", back_populates="user", lazy="dynamic"
     )
 

@@ -83,9 +83,18 @@ select = [
     "RUF",    # Ruff-specific rules
 ]
 ignore = [
-    "E501",   # line too long (handled by formatter)
-    "PLR0913", # too many arguments
-    "PLR2004", # magic value comparison
+    "E501",     # line too long (handled by formatter)
+    "PLR0913",  # too many arguments
+    "PLR2004",  # magic value comparison
+    "PLC0415",  # non-top-level imports (Flask app factory pattern)
+    "ARG001",   # unused function argument (Flask handlers, pytest fixtures)
+    "PLW0603",  # global statement (telemetry module init)
+    "RUF012",   # mutable class attribute default (Flask/Django config pattern)
+    "TC001",    # move app import to TYPE_CHECKING (used at runtime)
+    "TC002",    # move third-party import to TYPE_CHECKING (used at runtime)
+    "TC003",    # move stdlib import to TYPE_CHECKING (used at runtime)
+    "UP047",    # PEP 695 type parameters (keep ParamSpec/TypeVar for clarity)
+    "SIM108",   # ternary operator (readability preference)
 ]
 
 [tool.ruff.lint.isort]

@@ -1,6 +1,6 @@
 """JWT authentication service."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
@@ -25,8 +25,8 @@ def generate_token(user: User) -> str:
     payload = {
         "user_id": user.id,
         "email": user.email,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=expiration_hours),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) + timedelta(hours=expiration_hours),
+        "iat": datetime.now(UTC),
     }
 
     return jwt.encode(payload, secret_key, algorithm=algorithm)

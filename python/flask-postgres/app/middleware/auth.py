@@ -1,7 +1,8 @@
 """JWT authentication middleware."""
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar
 
 from flask import g, jsonify, request
 

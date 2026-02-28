@@ -19,7 +19,7 @@ def api_client():
 
 
 @pytest.fixture
-def user(db):
+def user(db):  # noqa: ARG001
     from apps.users.models import User
 
     return User.objects.create_user(
@@ -39,7 +39,7 @@ def auth_client(api_client, user):
 
 
 @pytest.fixture
-def article(db, user):
+def article(db, user):  # noqa: ARG001
     from apps.articles.models import Article
 
     return Article.objects.create(

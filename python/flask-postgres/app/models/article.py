@@ -26,8 +26,8 @@ class Article(db.Model):
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    author: Mapped["User"] = relationship("User", back_populates="articles")  # noqa: F821
-    favorited_by: Mapped[list["Favorite"]] = relationship(
+    author: Mapped[User] = relationship("User", back_populates="articles")  # noqa: F821
+    favorited_by: Mapped[list[Favorite]] = relationship(
         "Favorite", back_populates="article", lazy="dynamic", cascade="all, delete-orphan"
     )
 
@@ -37,7 +37,7 @@ class Article(db.Model):
         timestamp = int(time.time() * 1000)
         self.slug = f"{base_slug}-{timestamp}"
 
-    def is_favorited_by(self, user: "User") -> bool:  # noqa: F821
+    def is_favorited_by(self, user: User) -> bool:  # noqa: F821
         """Check if this article is favorited by the given user.
 
         Args:
@@ -80,8 +80,8 @@ class Favorite(db.Model):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="favorites")  # noqa: F821
-    article: Mapped["Article"] = relationship("Article", back_populates="favorited_by")
+    user: Mapped[User] = relationship("User", back_populates="favorites")  # noqa: F821
+    article: Mapped[Article] = relationship("Article", back_populates="favorited_by")
 
     def __repr__(self) -> str:
         return f"<Favorite user={self.user_id} article={self.article_id}>"

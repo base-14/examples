@@ -69,10 +69,12 @@ def register():
         token = generate_token(user)
         logger.info(f"User registered: {user.email}", extra={"user_id": user.id})
 
-        return jsonify({
-            "user": UserSchema().dump(user),
-            "token": TokenSchema().dump({"access_token": token}),
-        }), 201
+        return jsonify(
+            {
+                "user": UserSchema().dump(user),
+                "token": TokenSchema().dump({"access_token": token}),
+            }
+        ), 201
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -117,10 +119,12 @@ def login():
         token = generate_token(user)
         logger.info(f"User logged in: {user.email}", extra={"user_id": user.id})
 
-        return jsonify({
-            "user": UserSchema().dump(user),
-            "token": TokenSchema().dump({"access_token": token}),
-        })
+        return jsonify(
+            {
+                "user": UserSchema().dump(user),
+                "token": TokenSchema().dump({"access_token": token}),
+            }
+        )
 
 
 @auth_bp.route("/user", methods=["GET"])

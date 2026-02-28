@@ -7,10 +7,15 @@ def test_settings_defaults():
     """Test that settings have sensible defaults."""
     os.environ.pop("ANTHROPIC_API_KEY", None)
     os.environ.pop("GOOGLE_API_KEY", None)
+    os.environ.pop("LLM_PROVIDER", None)
+    os.environ.pop("LLM_MODEL_CAPABLE", None)
+    os.environ.pop("LLM_MODEL_FAST", None)
+    os.environ.pop("FALLBACK_PROVIDER", None)
+    os.environ.pop("FALLBACK_MODEL", None)
 
     from sales_intelligence.config import Settings
 
-    settings = Settings()
+    settings = Settings(_env_file=None)
 
     assert settings.app_name == "ai-sales-intelligence"
     assert settings.debug is False

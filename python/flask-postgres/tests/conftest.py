@@ -4,6 +4,7 @@ import os
 
 import pytest
 
+
 # Disable OpenTelemetry for tests
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
