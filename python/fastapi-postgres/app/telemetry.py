@@ -1,12 +1,14 @@
 import os
-from opentelemetry import trace, metrics
+
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+
 
 def setup_telemetry(otel_host_port: str):
     service_name = os.getenv("OTEL_SERVICE_NAME", "fastapi-postgres-app")
@@ -19,11 +21,11 @@ def setup_telemetry(otel_host_port: str):
 
     metric_reader = PeriodicExportingMetricReader(
         OTLPMetricExporter(endpoint=f"http://{otel_host_port}/v1/metrics"),
-        export_interval_millis=1000
+        export_interval_millis=1000,
     )
     metrics.set_meter_provider(
         MeterProvider(
             resource=resource,
-            metric_readers=[metric_reader, PeriodicExportingMetricReader(ConsoleMetricExporter())]
+            metric_readers=[metric_reader, PeriodicExportingMetricReader(ConsoleMetricExporter())],
         )
     )

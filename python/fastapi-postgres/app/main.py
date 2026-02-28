@@ -1,12 +1,13 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
-from .telemetry import setup_telemetry
 from .MetricsMiddleware import MetricsMiddleware
-from .routers import post, user, auth, vote
-import os
+from .routers import auth, post, user, vote
+from .telemetry import setup_telemetry
 
 # Get OTLP endpoint from environment, default to otel-collector
 otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")

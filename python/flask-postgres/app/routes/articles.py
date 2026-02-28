@@ -49,7 +49,7 @@ def list_articles():
         query = query.filter(Article.title.ilike(f"%{search}%"))
 
     query = query.order_by(Article.created_at.desc())
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)  # type: ignore[attr-defined]
 
     # Serialize with favorited status
     current_user = getattr(g, "current_user", None)

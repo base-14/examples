@@ -10,6 +10,7 @@ from rest_framework.response import Response
 
 from apps.core.telemetry import get_meter, get_tracer
 from apps.jobs.tasks import send_article_notification
+from apps.users.models import User
 
 from .models import Article, Favorite
 from .serializers import (
@@ -65,17 +66,19 @@ def create_article(request: Request) -> Response:
             logger.warning(f"Article validation failed: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        user_id = request.user.id
         article = serializer.save(author=request.user)
         span.set_attribute("article.slug", article.slug)
-        span.set_attribute("user.id", request.user.id)
+        if user_id is not None:
+            span.set_attribute("user.id", user_id)
 
-        articles_created.add(1, {"author_id": str(request.user.id)})
+        articles_created.add(1, {"author_id": str(user_id)})
 
         send_article_notification.delay(article.id, "created")
 
         logger.info(
             f"Article created: {article.slug}",
-            extra={"article_slug": article.slug, "author_id": request.user.id},
+            extra={"article_slug": article.slug, "author_id": user_id},
         )
 
         return Response(
@@ -95,7 +98,8 @@ def article_detail(request: Request, slug: str) -> Response:
     span = trace.get_current_span()
     if span.is_recording():
         span.set_attribute("article.slug", slug)
-        span.set_attribute("article.id", article.id)
+        if article.id is not None:
+            span.set_attribute("article.id", article.id)
 
     if request.method == "GET":
         return Response(ArticleSerializer(article, context={"request": request}).data)
@@ -150,14 +154,17 @@ def favorite_article(request: Request, slug: str) -> Response:
     except Article.DoesNotExist:
         return Response({"error": "Article not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    user: User = request.user  # type: ignore[assignment]  # IsAuthenticated guarantees User
+
     with tracer.start_as_current_span("article.favorite") as span:
         span.set_attribute("article.slug", slug)
-        span.set_attribute("user.id", request.user.id)
+        if user.id is not None:
+            span.set_attribute("user.id", user.id)
         span.set_attribute("action", "favorite" if request.method == "POST" else "unfavorite")
 
         if request.method == "POST":
             try:
-                Favorite.objects.create(user=request.user, article=article)
+                Favorite.objects.create(user=user, article=article)
                 article.increment_favorites()
             except IntegrityError:
                 return Response(
@@ -165,7 +172,7 @@ def favorite_article(request: Request, slug: str) -> Response:
                     status=status.HTTP_409_CONFLICT,
                 )
         else:
-            deleted, _ = Favorite.objects.filter(user=request.user, article=article).delete()
+            deleted, _ = Favorite.objects.filter(user=user, article=article).delete()
             if deleted:
                 article.decrement_favorites()
 

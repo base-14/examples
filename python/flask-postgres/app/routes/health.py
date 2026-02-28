@@ -1,5 +1,7 @@
 """Health check endpoint."""
 
+from typing import Any
+
 import redis
 from flask import Blueprint, current_app, jsonify
 from sqlalchemy import text
@@ -17,7 +19,7 @@ def health_check():
     Returns:
         JSON response with health status of database and redis.
     """
-    health_status = {
+    health_status: dict[str, Any] = {
         "status": "healthy",
         "components": {
             "database": "healthy",

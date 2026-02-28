@@ -32,7 +32,7 @@ job_duration = meter.create_histogram(
 )
 
 
-@shared_task(bind=True, max_retries=3)
+@shared_task(bind=True, max_retries=3)  # type: ignore[untyped-decorator]
 def send_article_notification(
     self: Task[..., dict[str, Any]], article_id: int, event_type: str
 ) -> dict[str, Any]:

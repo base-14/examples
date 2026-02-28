@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from functools import wraps
-from typing import ParamSpec, TypeVar
+from typing import Any, ParamSpec
 
 from flask import g, jsonify, request
 
@@ -12,10 +12,9 @@ from app.services.auth import decode_token
 
 
 P = ParamSpec("P")
-T = TypeVar("T")
 
 
-def token_required(f: Callable[P, T]) -> Callable[P, T]:
+def token_required(f: Callable[P, Any]) -> Callable[P, Any]:
     """Decorator to require valid JWT token.
 
     Sets g.current_user if token is valid.
@@ -23,7 +22,7 @@ def token_required(f: Callable[P, T]) -> Callable[P, T]:
     """
 
     @wraps(f)
-    def decorated(*args: P.args, **kwargs: P.kwargs) -> T:
+    def decorated(*args: P.args, **kwargs: P.kwargs) -> Any:
         auth_header = request.headers.get("Authorization", "")
 
         if not auth_header.startswith("Bearer "):
@@ -50,7 +49,7 @@ def token_required(f: Callable[P, T]) -> Callable[P, T]:
     return decorated
 
 
-def token_optional(f: Callable[P, T]) -> Callable[P, T]:
+def token_optional(f: Callable[P, Any]) -> Callable[P, Any]:
     """Decorator to optionally parse JWT token.
 
     Sets g.current_user if token is valid, otherwise None.
@@ -58,7 +57,7 @@ def token_optional(f: Callable[P, T]) -> Callable[P, T]:
     """
 
     @wraps(f)
-    def decorated(*args: P.args, **kwargs: P.kwargs) -> T:
+    def decorated(*args: P.args, **kwargs: P.kwargs) -> Any:
         g.current_user = None
 
         auth_header = request.headers.get("Authorization", "")

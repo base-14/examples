@@ -89,10 +89,11 @@ def login(request: Request) -> Response:
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user(request: Request) -> Response:
+    user: User = request.user  # type: ignore[assignment]  # IsAuthenticated guarantees User
     span = trace.get_current_span()
-    if span.is_recording():
-        span.set_attribute("user.id", request.user.id)
-    return Response(UserSerializer(request.user).data)
+    if span.is_recording() and user.id is not None:
+        span.set_attribute("user.id", user.id)
+    return Response(UserSerializer(user).data)
 
 
 @api_view(["POST"])

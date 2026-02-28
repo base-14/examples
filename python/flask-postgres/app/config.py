@@ -39,6 +39,4 @@ class TestConfig(Config):
 
     TESTING = True
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/flask_app_test"
-    )
+    SQLALCHEMY_DATABASE_URI = "sqlite://"

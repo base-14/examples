@@ -1,9 +1,9 @@
-from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    model_config = ConfigDict(extra='ignore', env_file=".env")
+    model_config = ConfigDict(extra="ignore", env_file=".env")
 
     db_hostname: str
     db_port: int

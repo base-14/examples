@@ -1,4 +1,4 @@
-.PHONY: test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout lint format build-lint
+.PHONY: test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout lint format typecheck check
 
 test:
 	pytest
@@ -36,8 +36,9 @@ format:
 	ruff check --fix app tests
 	ruff format app tests
 
-build-lint: lint
-	@echo "Lint passed"
-	pytest
+typecheck:
+	mypy app
+
+check: lint typecheck test
 
 .DEFAULT_GOAL := test

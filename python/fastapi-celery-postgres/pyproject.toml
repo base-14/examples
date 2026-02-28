@@ -18,7 +18,6 @@ dependencies = [
     "sqlalchemy (>=2.0.47,<3.0.0)",
     "pydantic (>=2.12.5,<3.0.0)",
     "python-dotenv (>=1.2.1,<2.0.0)",
-    "python-environ (>=0.4.54,<0.5.0)",
     "opentelemetry-distro (>=0.60b1)",
     "opentelemetry-exporter-otlp (>=1.39.1,<2.0.0)",
     "opentelemetry-instrumentation-celery (>=0.60b1)",
@@ -29,6 +28,73 @@ dependencies = [
 ]
 
 
+[project.optional-dependencies]
+dev = [
+    "pytest (>=9.0,<10.0)",
+    "pytest-cov (>=7.0,<8.0)",
+    "httpx (>=0.28,<1.0)",
+    "ruff (>=0.9)",
+    "mypy (>=1.14)",
+]
+
+[tool.poetry]
+packages = [{include = "app"}]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (FastAPI Depends)
+    "ARG001", # unused function argument (FastAPI/Celery handlers)
+    "ARG002", # unused method argument (pytest fixtures)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# MyPy - type checking (non-strict: legacy SQLAlchemy + Celery lack stubs)
+[tool.mypy]
+python_version = "3.13"
+warn_unused_configs = true
+warn_redundant_casts = true
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = [
+    "celery.*",
+    "redis.*",
+    "opentelemetry.*",
+    "sqlalchemy.*",
+    "environ.*",
+]
+ignore_missing_imports = true
+
+# Legacy SQLAlchemy Column() style and Celery tasks
+[[tool.mypy.overrides]]
+module = ["app.telemetry.*", "app.config", "app.tasks"]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

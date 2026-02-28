@@ -1,7 +1,7 @@
-.PHONY: test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout lint format build-lint
+.PHONY: test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout lint format typecheck check
 
 test:
-	python manage.py test
+	pytest
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov __pycache__
@@ -36,8 +36,9 @@ format:
 	ruff check --fix apps tests
 	ruff format apps tests
 
-build-lint: lint
-	@echo "Lint passed"
-	python manage.py test
+typecheck:
+	mypy apps
+
+check: lint typecheck test
 
 .DEFAULT_GOAL := test

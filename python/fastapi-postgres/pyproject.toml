@@ -1,0 +1,99 @@
+[project]
+name = "fastapi-postgres-otel"
+version = "1.0.0"
+description = "FastAPI REST API with PostgreSQL and OpenTelemetry instrumentation"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "base14", email = "hello@base14.io" }]
+
+dependencies = [
+    "fastapi[all]>=0.133.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "psycopg2-binary>=2.9.11",
+    "SQLAlchemy>=2.0.47",
+    "email-validator>=2.3",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.2.1",
+    "PyJWT>=2.11",
+    "python-multipart>=0.0.22",
+    "alembic>=1.18",
+    "requests>=2.32",
+    "opentelemetry-sdk>=1.39",
+    "opentelemetry-exporter-otlp>=1.39",
+    "opentelemetry-api>=1.39",
+    "opentelemetry-instrumentation-fastapi>=0.60b1",
+    "opentelemetry-instrumentation-sqlalchemy>=0.60b1",
+    "opentelemetry-instrumentation-requests>=0.60b1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "httpx>=0.28",
+    "ruff>=0.9",
+    "mypy>=1.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (FastAPI Depends)
+    "ARG001", # unused function argument (FastAPI dependencies)
+    "ARG002", # unused method argument (pytest fixtures)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# MyPy - type checking (non-strict: SQLAlchemy legacy Column style lacks stubs)
+[tool.mypy]
+python_version = "3.13"
+warn_unused_configs = true
+warn_redundant_casts = true
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = [
+    "passlib.*",
+    "opentelemetry.*",
+    "sqlalchemy.*",
+    "pydantic_settings.*",
+]
+ignore_missing_imports = true
+
+# Legacy SQLAlchemy Column() style and pydantic-settings env loading
+[[tool.mypy.overrides]]
+module = ["app.config", "app.telemetry", "app.oauth2", "app.routers.*"]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

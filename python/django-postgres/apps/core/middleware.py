@@ -41,8 +41,8 @@ class MetricsMiddleware:
         if path.startswith("/api/articles/") and len(path.split("/")) > 3:
             path = "/api/articles/{slug}"
 
-        attributes = {
-            "http.method": request.method,
+        attributes: dict[str, str | int] = {
+            "http.method": request.method or "UNKNOWN",
             "http.route": path,
             "http.status_code": response.status_code,
         }

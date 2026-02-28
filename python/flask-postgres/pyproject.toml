@@ -88,6 +88,7 @@ ignore = [
     "PLR2004",  # magic value comparison
     "PLC0415",  # non-top-level imports (Flask app factory pattern)
     "ARG001",   # unused function argument (Flask handlers, pytest fixtures)
+    "ARG002",   # unused method argument (pytest fixtures as method params)
     "PLW0603",  # global statement (telemetry module init)
     "RUF012",   # mutable class attribute default (Flask/Django config pattern)
     "TC001",    # move app import to TYPE_CHECKING (used at runtime)
@@ -108,14 +109,13 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
-# MyPy - strict type checking for Python 3.14
+# MyPy - type checking for Python 3.14 (non-strict: Flask-SQLAlchemy/Celery lack stubs)
 [tool.mypy]
 python_version = "3.14"
-strict = true
-warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+check_untyped_defs = true
 show_error_codes = true
 show_column_numbers = true
 pretty = true
@@ -125,12 +125,19 @@ pretty = true
 module = [
     "flask_sqlalchemy.*",
     "flask_marshmallow.*",
+    "marshmallow.*",
     "celery.*",
     "redis.*",
     "opentelemetry.*",
     "psycopg.*",
+    "slugify.*",
 ]
 ignore_missing_imports = true
+
+# Flask-SQLAlchemy models use dynamic base class (db.Model)
+[[tool.mypy.overrides]]
+module = ["app.models.*"]
+ignore_errors = true
 
 # Pytest configuration
 [tool.pytest.ini_options]

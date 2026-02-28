@@ -76,6 +76,8 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # function call in default argument
     "B904",   # raise without from in except
+    "ARG001", # unused function argument (Django handlers, pytest fixtures)
+    "ARG002", # unused method argument (pytest fixtures as method params)
 ]
 
 [tool.ruff.lint.isort]

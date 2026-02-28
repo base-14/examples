@@ -1,7 +1,8 @@
-from celery import Celery
+import logging
 import os
 import time
-import logging
+
+from celery import Celery
 from opentelemetry import trace
 
 logger = logging.getLogger(__name__)

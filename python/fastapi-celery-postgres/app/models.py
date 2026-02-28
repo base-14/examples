@@ -1,7 +1,9 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, DateTime
-from .database import Base
 import datetime
+
+from sqlalchemy import Column, DateTime, Integer, String
+
+from .database import Base
 
 
 class Task(Base):
