@@ -59,7 +59,7 @@
     "@types/pg": "^8.16.0",
     "drizzle-kit": "^0.31.9",
     "eslint": "^10.0.2",
-    "globals": "^17.3.0",
+    "globals": "^17.4.0",
     "socket.io-client": "^4.8.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
