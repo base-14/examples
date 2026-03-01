@@ -1,4 +1,4 @@
-fastapi[all]==0.133.1
+fastapi[all]==0.135.1
 pydantic==2.12.5
 psycopg2-binary==2.9.11
 SQLAlchemy==2.0.47
