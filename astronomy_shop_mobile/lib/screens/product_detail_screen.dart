@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../services/cart_service.dart';
 import '../services/currency_service.dart';
+import '../services/error_handler_service.dart';
 import '../services/funnel_tracking_service.dart';
 import '../services/performance_service.dart';
 import '../services/telemetry_service.dart';
@@ -25,8 +26,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    
-    // Record screen view event with product details
+
+    ErrorHandlerService.instance.setCurrentScreen('product_detail');
+    ErrorHandlerService.instance.recordBreadcrumb('navigate:ProductDetail:${widget.product.id}');
+
     TelemetryService.instance.recordEvent('screen_view', attributes: {
       'screen_name': 'product_detail',
       'product_id': widget.product.id,

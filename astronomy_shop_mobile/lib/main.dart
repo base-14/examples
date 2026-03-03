@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -15,6 +17,8 @@ import 'services/currency_service.dart';
 import 'services/error_handler_service.dart';
 import 'services/funnel_tracking_service.dart';
 import 'services/image_cache_service.dart';
+import 'services/log_service.dart';
+import 'services/metrics_service.dart';
 import 'services/performance_service.dart';
 import 'services/products_api_service.dart';
 import 'services/telemetry_service.dart';
@@ -25,13 +29,10 @@ import 'widgets/error_boundary.dart';
 import 'widgets/recommendations_section.dart';
 
 void main() async {
-  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
   await dotenv.load(fileName: '.env');
 
-  // Initialize and validate configuration
   try {
     ConfigService.instance.validateConfiguration();
   } catch (e) {
@@ -39,32 +40,28 @@ void main() async {
       print('Configuration Error: $e');
       print('Please check your .env file configuration');
     }
-    // Continue with defaults in demo mode, but warn about misconfiguration
   }
 
-  // Initialize OpenTelemetry first
   await TelemetryService.instance.initialize();
 
-  // Initialize funnel tracking with session ID
+  MetricsService.instance.initialize();
+  LogService.instance.initialize();
+
   FunnelTrackingService.instance.initialize(TelemetryService.instance.sessionId);
 
-  // Initialize error handling after telemetry
   ErrorHandlerService.instance.initialize();
 
-  // Initialize CartService
   CartService.instance.initialize();
-
-  // Initialize CurrencyService
   CurrencyService.instance.initialize();
-
-  // Initialize PerformanceService
   PerformanceService.instance.initialize();
-
-  // Initialize ImageCacheService
   await ImageCacheService.instance.initialize();
 
-  // Start the app
-  runApp(const AstronomyShopApp());
+  runZonedGuarded(
+    () => runApp(const AstronomyShopApp()),
+    (error, stackTrace) {
+      ErrorHandlerService.instance.recordZoneError(error, stackTrace);
+    },
+  );
 }
 
 class AstronomyShopApp extends StatelessWidget {
@@ -153,11 +150,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
   void initState() {
     super.initState();
 
-    // Initialize app lifecycle observer
+    ErrorHandlerService.instance.setCurrentScreen('product_list');
+    ErrorHandlerService.instance.recordBreadcrumb('navigate:ProductList');
+
     _lifecycleObserver = AppLifecycleObserver();
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
 
-    // Load products from API
     _loadProducts();
   }
 

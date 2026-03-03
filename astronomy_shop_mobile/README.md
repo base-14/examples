@@ -16,12 +16,14 @@ with real-world complexity.
 
 ### Observability & Performance
 
-- OpenTelemetry Integration - Complete traces, metrics, and events
+- Three OTLP Signals - Traces, metrics, and structured logs exported to any OTLP collector
+- Crash Analytics - Crash vs error classification, crash-free session tracking, force-flush on fatal errors
+- Structured Error Reporting - Stack traces, breadcrumb trails, screen context, and session duration on every error
 - Session Tracking - Unique session correlation across all requests
-- HTTP Instrumentation - Every API call traced with rich context
+- HTTP Instrumentation - Every API call traced with OTel semantic conventions, error logging, and request duration histograms
 - Business Metrics - Conversion funnel and user journey analytics
-- Performance Monitoring - Real-time performance tracking
-- Error Boundaries - Comprehensive error handling with telemetry
+- Error Boundaries - Widget-level error catching that chains to the global crash handler
+- Breadcrumb Trail - Last 20 user actions recorded for crash context
 
 ### Mobile Optimizations
 
@@ -85,16 +87,20 @@ All spans share the same trace ID. View them in your trace backend
 
 ### HTTP Span Attributes (semconv v1.40.0)
 
-Spans follow OTel stable HTTP semantic conventions. Span name is just the
-HTTP method (`GET`, `POST`).
+Spans follow OTel stable HTTP semantic conventions. Span name is
+`$method $path` (e.g. `GET /api/products`).
 
 | Attribute | Requirement | Emitted |
 |-----------|-------------|---------|
 | `http.request.method` | Required | Always |
 | `url.full` | Required | Always |
+| `url.scheme` | Required | Always |
+| `url.path` | Required | Always |
 | `server.address` | Required | Always |
 | `server.port` | Required | Always |
 | `http.response.status_code` | Cond. Required | On response |
+| `http.response.body.size` | Recommended | On response |
+| `http.request.duration_ms` | Recommended | Always |
 | `error.type` | Cond. Required | On status >= 400 or network error |
 
 ### Key Telemetry Events
@@ -105,17 +111,36 @@ HTTP method (`GET`, `POST`).
 - `checkout_initiated` - Purchase funnel
 - `funnel_stage_transition` - Conversion funnel progression
 - `currency_changed` - Internationalization
+- `error_occurred` - All errors with crash severity, breadcrumbs, and screen context
+
+### OTLP Metrics
+
+- `http.client.request.duration` - Histogram of HTTP request latency (ms)
+- `http.client.request.count` - Counter by method and status code
+- `app.crash.count` - Counter by error type and screen
+- `app.error.count` - Counter by error type and screen
+- `app.session.count` - Counter with `crash_free` attribute
+
+### Structured Logs
+
+Errors and crashes are exported as OTLP log records with severity levels
+(DEBUG=5, INFO=9, WARN=13, ERROR=17, FATAL=21). Fatal logs include stack
+traces (truncated to 4000 chars) and trigger a force-flush of all pending
+telemetry. HTTP 4xx responses are logged as WARN, 5xx as ERROR.
 
 ## Architecture
 
 ```plain
 lib/
-├── main.dart                        # App entry point with providers
+├── main.dart                        # App entry, runZonedGuarded, service init
 ├── models/                          # Data models (Product, CartItem, Checkout)
-├── screens/                         # UI screens with telemetry integration
+├── screens/                         # UI screens with breadcrumb + screen tracking
 ├── services/                        # Core services
-│   ├── telemetry_service.dart       # OTel init, OTLP export, batching
-│   ├── http_service.dart            # HTTP client with trace propagation
+│   ├── telemetry_service.dart       # OTel init, OTLP traces export, device info
+│   ├── metrics_service.dart         # OTLP metrics export (counters, histograms, gauges)
+│   ├── log_service.dart             # OTLP structured logs export (5 severity levels)
+│   ├── error_handler_service.dart   # Crash classification, breadcrumbs, force-flush
+│   ├── http_service.dart            # HTTP client with trace propagation + metrics
 │   ├── cart_service.dart            # Cart state management
 │   ├── products_api_service.dart    # Product catalog with caching
 │   ├── currency_service.dart        # Multi-currency support
@@ -131,6 +156,9 @@ lib/
 Copy `.env.example` to `.env` and edit as needed:
 
 - `OTLP_ENDPOINT` - OTLP HTTP collector (default: `http://localhost:8080/otlp-http` via Envoy, or `http://localhost:4318` for direct collector)
+- `OTLP_TRACES_EXPORTER` - Traces path (default: `v1/traces`)
+- `OTLP_METRICS_EXPORTER` - Metrics path (default: `v1/metrics`)
+- `OTLP_LOGS_EXPORTER` - Logs path (default: `v1/logs`)
 - `API_BASE_URL` - OTel Demo frontend-proxy API (default: `http://localhost:8080/api`)
 - `SERVICE_NAME` - OTel service name (default: `astronomy-shop-mobile`)
 - `SERVICE_VERSION` - App version (default: `0.0.1`)
@@ -138,8 +166,10 @@ Copy `.env.example` to `.env` and edit as needed:
 
 ### Telemetry Settings
 
-- Batch Size: 50 events
-- Flush Interval: 30 seconds
+- Trace Batch: 50 events, 30s flush
+- Metrics: 60s flush (counters, histograms, gauges)
+- Logs: 100-record buffer, 30s flush (fatal triggers immediate flush)
+- Breadcrumbs: Last 20 user actions retained for crash context
 
 ### API Endpoints
 

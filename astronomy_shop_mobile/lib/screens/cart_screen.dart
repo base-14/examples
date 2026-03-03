@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/cart_item.dart';
 import '../services/cart_service.dart';
 import '../services/currency_service.dart';
+import '../services/error_handler_service.dart';
 import '../services/funnel_tracking_service.dart';
 import '../services/performance_service.dart';
 import '../services/telemetry_service.dart';
@@ -22,9 +23,12 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    
+
+    ErrorHandlerService.instance.setCurrentScreen('cart');
+    ErrorHandlerService.instance.recordBreadcrumb('navigate:Cart');
+
     final cartService = Provider.of<CartService>(context, listen: false);
-    
+
     TelemetryService.instance.recordEvent('screen_view', attributes: {
       'screen_name': 'cart',
       'cart_item_count': cartService.totalItems,

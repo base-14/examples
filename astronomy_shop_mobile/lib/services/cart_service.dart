@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/cart_item.dart';
 import '../models/product.dart';
+import 'error_handler_service.dart';
 import 'funnel_tracking_service.dart';
 import 'http_service.dart';
 import 'telemetry_service.dart';
@@ -38,6 +39,8 @@ class CartService extends ChangeNotifier {
   }
 
   Future<void> addItem(Product product, {int quantity = 1}) async {
+    ErrorHandlerService.instance.recordBreadcrumb('cart:add:${product.id}');
+
     _error = null;
     _isLoading = true;
     notifyListeners();
@@ -142,7 +145,8 @@ class CartService extends ChangeNotifier {
 
   Future<void> removeItem(String productId) async {
     if (!_items.containsKey(productId)) return;
-    
+    ErrorHandlerService.instance.recordBreadcrumb('cart:remove:$productId');
+
     _error = null;
     _isLoading = true;
     notifyListeners();
@@ -173,6 +177,8 @@ class CartService extends ChangeNotifier {
   }
 
   Future<void> clearCart() async {
+    ErrorHandlerService.instance.recordBreadcrumb('cart:clear');
+
     _error = null;
     _isLoading = true;
     notifyListeners();

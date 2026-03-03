@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/product.dart';
 import '../services/currency_service.dart';
+import '../services/error_handler_service.dart';
 import '../services/search_service.dart';
 import '../services/telemetry_service.dart';
 import '../widgets/cached_image.dart';
@@ -31,7 +32,10 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    
+
+    ErrorHandlerService.instance.setCurrentScreen('search');
+    ErrorHandlerService.instance.recordBreadcrumb('navigate:Search');
+
     TelemetryService.instance.recordEvent('screen_view', attributes: {
       'screen_name': 'search',
       'session_id': TelemetryService.instance.sessionId,
@@ -434,6 +438,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _performSearch(String query) async {
     if (query.trim().isEmpty) return;
+    ErrorHandlerService.instance.recordBreadcrumb('search:$query');
 
     setState(() {
       _isSearching = true;

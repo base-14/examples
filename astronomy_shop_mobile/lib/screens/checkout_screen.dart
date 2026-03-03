@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/checkout.dart';
 import '../services/cart_service.dart';
 import '../services/currency_service.dart';
+import '../services/error_handler_service.dart';
 import '../services/funnel_tracking_service.dart';
 import '../services/http_service.dart';
 import '../services/telemetry_service.dart';
@@ -35,7 +36,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    
+
+    ErrorHandlerService.instance.setCurrentScreen('checkout');
+    ErrorHandlerService.instance.recordBreadcrumb('navigate:Checkout');
+
     TelemetryService.instance.recordEvent('screen_view', attributes: {
       'screen_name': 'checkout',
       'session_id': TelemetryService.instance.sessionId,
@@ -442,6 +446,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _onPlaceOrder() async {
+    ErrorHandlerService.instance.recordBreadcrumb('checkout:validate');
+
     if (!_formKey.currentState!.validate()) {
       TelemetryService.instance.recordEvent('checkout_validation_failed');
 
@@ -466,6 +472,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final cartService = Provider.of<CartService>(context, listen: false);
       final currencyService = Provider.of<CurrencyService>(context, listen: false);
+
+      ErrorHandlerService.instance.recordBreadcrumb('checkout:placeOrder');
 
       TelemetryService.instance.recordEvent('checkout_place_order_started', attributes: {
         'cart_item_count': cartService.totalItems,

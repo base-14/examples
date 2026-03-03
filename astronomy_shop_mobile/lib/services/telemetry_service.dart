@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:opentelemetry/api.dart' as otel;
 import 'package:uuid/uuid.dart';
+
+import 'error_handler_service.dart';
+import 'log_service.dart';
+import 'metrics_service.dart';
 
 class TelemetryService {
   TelemetryService._internal();
@@ -85,6 +90,8 @@ class TelemetryService {
   static const double _criticalBatterySamplingRate = 0.2;
   static const double _lowPowerModeSamplingRate = 0.3;
 
+  final Map<String, String> _deviceInfo = {};
+
   final List<Map<String, dynamic>> _eventBatch = [];
   static const int _maxBatchSize = 50;
   static const Duration _batchFlushInterval = Duration(seconds: 30);
@@ -102,7 +109,8 @@ class TelemetryService {
       _sessionStartTime = DateTime.now();
       _httpClient = http.Client();
       _tracer = otel.globalTracerProvider.getTracer(serviceName, version: serviceVersion);
-      _currentTraceId = _generateTraceId(); // Create session-wide trace ID
+      _currentTraceId = _generateTraceId();
+      _collectDeviceInfo();
       await _initializeBatteryMonitoring();
       await _initializeAuthentication();
       _startBatchTimer();
@@ -128,6 +136,24 @@ class TelemetryService {
   String _getPlatform() {
     if (kIsWeb) return 'web';
     return Platform.operatingSystem;
+  }
+
+  void _collectDeviceInfo() {
+    try {
+      if (!kIsWeb) {
+        _deviceInfo['os.name'] = Platform.operatingSystem;
+        _deviceInfo['os.version'] = Platform.operatingSystemVersion;
+        _deviceInfo['device.locale'] = Platform.localeName;
+      }
+      final display = ui.PlatformDispatcher.instance.views.first;
+      final size = display.physicalSize;
+      final ratio = display.devicePixelRatio;
+      _deviceInfo['device.screen.width'] = (size.width / ratio).round().toString();
+      _deviceInfo['device.screen.height'] = (size.height / ratio).round().toString();
+      _deviceInfo['device.screen.density'] = ratio.toStringAsFixed(1);
+    } catch (_) {
+      // Device info is best-effort
+    }
   }
 
   otel.Tracer get tracer => _tracer;
@@ -212,9 +238,10 @@ class TelemetryService {
       }).toList(),
     );
 
+    // OTel SDK span — local API compatibility only (no exporter configured).
+    // The manual OTLP POST below is the actual transport to the collector.
     span.end();
 
-    // Send individual span directly to OTLP
     _sendIndividualSpanToOTLP(spanName, eventData);
   }
 
@@ -240,15 +267,21 @@ class TelemetryService {
   Future<void> flush() async {
     try {
       await _flushBatch();
-    } catch (e) {
-      // Ignore initialization errors
-    }
+    } catch (_) {}
   }
 
   Future<void> shutdown() async {
     try {
+      ErrorHandlerService.instance.reportSessionEnd();
+
       _batchTimer?.cancel();
       await _flushBatch();
+
+      await MetricsService.instance.flush();
+      MetricsService.instance.shutdown();
+
+      await LogService.instance.flush();
+      LogService.instance.shutdown();
 
       final shutdownSpan = _tracer.startSpan('app_shutdown');
       shutdownSpan.setAttributes([
@@ -257,9 +290,7 @@ class TelemetryService {
         otel.Attribute.fromDouble('battery.level', _batteryLevel),
       ]);
       shutdownSpan.end();
-    } catch (e) {
-      // Ignore initialization errors
-    }
+    } catch (_) {}
   }
 
   Future<void> _initializeBatteryMonitoring() async {
@@ -299,6 +330,8 @@ class TelemetryService {
       _samplingRate = _normalSamplingRate;
     }
   }
+
+  bool shouldSampleForLogs() => _shouldSample();
 
   bool _shouldSample() {
     if (_samplingRate >= 1.0) return true;
@@ -482,7 +515,7 @@ class TelemetryService {
         'resourceSpans': [
           {
             'resource': {
-              'attributes': _getResourceAttributes(),
+              'attributes': getResourceAttributes(),
             },
             'scopeSpans': [
               {
@@ -578,7 +611,9 @@ class TelemetryService {
     }).toList();
   }
 
-  List<Map<String, dynamic>> _getResourceAttributes() {
+  String? get accessToken => _accessToken;
+
+  List<Map<String, dynamic>> getResourceAttributes() {
     return [
       {'key': 'service.name', 'value': {'stringValue': serviceName}},
       {'key': 'service.version', 'value': {'stringValue': serviceVersion}},
@@ -586,6 +621,8 @@ class TelemetryService {
       {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'flutter-opentelemetry'}},
       {'key': 'telemetry.sdk.version', 'value': {'stringValue': '0.18.10'}},
       {'key': 'session.id', 'value': {'stringValue': _sessionId}},
+      for (final entry in _deviceInfo.entries)
+        {'key': entry.key, 'value': {'stringValue': entry.value}},
     ];
   }
 
@@ -617,7 +654,7 @@ class TelemetryService {
         'resourceSpans': [
           {
             'resource': {
-              'attributes': _getResourceAttributes(),
+              'attributes': getResourceAttributes(),
             },
             'scopeSpans': [
               {
@@ -629,7 +666,7 @@ class TelemetryService {
                   {
                     'traceId': traceId,
                     'spanId': spanId,
-                    if (parentSpanId != null) 'parentSpanId': parentSpanId,
+                    'parentSpanId': ?parentSpanId,
                     'name': spanName,
                     'kind': 1, // SPAN_KIND_INTERNAL
                     'startTimeUnixNano': startTime,

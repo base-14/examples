@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'error_handler_service.dart';
 import 'http_service.dart';
 import 'telemetry_service.dart';
 
@@ -135,6 +136,7 @@ class CurrencyService extends ChangeNotifier {
 
   void selectCurrency(Currency currency) {
     if (_selectedCurrency.code == currency.code) return;
+    ErrorHandlerService.instance.recordBreadcrumb('currency:change:${currency.code}');
 
     final previousCurrency = _selectedCurrency.code;
     _selectedCurrency = currency;

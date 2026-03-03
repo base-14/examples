@@ -99,7 +99,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
   }
 
   void _handleError(Object error, StackTrace stackTrace) {
-    // Use post-frame callback to avoid setState during build
+    // UI recovery only — telemetry recording is handled by the chained
+    // ErrorHandlerService._handleFlutterError via FlutterError.onError
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -109,14 +110,6 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
       }
     });
 
-    // Record error in telemetry
-    TelemetryService.instance.recordError(
-      'error_boundary_${widget.context}',
-      error,
-      stackTrace: stackTrace,
-    );
-
-    // Log error for debugging
     debugPrint('Error in ${widget.context}: $error');
   }
 
@@ -160,24 +153,34 @@ class ErrorHandler extends StatefulWidget {
 }
 
 class _ErrorHandlerState extends State<ErrorHandler> {
-  @override
-  Widget build(BuildContext context) {
-    return widget.child;
-  }
+  void Function(FlutterErrorDetails)? _previousHandler;
 
   @override
   void initState() {
     super.initState();
-    _setupErrorHandling();
+    _previousHandler = FlutterError.onError;
+    FlutterError.onError = _onFlutterError;
   }
 
-  void _setupErrorHandling() {
-    FlutterError.onError = (FlutterErrorDetails details) {
-      // Schedule the error handling for the next frame
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        widget.onError(details.exception, details.stack ?? StackTrace.current);
-      });
-    };
+  @override
+  void dispose() {
+    if (FlutterError.onError == _onFlutterError) {
+      FlutterError.onError = _previousHandler;
+    }
+    super.dispose();
+  }
+
+  void _onFlutterError(FlutterErrorDetails details) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      widget.onError(details.exception, details.stack ?? StackTrace.current);
+    });
+    // Chain to the previous handler (ErrorHandlerService) for crash classification
+    _previousHandler?.call(details);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
 
