@@ -343,12 +343,14 @@ class _RecommendationsSectionState extends State<RecommendationsSection> {
   void _onRecommendationTap(Product product, int index) {
     _recommendationsService.recordRecommendationClick(product, index);
     
-    TelemetryService.instance.recordEvent('product_tap', attributes: {
+    TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+      'app.widget.id': 'recommendation_card_${product.id}',
+      'app.widget.name': 'Recommendation Card',
       'product_id': product.id,
       'product_name': product.name,
       'source': 'recommendations',
       'position': index,
-      'screen_name': 'home',
+      'app.screen.name': 'home',
     });
 
     Navigator.push<void>(
@@ -360,7 +362,11 @@ class _RecommendationsSectionState extends State<RecommendationsSection> {
   }
 
   void _refreshRecommendations() {
-    TelemetryService.instance.recordEvent('recommendations_refresh_clicked');
+    TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+      'app.widget.id': 'recommendations_refresh',
+      'app.widget.name': 'Refresh Recommendations',
+      'app.screen.name': 'home',
+    });
     _loadRecommendations();
   }
 }

@@ -88,10 +88,10 @@ class PerformanceService {
     required int droppedFrames,
     required String screenName,
   }) {
-    TelemetryService.instance.recordEvent('frame_metrics', attributes: {
+    TelemetryService.instance.recordEvent('app.jank', attributes: {
       'average_fps': averageFPS,
-      'dropped_frames': droppedFrames,
-      'screen_name': screenName,
+      'app.jank.frame_count': droppedFrames,
+      'app.screen.name': screenName,
       'session_id': TelemetryService.instance.sessionId,
     });
   }

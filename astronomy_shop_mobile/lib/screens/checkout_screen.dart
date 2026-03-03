@@ -41,7 +41,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     ErrorHandlerService.instance.recordBreadcrumb('navigate:Checkout');
 
     TelemetryService.instance.recordEvent('screen_view', attributes: {
-      'screen_name': 'checkout',
+      'app.screen.name': 'checkout',
       'session_id': TelemetryService.instance.sessionId,
     });
 

@@ -4,11 +4,13 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:opentelemetry/api.dart' as otel;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import 'error_handler_service.dart';
@@ -91,6 +93,7 @@ class TelemetryService {
   static const double _lowPowerModeSamplingRate = 0.3;
 
   final Map<String, String> _deviceInfo = {};
+  String _installationId = '';
 
   final List<Map<String, dynamic>> _eventBatch = [];
   static const int _maxBatchSize = 50;
@@ -110,7 +113,8 @@ class TelemetryService {
       _httpClient = http.Client();
       _tracer = otel.globalTracerProvider.getTracer(serviceName, version: serviceVersion);
       _currentTraceId = _generateTraceId();
-      _collectDeviceInfo();
+      await _collectDeviceInfo();
+      await _loadInstallationId();
       await _initializeBatteryMonitoring();
       await _initializeAuthentication();
       _startBatchTimer();
@@ -128,6 +132,10 @@ class TelemetryService {
       ]);
       initSpan.end();
 
+      recordEvent('session.start', attributes: {
+        'session.id': _sessionId,
+      });
+
     } catch (e) {
       // Ignore initialization errors
     }
@@ -138,12 +146,25 @@ class TelemetryService {
     return Platform.operatingSystem;
   }
 
-  void _collectDeviceInfo() {
+  Future<void> _collectDeviceInfo() async {
     try {
       if (!kIsWeb) {
         _deviceInfo['os.name'] = Platform.operatingSystem;
         _deviceInfo['os.version'] = Platform.operatingSystemVersion;
         _deviceInfo['device.locale'] = Platform.localeName;
+
+        final deviceInfoPlugin = DeviceInfoPlugin();
+        if (Platform.isIOS) {
+          final iosInfo = await deviceInfoPlugin.iosInfo;
+          _deviceInfo['device.manufacturer'] = 'Apple';
+          _deviceInfo['device.model.identifier'] = iosInfo.utsname.machine;
+          _deviceInfo['device.model.name'] = iosInfo.model;
+        } else if (Platform.isAndroid) {
+          final androidInfo = await deviceInfoPlugin.androidInfo;
+          _deviceInfo['device.manufacturer'] = androidInfo.manufacturer;
+          _deviceInfo['device.model.identifier'] = androidInfo.device;
+          _deviceInfo['device.model.name'] = androidInfo.model;
+        }
       }
       final display = ui.PlatformDispatcher.instance.views.first;
       final size = display.physicalSize;
@@ -153,6 +174,25 @@ class TelemetryService {
       _deviceInfo['device.screen.density'] = ratio.toStringAsFixed(1);
     } catch (_) {
       // Device info is best-effort
+    }
+  }
+
+  Future<void> _loadInstallationId() async {
+    if (kIsWeb) {
+      _installationId = const Uuid().v4();
+      return;
+    }
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File('${dir.path}/installation_id');
+      if (await file.exists()) {
+        _installationId = await file.readAsString();
+      } else {
+        _installationId = const Uuid().v4();
+        await file.writeAsString(_installationId);
+      }
+    } catch (_) {
+      _installationId = const Uuid().v4();
     }
   }
 
@@ -272,6 +312,12 @@ class TelemetryService {
 
   Future<void> shutdown() async {
     try {
+      final sessionDurationMs = DateTime.now().difference(_sessionStartTime).inMilliseconds;
+      recordEvent('session.end', attributes: {
+        'session.id': _sessionId,
+        'session.duration_ms': sessionDurationMs,
+      });
+
       ErrorHandlerService.instance.reportSessionEnd();
 
       _batchTimer?.cancel();
@@ -621,6 +667,9 @@ class TelemetryService {
       {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'flutter-opentelemetry'}},
       {'key': 'telemetry.sdk.version', 'value': {'stringValue': '0.18.10'}},
       {'key': 'session.id', 'value': {'stringValue': _sessionId}},
+      {'key': 'app.build_id', 'value': {'stringValue': serviceVersion}},
+      if (_installationId.isNotEmpty)
+        {'key': 'app.installation.id', 'value': {'stringValue': _installationId}},
       for (final entry in _deviceInfo.entries)
         {'key': entry.key, 'value': {'stringValue': entry.value}},
     ];

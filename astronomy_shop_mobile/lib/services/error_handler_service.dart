@@ -151,7 +151,7 @@ class ErrorHandlerService {
       'error.is_fatal': isCrash,
       'session.id': TelemetryService.instance.sessionId,
       'session.duration_ms': DateTime.now().difference(TelemetryService.instance.sessionStartTime).inMilliseconds,
-      'screen.current': _currentScreen,
+      'app.screen.name': _currentScreen,
       'user.last_action': _lastUserAction,
       'breadcrumbs': _breadcrumbs.join(' > '),
       'has_stack_trace': errorDetails.stackTrace != null,
@@ -179,7 +179,7 @@ class ErrorHandlerService {
       isCrash ? 'app.crash.count' : 'app.error.count',
       attributes: {
         'error.type': (errorDetails.metadata['error_type'] as String?) ?? 'unknown',
-        'screen.name': _currentScreen,
+        'app.screen.name': _currentScreen,
       },
     );
 

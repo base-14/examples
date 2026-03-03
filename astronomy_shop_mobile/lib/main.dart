@@ -181,10 +181,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   IconButton(
                     icon: const Icon(Icons.shopping_cart),
                     onPressed: () {
-                      TelemetryService.instance.recordEvent('cart_badge_tapped', attributes: {
+                      TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+                        'app.widget.id': 'cart_badge',
+                        'app.widget.name': 'Shopping Cart',
                         'cart_item_count': cartService.totalItems,
                         'cart_total_price': cartService.totalPrice,
-                        'screen_name': 'product_list',
+                        'app.screen.name': 'product_list',
                       });
 
                       Navigator.push<void>(
@@ -227,8 +229,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              TelemetryService.instance.recordEvent('search_button_tapped', attributes: {
-                'screen_name': 'product_list',
+              TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+                'app.widget.id': 'search_button',
+                'app.widget.name': 'Search',
+                'app.screen.name': 'product_list',
               });
 
               Navigator.push<void>(
@@ -482,7 +486,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
       // Record screen view event with actual data
       TelemetryService.instance.recordEvent('screen_view', attributes: {
-        'screen_name': 'product_list',
+        'app.screen.name': 'product_list',
         'product_count': products.length,
         'data_source': 'api',
       }, parentOperation: 'load_products');
@@ -507,7 +511,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       // Record error event
       TelemetryService.instance.recordEvent('product_load_error', attributes: {
         'error_message': e.toString(),
-        'screen_name': 'product_list',
+        'app.screen.name': 'product_list',
       });
     }
   }
@@ -521,7 +525,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
     // Record refresh event
     TelemetryService.instance.recordEvent('product_refresh', attributes: {
-      'screen_name': 'product_list',
+      'app.screen.name': 'product_list',
       'current_product_count': _products.length,
     });
 
@@ -549,11 +553,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
     TelemetryService.instance.startTrace('view_product');
 
     // Record product tap event for navigation tracking
-    TelemetryService.instance.recordEvent('product_tap', attributes: {
+    TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+      'app.widget.id': 'product_card_${product.id}',
+      'app.widget.name': 'Product Card',
       'product_id': product.id,
       'product_name': product.name,
       'product_price': product.priceUsd,
-      'screen_name': 'product_list',
+      'app.screen.name': 'product_list',
     }, parentOperation: 'view_product');
 
     // Navigate to product detail screen

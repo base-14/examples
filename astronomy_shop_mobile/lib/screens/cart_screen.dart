@@ -30,7 +30,7 @@ class _CartScreenState extends State<CartScreen> {
     final cartService = Provider.of<CartService>(context, listen: false);
 
     TelemetryService.instance.recordEvent('screen_view', attributes: {
-      'screen_name': 'cart',
+      'app.screen.name': 'cart',
       'cart_item_count': cartService.totalItems,
       'cart_total_price': cartService.totalPrice,
       'cart_is_empty': cartService.isEmpty,
@@ -227,7 +227,11 @@ class _CartScreenState extends State<CartScreen> {
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: () {
-                    TelemetryService.instance.recordEvent('empty_cart_search_tap');
+                    TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+                      'app.widget.id': 'empty_cart_search_button',
+                      'app.widget.name': 'Search Products',
+                      'app.screen.name': 'cart',
+                    });
                     Navigator.pushNamed(context, '/search');
                   },
                   icon: const Icon(Icons.search),
@@ -252,7 +256,7 @@ class _CartScreenState extends State<CartScreen> {
       'product_name': item.product.name,
       'old_quantity': item.quantity,
       'new_quantity': newQuantity,
-      'screen_name': 'cart',
+      'app.screen.name': 'cart',
     });
 
     cartService.updateItemQuantity(item.productId, newQuantity);
@@ -269,7 +273,7 @@ class _CartScreenState extends State<CartScreen> {
       'product_name': item.product.name,
       'quantity_removed': item.quantity,
       'item_value': item.totalPrice,
-      'screen_name': 'cart',
+      'app.screen.name': 'cart',
     });
 
     cartService.removeItem(item.productId);
@@ -289,7 +293,7 @@ class _CartScreenState extends State<CartScreen> {
     TelemetryService.instance.recordEvent('cart_clear_initiated', attributes: {
       'items_count': itemCount,
       'total_value': totalValue,
-      'screen_name': 'cart',
+      'app.screen.name': 'cart',
     });
 
     showDialog<void>(
@@ -311,7 +315,7 @@ class _CartScreenState extends State<CartScreen> {
                 TelemetryService.instance.recordEvent('cart_cleared_confirmed', attributes: {
                   'items_cleared': itemCount,
                   'value_cleared': totalValue,
-                  'screen_name': 'cart',
+                  'app.screen.name': 'cart',
                 });
 
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -343,7 +347,7 @@ class _CartScreenState extends State<CartScreen> {
     TelemetryService.instance.recordEvent('checkout_initiated', attributes: {
       'cart_item_count': cartService.totalItems,
       'cart_total_price': cartService.totalPrice,
-      'screen_name': 'cart',
+      'app.screen.name': 'cart',
     });
 
     // Track funnel progression to checkout
@@ -374,7 +378,7 @@ class _CartScreenState extends State<CartScreen> {
 
   void _onContinueShopping() {
     TelemetryService.instance.recordEvent('continue_shopping', attributes: {
-      'screen_name': 'cart',
+      'app.screen.name': 'cart',
       'cart_was_empty': true,
     });
 

@@ -25,7 +25,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     super.initState();
     
     TelemetryService.instance.recordEvent('screen_view', attributes: {
-      'screen_name': 'order_confirmation',
+      'app.screen.name': 'order_confirmation',
       'order_id': widget.order.orderId,
       'order_items_count': widget.order.items.length,
       'session_id': TelemetryService.instance.sessionId,

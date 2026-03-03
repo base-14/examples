@@ -37,7 +37,7 @@ class _SearchScreenState extends State<SearchScreen> {
     ErrorHandlerService.instance.recordBreadcrumb('navigate:Search');
 
     TelemetryService.instance.recordEvent('screen_view', attributes: {
-      'screen_name': 'search',
+      'app.screen.name': 'search',
       'session_id': TelemetryService.instance.sessionId,
     });
 
@@ -494,13 +494,15 @@ class _SearchScreenState extends State<SearchScreen> {
       _searchService.recordSearchResultClick(product, _currentQuery!, index);
     }
 
-    TelemetryService.instance.recordEvent('product_tap', attributes: {
+    TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+      'app.widget.id': 'search_result_${product.id}',
+      'app.widget.name': 'Search Result',
       'product_id': product.id,
       'product_name': product.name,
       'source': 'search',
       'search_query': _currentQuery ?? '',
       'result_position': index,
-      'screen_name': 'search',
+      'app.screen.name': 'search',
     });
 
     Navigator.push<void>(

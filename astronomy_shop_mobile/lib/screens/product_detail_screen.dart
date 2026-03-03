@@ -31,7 +31,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ErrorHandlerService.instance.recordBreadcrumb('navigate:ProductDetail:${widget.product.id}');
 
     TelemetryService.instance.recordEvent('screen_view', attributes: {
-      'screen_name': 'product_detail',
+      'app.screen.name': 'product_detail',
       'product_id': widget.product.id,
       'product_name': widget.product.name,
       'product_price': widget.product.priceUsd,
@@ -326,11 +326,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _onSharePressed() {
-    // Record share event
-    TelemetryService.instance.recordEvent('product_share', attributes: {
+    TelemetryService.instance.recordEvent('app.widget.click', attributes: {
+      'app.widget.id': 'share_button_${widget.product.id}',
+      'app.widget.name': 'Share Product',
       'product_id': widget.product.id,
       'product_name': widget.product.name,
-      'screen_name': 'product_detail',
+      'app.screen.name': 'product_detail',
     });
     
     // Show share confirmation (in real app, would open share dialog)

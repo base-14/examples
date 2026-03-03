@@ -17,12 +17,17 @@ Attached to every trace, metric, and log export.
 | `telemetry.sdk.name` | Hardcoded | `flutter-opentelemetry` |
 | `telemetry.sdk.version` | Hardcoded | `0.18.10` |
 | `session.id` | Generated (UUID v4) | `a3f1b2c4-...` |
+| `app.build_id` | `.env` SERVICE_VERSION | `0.0.1` |
+| `app.installation.id` | Persisted UUID (file) | `b7e2d1f3-...` |
 | `os.name` | `dart:io` Platform | `macos`, `ios`, `android` |
 | `os.version` | `dart:io` Platform | `Version 14.5 ...` |
 | `device.locale` | `dart:io` Platform | `en_US` |
 | `device.screen.width` | `dart:ui` PlatformDispatcher | `393` |
 | `device.screen.height` | `dart:ui` PlatformDispatcher | `852` |
 | `device.screen.density` | `dart:ui` PlatformDispatcher | `3.0` |
+| `device.manufacturer` | `device_info_plus` (iOS/Android) | `Apple`, `Samsung` |
+| `device.model.identifier` | `device_info_plus` (iOS/Android) | `iPhone15,2`, `SM-G920F` |
+| `device.model.name` | `device_info_plus` (iOS/Android) | `iPhone`, `Galaxy S6` |
 
 ---
 
@@ -39,15 +44,16 @@ Three kinds of spans are emitted:
 3. **HTTP client spans** created by `HttpService` — one per HTTP request with
    W3C `traceparent` propagation.
 
-### 2.2 App Lifecycle Spans
+### 2.2 App Lifecycle & Session Spans
 
 | Span Name | File | When |
 |-----------|------|------|
 | `app_initialization` | telemetry_service.dart | App startup |
 | `app_shutdown` | telemetry_service.dart | App shutdown |
-| `app_lifecycle_change` | app_lifecycle_observer.dart | Each `AppLifecycleState` transition |
 | `telemetry_batch` | telemetry_service.dart | Periodic batch flush (30s) |
 | `error_event` | telemetry_service.dart | `TelemetryService.recordError()` |
+
+Lifecycle transitions are now emitted as `device.app.lifecycle` events (see Section 3.15).
 
 ### 2.3 HTTP Client Spans
 
@@ -87,7 +93,7 @@ Events are emitted as individual OTLP spans with point-in-time semantics.
 
 | Event | File | Key Attributes |
 |-------|------|---------------|
-| `screen_view` | main.dart, cart_screen, checkout_screen, search_screen, product_detail_screen, order_confirmation_screen | `screen_name`, plus screen-specific context (product_count, cart totals, etc.) |
+| `screen_view` | main.dart, cart_screen, checkout_screen, search_screen, product_detail_screen, order_confirmation_screen | `app.screen.name`, plus screen-specific context (product_count, cart totals, etc.) |
 
 Emitted from every screen's `initState`.
 
@@ -95,10 +101,10 @@ Emitted from every screen's `initState`.
 
 | Event | File | Key Attributes |
 |-------|------|---------------|
-| `product_tap` | main.dart, search_screen | `product_id`, `product_name`, `product_price`, `screen_name` |
-| `product_load_error` | main.dart | `error_message`, `screen_name` |
-| `product_refresh` | main.dart | `screen_name`, `current_product_count` |
-| `product_share` | product_detail_screen | `product_id`, `product_name`, `product_price` |
+| `app.widget.click` | main.dart, search_screen, recommendations_section | `app.widget.id`, `app.widget.name`, `product_id`, `product_name`, `app.screen.name` |
+| `product_load_error` | main.dart | `error_message`, `app.screen.name` |
+| `product_refresh` | main.dart | `app.screen.name`, `current_product_count` |
+| `app.widget.click` | product_detail_screen | `app.widget.id` (`share_button_{id}`), `app.widget.name` (`Share Product`), `product_id`, `product_name`, `app.screen.name` |
 
 ### 3.3 Cart Operations
 
@@ -120,8 +126,8 @@ Emitted from every screen's `initState`.
 
 | Event | File | Key Attributes |
 |-------|------|---------------|
-| `cart_badge_tapped` | main.dart | `cart_item_count`, `cart_total_price` |
-| `empty_cart_search_tap` | cart_screen | — |
+| `app.widget.click` | main.dart | `app.widget.id` (`cart_badge`), `app.widget.name`, `cart_item_count`, `cart_total_price` |
+| `app.widget.click` | cart_screen | `app.widget.id` (`empty_cart_search_button`), `app.widget.name` (`search_button`) |
 | `cart_quantity_change` | cart_screen | `product_id`, `old_quantity`, `new_quantity` |
 | `cart_remove_item_ui` | cart_screen | `product_id`, `quantity_removed` |
 | `cart_clear_initiated` | cart_screen | `items_count` |
@@ -143,7 +149,7 @@ Emitted from every screen's `initState`.
 
 | Event | File | Key Attributes |
 |-------|------|---------------|
-| `search_button_tapped` | main.dart | `screen_name` |
+| `app.widget.click` | main.dart | `app.widget.id` (`search_button`), `app.widget.name`, `app.screen.name` |
 | `search_query_entered` | search_service | `query`, `query_length` |
 | `search_result_clicked` | search_service | `product_id`, `search_query`, `result_position` |
 | `search_no_results` | search_service | `query`, `query_length` |
@@ -157,6 +163,7 @@ Emitted from every screen's `initState`.
 |-------|------|---------------|
 | `recommendations_cart_based` | recommendations_service | `cart_items_count`, `product_ids` |
 | `recommendation_clicked` | recommendations_service | `product_id`, `product_name`, `position` |
+| `app.widget.click` | recommendations_section | `app.widget.id` (`recommendations_refresh`), `app.widget.name` (`refresh_button`) |
 | `recommendations_viewed` | recommendations_service | `recommendations_count`, `product_ids` |
 | `recommendations_metrics` | recommendations_service | `count`, `source`, `average_price`, `unique_categories` |
 
@@ -192,7 +199,7 @@ Funnel stages (in order): `product_list_view` → `product_detail_view` → `add
 
 | Event | File | Key Attributes |
 |-------|------|---------------|
-| `error_occurred` | error_handler_service | `error.message`, `error.context`, `error.type`, `error.severity` (crash\|error), `error.is_fatal`, `session.duration_ms`, `screen.current`, `user.last_action`, `breadcrumbs` |
+| `error_occurred` | error_handler_service | `error.message`, `error.context`, `error.type`, `error.severity` (crash\|error), `error.is_fatal`, `session.duration_ms`, `app.screen.name`, `user.last_action`, `breadcrumbs` |
 | `error_handler_initialize` | error_handler_service | `session_id` |
 | `errors_cleared` | error_handler_service | `cleared_count` |
 | `error_boundary_retry` | error_boundary | `context` |
@@ -204,7 +211,7 @@ Funnel stages (in order): `product_list_view` → `product_detail_view` → `add
 | `performance_service_initialize` | performance_service | `session_id` |
 | `performance_metric` | performance_service | `operation_name`, `duration_ms` |
 | `memory_usage` | performance_service | `estimated_memory_mb`, `metrics_count` |
-| `frame_metrics` | performance_service | `average_fps`, `dropped_frames`, `screen_name` |
+| `app.jank` | performance_service | `average_fps`, `app.jank.frame_count`, `app.screen.name` |
 | `slow_operation_detected` | performance_service | `operation_name`, `duration_ms`, `severity` |
 
 ### 3.12 Image Cache
@@ -224,7 +231,19 @@ Funnel stages (in order): `product_list_view` → `product_detail_view` → `add
 | `telemetry_sampling_rate_changed` | telemetry_service | `old_sampling_rate`, `new_sampling_rate`, `battery_level` |
 | `telemetry_batch_error` | telemetry_service | `error`, `batch_size` |
 
-### 3.14 Debug (kDebugMode only)
+### 3.14 Session & Lifecycle Events
+
+| Event | File | Key Attributes |
+|-------|------|---------------|
+| `session.start` | telemetry_service | `session.id` |
+| `session.end` | telemetry_service | `session.id`, `session.duration_ms` |
+| `device.app.lifecycle` | app_lifecycle_observer | `ios.app.state` or `android.app.state`, `session.id` |
+
+`device.app.lifecycle` uses platform-specific state attributes:
+- **iOS** (`ios.app.state`): `active`, `inactive`, `background`, `terminate`
+- **Android** (`android.app.state`): `foreground`, `created`, `background`
+
+### 3.15 Debug (kDebugMode only)
 
 | Event | File | Key Attributes |
 |-------|------|---------------|
@@ -251,8 +270,8 @@ Histogram bounds: `[5, 10, 25, 50, 75, 100, 250, 500, 1000, 2500, 5000, 10000]`
 
 | Metric | Type | Attributes | Source |
 |--------|------|-----------|--------|
-| `app.error.count` | Counter | `error.type`, `screen.name` | error_handler_service.dart |
-| `app.crash.count` | Counter | `error.type`, `screen.name` | error_handler_service.dart |
+| `app.error.count` | Counter | `error.type`, `app.screen.name` | error_handler_service.dart |
+| `app.crash.count` | Counter | `error.type`, `app.screen.name` | error_handler_service.dart |
 
 ### 4.3 Session Metrics
 
@@ -302,7 +321,7 @@ All error/fatal logs from `ErrorHandlerService` include:
 | `error.is_fatal` | `true` or `false` |
 | `session.id` | Session UUID |
 | `session.duration_ms` | Time since session start |
-| `screen.current` | Screen where error occurred |
+| `app.screen.name` | Screen where error occurred |
 | `user.last_action` | Last breadcrumb |
 | `breadcrumbs` | Last 20 user actions joined by ` > ` |
 | `has_stack_trace` | Whether stack trace is present |
@@ -386,9 +405,9 @@ configured (`SCOUT_CLIENT_ID`, `SCOUT_CLIENT_SECRET`, `SCOUT_TOKEN_URL`).
 
 | Category | Count |
 |----------|-------|
-| Named spans | 11 |
-| Event types | ~80 |
+| Named spans | 10 |
+| Event types | ~83 |
 | Metrics | 5 |
 | Log patterns | 5 |
-| Resource attributes | 12 |
+| Resource attributes | 17 |
 | Breadcrumb sources | 12 |
