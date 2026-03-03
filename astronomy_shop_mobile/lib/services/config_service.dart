@@ -25,7 +25,7 @@ class ConfigService {
 
   // App Configuration (used by TelemetryService)
   String get serviceName => dotenv.env['SERVICE_NAME'] ?? 'astronomy-shop-mobile';
-  String get serviceVersion => dotenv.env['SERVICE_VERSION'] ?? '1.0.0';
+  String get serviceVersion => dotenv.env['SERVICE_VERSION'] ?? '0.0.1';
   String get environment => dotenv.env['ENVIRONMENT'] ?? 'development';
 
   // OTLP Configuration (used by TelemetryService)

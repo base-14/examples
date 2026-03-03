@@ -58,7 +58,7 @@ class TelemetryService {
   
   
   static String get serviceName => dotenv.env['SERVICE_NAME'] ?? 'astronomy-shop-mobile';
-  static String get serviceVersion => dotenv.env['SERVICE_VERSION'] ?? '1.0.0';
+  static String get serviceVersion => dotenv.env['SERVICE_VERSION'] ?? '0.0.1';
   static String get environment => dotenv.env['ENVIRONMENT'] ?? 'development';
 
   // Scout/OIDC Authentication Configuration
