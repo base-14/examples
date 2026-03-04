@@ -1,0 +1,29 @@
+name: platform_design
+description: A project showcasing a Flutter app following different platform IA conventions.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  english_words: ^4.0.0
+  flutter_lorem: ^2.0.0
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  flutterrific_opentelemetry: 0.3.2
+  device_info_plus: ^11.0.0
+  package_info_plus: ^8.0.0
+  connectivity_plus: ^6.0.0
+  battery_plus: ^6.0.0
+
+dependency_overrides:
+  dartastic_opentelemetry_api: 0.8.6
+  meta: 1.17.0
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
