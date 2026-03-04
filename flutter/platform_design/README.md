@@ -14,6 +14,21 @@ by using a bottom tab bar.
 Visually, the app presents platform-agnostic content surrounded by
 platform-specific 'chrome'.
 
+# Getting Started
+
+```bash
+flutter pub get
+flutter run
+```
+
+To send telemetry to a custom OTel collector endpoint, use `--dart-define`:
+
+```bash
+flutter run \
+  --dart-define=OTEL_TRACE_ENDPOINT=http://<collector-host>:4318 \
+  --dart-define=OTEL_METRIC_ENDPOINT=http://<collector-host>:4317
+```
+
 # Preview
 
 ![App's platform toggling preview](adaptive-overview.gif)
