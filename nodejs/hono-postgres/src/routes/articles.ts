@@ -20,7 +20,7 @@ articlesRouter.get('/', optionalAuth, async (c) => {
 });
 
 articlesRouter.get('/:slug', optionalAuth, async (c) => {
-  const slug = c.req.param('slug');
+  const slug = c.req.param('slug')!;
   const userId = c.get('user')?.id;
   const article = await articleService.findBySlug(slug, userId);
 
@@ -40,7 +40,7 @@ articlesRouter.post('/', authenticate, zValidator('json', createArticleSchema), 
 });
 
 articlesRouter.put('/:slug', authenticate, zValidator('json', updateArticleSchema), async (c) => {
-  const slug = c.req.param('slug');
+  const slug = c.req.param('slug')!;
   const { id: userId } = c.get('user');
   const data = c.req.valid('json');
 
@@ -62,7 +62,7 @@ articlesRouter.put('/:slug', authenticate, zValidator('json', updateArticleSchem
 });
 
 articlesRouter.delete('/:slug', authenticate, async (c) => {
-  const slug = c.req.param('slug');
+  const slug = c.req.param('slug')!;
   const { id: userId } = c.get('user');
 
   try {
@@ -83,7 +83,7 @@ articlesRouter.delete('/:slug', authenticate, async (c) => {
 });
 
 articlesRouter.post('/:slug/favorite', authenticate, async (c) => {
-  const slug = c.req.param('slug');
+  const slug = c.req.param('slug')!;
   const { id: userId } = c.get('user');
   const article = await articleService.favoriteArticle(slug, userId);
 
@@ -95,7 +95,7 @@ articlesRouter.post('/:slug/favorite', authenticate, async (c) => {
 });
 
 articlesRouter.delete('/:slug/favorite', authenticate, async (c) => {
-  const slug = c.req.param('slug');
+  const slug = c.req.param('slug')!;
   const { id: userId } = c.get('user');
   const article = await articleService.unfavoriteArticle(slug, userId);
 
