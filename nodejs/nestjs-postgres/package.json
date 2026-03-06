@@ -72,6 +72,7 @@
     "test-exclude": "^7.0.1",
     "lodash": "^4.17.22",
     "serialize-javascript": ">=7.0.3",
+    "multer": ">=2.1.1",
     "@angular-devkit/core": {
       "ajv": ">=8.17.2"
     }
