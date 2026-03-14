@@ -27,7 +27,6 @@ public static class TelemetrySetup
                 .AddHttpClientInstrumentation()
                 .AddSqlClientInstrumentation(options =>
                 {
-                    options.SetDbStatementForText = true;
                     options.RecordException = true;
                 })
                 .AddSource("DotnetSqlServer.AuthService")

@@ -25,7 +25,6 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing
         .AddSqlClientInstrumentation(options =>
         {
-            options.SetDbStatementForText = true;
             options.RecordException = true;
         })
         .AddSource("DotnetSqlServer.Worker")
