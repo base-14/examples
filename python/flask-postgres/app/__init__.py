@@ -71,9 +71,12 @@ def create_app(config_class: type | None = None) -> Flask:
     # Configure logging
     _configure_logging()
 
-    # Create database tables
+    # Create database tables (ignore race between Gunicorn workers)
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception:
+            pass
 
     return app
 
