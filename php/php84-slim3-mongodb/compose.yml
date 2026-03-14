@@ -13,7 +13,7 @@ x-mongo-env: &mongo-env
 
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.144.0
+    image: otel/opentelemetry-collector-contrib:0.147.0
     container_name: otel-collector
     ports:
       - "4317:4317"

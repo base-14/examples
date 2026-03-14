@@ -83,7 +83,7 @@ services:
       - app-network
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.144.0
+    image: otel/opentelemetry-collector-contrib:0.147.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./config/otel-config.yaml:/etc/otel-collector-config.yaml:ro
