@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 
 use super::ProfileResponse;
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Article {
     pub id: i32,
     pub slug: String,

@@ -1,7 +1,8 @@
+use serde::Serialize;
 use sqlx::FromRow;
 use time::OffsetDateTime;
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Favorite {
     pub id: i32,
     pub user_id: i32,

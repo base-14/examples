@@ -16,15 +16,17 @@ mod telemetry;
 use config::Config;
 use database::create_pool;
 use jobs::JobQueue;
+use middleware::MetricsMiddleware;
 use repository::{ArticleRepository, FavoriteRepository, UserRepository};
 use services::{ArticleService, AuthService};
-use telemetry::init_telemetry;
+use telemetry::{TelemetryGuard, init_metrics, init_telemetry};
 
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env();
 
-    let telemetry_guard = init_telemetry(&config)?;
+    let telemetry_guard: TelemetryGuard = init_telemetry(&config)?;
+    init_metrics();
 
     tracing::info!(
         port = config.port,
@@ -37,12 +39,12 @@ async fn main() -> anyhow::Result<()> {
     let user_repo = UserRepository::new(pool.clone());
     let article_repo = ArticleRepository::new(pool.clone());
     let favorite_repo = FavoriteRepository::new(pool.clone());
-    let job_queue = JobQueue::new(pool.clone());
+    let job_queue = JobQueue::new(pool);
+
+    let pool_data = web::Data::new(job_queue.pool().clone());
 
     let auth_service = AuthService::new(user_repo, &config);
     let article_service = ArticleService::new(article_repo, favorite_repo, job_queue);
-
-    let pool_data = web::Data::new(pool);
     let auth_data = web::Data::new(auth_service);
     let article_data = web::Data::new(article_service);
 
@@ -52,6 +54,7 @@ async fn main() -> anyhow::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(MetricsMiddleware)
             .wrap(TracingLogger::default())
             .wrap(actix_web::middleware::Compress::default())
             .app_data(pool_data.clone())

@@ -39,7 +39,16 @@ impl ArticleService {
         author_id: i32,
         input: CreateArticleInput,
     ) -> AppResult<ArticleResponse> {
-        let slug = self.generate_slug(&input.title);
+        let title = input.title.trim();
+        if title.is_empty() {
+            return Err(AppError::Validation("Title must not be empty".to_string()));
+        }
+        let body = input.body.trim();
+        if body.is_empty() {
+            return Err(AppError::Validation("Body must not be empty".to_string()));
+        }
+
+        let slug = self.generate_slug(title);
         let final_slug = if self.article_repo.exists_by_slug(&slug).await? {
             format!(
                 "{}-{}",
@@ -54,9 +63,9 @@ impl ArticleService {
             .article_repo
             .create(
                 &final_slug,
-                &input.title,
+                title,
                 input.description.as_deref().unwrap_or(""),
-                &input.body,
+                body,
                 author_id,
             )
             .await?;

@@ -87,3 +87,17 @@ pub static JOBS_FAILED: LazyLock<Counter<u64>> = LazyLock::new(|| {
         .with_description("Total jobs failed")
         .build()
 });
+
+pub fn init_metrics() {
+    LazyLock::force(&HTTP_REQUESTS_TOTAL);
+    LazyLock::force(&HTTP_REQUEST_DURATION);
+    LazyLock::force(&ARTICLES_CREATED);
+    LazyLock::force(&ARTICLES_UPDATED);
+    LazyLock::force(&ARTICLES_DELETED);
+    LazyLock::force(&FAVORITES_ADDED);
+    LazyLock::force(&FAVORITES_REMOVED);
+    LazyLock::force(&USERS_REGISTERED);
+    LazyLock::force(&JOBS_ENQUEUED);
+    LazyLock::force(&JOBS_COMPLETED);
+    LazyLock::force(&JOBS_FAILED);
+}

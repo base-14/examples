@@ -1,19 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use tracing::{Span, instrument};
 
-use crate::telemetry::{JOBS_COMPLETED, JOBS_ENQUEUED, JOBS_FAILED};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Job {
-    pub id: i64,
-    pub kind: String,
-    pub payload: serde_json::Value,
-    pub status: String,
-    pub attempts: i32,
-    pub trace_context: Option<serde_json::Value>,
-}
+use crate::telemetry::JOBS_ENQUEUED;
 
 #[derive(Clone)]
 pub struct JobQueue {
@@ -23,6 +13,10 @@ pub struct JobQueue {
 impl JobQueue {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
     }
 
     #[instrument(name = "job.enqueue", skip(self, payload))]
@@ -63,76 +57,6 @@ impl JobQueue {
         });
 
         self.enqueue("notification", payload).await
-    }
-
-    pub async fn dequeue(&self) -> Result<Option<Job>, sqlx::Error> {
-        let result = sqlx::query(
-            r#"
-            UPDATE jobs
-            SET status = 'processing',
-                started_at = NOW(),
-                attempts = attempts + 1
-            WHERE id = (
-                SELECT id FROM jobs
-                WHERE status = 'pending'
-                  AND scheduled_at <= NOW()
-                  AND attempts < max_attempts
-                ORDER BY priority DESC, scheduled_at ASC
-                FOR UPDATE SKIP LOCKED
-                LIMIT 1
-            )
-            RETURNING id, kind, payload, status, attempts, trace_context
-            "#,
-        )
-        .fetch_optional(&self.pool)
-        .await?;
-
-        Ok(result.map(|row| Job {
-            id: row.get("id"),
-            kind: row.get("kind"),
-            payload: row.get("payload"),
-            status: row.get("status"),
-            attempts: row.get("attempts"),
-            trace_context: row.get("trace_context"),
-        }))
-    }
-
-    pub async fn complete(&self, job_id: i64) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"
-            UPDATE jobs
-            SET status = 'completed', completed_at = NOW()
-            WHERE id = $1
-            "#,
-        )
-        .bind(job_id)
-        .execute(&self.pool)
-        .await?;
-
-        JOBS_COMPLETED.add(1, &[]);
-        Ok(())
-    }
-
-    pub async fn fail(&self, job_id: i64, error: &str) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"
-            UPDATE jobs
-            SET status = CASE
-                    WHEN attempts >= max_attempts THEN 'failed'
-                    ELSE 'pending'
-                END,
-                failed_at = NOW(),
-                error_message = $2
-            WHERE id = $1
-            "#,
-        )
-        .bind(job_id)
-        .bind(error)
-        .execute(&self.pool)
-        .await?;
-
-        JOBS_FAILED.add(1, &[]);
-        Ok(())
     }
 
     fn capture_trace_context(&self) -> Option<serde_json::Value> {

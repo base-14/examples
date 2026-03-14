@@ -3,34 +3,128 @@ use std::time::Duration;
 
 use opentelemetry::propagation::TextMapPropagator;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
+use serde::Deserialize;
+use sqlx::{PgPool, Row};
 use tokio::signal;
 use tokio::sync::broadcast;
 use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
-mod config {
-    pub use actix_postgres::config::*;
-}
-mod database {
-    pub use actix_postgres::database::*;
-}
-mod telemetry {
-    pub use actix_postgres::telemetry::*;
-}
-mod jobs {
-    pub use actix_postgres::jobs::*;
+use actix_postgres::config::Config;
+use actix_postgres::database::create_pool;
+use actix_postgres::jobs::JobQueue;
+use actix_postgres::telemetry::{JOBS_COMPLETED, JOBS_FAILED, TelemetryGuard, init_telemetry};
+
+struct Job {
+    id: i64,
+    kind: String,
+    payload: serde_json::Value,
+    trace_context: Option<serde_json::Value>,
 }
 
-use config::Config;
-use database::create_pool;
-use jobs::{JobQueue, NotificationHandler};
-use telemetry::init_telemetry;
+#[derive(Debug, Deserialize)]
+struct NotificationPayload {
+    article_id: i32,
+    title: String,
+}
+
+struct NotificationHandler;
+
+impl NotificationHandler {
+    #[tracing::instrument(name = "job.notification.handle", skip(job), fields(job_id = job.id))]
+    async fn handle(job: &Job) -> Result<(), anyhow::Error> {
+        let payload: NotificationPayload = serde_json::from_value(job.payload.clone())?;
+
+        tracing::info!(
+            article_id = payload.article_id,
+            title = %payload.title,
+            "Processing notification for new article"
+        );
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        tracing::info!(
+            article_id = payload.article_id,
+            "Notification sent successfully"
+        );
+
+        Ok(())
+    }
+}
+
+async fn dequeue(pool: &PgPool) -> Result<Option<Job>, sqlx::Error> {
+    let result = sqlx::query(
+        r#"
+        UPDATE jobs
+        SET status = 'processing',
+            started_at = NOW(),
+            attempts = attempts + 1
+        WHERE id = (
+            SELECT id FROM jobs
+            WHERE status = 'pending'
+              AND scheduled_at <= NOW()
+              AND attempts < max_attempts
+            ORDER BY priority DESC, scheduled_at ASC
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+        )
+        RETURNING id, kind, payload, trace_context
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(result.map(|row| Job {
+        id: row.get("id"),
+        kind: row.get("kind"),
+        payload: row.get("payload"),
+        trace_context: row.get("trace_context"),
+    }))
+}
+
+async fn complete(pool: &PgPool, job_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE jobs
+        SET status = 'completed', completed_at = NOW()
+        WHERE id = $1
+        "#,
+    )
+    .bind(job_id)
+    .execute(pool)
+    .await?;
+
+    JOBS_COMPLETED.add(1, &[]);
+    Ok(())
+}
+
+async fn fail(pool: &PgPool, job_id: i64, error: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE jobs
+        SET status = CASE
+                WHEN attempts >= max_attempts THEN 'failed'
+                ELSE 'pending'
+            END,
+            failed_at = NOW(),
+            error_message = $2
+        WHERE id = $1
+        "#,
+    )
+    .bind(job_id)
+    .bind(error)
+    .execute(pool)
+    .await?;
+
+    JOBS_FAILED.add(1, &[]);
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env();
 
-    let telemetry_guard = init_telemetry(&config)?;
+    let _telemetry: TelemetryGuard = init_telemetry(&config)?;
 
     tracing::info!(
         environment = %config.environment,
@@ -71,13 +165,14 @@ async fn main() -> anyhow::Result<()> {
     worker_handle.await?;
 
     tracing::info!("Worker shutdown complete");
-    telemetry_guard.shutdown();
+    _telemetry.shutdown();
 
     Ok(())
 }
 
 async fn process_job(job_queue: &JobQueue) -> anyhow::Result<()> {
-    let Some(job) = job_queue.dequeue().await? else {
+    let pool = job_queue.pool();
+    let Some(job) = dequeue(pool).await? else {
         return Ok(());
     };
 
@@ -103,11 +198,11 @@ async fn process_job(job_queue: &JobQueue) -> anyhow::Result<()> {
 
         match result {
             Ok(()) => {
-                job_queue.complete(job.id).await?;
+                complete(pool, job.id).await?;
                 tracing::info!(job_id = job.id, "Job completed");
             }
             Err(e) => {
-                job_queue.fail(job.id, &e.to_string()).await?;
+                fail(pool, job.id, &e.to_string()).await?;
                 tracing::error!(job_id = job.id, error = %e, "Job failed");
             }
         }
