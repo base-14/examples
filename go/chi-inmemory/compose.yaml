@@ -9,8 +9,8 @@ services:
     environment:
       - APP_ENV=${APP_ENV:-development}
       - APP_PORT=${APP_PORT:-8080}
-      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-go-parking-lot-otel}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      - OTEL_SERVICE_NAME=go-parking-lot-otel
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development}
     depends_on:
       otel-collector:
@@ -35,7 +35,7 @@ services:
       - parking-network
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.144.0
+    image: otel/opentelemetry-collector-contrib:0.147.0
     container_name: otel-collector
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
@@ -44,11 +44,14 @@ services:
       - "4318:4318" # OTLP HTTP receiver
       - "55679:55679" # zpages extension
       - "13133:13133" # health check
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
-      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
     networks:
       - parking-network
