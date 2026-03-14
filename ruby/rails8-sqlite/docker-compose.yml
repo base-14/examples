@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: bin/rails server -b 0.0.0.0 -p 3000
+    command: bash -c "bin/rails db:create 2>/dev/null; bin/rails db:migrate && bin/rails server -b 0.0.0.0 -p 3000"
     volumes:
       - .:/rails
       - rails_storage:/rails/storage
