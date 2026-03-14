@@ -18,7 +18,7 @@ ENV RAILS_ENV="development" \
 
 RUN gem update --system 3.3.27 && gem install bundler -v 2.3.27
 
-COPY Gemfile ./
+COPY Gemfile Gemfile.lock ./
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
