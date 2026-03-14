@@ -115,7 +115,7 @@ export function createSemconvMiddleware(
 
         // gen_ai.user.message event (truncated)
         span.addEvent("gen_ai.user.message", {
-          "gen_ai.prompt": truncate(user, TRUNCATE_PROMPT),
+          "gen_ai.input.messages": truncate(user, TRUNCATE_PROMPT),
           ...(system ? { "gen_ai.system_instructions": truncate(system, TRUNCATE_SYSTEM) } : {}),
         });
 
@@ -145,7 +145,7 @@ export function createSemconvMiddleware(
               .map((c) => c.text)
               .join("");
             span.addEvent("gen_ai.assistant.message", {
-              "gen_ai.completion": truncate(completionText, TRUNCATE_COMPLETION),
+              "gen_ai.output.messages": truncate(completionText, TRUNCATE_COMPLETION),
             });
 
             // gen_ai.client.token.usage — required attrs per LLM Gateway Contract

@@ -52,12 +52,12 @@ spans:
       - name: "gen_ai.user.message"
         condition: "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
         attributes:
-          - gen_ai.prompt: "{scrubbed_prompt, max 1000 chars}"
+          - gen_ai.input.messages: "{scrubbed_prompt, max 1000 chars}"
           - gen_ai.system_instructions: "{scrubbed_system, max 500 chars, omit if empty}"
       - name: "gen_ai.assistant.message"
         condition: "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
         attributes:
-          - gen_ai.completion: "{scrubbed_completion, max 2000 chars}"
+          - gen_ai.output.messages: "{scrubbed_completion, max 2000 chars}"
     error_attributes:
       - error.type: "{exception class name}"
 

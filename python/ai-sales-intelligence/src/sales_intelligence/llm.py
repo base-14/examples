@@ -487,7 +487,7 @@ class LLMClient:
             span.add_event(
                 "gen_ai.user.message",
                 attributes={
-                    "gen_ai.prompt": scrub_prompt(prompt)[:1000],
+                    "gen_ai.input.messages": scrub_prompt(prompt)[:1000],
                     "gen_ai.system_instructions": scrub_prompt(system)[:500],
                 },
             )
@@ -525,7 +525,7 @@ class LLMClient:
                 span.add_event(
                     "gen_ai.assistant.message",
                     attributes={
-                        "gen_ai.completion": scrub_completion(response.content)[:2000],
+                        "gen_ai.output.messages": scrub_completion(response.content)[:2000],
                     },
                 )
 

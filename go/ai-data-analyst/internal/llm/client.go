@@ -72,7 +72,7 @@ func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerNa
 	}
 
 	span.AddEvent("gen_ai.user.message", trace.WithAttributes(
-		attribute.String("gen_ai.prompt", truncate(req.Prompt, 1000)),
+		attribute.String("gen_ai.input.messages", truncate(req.Prompt, 1000)),
 	))
 	if req.System != "" {
 		span.AddEvent("gen_ai.user.message", trace.WithAttributes(
@@ -107,7 +107,7 @@ func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerNa
 	}
 
 	span.AddEvent("gen_ai.assistant.message", trace.WithAttributes(
-		attribute.String("gen_ai.completion", truncate(resp.Content, 2000)),
+		attribute.String("gen_ai.output.messages", truncate(resp.Content, 2000)),
 	))
 
 	if c.Metrics != nil {

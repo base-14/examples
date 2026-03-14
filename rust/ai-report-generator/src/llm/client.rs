@@ -58,7 +58,7 @@ impl LlmClient {
 
         {
             let mut user_event_attrs =
-                vec![KeyValue::new("gen_ai.prompt", truncate(&req.prompt, 1000))];
+                vec![KeyValue::new("gen_ai.input.messages", truncate(&req.prompt, 1000))];
             if !req.system.is_empty() {
                 user_event_attrs.push(KeyValue::new(
                     "gen_ai.system_instructions",
@@ -91,7 +91,7 @@ impl LlmClient {
                 span.add_event(
                     "gen_ai.assistant.message",
                     vec![KeyValue::new(
-                        "gen_ai.completion",
+                        "gen_ai.output.messages",
                         truncate(&resp.content, 2000),
                     )],
                 );

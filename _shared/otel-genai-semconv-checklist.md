@@ -29,9 +29,9 @@ Reference: `_shared/llm-gateway-contract.yaml` for the full spec.
 - [ ] `gen_ai.assistant.message` event is emitted
 - [ ] Events are gated on `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`
 - [ ] Prompt/completion content is PII-scrubbed before recording
-- [ ] Prompt (`gen_ai.prompt`) is truncated at 1000 chars
+- [ ] Prompt (`gen_ai.input.messages`) is truncated at 1000 chars
 - [ ] System instructions (`gen_ai.system_instructions`) are truncated at 500 chars
-- [ ] Completion (`gen_ai.completion`) is truncated at 2000 chars
+- [ ] Completion (`gen_ai.output.messages`) is truncated at 2000 chars
 - [ ] `gen_ai.system_instructions` is omitted if system prompt is empty/absent
 
 ## Metrics (all 6 required)

@@ -678,12 +678,12 @@ async def test_generate_emits_user_and_assistant_span_events() -> None:
     assert span.add_event.call_args_list[1].args[0] == "gen_ai.assistant.message"
 
     user_attrs = span.add_event.call_args_list[0].args[1]
-    assert "gen_ai.prompt" in user_attrs
+    assert "gen_ai.input.messages" in user_attrs
     assert "[EMAIL]" in user_attrs["gen_ai.system_instructions"]
     assert "john@test.com" not in user_attrs["gen_ai.system_instructions"]
 
     asst_attrs = span.add_event.call_args_list[1].args[1]
-    assert "gen_ai.completion" in asst_attrs
+    assert "gen_ai.output.messages" in asst_attrs
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
@@ -702,7 +702,7 @@ async def test_generate_user_event_omits_system_instructions_when_no_system_prom
 
     user_attrs = span.add_event.call_args_list[0].args[1]
     assert "gen_ai.system_instructions" not in user_attrs
-    assert "gen_ai.prompt" in user_attrs
+    assert "gen_ai.input.messages" in user_attrs
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
@@ -729,7 +729,7 @@ async def test_generate_span_events_truncate_content() -> None:
     user_attrs = span.add_event.call_args_list[0].args[1]
     assert len(user_attrs["gen_ai.system_instructions"]) <= 500
     asst_attrs = span.add_event.call_args_list[1].args[1]
-    assert len(asst_attrs["gen_ai.completion"]) <= 2000
+    assert len(asst_attrs["gen_ai.output.messages"]) <= 2000
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())

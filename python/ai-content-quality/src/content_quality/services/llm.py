@@ -333,14 +333,18 @@ class LLMClient:
                 )
                 if _is_content_capture_enabled():
                     user_event: dict[str, str] = {
-                        "gen_ai.prompt": scrub_pii(formatted_prompt)[:1000],
+                        "gen_ai.input.messages": scrub_pii(formatted_prompt)[:1000],
                     }
                     if system_prompt:
                         user_event["gen_ai.system_instructions"] = scrub_pii(system_prompt)[:500]
                     span.add_event("gen_ai.user.message", user_event)
                     span.add_event(
                         "gen_ai.assistant.message",
-                        {"gen_ai.completion": scrub_pii(str(chat_response.message.content))[:2000]},
+                        {
+                            "gen_ai.output.messages": scrub_pii(str(chat_response.message.content))[
+                                :2000
+                            ]
+                        },
                     )
 
                 raw_content = _strip_markdown_json(str(chat_response.message.content))

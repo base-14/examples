@@ -171,7 +171,7 @@ public class LlmService {
         try (Scope ignored = span.makeCurrent()) {
             if (captureContent) {
                 span.addEvent("gen_ai.user.message", Attributes.of(
-                    AttributeKey.stringKey("gen_ai.prompt"), truncate(piiFilter.scrub(userPrompt), 1000)
+                    AttributeKey.stringKey("gen_ai.input.messages"), truncate(piiFilter.scrub(userPrompt), 1000)
                 ));
                 if (systemPrompt != null && !systemPrompt.isEmpty()) {
                     span.addEvent("gen_ai.user.message", Attributes.of(
@@ -207,7 +207,7 @@ public class LlmService {
 
             if (captureContent) {
                 span.addEvent("gen_ai.assistant.message", Attributes.of(
-                    AttributeKey.stringKey("gen_ai.completion"), truncate(piiFilter.scrub(content), 2000)
+                    AttributeKey.stringKey("gen_ai.output.messages"), truncate(piiFilter.scrub(content), 2000)
                 ));
             }
 
