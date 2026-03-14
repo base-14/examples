@@ -1,0 +1,60 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - MIX_ENV=dev
+      - DATABASE_HOST=postgres
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_NAME=chat_app_dev
+      - PHX_SERVER=true
+      - PORT=4000
+      - OTEL_SERVICE_NAME=elixir-phoenix18-postgres-otel
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    command: bash -c "mix ecto.create 2>/dev/null; mix ecto.migrate && mix phx.server"
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chat_app_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.147.0
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+
+volumes:
+  postgres_data:

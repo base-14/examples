@@ -2,10 +2,10 @@ import Config
 
 # Configure your database
 config :chat_app, ChatApp.Repo,
-  username: System.get_env("USER") || "nilakanta",
-  password: "",
-  hostname: "localhost",
-  database: "chat_app_dev",
+  username: System.get_env("DATABASE_USER") || System.get_env("USER") || "postgres",
+  password: System.get_env("DATABASE_PASSWORD") || "",
+  hostname: System.get_env("DATABASE_HOST") || "localhost",
+  database: System.get_env("DATABASE_NAME") || "chat_app_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -19,7 +19,7 @@ config :chat_app, ChatApp.Repo,
 config :chat_app, ChatAppWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
