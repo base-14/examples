@@ -1,27 +1,21 @@
 FROM python:3.13-slim
 
-# Create non-root user early
 RUN groupadd -r celeryuser && useradd -r -g celeryuser -m celeryuser
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Switch to non-root user for Poetry installation
-USER celeryuser
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# Install Poetry as non-root user
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/home/celeryuser/.local/bin:$PATH"
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Copy poetry files
-COPY --chown=celeryuser:celeryuser pyproject.toml poetry.lock* ./
+COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN poetry install --no-root
+RUN uv sync --frozen --no-dev --no-install-project
 
-# Copy application code
 COPY --chown=celeryuser:celeryuser . .
+
+USER celeryuser
