@@ -84,6 +84,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: laravel-app
+    command: bash -c "php artisan migrate --force 2>/dev/null; php artisan serve --host=0.0.0.0 --port=8000"
     ports:
       - "8000:8000"
     volumes:
