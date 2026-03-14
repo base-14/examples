@@ -31,7 +31,7 @@ use database::create_pool;
 use jobs::JobQueue;
 use repository::{ArticleRepository, FavoriteRepository, UserRepository};
 use services::{ArticleService, AuthService};
-use telemetry::{HTTP_REQUEST_DURATION, HTTP_REQUESTS_TOTAL, init_telemetry};
+use telemetry::{HTTP_REQUEST_DURATION, HTTP_REQUESTS_TOTAL, TelemetryGuard, init_telemetry};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -129,7 +129,7 @@ impl<B> OnResponse<B> for HttpOnResponse {
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env();
 
-    let telemetry_guard = init_telemetry(&config)?;
+    let telemetry_guard: TelemetryGuard = init_telemetry(&config)?;
 
     tracing::info!(
         port = config.port,
