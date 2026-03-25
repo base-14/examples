@@ -55,7 +55,8 @@
   "overrides": {
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.0"
-    }
+    },
+    "flatted": ">=3.4.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

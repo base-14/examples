@@ -21,7 +21,7 @@ repositories {
 
 dependencyManagement {
 	imports {
-		mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.23.0")
+		mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.26.1")
 	}
 }
 
@@ -36,7 +36,7 @@ dependencies {
 
 	// OpenTelemetry - Automatic Instrumentation
 	implementation platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
-	implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.23.0")
+	implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.26.1")
 	implementation "io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter"
 	implementation 'io.micrometer:micrometer-tracing-bridge-otel'
 
