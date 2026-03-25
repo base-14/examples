@@ -127,9 +127,11 @@ if [ "${SKIP_REQUESTS:-}" != "1" ]; then
 
   # Import connections
   echo "  $(dim "Importing connections from sample CSV...")"
-  IMPORT_RESULT=$(curl -s -X POST "${BASE_URL}/connections/import" \
+  IMPORT_RESULT=$(curl -s -X POST "${BASE_URL}/campaigns/${CAMPAIGN_ID}/connections/import" \
     -F "file=@${DATA_DIR}/sample-connections-verify-scout.csv")
-  echo "  $(green "imported") connections"
+  IMPORTED=$(echo "$IMPORT_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('imported', '?'))" 2>/dev/null || echo "?")
+  SKIPPED=$(echo "$IMPORT_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('skipped', 0))" 2>/dev/null || echo "0")
+  echo "  $(green "imported") ${IMPORTED} connections (${SKIPPED} duplicates skipped)"
 
   # Run pipeline — triggers enrich → score → draft → evaluate agents
   echo "  $(dim "Running pipeline (LLM calls for all agents)...")"
@@ -138,7 +140,47 @@ if [ "${SKIP_REQUESTS:-}" != "1" ]; then
   PIPELINE_RESULT=$(curl -s -X POST "${BASE_URL}/campaigns/${CAMPAIGN_ID}/run" \
     -H "Content-Type: application/json" \
     -d '{"score_threshold": 50, "quality_threshold": 60}')
-  echo "  $(green "pipeline") triggered, prospects=$(echo "$PIPELINE_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('prospects_processed', '?'))" 2>/dev/null || echo "?")"
+
+  # --- Pipeline Summary ---
+  echo ""
+  echo "  $(cyan "--- Pipeline Results ---")"
+  FOUND=$(echo "$PIPELINE_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('prospects_found', '?'))" 2>/dev/null || echo "?")
+  SCORED=$(echo "$PIPELINE_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('prospects_scored', '?'))" 2>/dev/null || echo "?")
+  DRAFTED=$(echo "$PIPELINE_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('drafts_generated', '?'))" 2>/dev/null || echo "?")
+  PASSED=$(echo "$PIPELINE_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('drafts_passed', '?'))" 2>/dev/null || echo "?")
+  ERRORS=$(echo "$PIPELINE_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); errs=d.get('errors',[]); print(len(errs))" 2>/dev/null || echo "?")
+
+  echo "  research   → prospects found:   ${FOUND}"
+  echo "  score      → passed threshold:  ${SCORED} (score_threshold=50)"
+  echo "  draft      → emails generated:  ${DRAFTED}"
+  echo "  evaluate   → quality passed:    ${PASSED} (quality_threshold=60)"
+  if [ "$ERRORS" != "0" ] && [ "$ERRORS" != "?" ]; then
+    echo "  $(yellow "errors") → ${ERRORS} error(s) during pipeline"
+    echo "$PIPELINE_RESULT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for e in d.get('errors', []):
+    print(f'    ⚠ {e}')
+" 2>/dev/null || true
+  fi
+
+  # --- Step skip reasons ---
+  if [ "$FOUND" = "0" ]; then
+    echo "  $(yellow "NOTE") research found 0 prospects — all downstream steps skipped"
+  elif [ "$SCORED" = "0" ]; then
+    echo "  $(yellow "NOTE") no prospects passed score threshold — draft + evaluate skipped"
+  elif [ "$DRAFTED" = "0" ]; then
+    echo "  $(yellow "NOTE") no drafts generated — evaluate skipped"
+  elif [ "$PASSED" = "0" ] && [ "$DRAFTED" != "0" ]; then
+    echo "  $(yellow "NOTE") all drafts failed quality threshold"
+  fi
+
+  # --- Per-Prospect Outcomes ---
+  echo ""
+  echo "  $(cyan "--- Prospect Outcomes ---")"
+  PROSPECTS=$(curl -s "${BASE_URL}/campaigns/${CAMPAIGN_ID}/prospects")
+  echo "$PROSPECTS" | python3 "${SCRIPT_DIR}/print-prospects.py" 2>/dev/null || echo "  $(dim "Could not parse prospect data")"
+  echo ""
 
   # Error case: non-existent campaign → 404
   echo "  $(dim "Triggering 404 error span...")"

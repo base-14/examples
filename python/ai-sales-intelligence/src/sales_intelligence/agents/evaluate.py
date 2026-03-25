@@ -8,11 +8,11 @@ CUSTOM instrumentation is required here because:
 
 import json
 import logging
-import re
 
 from opentelemetry import metrics, trace
 
 from sales_intelligence.llm import get_llm_client
+from sales_intelligence.parsing import extract_json
 from sales_intelligence.prompts import format_prompt
 from sales_intelligence.state import AgentState, EvaluationResult
 
@@ -20,15 +20,6 @@ from sales_intelligence.state import AgentState, EvaluationResult
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("gen_ai.evaluation")
 meter = metrics.get_meter("gen_ai.evaluation")
-
-
-def strip_markdown_json(text: str) -> str:
-    """Strip markdown code blocks from LLM response."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-    return text.strip()
 
 
 # Evaluation score histogram per OTel GenAI semconv
@@ -82,7 +73,7 @@ async def evaluate_agent(state: AgentState) -> AgentState:
                         agent_name="evaluate",
                         campaign_id=state.campaign_id,
                     )
-                    data = json.loads(strip_markdown_json(response))
+                    data = extract_json(response)
                     score = data.get("quality_score", 0)
                     passed = score >= state.quality_threshold
 

@@ -10,7 +10,7 @@ This document describes the conceptual design for observability dashboards. Thes
 
 ### Layout
 
-```
+```plain
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ HEADER: Token Usage Dashboard                            [Time Range] [Refresh] │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -83,7 +83,7 @@ This document describes the conceptual design for observability dashboards. Thes
 
 ### Layout
 
-```
+```plain
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ HEADER: Cost Attribution Dashboard                       [Time Range] [Refresh] │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -177,7 +177,7 @@ This document describes the conceptual design for observability dashboards. Thes
 
 ### Layout
 
-```
+```plain
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ HEADER: Quality Metrics Dashboard                        [Time Range] [Refresh] │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -278,7 +278,7 @@ This document describes the conceptual design for observability dashboards. Thes
 
 ### Layout
 
-```
+```plain
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ HEADER: Pipeline Performance Dashboard                   [Time Range] [Refresh] │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -389,7 +389,7 @@ This document describes the conceptual design for observability dashboards. Thes
 
 ### Layout
 
-```
+```plain
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ HEADER: AI Sales Intelligence - Executive Summary        [Time Range]        │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -427,11 +427,13 @@ This document describes the conceptual design for observability dashboards. Thes
 ## Design Principles
 
 ### 1. Information Hierarchy
+
 - **Top row**: Always KPIs/Stats for immediate status
 - **Middle rows**: Visualizations for analysis
 - **Bottom rows**: Detailed tables for drill-down
 
 ### 2. Consistent Color Coding
+
 | Color | Meaning |
 |-------|---------|
 | Green | Good / Success / Passed |
@@ -440,11 +442,13 @@ This document describes the conceptual design for observability dashboards. Thes
 | Blue | Informational / Input metrics |
 
 ### 3. Interaction Patterns
+
 - **Filters at top**: Allow drilling down by model, agent, campaign
 - **Linked panels**: Clicking one panel filters others
 - **Time range selector**: Global time range control
 
 ### 4. Responsive Considerations
+
 - Panels should collapse gracefully on smaller screens
 - Stats/KPIs remain visible; charts can scroll
 - Tables should support horizontal scrolling
@@ -534,6 +538,7 @@ While dashboards provide aggregate views of system health, **Base14 Scout** offe
 ```
 
 **Key Use Cases**:
+
 | Scenario | How traceX Helps |
 |----------|------------------|
 | Slow pipeline | Identify which agent/LLM call is the bottleneck |
@@ -586,6 +591,7 @@ While dashboards provide aggregate views of system health, **Base14 Scout** offe
 ```
 
 **Key Use Cases**:
+
 | Scenario | How logX Helps |
 |----------|----------------|
 | Production error | Search error logs, jump to trace for context |
@@ -594,6 +600,7 @@ While dashboards provide aggregate views of system health, **Base14 Scout** offe
 | Audit trail | Search by campaign_id for compliance review |
 
 **Log Correlation Attributes** (auto-injected by OTel LoggingInstrumentor):
+
 - `trace_id`: Links log to distributed trace
 - `span_id`: Links log to specific operation
 - `service.name`: Identifies service origin
@@ -646,6 +653,7 @@ While dashboards provide aggregate views of system health, **Base14 Scout** offe
 ```
 
 **Key Use Cases**:
+
 | Scenario | How pgX Helps |
 |----------|---------------|
 | Slow API response | Identify if DB queries are the bottleneck |
@@ -654,6 +662,7 @@ While dashboards provide aggregate views of system health, **Base14 Scout** offe
 | FTS optimization | Analyze PostgreSQL full-text search patterns and index usage |
 
 **Database Spans** (auto-instrumented by SQLAlchemyInstrumentor):
+
 - `db.system`: "postgresql"
 - `db.statement`: SQL query text
 - `db.operation`: SELECT/INSERT/UPDATE/DELETE
@@ -724,6 +733,7 @@ exporters:
 ```
 
 All three explorers (traceX, logX, pgX) automatically receive:
+
 - **Traces**: From FastAPI, SQLAlchemy, httpx auto-instrumentation + custom GenAI spans
 - **Logs**: With trace correlation via LoggingInstrumentor
 - **DB metrics**: From SQLAlchemy instrumentation with query details
@@ -791,6 +801,7 @@ The following dashboards are designed to **integrate tightly with Scout explorer
 ```
 
 **AI/LLM Improvement Actions**:
+
 | Insight | Action | Scout Deep Dive |
 |---------|--------|-----------------|
 | High rate limit errors | Implement request queuing or switch provider | logX: search "rate limit" |
@@ -860,6 +871,7 @@ The following dashboards are designed to **integrate tightly with Scout explorer
 ```
 
 **AI/LLM Improvement Actions**:
+
 | Insight | Action | Scout Deep Dive |
 |---------|--------|-----------------|
 | High tokens, moderate quality | Compress system prompt, remove redundancy | traceX: compare high vs low token traces |
@@ -936,6 +948,7 @@ The following dashboards are designed to **integrate tightly with Scout explorer
 ```
 
 **AI/LLM Improvement Actions**:
+
 | Insight | Action | Scout Deep Dive |
 |---------|--------|-----------------|
 | Model A better quality, Model B cheaper | Route by campaign priority | traceX: compare quality at similar prompts |
@@ -989,6 +1002,7 @@ The following dashboards are designed to **integrate tightly with Scout explorer
 ```
 
 **AI/LLM Improvement Actions**:
+
 | Insight | Action | Scout Deep Dive |
 |---------|--------|-----------------|
 | DB latency correlates with pipeline slowness | Optimize queries or add indexes | pgX: identify slow queries |

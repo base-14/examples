@@ -154,12 +154,22 @@ async def get_campaign(campaign_id: str, session: SessionDep) -> CampaignRespons
     )
 
 
-@app.post("/connections/import")
+@app.post("/campaigns/{campaign_id}/connections/import")
 async def import_connections(
+    campaign_id: str,
     file: Annotated[UploadFile, File(description="LinkedIn connections CSV")],
     session: SessionDep,
 ) -> dict[str, int]:
-    """Import LinkedIn connections from CSV."""
+    """Import LinkedIn connections from CSV, scoped to a campaign."""
+    try:
+        uid = uuid.UUID(campaign_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid campaign ID") from e
+
+    result = await session.execute(select(Campaign).where(Campaign.id == uid))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a CSV")
 
@@ -167,22 +177,40 @@ async def import_connections(
     text = content.decode("utf-8")
     reader = csv.DictReader(io.StringIO(text))
 
-    count = 0
-    for row in reader:
+    rows = list(reader)
+
+    # Batch-fetch existing emails for this campaign to avoid N+1 queries
+    existing_result = await session.execute(
+        select(Connection.email).where(Connection.campaign_id == uid, Connection.email.isnot(None))
+    )
+    existing_emails = {r[0] for r in existing_result}
+
+    imported = 0
+    skipped = 0
+    for row in rows:
+        email = row.get("Email Address")
+        # Null emails are always imported (can't deduplicate without an identifier)
+        if email and email in existing_emails:
+            skipped += 1
+            continue
+
         connection = Connection(
+            campaign_id=uid,
             first_name=row.get("First Name", ""),
             last_name=row.get("Last Name", ""),
-            email=row.get("Email Address"),
+            email=email,
             company=row.get("Company"),
             position=row.get("Position"),
         )
         session.add(connection)
-        count += 1
+        if email:
+            existing_emails.add(email)
+        imported += 1
 
     await session.flush()
-    logger.info("Imported %d connections", count)
+    logger.info("Imported %d connections, skipped %d duplicates", imported, skipped)
 
-    return {"imported": count}
+    return {"imported": imported, "skipped": skipped}
 
 
 @app.post("/campaigns/{campaign_id}/run", response_model=PipelineResponse)

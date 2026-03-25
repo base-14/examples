@@ -1,0 +1,571 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "title": "Token Usage",
+      "type": "row"
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Tokens",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "fieldConfig": {
+        "defaults": {"unit": "short", "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}, {"color": "yellow", "value": 100000}, {"color": "red", "value": 500000}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT $timeSeries as t, sum(Sum) as \"Total Tokens\" FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) $conditionalTest(AND Attributes['gen_ai.provider.name'] IN (${provider:singlequote}), $provider) GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Input Tokens",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "fieldConfig": {
+        "defaults": {"unit": "short", "color": {"mode": "fixed", "fixedColor": "light-blue"}, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT $timeSeries as t, sum(Sum) as \"Input Tokens\" FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.token.type'] = 'input' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Output Tokens",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "fieldConfig": {
+        "defaults": {"unit": "short", "color": {"mode": "fixed", "fixedColor": "light-green"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT $timeSeries as t, sum(Sum) as \"Output Tokens\" FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.token.type'] = 'output' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Output / Input %",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "fieldConfig": {
+        "defaults": {"unit": "percentunit", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.2}, {"color": "green", "value": 0.5}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT sumIf(Sum, Attributes['gen_ai.token.type'] = 'output') / nullIf(sumIf(Sum, Attributes['gen_ai.token.type'] = 'input'), 0) as ratio FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent)", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 6,
+      "type": "piechart",
+      "title": "Tokens by Model",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 5},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "donut", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.request.model'] as model, sum(Sum) as tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage' $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) $conditionalTest(AND Attributes['gen_ai.provider.name'] IN (${provider:singlequote}), $provider) GROUP BY model ORDER BY tokens DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 7,
+      "type": "piechart",
+      "title": "Tokens by Agent",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 5},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "donut", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.agent.name'] as agent, sum(Sum) as tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.provider.name'] IN (${provider:singlequote}), $provider) GROUP BY agent ORDER BY tokens DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Input vs Output Tokens Over Time",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 5},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "pointSize": 5, "showPoints": "auto"}, "unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(Attributes['gen_ai.token.type'] as token_type, sum(Sum) as tokens) FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) GROUP BY t, token_type ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+      "id": 9,
+      "title": "Cost Attribution",
+      "type": "row"
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Total Cost",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
+      "fieldConfig": {
+        "defaults": {"unit": "currencyUSD", "decimals": 4, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) $conditionalTest(AND Attributes['gen_ai.provider.name'] IN (${provider:singlequote}), $provider)", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Avg Cost / Request",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+      "fieldConfig": {
+        "defaults": {"unit": "currencyUSD", "decimals": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT (argMax(c.Value, c.TimeUnix) - argMin(c.Value, c.TimeUnix)) / nullIf(argMax(r.Value, r.TimeUnix) - argMin(r.Value, r.TimeUnix), 0) as avg_cost FROM infraspec.otel_metrics_sum c INNER JOIN infraspec.otel_metrics_sum r ON c.ServiceName = r.ServiceName WHERE c.TimeUnix >= $from AND c.TimeUnix <= $to AND c.ServiceName LIKE 'ai%' AND c.MetricName = 'gen_ai.client.cost' AND r.TimeUnix >= $from AND r.TimeUnix <= $to AND r.ServiceName LIKE 'ai%' AND r.MetricName = 'gen_ai.client.operation.duration'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Daily Run Rate",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+      "fieldConfig": {
+        "defaults": {"unit": "currencyUSD", "decimals": 2, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT (argMax(Value, TimeUnix) - argMin(Value, TimeUnix)) / nullIf(toFloat64(max(TimeUnix) - min(TimeUnix)), 0) * 86400 as daily_rate FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Cost per 1K Tokens",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+      "fieldConfig": {
+        "defaults": {"unit": "currencyUSD", "decimals": 4, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(t.total_tokens, 0) * 1000 as cost_per_1k FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost') c, (SELECT sum(Sum) as total_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage') t", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 14,
+      "type": "piechart",
+      "title": "Cost by Model",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 18},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "donut", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.request.model'] as model, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' GROUP BY model ORDER BY cost DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 15,
+      "type": "piechart",
+      "title": "Cost by Agent",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 18},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "donut", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.agent.name'] as agent, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' GROUP BY agent ORDER BY cost DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Cost Rate by Model",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 18},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 30, "lineWidth": 2, "stacking": {"mode": "normal"}}, "unit": "currencyUSD"}, "overrides": [
+        {"matcher": {"id": "byName", "options": "anthropic"}, "properties": [{"id": "color", "value": {"fixedColor": "#D97706", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "google"}, "properties": [{"id": "color", "value": {"fixedColor": "#4285F4", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "openai"}, "properties": [{"id": "color", "value": {"fixedColor": "#10A37F", "mode": "fixed"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$increaseColumns(Attributes['gen_ai.provider.name'] as provider, Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent)", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+      "id": 17,
+      "title": "Quality Metrics",
+      "type": "row"
+    },
+    {
+      "id": 18,
+      "type": "gauge",
+      "title": "Pass Rate",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 27},
+      "fieldConfig": {
+        "defaults": {"unit": "percentunit", "min": 0, "max": 1, "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.7}, {"color": "green", "value": 0.85}]}},
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "targets": [{"rawSql": "SELECT countIf(SpanAttributes['gen_ai.evaluation.score.label'] = 'passed') / nullIf(count(), 0) as pass_rate FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' AND SpanAttributes['gen_ai.evaluation.score.label'] != ''", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 19,
+      "type": "gauge",
+      "title": "Avg Quality Score",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 27},
+      "fieldConfig": {
+        "defaults": {"unit": "none", "min": 0, "max": 100, "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 60}, {"color": "green", "value": 80}]}},
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "targets": [{"rawSql": "SELECT avg(toFloat64OrZero(SpanAttributes['quality_score'])) as avg_score FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' AND SpanAttributes['quality_score'] != ''", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Total Evaluated",
+      "gridPos": {"h": 5, "w": 4, "x": 12, "y": 27},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "fixed", "fixedColor": "blue"}, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT count() as evaluated FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' AND SpanAttributes['gen_ai.evaluation.score.label'] != ''", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Passed",
+      "gridPos": {"h": 5, "w": 4, "x": 16, "y": 27},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "fixed", "fixedColor": "green"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT countIf(SpanAttributes['gen_ai.evaluation.score.label'] = 'passed') as passed FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' AND SpanAttributes['gen_ai.evaluation.score.label'] != ''", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Failed",
+      "gridPos": {"h": 5, "w": 4, "x": 20, "y": 27},
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "fixed", "fixedColor": "red"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}]}},
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT countIf(SpanAttributes['gen_ai.evaluation.score.label'] = 'failed') as failed FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' AND SpanAttributes['gen_ai.evaluation.score.label'] != ''", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Quality Score Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}, "unit": "none", "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "transparent", "value": null}, {"color": "red", "value": 70}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"rawSql": "SELECT $timeSeries as t, avg(toFloat64OrZero(SpanAttributes['quality_score'])) as avg_score FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' AND SpanAttributes['quality_score'] != '' GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"},
+        {"rawSql": "SELECT $timeSeries as t, 70 as threshold FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' GROUP BY t ORDER BY t", "refId": "B", "format": "time_series"}
+      ]
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Pass / Fail Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1, "stacking": {"mode": "normal"}}, "unit": "short"}, "overrides": [
+        {"matcher": {"id": "byName", "options": "passed"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "failed"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(SpanAttributes['gen_ai.evaluation.score.label'] as label, count() as cnt) FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'evaluate.draft' AND SpanAttributes['gen_ai.evaluation.score.label'] != '' GROUP BY t, label ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 40},
+      "id": 25,
+      "title": "Pipeline Performance",
+      "type": "row"
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "Total Pipelines",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 41},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "blue"}, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT count() as pipelines FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%' AND SpanName = 'agent.research'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Avg Duration",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 41},
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 5}, {"color": "red", "value": 15}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT avg(Duration / 1000000000) as avg_duration_s FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%' $conditionalTest(AND SpanAttributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent)", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 28,
+      "type": "stat",
+      "title": "p99 Duration",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 41},
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 30}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT quantile(0.99)(Duration / 1000000000) as p99_s FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%' $conditionalTest(AND SpanAttributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent)", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 29,
+      "type": "gauge",
+      "title": "Success Rate",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 41},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.95}, {"color": "green", "value": 0.99}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "targets": [{"rawSql": "SELECT 1 - countIf(StatusCode = 'Error') / nullIf(count(), 0) as success_rate FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Duration by Agent Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 45},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 25, "lineWidth": 2, "stacking": {"mode": "normal"}}, "unit": "s"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(SpanName as agent, avg(Duration / 1000000000) as avg_s) FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%' GROUP BY t, agent ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Error Rate Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 45},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}, "unit": "percentunit", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [{"rawSql": "SELECT $timeSeries as t, countIf(StatusCode = 'Error') / nullIf(count(), 0) as error_rate FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%' GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 32,
+      "type": "table",
+      "title": "Agent Performance Summary",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 53},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": [
+        {"matcher": {"id": "byName", "options": "calls"}, "properties": [{"id": "unit", "value": "short"}]},
+        {"matcher": {"id": "byName", "options": "errors"}, "properties": [{"id": "unit", "value": "short"}]},
+        {"matcher": {"id": "byName", "options": "error_pct"}, "properties": [{"id": "unit", "value": "percentunit"}, {"id": "custom.cellOptions", "value": {"type": "color-background"}}, {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}]}
+      ]},
+      "options": {"showHeader": true, "sortBy": [{"displayName": "agent", "desc": false}]},
+      "targets": [{"rawSql": "SELECT replaceAll(SpanName, 'agent.', '') as agent, count() as calls, quantile(0.5)(Duration / 1000000000) as p50, quantile(0.9)(Duration / 1000000000) as p90, quantile(0.99)(Duration / 1000000000) as p99, countIf(StatusCode = 'Error') as errors, countIf(StatusCode = 'Error') / nullIf(count(), 0) as error_pct FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%' GROUP BY agent ORDER BY agent", "refId": "A", "format": "table"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 61},
+      "id": 33,
+      "title": "Error & Retry Analysis",
+      "type": "row"
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "Total Errors",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 62},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "red"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.error.count'", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 35,
+      "type": "stat",
+      "title": "Retry Count",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 62},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "yellow"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.retry.count'", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 36,
+      "type": "stat",
+      "title": "Fallbacks Triggered",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 62},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "orange"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.fallback.count'", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 37,
+      "type": "stat",
+      "title": "Avg Retries / Request",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 62},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT r.retries / nullIf(d.ops, 0) as avg_retries FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as retries FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.retry.count') r, (SELECT count() as ops FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'gen_ai.chat%') d", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 38,
+      "type": "piechart",
+      "title": "Errors by Type",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 66},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "donut", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
+      "targets": [{"rawSql": "SELECT SpanAttributes['error.type'] as error_type, count() as cnt FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND StatusCode = 'Error' AND SpanAttributes['error.type'] != '' GROUP BY error_type ORDER BY cnt DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 39,
+      "type": "barchart",
+      "title": "Errors by Provider",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 66},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "anthropic"}, "properties": [{"id": "color", "value": {"fixedColor": "#D97706", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "google"}, "properties": [{"id": "color", "value": {"fixedColor": "#4285F4", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "openai"}, "properties": [{"id": "color", "value": {"fixedColor": "#10A37F", "mode": "fixed"}}]}
+      ]},
+      "options": {"orientation": "horizontal", "showValue": "always", "barWidth": 0.7},
+      "targets": [{"rawSql": "SELECT SpanAttributes['gen_ai.provider.name'] as provider, count() as errors FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND StatusCode = 'Error' AND SpanAttributes['gen_ai.provider.name'] != '' GROUP BY provider ORDER BY errors DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "Errors Over Time by Type",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 66},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1, "stacking": {"mode": "normal"}}, "unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(SpanAttributes['error.type'] as error_type, count() as cnt) FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND StatusCode = 'Error' AND SpanAttributes['error.type'] != '' GROUP BY t, error_type ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 74},
+      "id": 41,
+      "title": "Database Impact",
+      "type": "row"
+    },
+    {
+      "id": 42,
+      "type": "stat",
+      "title": "DB Avg Latency",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 75},
+      "fieldConfig": {"defaults": {"unit": "ms", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 50}, {"color": "red", "value": 200}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT avg(Duration / 1000000) as avg_ms FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanAttributes['db.system'] = 'postgresql'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 43,
+      "type": "stat",
+      "title": "DB Queries / Pipeline",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 75},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 30}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT d.db_spans / nullIf(p.pipelines, 0) as queries_per_pipeline FROM (SELECT count() as db_spans FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanAttributes['db.system'] = 'postgresql') d, (SELECT count() as pipelines FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName = 'agent.research') p", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 44,
+      "type": "stat",
+      "title": "DB p99 Latency",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 75},
+      "fieldConfig": {"defaults": {"unit": "ms", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 100}, {"color": "red", "value": 500}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT quantile(0.99)(Duration / 1000000) as p99_ms FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanAttributes['db.system'] = 'postgresql'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 45,
+      "type": "stat",
+      "title": "DB Error Count",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 75},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "red"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT countIf(StatusCode = 'Error') as db_errors FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanAttributes['db.system'] = 'postgresql'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 46,
+      "type": "timeseries",
+      "title": "DB Latency vs Pipeline Duration",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 79},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "db_avg_ms"}, "properties": [{"id": "unit", "value": "ms"}, {"id": "custom.axisPlacement", "value": "left"}]},
+        {"matcher": {"id": "byName", "options": "pipeline_avg_s"}, "properties": [{"id": "unit", "value": "s"}, {"id": "custom.axisPlacement", "value": "right"}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"rawSql": "SELECT $timeSeries as t, avg(Duration / 1000000) as db_avg_ms FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanAttributes['db.system'] = 'postgresql' GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"},
+        {"rawSql": "SELECT $timeSeries as t, avg(Duration / 1000000000) as pipeline_avg_s FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'agent.%' GROUP BY t ORDER BY t", "refId": "B", "format": "time_series"}
+      ]
+    },
+    {
+      "id": 47,
+      "type": "timeseries",
+      "title": "DB Query Duration by Operation",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 79},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2}, "unit": "ms"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(SpanAttributes['db.operation'] as op, avg(Duration / 1000000) as avg_ms) FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanAttributes['db.system'] = 'postgresql' AND SpanAttributes['db.operation'] != '' GROUP BY t, op ORDER BY t", "refId": "A", "format": "time_series"}]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["ai", "genai", "llm", "otel"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "definition": "SELECT DISTINCT ServiceName FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' ORDER BY ServiceName",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "service",
+        "options": [],
+        "query": "SELECT DISTINCT ServiceName FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' ORDER BY ServiceName",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "definition": "SELECT DISTINCT SpanAttributes['gen_ai.request.model'] as model FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' AND SpanAttributes['gen_ai.request.model'] != '' ORDER BY model",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": "SELECT DISTINCT SpanAttributes['gen_ai.request.model'] as model FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' AND SpanAttributes['gen_ai.request.model'] != '' ORDER BY model",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "definition": "SELECT DISTINCT SpanAttributes['gen_ai.agent.name'] as agent FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' AND SpanAttributes['gen_ai.agent.name'] != '' ORDER BY agent",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "agent",
+        "options": [],
+        "query": "SELECT DISTINCT SpanAttributes['gen_ai.agent.name'] as agent FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' AND SpanAttributes['gen_ai.agent.name'] != '' ORDER BY agent",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "definition": "SELECT DISTINCT Attributes['gen_ai.provider.name'] as provider FROM infraspec.otel_metrics_sum WHERE TimeUnix > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' AND Attributes['gen_ai.provider.name'] != '' ORDER BY provider",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "provider",
+        "options": [],
+        "query": "SELECT DISTINCT Attributes['gen_ai.provider.name'] as provider FROM infraspec.otel_metrics_sum WHERE TimeUnix > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai%' AND Attributes['gen_ai.provider.name'] != '' ORDER BY provider",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "GenAI Operational",
+  "uid": "genai-operational",
+  "version": 1
+}

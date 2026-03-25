@@ -130,21 +130,55 @@ class TestCampaignEndpoints:
 
 
 class TestConnectionImport:
+    def _create_campaign(self, client):
+        response = client.post(
+            "/campaigns",
+            json={"name": "Import Test", "target_keywords": ["AI"], "target_titles": ["CTO"]},
+        )
+        return response.json()["id"]
+
     def test_import_csv(self, client):
+        campaign_id = self._create_campaign(client)
         csv_content = """First Name,Last Name,Email Address,Company,Position
 John,Doe,john@example.com,Acme Inc,CTO
 Jane,Smith,jane@example.com,Tech Corp,VP Engineering"""
 
         response = client.post(
-            "/connections/import",
+            f"/campaigns/{campaign_id}/connections/import",
             files={"file": ("connections.csv", csv_content, "text/csv")},
         )
         assert response.status_code == 200
         assert response.json()["imported"] == 2
 
-    def test_import_invalid_file(self, client):
+    def test_import_deduplicates_by_email(self, client):
+        campaign_id = self._create_campaign(client)
+        csv_content = """First Name,Last Name,Email Address,Company,Position
+John,Doe,john@example.com,Acme Inc,CTO
+Jane,Smith,jane@example.com,Tech Corp,VP Engineering"""
+
+        client.post(
+            f"/campaigns/{campaign_id}/connections/import",
+            files={"file": ("connections.csv", csv_content, "text/csv")},
+        )
         response = client.post(
-            "/connections/import",
+            f"/campaigns/{campaign_id}/connections/import",
+            files={"file": ("connections.csv", csv_content, "text/csv")},
+        )
+        assert response.status_code == 200
+        assert response.json()["imported"] == 0
+        assert response.json()["skipped"] == 2
+
+    def test_import_invalid_file(self, client):
+        campaign_id = self._create_campaign(client)
+        response = client.post(
+            f"/campaigns/{campaign_id}/connections/import",
             files={"file": ("data.txt", "not csv", "text/plain")},
         )
         assert response.status_code == 400
+
+    def test_import_campaign_not_found(self, client):
+        response = client.post(
+            "/campaigns/00000000-0000-0000-0000-000000000000/connections/import",
+            files={"file": ("connections.csv", "data", "text/csv")},
+        )
+        assert response.status_code == 404

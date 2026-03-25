@@ -130,8 +130,8 @@ curl -X POST http://localhost:8000/campaigns \
   -H "Content-Type: application/json" \
   -d '{"name": "Test", "target_keywords": ["AI"], "target_titles": ["CTO"]}'
 
-# 3. Import connections
-curl -X POST http://localhost:8000/connections/import \
+# 3. Import connections (scoped to campaign)
+curl -X POST http://localhost:8000/campaigns/{id}/connections/import \
   -F "file=@data/sample-connections.csv"
 
 # 4. Run the pipeline (generates LLM traces)
@@ -146,10 +146,12 @@ curl -X POST http://localhost:8000/campaigns/{id}/run \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LLM_PROVIDER` | Primary LLM provider (`anthropic`, `google`, `openai`) | `anthropic` |
-| `LLM_MODEL` | Primary model name | `claude-sonnet-4-20250514` |
-| `FALLBACK_PROVIDER` | Fallback provider on errors | `google` |
-| `FALLBACK_MODEL` | Fallback model name | `gemini-3-flash` |
+| `LLM_PROVIDER` | Primary LLM provider (`anthropic`, `google`, `openai`, `ollama`) | `google` |
+| `LLM_MODEL_CAPABLE` | Model for enrich + draft (complex tasks) | `gemini-2.5-pro` |
+| `LLM_MODEL_FAST` | Model for score + evaluate (simple tasks) | `gemini-2.5-flash` |
+| `FALLBACK_PROVIDER` | Fallback provider on errors | `anthropic` |
+| `FALLBACK_MODEL` | Fallback model name | `claude-haiku-4-5-20251001` |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
 | `ANTHROPIC_API_KEY` | Anthropic API key | - |
 | `GOOGLE_API_KEY` | Google AI API key | - |
 | `OPENAI_API_KEY` | OpenAI API key | - |

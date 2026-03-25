@@ -324,6 +324,9 @@ class OllamaProvider(BaseLLMProvider):
     def __init__(self, api_key: str, base_url: str = "http://localhost:11434") -> None:
         from openai import AsyncOpenAI
 
+        # Ollama's OpenAI-compatible API lives at /v1
+        if not base_url.endswith("/v1"):
+            base_url = f"{base_url.rstrip('/')}/v1"
         self._client = AsyncOpenAI(api_key=api_key or "ollama", base_url=base_url)
 
     @retry(
@@ -365,7 +368,7 @@ class OllamaProvider(BaseLLMProvider):
 def _create_provider(provider: LLMProvider, api_key: str, base_url: str = "") -> BaseLLMProvider:
     """Factory to create provider instance."""
     if provider == "ollama":
-        return OllamaProvider(api_key=api_key, base_url=base_url or "http://localhost:11434")
+        return OllamaProvider(api_key=api_key, base_url=base_url or "http://localhost:11434/v1")
     providers: dict[LLMProvider, type[BaseLLMProvider]] = {
         "anthropic": AnthropicProvider,
         "google": GoogleProvider,

@@ -4,9 +4,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, event, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.schema import DDL
 
 from sales_intelligence.database import Base
 
@@ -17,6 +18,9 @@ class Connection(Base):
     __tablename__ = "connections"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    campaign_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("campaigns.id", ondelete="CASCADE")
+    )
     first_name: Mapped[str] = mapped_column(String(100))
     last_name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str | None] = mapped_column(String(255))
@@ -25,9 +29,22 @@ class Connection(Base):
     connected_on: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    # FTS index created via migration:
-    # CREATE INDEX idx_connections_fts ON connections
-    # USING gin(to_tsvector('english', first_name || ' ' || last_name || ' ' || company));
+    campaign: Mapped[Campaign] = relationship(back_populates="connections")
+
+    __table_args__ = (
+        Index("idx_connections_campaign_id", "campaign_id"),
+        Index("idx_connections_campaign_email", "campaign_id", "email", unique=True),
+    )
+
+
+# GIN index for full-text search — created after table via DDL event
+_fts_index = DDL(
+    "CREATE INDEX IF NOT EXISTS idx_connections_fts ON connections "
+    "USING gin(to_tsvector('english', "
+    "coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' "
+    "|| coalesce(company, '') || ' ' || coalesce(position, '')))"
+)
+event.listen(Connection.__table__, "after_create", _fts_index.execute_if(dialect="postgresql"))
 
 
 class Campaign(Base):
@@ -45,6 +62,7 @@ class Campaign(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    connections: Mapped[list[Connection]] = relationship(back_populates="campaign")
     prospects: Mapped[list[Prospect]] = relationship(back_populates="campaign")
 
 

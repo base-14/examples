@@ -21,7 +21,7 @@ echo "$CAMPAIGN" | jq .
 CAMPAIGN_ID=$(echo "$CAMPAIGN" | jq -r '.id')
 
 echo -e "\n3. Importing connections..."
-curl -s -X POST "$BASE_URL/connections/import" \
+curl -s -X POST "$BASE_URL/campaigns/$CAMPAIGN_ID/connections/import" \
   -F "file=@data/sample-connections.csv" | jq .
 
 echo -e "\n4. Getting campaign..."
