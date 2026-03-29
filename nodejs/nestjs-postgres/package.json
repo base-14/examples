@@ -77,7 +77,8 @@
     "file-type": ">=21.3.2",
     "@angular-devkit/core": {
       "ajv": ">=8.17.2"
-    }
+    },
+    "path-to-regexp": ">=8.4.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
