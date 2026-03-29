@@ -8,6 +8,7 @@ import json
 import sys
 import textwrap
 
+
 CYAN = "\033[36m"
 YELLOW = "\033[33m"
 GREEN = "\033[32m"
@@ -15,7 +16,7 @@ DIM = "\033[90m"
 RESET = "\033[0m"
 
 
-def print_prospects(prospects: list[dict]) -> None:
+def print_prospects(prospects: list[dict]) -> None:  # noqa: PLR0912, PLR0915
     if not prospects:
         print("  (no prospects)")
         return
@@ -43,9 +44,9 @@ def print_prospects(prospects: list[dict]) -> None:
         else:
             quality_label = f"{YELLOW}(not evaluated){RESET}"
 
-        print(f"")
+        print("")
         print(f"  {CYAN}\u2501\u2501\u2501 Prospect {i+1}: {cid}\u2026 \u2501\u2501\u2501{RESET}")
-        print(f"")
+        print("")
 
         # Enrich
         print(f"  {CYAN}Enrich{RESET}")
@@ -66,29 +67,29 @@ def print_prospects(prospects: list[dict]) -> None:
             print(f"    News:        {wrapped}")
 
         # Score
-        print(f"")
+        print("")
         print(f"  {CYAN}Score{RESET} \u2014 {score}/100")
         if reasoning:
             for line in textwrap.wrap(reasoning, width=76):
                 print(f"    {DIM}{line}{RESET}")
 
         # Draft
-        print(f"")
+        print("")
         print(f"  {CYAN}Draft{RESET}")
         print(f"    Subject: {subject}")
-        print(f"    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
+        print("    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
         if body:
             for line in body.strip().split("\n"):
                 print(f"    {line}")
-        print(f"    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
+        print("    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
 
         # Evaluate
-        print(f"")
+        print("")
         qscore_display = qscore or "\u2014"
         print(f"  {CYAN}Evaluate{RESET} \u2014 {qscore_display}/100 {quality_label}")
         if qscore is None and subject != "-":
             print(f"    {YELLOW}NOTE{RESET} evaluate ran but quality_score not saved")
-        print(f"")
+        print("")
 
 
 if __name__ == "__main__":
