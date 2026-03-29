@@ -1,0 +1,5 @@
+micronaut:
+  application:
+    name: micronaut-notify
+  server:
+    port: 8081

@@ -46,6 +46,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Spring Boot** | Spring Boot 3 + Java 17 + MySQL | [spring-boot-java17-mysql](./java/spring-boot-java17-mysql) | Auto-instrumentation |
 | **Spring Boot** | Spring Boot 3 + Java 25 + PostgreSQL | [spring-boot-java25-postgresql](./java/spring-boot-java25-postgresql) | SDK Integration |
 | **Spring Boot** | Spring Boot 3 + Java 25 + MongoDB | [spring-boot-java25-mongodb-java-agent](./java/spring-boot-java25-mongodb-java-agent) | Java Agent |
+| **Micronaut** | Micronaut 4.8 + Java 25 + PostgreSQL 18 | [micronaut-postgres](./java/micronaut-postgres) | OTel Java Agent, distributed tracing, notification microservice |
 | **AI Customer Support** | Spring Boot 4 + Spring AI 2.0 + Java 25 + pgvector | [ai-customer-support](./java/ai-customer-support) | GenAI observability, RAG, tool calling, multi-provider |
 
 ### Ruby
@@ -199,6 +200,13 @@ High-performance Fastify 5 REST API with TypeScript, Drizzle ORM for type-safe S
 Demonstrates Pino structured logging and full trace propagation across HTTP → Queue → Worker flows.
 
 [View README →](./nodejs/fastify-postgres/README.md)
+
+### Micronaut
+
+Compile-time DI framework with OTel Java Agent for zero-code HTTP, JDBC, and Netty instrumentation.
+Distributed tracing across app and notification microservice with structured JSON logging and custom metrics.
+
+[View README →](./java/micronaut-postgres/README.md)
 
 ### Quarkus
 

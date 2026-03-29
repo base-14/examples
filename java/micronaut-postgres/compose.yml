@@ -1,0 +1,99 @@
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
+  OTEL_METRIC_EXPORT_INTERVAL: "10000"
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.148.0
+    container_name: micronaut-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+    healthcheck:
+      test: ["NONE"]
+    restart: unless-stopped
+
+  db:
+    image: postgres:18-alpine
+    container_name: micronaut-postgres
+    environment:
+      POSTGRES_DB: micronaut
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: micronaut-app
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: micronaut-articles
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: micronaut
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NOTIFY_URL: http://notify:8081
+    depends_on:
+      db:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    restart: unless-stopped
+
+  notify:
+    build:
+      context: ./notify
+      dockerfile: Dockerfile
+    container_name: micronaut-notify
+    ports:
+      - "${NOTIFY_PORT:-8081}:8081"
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: micronaut-notify
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,5 @@
+.env
+app/build/
+app/.gradle/
+notify/build/
+notify/.gradle/

@@ -1,0 +1,32 @@
+micronaut:
+  application:
+    name: micronaut-articles
+  server:
+    port: 8080
+
+datasources:
+  default:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:micronaut}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+jpa:
+  default:
+    entity-scan:
+      packages:
+        - com.example.model
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        hbm2ddl:
+          auto: validate
+
+notify:
+  url: ${NOTIFY_URL:`http://localhost:8081`}
+
+flyway:
+  datasources:
+    default:
+      enabled: true
+      locations: classpath:db/migration
