@@ -31,7 +31,7 @@
     "@opentelemetry/exporter-trace-otlp-http": "^0.213.0",
     "@opentelemetry/instrumentation-socket.io": "^0.60.0",
     "@opentelemetry/resources": "^2.6.0",
-    "@opentelemetry/sdk-logs": "^0.213.0",
+    "@opentelemetry/sdk-logs": "^0.214.0",
     "@opentelemetry/sdk-node": "^0.213.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
     "bcrypt": "^6.0.0",
