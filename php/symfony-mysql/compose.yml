@@ -1,0 +1,116 @@
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
+  OTEL_PHP_AUTOLOAD_ENABLED: "true"
+  OTEL_PHP_PSR3_MODE: export
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development
+
+x-db-env: &db-env
+  DATABASE_URL: mysql://symfony:secret@db:3306/symfony?serverVersion=8.4
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.148.0
+    container_name: symfony-otel-collector
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+    healthcheck:
+      test: ["NONE"]
+    restart: unless-stopped
+    networks:
+      - symfony-network
+
+  db:
+    image: mysql:8.4
+    container_name: symfony-mysql
+    environment:
+      MYSQL_DATABASE: symfony
+      MYSQL_USER: symfony
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: rootsecret
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootsecret"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - symfony-network
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: symfony-app
+    command: >
+      bash -c "php bin/console doctrine:migrations:migrate --no-interaction;
+      php -S 0.0.0.0:8080 -t public"
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      <<: [*otel-env, *db-env]
+      APP_ENV: dev
+      APP_DEBUG: "true"
+      APP_SECRET: symfony-example-secret
+      OTEL_SERVICE_NAME: symfony-articles
+      NOTIFY_URL: http://notify:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - symfony-network
+
+  notify:
+    build:
+      context: ./notify
+      dockerfile: Dockerfile
+    container_name: symfony-notify
+    ports:
+      - "${NOTIFY_PORT:-8081}:8081"
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: symfony-notify
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - symfony-network
+
+volumes:
+  mysql-data:
+
+networks:
+  symfony-network:
+    driver: bridge

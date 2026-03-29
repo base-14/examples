@@ -1,0 +1,28 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    App\Service\NotificationClient:
+        arguments:
+            $notifyUrl: '%env(NOTIFY_URL)%'
+
+    App\EventListener\ExceptionListener:
+        tags:
+            - { name: kernel.event_listener, event: kernel.exception }
+
+    App\Service\OtelTraceProcessor:
+        tags:
+            - { name: monolog.processor }
+
+    OpenTelemetry\API\Metrics\MeterProviderInterface:
+        factory: ['OpenTelemetry\API\Globals', 'meterProvider']
+
+    OpenTelemetry\API\Trace\TracerProviderInterface:
+        factory: ['OpenTelemetry\API\Globals', 'tracerProvider']

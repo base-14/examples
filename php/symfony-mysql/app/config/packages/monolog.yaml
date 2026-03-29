@@ -1,0 +1,15 @@
+monolog:
+    handlers:
+        main:
+            type: stream
+            path: php://stdout
+            level: info
+            formatter: monolog.formatter.json
+            channels: ['!event', '!doctrine']
+        doctrine:
+            type: stream
+            path: php://stdout
+            level: warning
+            formatter: monolog.formatter.json
+            channels: ['doctrine']
+    channels: ['app']

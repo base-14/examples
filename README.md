@@ -64,6 +64,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Laravel 12** | Laravel 12 + PHP 8.5 + PostgreSQL 18 | [php85-laravel12-postgres](./php/php85-laravel12-postgres) | JWT auth, auto-instrumentation |
 | **Slim 4** | Slim 4 + PHP 8.4 + MongoDB 8 | [php84-slim4-mongodb](./php/php84-slim4-mongodb) | Auto-slim HTTP spans, MongoDB, log correlation |
 | **Slim 3 (Legacy)** | Slim 3 + PHP 8.4 + MongoDB 8 | [php84-slim3-mongodb](./php/php84-slim3-mongodb) | Manual TelemetryMiddleware, MongoDB, log correlation |
+| **Symfony 8** | Symfony 8 + PHP 8.5 + MySQL 8.4 | [symfony-mysql](./php/symfony-mysql) | Doctrine ORM, distributed tracing, notification microservice |
 
 ### Elixir
 
@@ -217,6 +218,14 @@ Full OpenTelemetry instrumentation with custom business metric spans and trace c
 SQL Server-native job queue with `READPAST` pattern and comprehensive OpenTelemetry instrumentation.
 
 [View README →](./csharp/dotnet-sqlserver/README.md)
+
+### Symfony
+
+Symfony 8.0 articles API with Doctrine ORM, MySQL, and a notification microservice.
+Distributed tracing with W3C trace propagation across services, structured JSON logging with
+trace-log correlation, and custom business metrics via OTel Meter API.
+
+[View README →](./php/symfony-mysql/README.md)
 
 ## Adding New Examples
 

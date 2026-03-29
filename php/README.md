@@ -10,6 +10,7 @@ OpenTelemetry instrumentation examples for PHP applications.
 | [php85-laravel12-postgres](./php85-laravel12-postgres) | Laravel 12.39 with auto-instrumentation, PostgreSQL 18, and JWT authentication |
 | [php84-slim4-mongodb](./php84-slim4-mongodb) | Slim 4.15 with auto-slim HTTP instrumentation, MongoDB 8, and PHP-FPM + Nginx |
 | [php84-slim3-mongodb](./php84-slim3-mongodb) | Slim 3.12 (EOL) with manual TelemetryMiddleware, MongoDB 8, and PHP-FPM + Nginx |
+| [symfony-mysql](./symfony-mysql) | Symfony 8.0 with Doctrine ORM, MySQL 8.4, distributed tracing to notification microservice |
 
 ## Contributing
 

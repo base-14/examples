@@ -1,0 +1,43 @@
+{
+    "name": "base14/symfony-articles",
+    "type": "project",
+    "require": {
+        "php": ">=8.5",
+        "symfony/framework-bundle": "^8.0",
+        "symfony/runtime": "^8.0",
+        "symfony/http-client": "^8.0",
+        "symfony/monolog-bundle": "^4.0",
+        "symfony/yaml": "^8.0",
+        "doctrine/orm": "^3.6",
+        "doctrine/doctrine-bundle": "^3.2",
+        "doctrine/doctrine-migrations-bundle": "^4.0",
+        "doctrine/dbal": "^4.4",
+        "open-telemetry/sdk": "^1.14",
+        "open-telemetry/exporter-otlp": "^1.4",
+        "open-telemetry/opentelemetry-auto-symfony": "^1.2",
+        "open-telemetry/opentelemetry-auto-pdo": "^0.4",
+        "open-telemetry/opentelemetry-auto-psr18": "^1.2",
+        "open-telemetry/opentelemetry-auto-psr3": "^0.2",
+        "monolog/monolog": "^3.10",
+        "nyholm/psr7": "^1.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "symfony/runtime": true,
+            "php-http/discovery": true,
+            "tbachert/spi": true
+        }
+    },
+    "extra": {
+        "symfony": {
+            "allow-contrib": false
+        }
+    }
+}
