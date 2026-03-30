@@ -1,0 +1,80 @@
+extensions:
+  oauth2client:
+    client_id: ${SCOUT_CLIENT_ID}
+    client_secret: ${SCOUT_CLIENT_SECRET}
+    token_url: ${SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*health.*")'
+        - 'IsMatch(attributes["url.full"], ".*otel-collector.*")'
+  filter/logs:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'severity_number < SEVERITY_NUMBER_INFO'
+  transform/log_severity:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(severity_text, "INFO") where severity_number >= SEVERITY_NUMBER_INFO and severity_number < SEVERITY_NUMBER_WARN
+          - set(severity_text, "WARN") where severity_number >= SEVERITY_NUMBER_WARN and severity_number < SEVERITY_NUMBER_ERROR
+          - set(severity_text, "ERROR") where severity_number >= SEVERITY_NUMBER_ERROR
+
+exporters:
+  otlp_http/scout:
+    endpoint: ${SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [oauth2client, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/noisy, batch]
+      exporters: [otlp_http/scout, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/scout, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/logs, transform/log_severity, batch]
+      exporters: [otlp_http/scout, debug]

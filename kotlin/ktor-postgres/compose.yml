@@ -1,0 +1,84 @@
+services:
+  app:
+    build: ./app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ktor_articles
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NOTIFY_URL: http://notify:8081
+      OTEL_SERVICE_NAME: ktor-articles
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
+      OTEL_LOGS_EXPORTER: otlp
+    depends_on:
+      db:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  notify:
+    build: ./notify
+    ports:
+      - "8081:8081"
+    environment:
+      OTEL_SERVICE_NAME: ktor-notify
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
+      OTEL_LOGS_EXPORTER: otlp
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ktor_articles
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.148.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./config/otel-config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    environment:
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-http://localhost:4318}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-http://localhost/token}
+    healthcheck:
+      test: ["NONE"]
+
+volumes:
+  pgdata:

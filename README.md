@@ -49,6 +49,12 @@ Production-ready examples for integrating OpenTelemetry with
 | **Micronaut** | Micronaut 4.8 + Java 25 + PostgreSQL 18 | [micronaut-postgres](./java/micronaut-postgres) | OTel Java Agent, distributed tracing, notification microservice |
 | **AI Customer Support** | Spring Boot 4 + Spring AI 2.0 + Java 25 + pgvector | [ai-customer-support](./java/ai-customer-support) | GenAI observability, RAG, tool calling, multi-provider |
 
+### Kotlin
+
+| Framework | Stack | Example | Features |
+| --------- | ----- | ------- | -------- |
+| **Ktor** | Ktor 3.2 + Kotlin 2.2 + PostgreSQL 18 | [ktor-postgres](./kotlin/ktor-postgres) | OTel Java Agent, Exposed ORM, distributed tracing, notification microservice |
+
 ### Ruby
 
 | Framework | Stack | Example | Features |
@@ -121,6 +127,9 @@ cd go/fiber-postgres                     # Fiber + sqlx + River
 
 # Java
 cd java/quarkus-postgres                 # Quarkus + PostgreSQL
+
+# Kotlin
+cd kotlin/ktor-postgres                  # Ktor + Exposed + PostgreSQL
 ```
 
 ### 2. Follow Framework-Specific README
@@ -207,6 +216,13 @@ Compile-time DI framework with OTel Java Agent for zero-code HTTP, JDBC, and Net
 Distributed tracing across app and notification microservice with structured JSON logging and custom metrics.
 
 [View README →](./java/micronaut-postgres/README.md)
+
+### Ktor
+
+Kotlin-idiomatic web framework with Exposed ORM for DSL-style database access and OTel Java Agent for zero-code instrumentation.
+Distributed tracing across app and notification microservice with Flyway migrations and structured JSON logging.
+
+[View README →](./kotlin/ktor-postgres/README.md)
 
 ### Quarkus
 
