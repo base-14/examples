@@ -1,0 +1,25 @@
+{
+  "name": "elysia-notify",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "bun run --preload ./src/tracing.ts ./src/index.ts",
+    "dev": "bun run --watch --preload ./src/tracing.ts ./src/index.ts"
+  },
+  "dependencies": {
+    "elysia": "^1.4.28",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.214.0",
+    "@opentelemetry/sdk-node": "^0.214.0",
+    "@opentelemetry/sdk-metrics": "^2.6.1",
+    "@opentelemetry/sdk-logs": "^0.214.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.214.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.214.0",
+    "@opentelemetry/resources": "^2.6.1",
+    "@opentelemetry/semantic-conventions": "^1.40.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
+}

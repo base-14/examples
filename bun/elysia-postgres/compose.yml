@@ -1,0 +1,82 @@
+services:
+  app:
+    build: ./app
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/elysia_articles
+      NOTIFY_URL: http://notify:8081
+      OTEL_SERVICE_NAME: elysia-articles
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      db:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  notify:
+    build: ./notify
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: "8081"
+      OTEL_SERVICE_NAME: elysia-notify
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: elysia_articles
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.148.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./config/otel-config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    environment:
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-http://localhost:4318}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-http://localhost/token}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    healthcheck:
+      test: ["NONE"]
+
+volumes:
+  pgdata:
