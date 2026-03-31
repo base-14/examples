@@ -13,6 +13,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **NestJS** | NestJS + TypeScript + PostgreSQL 18 | [nestjs-postgres](./nodejs/nestjs-postgres) | Enterprise architecture, BullMQ, WebSockets |
 | **Next.js** | Next.js 16 + TypeScript + MongoDB | [nextjs-api-mongodb](./nodejs/nextjs-api-mongodb) | BullMQ jobs, Mongoose, auto-instrumentation |
 | **Fastify** | Fastify 5 + TypeScript + PostgreSQL 18 | [fastify-postgres](./nodejs/fastify-postgres) | Drizzle ORM, BullMQ jobs, Pino logging |
+| **tRPC** | tRPC 11 + TypeScript 6 + Prisma 7 + PostgreSQL 18 | [trpc-postgres](./nodejs/trpc-postgres) | OTel Node SDK, distributed tracing, tRPC-to-REST bridge |
 | **Express (Legacy)** | Express + TypeScript + MongoDB | [express-typescript-mongodb](./nodejs/express-typescript-mongodb) | MongoDB integration, Redis |
 | **AI Contract Analyzer** | Bun + Hono + Vercel AI SDK | [ai-contract-analyzer](./nodejs/ai-contract-analyzer) | GenAI observability, OpenLLMetry, multi-provider |
 
@@ -116,6 +117,7 @@ Navigate to the framework directory that matches your stack:
 # Node.js
 cd nodejs/express5-postgres              # Express 5 + PostgreSQL + BullMQ
 cd nodejs/nestjs-postgres                # NestJS + PostgreSQL + BullMQ
+cd nodejs/trpc-postgres                  # tRPC + Prisma + PostgreSQL
 
 # Python
 cd python/django-postgres                # Django + PostgreSQL + Celery
@@ -216,6 +218,13 @@ Compile-time DI framework with OTel Java Agent for zero-code HTTP, JDBC, and Net
 Distributed tracing across app and notification microservice with structured JSON logging and custom metrics.
 
 [View README →](./java/micronaut-postgres/README.md)
+
+### tRPC
+
+Type-safe API layer with tRPC 11 procedures bridged to REST endpoints via `createCallerFactory`.
+Prisma 7 with adapter pattern for PostgreSQL, OTel Node SDK with auto-instrumentation for HTTP, Prisma, and Pino log bridging.
+
+[View README →](./nodejs/trpc-postgres/README.md)
 
 ### Ktor
 

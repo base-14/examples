@@ -1,0 +1,30 @@
+{
+  "name": "trpc-postgres-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node --require ./dist/tracing.js ./dist/server.js",
+    "dev": "tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "@trpc/server": "^11.16.0",
+    "@prisma/client": "^7.6.0",
+    "@prisma/adapter-pg": "^7.6.0",
+    "@prisma/instrumentation": "^7.6.0",
+    "zod": "^4.3.6",
+    "@opentelemetry/sdk-node": "^0.214.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.72.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.214.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.214.0",
+    "@opentelemetry/exporter-logs-otlp-grpc": "^0.214.0",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "prisma": "^7.6.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^24.0.0"
+  }
+}
