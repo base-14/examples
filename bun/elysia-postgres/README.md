@@ -1,5 +1,7 @@
 # Elysia + PostgreSQL + OpenTelemetry
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/elysia/)
+
 Full-stack observability example using Elysia 1.4, Drizzle ORM, and the OTel Node SDK on Bun.
 
 ## Stack

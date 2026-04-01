@@ -1,5 +1,7 @@
 # AI Customer Support
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/spring-ai-llm-observability/)
+
 Conversational AI customer support agent with RAG retrieval, tool calling, intent classification, escalation routing, and full OpenTelemetry observability.
 
 **Java 25 | Spring Boot 4.0.3 | Spring AI 2.0 | WebFlux | pgvector | OTel Java Agent**

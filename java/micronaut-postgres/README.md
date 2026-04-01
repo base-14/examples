@@ -1,5 +1,7 @@
 # Micronaut + PostgreSQL + OpenTelemetry
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/micronaut/)
+
 Articles CRUD API with distributed tracing, structured logging, and custom metrics — instrumented with the OTel Java Agent.
 
 ## Stack

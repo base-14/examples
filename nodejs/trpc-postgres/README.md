@@ -1,5 +1,7 @@
 # tRPC + PostgreSQL + OpenTelemetry
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/trpc/)
+
 Full-stack observability example using tRPC 11, Prisma 7, and the OTel Node SDK.
 
 ## Stack

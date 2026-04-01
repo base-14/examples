@@ -1,5 +1,7 @@
 # AI Sales Intelligence
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/llm-observability/)
+
 AI-powered sales intelligence agent demonstrating **unified observability** for AI applications using OpenTelemetry and Base14 Scout.
 
 ## Why Unified Observability?

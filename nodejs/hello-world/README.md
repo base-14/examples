@@ -1,5 +1,7 @@
 # Node.js Hello World — OpenTelemetry
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/hello-world/)
+
 A minimal Node.js app that sends **traces**, **logs**, and **metrics** to an OpenTelemetry collector. It demonstrates the three core signals of observability and how they connect.
 
 ## What You'll See in Scout

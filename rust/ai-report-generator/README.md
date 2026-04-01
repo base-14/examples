@@ -1,5 +1,7 @@
 # AI Report Generator
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/rust-llm-observability/)
+
 Economic report generation pipeline that retrieves FRED indicator data from PostgreSQL, analyzes trends and correlations via LLM, generates structured narrative reports, and formats the final output -- with full OpenTelemetry observability.
 
 **Rust 1.92 | Axum | async-openai | tracing + OTel SDK | PostgreSQL**

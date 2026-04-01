@@ -1,5 +1,7 @@
 # AI Content Quality Agent
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/llm-observability/)
+
 AI-powered content quality analysis with eval-driven development and unified observability via Base14 Scout.
 
 **Stack**: Python 3.14 · FastAPI · LlamaIndex · Promptfoo · OpenTelemetry · Base14 Scout

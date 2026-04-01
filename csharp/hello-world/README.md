@@ -1,5 +1,7 @@
 # C# Hello World — OpenTelemetry
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/hello-world/)
+
 A minimal C# app that sends a **trace**, a **log**, and a **metric** to an OpenTelemetry collector. It demonstrates the three core signals of observability and how they connect.
 
 ## What You'll See in Scout

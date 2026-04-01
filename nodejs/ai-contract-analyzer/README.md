@@ -1,5 +1,7 @@
 # AI Contract Analyzer
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/llm-observability/)
+
 AI-powered contract analysis pipeline demonstrating **multi-stage LLM observability** with OpenTelemetry GenAI semantic conventions and Base14 Scout.
 
 **Stack**: Bun 1.2 · Hono 4 · Vercel AI SDK 6 · Anthropic / Google / Ollama · PostgreSQL 18 + pgvector · OpenTelemetry

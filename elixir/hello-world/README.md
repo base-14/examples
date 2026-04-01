@@ -1,5 +1,7 @@
 # Elixir Hello World — OpenTelemetry (Traces Only)
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/hello-world/)
+
 A minimal Elixir app that sends **traces** to an OpenTelemetry collector. It demonstrates spans, span events, and error recording.
 
 > **Note**: Elixir's OTel metrics and logs SDKs are still in development. This example covers traces only. See [OTel SDK Signal Maturity](https://opentelemetry.io/docs/languages/erlang/) for the latest status.

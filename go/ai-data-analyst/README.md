@@ -1,5 +1,7 @@
 # AI Data Analyst
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/llm-observability/)
+
 NL-to-SQL pipeline that translates natural language questions into SQL queries against World Bank economic data, with full OpenTelemetry observability.
 
 **Go 1.25 | Chi | Direct OpenAI API | Native OTel SDK | PostgreSQL**

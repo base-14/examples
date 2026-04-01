@@ -1,5 +1,7 @@
 # Symfony 8 + PHP 8.5 + MySQL + OpenTelemetry
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/symfony/)
+
 Symfony 8.0 articles API with MySQL and a notification microservice,
 demonstrating distributed tracing, trace-log correlation, structured
 logging, and custom metrics via OpenTelemetry. Exports to

@@ -1,5 +1,7 @@
 # Next.js API with MongoDB
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nextjs/)
+
 A production-ready REST API built with Next.js 16, MongoDB, and OpenTelemetry.
 
 ## Stack
