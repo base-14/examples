@@ -2,6 +2,9 @@
   "name": "express-typescript-mongodb-otel",
   "version": "1.0.0",
   "type": "module",
+  "overrides": {
+    "follow-redirects": "^1.16.0"
+  },
   "description": "Express.js + TypeScript + MongoDB + OpenTelemetry example",
   "main": "dist/index.js",
   "scripts": {
