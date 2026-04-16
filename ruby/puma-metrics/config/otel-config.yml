@@ -1,0 +1,67 @@
+extensions:
+  oauth2client:
+    client_id: ${env:SCOUT_CLIENT_ID}
+    client_secret: ${env:SCOUT_CLIENT_SECRET}
+    token_url: ${env:SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  # Scrapes Puma's /metrics endpoint (exposed by yabeda-prometheus).
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "puma"
+          scrape_interval: 10s
+          metrics_path: "/metrics"
+          static_configs:
+            - targets: ["puma:3000"]
+
+processors:
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:SCOUT_ENVIRONMENT}
+        action: upsert
+      - key: service.name
+        value: puma-metrics
+        action: upsert
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+exporters:
+  otlp_http/b14:
+    endpoint: ${env:SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [oauth2client, health_check]
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]
+  telemetry:
+    logs:
+      level: info

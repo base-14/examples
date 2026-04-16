@@ -8,6 +8,7 @@ OpenTelemetry instrumentation examples for Ruby applications.
 | ------- | ----------- |
 | [rails8-sqlite](./rails8-sqlite) | Rails 8.1.1 with auto-instrumentation, SQLite, and OIDC authentication |
 | [ruby27-rails52-mysql8](./ruby27-rails52-mysql8) | Rails 5.2.8 with Ruby 2.7.7, MySQL 8, and Scout APM integration |
+| [puma-metrics](./puma-metrics) | Puma runtime metrics via yabeda-prometheus, scraped by the OTel Collector and shipped to Scout |
 
 ## Contributing
 

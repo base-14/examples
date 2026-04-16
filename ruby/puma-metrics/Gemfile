@@ -1,0 +1,7 @@
+source "https://rubygems.org"
+
+gem "puma", "~> 6.0"
+gem "rack", "~> 3.0"
+gem "yabeda"
+gem "yabeda-puma-plugin"
+gem "yabeda-prometheus"
