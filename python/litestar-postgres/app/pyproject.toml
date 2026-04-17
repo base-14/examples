@@ -1,0 +1,39 @@
+[project]
+name = "litestar-articles"
+version = "0.1.0"
+description = "Litestar + PostgreSQL articles API with OpenTelemetry instrumentation"
+requires-python = ">=3.14"
+dependencies = [
+    "litestar[standard]==2.21.1",
+    "msgspec==0.21.1",
+    "sqlalchemy[asyncio]==2.0.49",
+    "asyncpg==0.31.0",
+    "alembic==1.18.4",
+    "advanced-alchemy==1.9.3",
+    "httpx==0.28.1",
+    "python-json-logger==4.1.0",
+    # OpenTelemetry — SDK + auto-instrumentation
+    "opentelemetry-api==1.41.0",
+    "opentelemetry-sdk==1.41.0",
+    "opentelemetry-exporter-otlp==1.41.0",
+    "opentelemetry-distro==0.62b0",
+    "opentelemetry-instrumentation==0.62b0",
+    "opentelemetry-instrumentation-asgi==0.62b0",
+    "opentelemetry-instrumentation-sqlalchemy==0.62b0",
+    "opentelemetry-instrumentation-httpx==0.62b0",
+    "opentelemetry-instrumentation-asyncpg==0.62b0",
+    "opentelemetry-instrumentation-logging==0.62b0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+    "pytest-asyncio==1.3.0",
+    "aiosqlite==0.21.0",
+    "greenlet==3.2.4",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"

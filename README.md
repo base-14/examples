@@ -25,6 +25,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Flask** | Flask 3 + PostgreSQL 18 | [flask-postgres](./python/flask-postgres) | Celery jobs, SQLAlchemy, auto-instrumentation |
 | **FastAPI** | FastAPI + PostgreSQL | [fastapi-postgres](./python/fastapi-postgres) | JWT auth, auto-instrumentation |
 | **FastAPI + Celery** | FastAPI + Celery + PostgreSQL | [fastapi-celery-postgres](./python/fastapi-celery-postgres) | Distributed tracing across async tasks |
+| **Litestar** | Litestar 2.21 + PostgreSQL 18 (uv) | [litestar-postgres](./python/litestar-postgres) | Two-service distributed tracing, async SQLAlchemy + asyncpg, notification microservice |
 | **AI Sales Intelligence** | FastAPI + LangChain + OpenAI | [ai-sales-intelligence](./python/ai-sales-intelligence) | GenAI observability, unified tracing |
 | **AI Content Quality** | FastAPI + LlamaIndex + Promptfoo | [ai-content-quality](./python/ai-content-quality) | Eval-driven development, structured output |
 
@@ -252,6 +253,13 @@ Full OpenTelemetry instrumentation with custom business metric spans and trace c
 SQL Server-native job queue with `READPAST` pattern and comprehensive OpenTelemetry instrumentation.
 
 [View README →](./csharp/dotnet-sqlserver/README.md)
+
+### Litestar
+
+Async Python web framework (Litestar 2.21 on Python 3.14, uv-managed) with SQLAlchemy + asyncpg and a notification microservice.
+Distributed tracing via the Litestar OTel plugin, trace-correlated JSON logs through `python-json-logger`, and custom metrics via OTel Meter API.
+
+[View README →](./python/litestar-postgres/README.md)
 
 ### Symfony
 

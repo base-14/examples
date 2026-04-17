@@ -1,0 +1,112 @@
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: litestar-app
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USERNAME:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_NAME:-articles}
+      - NOTIFY_URL=http://notify:8081/notify
+      - OTEL_SERVICE_NAME=litestar-postgres-app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,service.version=1.0.0}
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_METRIC_EXPORT_INTERVAL=10000
+      - OTEL_BSP_SCHEDULE_DELAY=2000
+      # Litestar uses its own ASGI router, so we instrument it via
+      # OpenTelemetryPlugin in code. Disable the generic ASGI auto-patch
+      # to make the choice explicit (and avoid double-handling).
+      - OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=asgi
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+      notify:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  notify:
+    build:
+      context: ./notify
+      dockerfile: Dockerfile
+    container_name: litestar-notify
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8081:8081"
+    environment:
+      - OTEL_SERVICE_NAME=litestar-postgres-notify
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,service.version=1.0.0}
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_METRIC_EXPORT_INTERVAL=10000
+      - OTEL_BSP_SCHEDULE_DELAY=2000
+      - OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=asgi
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: litestar-postgres
+    environment:
+      - POSTGRES_USER=${DB_USERNAME:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - POSTGRES_DB=${DB_NAME:-articles}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-articles}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.148.0
+    container_name: litestar-otel-collector
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # health_check
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    networks:
+      - app-network
+
+volumes:
+  postgres-data:
+
+networks:
+  app-network:
+    driver: bridge
