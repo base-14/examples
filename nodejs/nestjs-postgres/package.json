@@ -38,7 +38,7 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.213.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.213.0",
     "@opentelemetry/exporter-prometheus": "^0.213.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.213.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
     "@opentelemetry/instrumentation-express": "^0.61.0",
     "@opentelemetry/instrumentation-http": "^0.213.0",
     "@opentelemetry/instrumentation-ioredis": "^0.61.0",
