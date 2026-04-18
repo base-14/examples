@@ -55,9 +55,6 @@ const sdk = new NodeSDK({
       '@opentelemetry/instrumentation-fs': {
         enabled: false,
       },
-      '@opentelemetry/instrumentation-fastify': {
-        enabled: false,
-      },
     }),
     new FastifyOtelInstrumentation({ registerOnInitialization: true }),
   ],
