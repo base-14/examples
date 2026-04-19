@@ -1,0 +1,28 @@
+services:
+  snmpsim:
+    build:
+      context: ./snmpsim
+    container_name: snmpsim
+    ports:
+      - "11161:1161/udp"
+    volumes:
+      - ./snmpsim/data:/data:ro
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.149.0
+    container_name: otel-collector
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-demo}
+      - SERVICE_NAMESPACE=${SERVICE_NAMESPACE:-network-infra}
+      - SITE_ID=${SITE_ID:-demo-site}
+    depends_on:
+      - snmpsim
+    networks:
+      - default
+      - otel-collector-network
+
+networks:
+  otel-collector-network:
+    external: true
