@@ -21,18 +21,14 @@ func Init(serviceName, environment string) {
 		opts.Level = slog.LevelDebug
 	}
 
-	// Create OTel handler using the global logger provider (set by telemetry.Init)
+	stdoutHandler := traceContextHandler{
+		Handler: slog.NewJSONHandler(os.Stdout, opts),
+	}
 	otelHandler := otelslog.NewHandler(serviceName, otelslog.WithLoggerProvider(global.GetLoggerProvider()))
 
-	// Create JSON handler for stdout
-	jsonHandler := slog.NewJSONHandler(os.Stdout, opts)
+	combined := multiHandler{handlers: []slog.Handler{stdoutHandler, otelHandler}}
 
-	// Use a multi-handler that writes to both
-	multiHandler := &multiHandler{
-		handlers: []slog.Handler{otelHandler, jsonHandler},
-	}
-
-	logger = slog.New(multiHandler).With(
+	logger = slog.New(combined).With(
 		slog.String("service", serviceName),
 		slog.String("environment", environment),
 	)
@@ -46,71 +42,90 @@ func Logger() *slog.Logger {
 	return logger
 }
 
-func WithContext(ctx context.Context) *slog.Logger {
-	l := Logger()
-	span := trace.SpanFromContext(ctx)
-	if !span.SpanContext().IsValid() {
-		return l
-	}
-	return l.With(
-		slog.String("traceId", span.SpanContext().TraceID().String()),
-		slog.String("spanId", span.SpanContext().SpanID().String()),
-	)
-}
-
 func Debug(ctx context.Context, msg string, args ...any) {
-	WithContext(ctx).DebugContext(ctx, msg, args...)
+	Logger().DebugContext(ctx, msg, args...)
 }
 
 func Info(ctx context.Context, msg string, args ...any) {
-	WithContext(ctx).InfoContext(ctx, msg, args...)
+	Logger().InfoContext(ctx, msg, args...)
 }
 
 func Warn(ctx context.Context, msg string, args ...any) {
-	WithContext(ctx).WarnContext(ctx, msg, args...)
+	Logger().WarnContext(ctx, msg, args...)
 }
 
 func Error(ctx context.Context, msg string, args ...any) {
-	WithContext(ctx).ErrorContext(ctx, msg, args...)
+	Logger().ErrorContext(ctx, msg, args...)
 }
 
-// multiHandler sends logs to multiple handlers
+// traceContextHandler enriches stdout JSON records with trace_id/span_id from
+// context. It wraps the JSON handler only — otelslog already populates these
+// fields on the OTLP LogRecord envelope from context, so wrapping that side
+// would duplicate them as user attributes.
+type traceContextHandler struct {
+	slog.Handler
+}
+
+func (h traceContextHandler) Handle(ctx context.Context, r slog.Record) error {
+	sc := trace.SpanFromContext(ctx).SpanContext()
+	if sc.IsValid() {
+		r.AddAttrs(
+			slog.String("traceId", sc.TraceID().String()),
+			slog.String("spanId", sc.SpanID().String()),
+		)
+	}
+	return h.Handler.Handle(ctx, r)
+}
+
+func (h traceContextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return traceContextHandler{Handler: h.Handler.WithAttrs(attrs)}
+}
+
+func (h traceContextHandler) WithGroup(name string) slog.Handler {
+	return traceContextHandler{Handler: h.Handler.WithGroup(name)}
+}
+
+// multiHandler fans out a record to multiple slog handlers. Records share
+// attribute backing arrays, so each handler receives a Clone() to avoid
+// cross-handler mutation.
 type multiHandler struct {
 	handlers []slog.Handler
 }
 
-func (h *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	for _, handler := range h.handlers {
-		if handler.Enabled(ctx, level) {
+func (m multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	for _, h := range m.handlers {
+		if h.Enabled(ctx, level) {
 			return true
 		}
 	}
 	return false
 }
 
-func (h *multiHandler) Handle(ctx context.Context, record slog.Record) error {
-	for _, handler := range h.handlers {
-		if handler.Enabled(ctx, record.Level) {
-			if err := handler.Handle(ctx, record); err != nil {
-				return err
-			}
+func (m multiHandler) Handle(ctx context.Context, r slog.Record) error {
+	var firstErr error
+	for _, h := range m.handlers {
+		if !h.Enabled(ctx, r.Level) {
+			continue
+		}
+		if err := h.Handle(ctx, r.Clone()); err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
-	return nil
+	return firstErr
 }
 
-func (h *multiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	handlers := make([]slog.Handler, len(h.handlers))
-	for i, handler := range h.handlers {
-		handlers[i] = handler.WithAttrs(attrs)
+func (m multiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	handlers := make([]slog.Handler, len(m.handlers))
+	for i, h := range m.handlers {
+		handlers[i] = h.WithAttrs(attrs)
 	}
-	return &multiHandler{handlers: handlers}
+	return multiHandler{handlers: handlers}
 }
 
-func (h *multiHandler) WithGroup(name string) slog.Handler {
-	handlers := make([]slog.Handler, len(h.handlers))
-	for i, handler := range h.handlers {
-		handlers[i] = handler.WithGroup(name)
+func (m multiHandler) WithGroup(name string) slog.Handler {
+	handlers := make([]slog.Handler, len(m.handlers))
+	for i, h := range m.handlers {
+		handlers[i] = h.WithGroup(name)
 	}
-	return &multiHandler{handlers: handlers}
+	return multiHandler{handlers: handlers}
 }
