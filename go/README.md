@@ -10,6 +10,7 @@ OpenTelemetry instrumentation examples for Go applications.
 | [fiber-postgres](./fiber-postgres) | Go 1.24 + Fiber 2.52 + sqlx + PostgreSQL 18 + River with repository pattern and PostgreSQL-native job queue |
 | [go-temporal-postgres](./go-temporal-postgres) | Go 1.25 + Temporal + Echo 4.15 + PostgreSQL 18 with workflow orchestration, microservice workers, and full observability |
 | [chi-inmemory](./chi-inmemory) | Go 1.25 with chi router, custom instrumentation, and in-memory storage |
+| [stdlib-postgres](./stdlib-postgres) | Go 1.26 stdlib `net/http` + pgx + PostgreSQL 18 with `otelhttp`, `otelpgx`, and `otelslog` bridge; two-service distributed tracing across articles API and notify microservice |
 | [go119-gin191-postgres](./go119-gin191-postgres) | Go 1.19 with Gin 1.9.1, PostgreSQL 14, and OpenTelemetry v1.17.0 |
 | [ai-data-analyst](./ai-data-analyst) | Go 1.25 + Chi + Direct OpenAI API + Native OTel SDK + PostgreSQL with NL-to-SQL pipeline, multi-provider LLM (OpenAI/Google/Anthropic/Ollama), and GenAI observability |
 

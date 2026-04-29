@@ -37,6 +37,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Fiber** | Fiber 2 + sqlx + PostgreSQL 18 | [fiber-postgres](./go/fiber-postgres) | River jobs (PostgreSQL-native), repository pattern |
 | **Echo + Temporal** | Echo 4 + Temporal + PostgreSQL 18 | [go-temporal-postgres](./go/go-temporal-postgres) | Workflow orchestration, microservice workers, simulation framework |
 | **Chi** | Chi + In-memory storage | [chi-inmemory](./go/chi-inmemory) | Custom instrumentation |
+| **stdlib net/http** | Go 1.26 stdlib + pgx + PostgreSQL 18 | [stdlib-postgres](./go/stdlib-postgres) | otelhttp + otelpgx, otelslog bridge, two-service distributed tracing |
 | **Gin (Legacy)** | Gin 1.9.1 + PostgreSQL 14 | [go119-gin191-postgres](./go/go119-gin191-postgres) | Legacy Go 1.19 support |
 | **AI Data Analyst** | Chi + Direct OpenAI API + Native OTel SDK | [ai-data-analyst](./go/ai-data-analyst) | NL-to-SQL pipeline, GenAI observability, multi-provider |
 
@@ -94,6 +95,7 @@ Production-ready examples for integrating OpenTelemetry with
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
 | **ASP.NET Core** | .NET 9 + EF Core + Azure SQL Edge | [dotnet-sqlserver](./csharp/dotnet-sqlserver) | Minimal APIs, rate limiting, auto-instrumentation |
+| **.NET Aspire** | .NET Aspire 13.2 + ASP.NET Core 9 + EF Core 9 + PostgreSQL 18 | [aspire-postgres](./csharp/aspire-postgres) | ServiceDefaults pattern, custom ActivitySource and Meter, two-service distributed tracing, Aspire and Compose run modes |
 
 ### Infrastructure & Integrations
 
@@ -253,6 +255,22 @@ Full OpenTelemetry instrumentation with custom business metric spans and trace c
 SQL Server-native job queue with `READPAST` pattern and comprehensive OpenTelemetry instrumentation.
 
 [View README →](./csharp/dotnet-sqlserver/README.md)
+
+### .NET Aspire
+
+.NET Aspire 13.2 AppHost orchestrating PostgreSQL 18, an OTel Collector container, and two ASP.NET Core 9 services
+(articles API and notify). ServiceDefaults wires OTel for every project; custom `ActivitySource` and `Meter`
+demonstrate business-level instrumentation. Ships parallel Aspire AppHost and Docker Compose run modes from the same code.
+
+[View README →](./csharp/aspire-postgres/README.md)
+
+### Go stdlib net/http
+
+Two-service Go example using only the standard library `net/http` plus pgx for PostgreSQL 18.
+`otelhttp` + `otelpgx` + the `otelslog` bridge produce HTTP server spans, DB query spans, and trace-correlated
+JSON logs without any framework dependencies. Cross-service distributed tracing from articles API to notify microservice.
+
+[View README →](./go/stdlib-postgres/README.md)
 
 ### Litestar
 

@@ -7,6 +7,7 @@ OpenTelemetry instrumentation examples for .NET applications.
 | Project | Description |
 | ------- | ----------- |
 | [dotnet-sqlserver](./dotnet-sqlserver) | .NET 9 ASP.NET Core + EF Core + Azure SQL Edge with Minimal APIs, rate limiting, and full OTel instrumentation |
+| [aspire-postgres](./aspire-postgres) | .NET Aspire 13.2 + ASP.NET Core 9 + EF Core 9 + PostgreSQL 18 with ServiceDefaults pattern, custom ActivitySource and Meter, two-service distributed tracing, and parallel Aspire / Compose run modes |
 
 ## Contributing
 

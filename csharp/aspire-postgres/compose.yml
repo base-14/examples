@@ -1,0 +1,88 @@
+services:
+  articles-api:
+    build:
+      context: .
+      dockerfile: ArticlesApi/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__articles: "Host=postgres;Port=5432;Username=postgres;Password=postgres;Database=articles"
+      Notify__BaseUrl: "http://notify-svc:8081"
+      OTEL_SERVICE_NAME: articles-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+      notify-svc:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  notify-svc:
+    build:
+      context: .
+      dockerfile: NotifySvc/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8081"
+      OTEL_SERVICE_NAME: notify-svc
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_DB: articles
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d articles"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.151.0
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel-collector.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-http://localhost:4318}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-http://localhost/token}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    healthcheck:
+      test: ["NONE"]
+
+volumes:
+  pgdata:

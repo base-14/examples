@@ -1,0 +1,14 @@
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/*.user
+.env
+.env.local
+.dockerignore
+.gitignore
+Dockerfile
+**/Dockerfile
+README.md
+scripts/
+config/
