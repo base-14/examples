@@ -1,0 +1,105 @@
+receivers:
+  sqlserver:
+    collection_interval: 10s
+    username: ${env:SQLSERVER_USER}
+    password: ${env:SQLSERVER_PASSWORD}
+    server: sqlserver
+    port: 1433
+
+    # Of 50 receiver metrics, 13 in the default set are Windows-only and emit
+    # nothing on Linux containers. They stay default-enabled here (the receiver
+    # silently skips them), but if you want a quieter config you can disable
+    # each one explicitly. The list below enables every Linux-supported
+    # optional metric so the example surfaces the maximum on Linux: 7 default
+    # + 30 optional = 37 metrics.
+    metrics:
+      sqlserver.computer.uptime:
+        enabled: true
+      sqlserver.cpu.count:
+        enabled: true
+      sqlserver.database.backup_or_restore.rate:
+        enabled: true
+      sqlserver.database.count:
+        enabled: true
+      sqlserver.database.execution.errors:
+        enabled: true
+      sqlserver.database.full_scan.rate:
+        enabled: true
+      sqlserver.database.io:
+        enabled: true
+      sqlserver.database.latency:
+        enabled: true
+      sqlserver.database.operations:
+        enabled: true
+      sqlserver.database.tempdb.space:
+        enabled: true
+      sqlserver.database.tempdb.version_store.size:
+        enabled: true
+      sqlserver.deadlock.rate:
+        enabled: true
+      sqlserver.index.search.rate:
+        enabled: true
+      sqlserver.lock.timeout.rate:
+        enabled: true
+      sqlserver.lock.wait.count:
+        enabled: true
+      sqlserver.login.rate:
+        enabled: true
+      sqlserver.logout.rate:
+        enabled: true
+      sqlserver.memory.grants.pending.count:
+        enabled: true
+      sqlserver.memory.usage:
+        enabled: true
+      sqlserver.os.wait.duration:
+        enabled: true
+      sqlserver.page.buffer_cache.free_list.stalls.rate:
+        enabled: true
+      sqlserver.page.lookup.rate:
+        enabled: true
+      sqlserver.processes.blocked:
+        enabled: true
+      sqlserver.replica.data.rate:
+        enabled: true
+      sqlserver.resource_pool.disk.operations:
+        enabled: true
+      sqlserver.resource_pool.disk.throttled.read.rate:
+        enabled: true
+      sqlserver.resource_pool.disk.throttled.write.rate:
+        enabled: true
+      sqlserver.table.count:
+        enabled: true
+      sqlserver.transaction.delay:
+        enabled: true
+      sqlserver.transaction.mirror_write.rate:
+        enabled: true
+
+processors:
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:ENVIRONMENT}
+        action: upsert
+      - key: service.name
+        value: ${env:SERVICE_NAME}
+        action: upsert
+
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+exporters:
+  otlphttp/b14:
+    endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
+    tls:
+      insecure_skip_verify: true
+
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    metrics:
+      receivers: [sqlserver]
+      processors: [batch, resource]
+      exporters: [otlphttp/b14, debug]
