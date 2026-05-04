@@ -1,0 +1,110 @@
+# Go 1.24 net/http hello-world. The operator's Go auto-instrumentation injects
+# an eBPF sidecar that reads symbols from the binary at runtime - requires
+# securityContext.privileged + hostPID + the otel-go-auto-target-exe annotation
+# pointing at the binary path.
+#
+# Build flags MUST keep debug symbols: don't pass `-ldflags="-s -w"`. The
+# `go build` command below produces a binary with full symbols by default.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: go-app-source
+  namespace: otel
+data:
+  go.mod: |
+    module hello
+    go 1.24
+  main.go: |
+    package main
+
+    import (
+      "fmt"
+      "net/http"
+      "sync/atomic"
+      "time"
+    )
+
+    var counter atomic.Int64
+
+    func main() {
+      http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        c := counter.Add(1)
+        fmt.Fprintf(w, "{\"message\":\"hello\",\"count\":%d}\n", c)
+      })
+      http.HandleFunc("/slow", func(w http.ResponseWriter, r *http.Request) {
+        time.Sleep(500 * time.Millisecond)
+        fmt.Fprint(w, "{\"message\":\"done\"}\n")
+      })
+      _ = http.ListenAndServe(":8080", nil)
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-ebpf
+  namespace: otel
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: go-ebpf}}
+  template:
+    metadata:
+      labels: {app: go-ebpf}
+      annotations:
+        instrumentation.opentelemetry.io/inject-go: "otel/scout-instrumentation"
+        # eBPF agent reads binary symbols at runtime to find http handlers etc.
+        # Path must match the build output below.
+        instrumentation.opentelemetry.io/otel-go-auto-target-exe: "/app/hello"
+    spec:
+      # eBPF agent sidecar uses /proc to find the target binary.
+      # K8s rejects shareProcessNamespace=true + hostPID=true together; pick
+      # hostPID (operator's documented requirement for Go eBPF target lookup).
+      hostPID: true
+      containers:
+        - name: app
+          image: golang:1.24-alpine
+          workingDir: /app
+          command: ["sh", "-c"]
+          args:
+            - |
+              cp /src/main.go /src/go.mod .
+              # Build WITHOUT -ldflags="-s -w" so debug symbols stay (eBPF needs them).
+              go build -o /app/hello .
+              exec /app/hello
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-agent-collector.otel.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: go-ebpf
+          volumeMounts:
+            - name: source
+              mountPath: /src
+            - name: build
+              mountPath: /app
+          securityContext:
+            # Required: eBPF agent (sidecar injected by operator) needs privileged
+            # to load eBPF programs into the kernel.
+            privileged: true
+      volumes:
+        - name: source
+          configMap:
+            name: go-app-source
+        - name: build
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-ebpf
+  namespace: otel
+spec:
+  selector: {app: go-ebpf}
+  ports:
+    - port: 8080
+      targetPort: 8080

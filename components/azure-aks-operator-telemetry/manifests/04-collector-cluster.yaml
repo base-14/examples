@@ -1,0 +1,108 @@
+# Operator-managed cluster collector. Single-replica Deployment - pulls
+# cluster-wide state from k8s_cluster receiver + scrapes kube-state-metrics.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-cluster
+  namespace: otel
+spec:
+  mode: deployment
+  replicas: 1
+  image: otel/opentelemetry-collector-contrib:0.151.0
+  # spec.serviceAccount omitted - operator auto-creates SA + ClusterRole for
+  # k8s_cluster receiver. See 03-collector-agent.yaml.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  envFrom:
+    - secretRef:
+        name: scout-oauth2
+    - configMapRef:
+        name: otel-azure-context
+  env:
+    - name: ENVIRONMENT
+      value: demo
+  config:
+    receivers:
+      k8s_cluster:
+        auth_type: serviceAccount
+        collection_interval: 10s
+        node_conditions_to_report:
+          - Ready
+          - MemoryPressure
+          - DiskPressure
+          - PIDPressure
+          - NetworkUnavailable
+        metrics:
+          k8s.container.status.reason: {enabled: true}
+          k8s.container.status.state: {enabled: true}
+          k8s.node.condition: {enabled: true}
+          k8s.persistentvolume.status.phase: {enabled: true}
+          k8s.persistentvolume.storage.capacity: {enabled: true}
+          k8s.persistentvolumeclaim.status.phase: {enabled: true}
+          k8s.persistentvolumeclaim.storage.capacity: {enabled: true}
+          k8s.persistentvolumeclaim.storage.request: {enabled: true}
+          k8s.pod.status_reason: {enabled: true}
+          k8s.service.endpoint.count: {enabled: true}
+          k8s.service.load_balancer.ingress.count: {enabled: true}
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: kube-state-metrics
+              scrape_interval: 30s
+              static_configs:
+                - targets:
+                    - kube-state-metrics.kube-state-metrics.svc.cluster.local:8080
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      oauth2client:
+        client_id: ${env:SCOUT_CLIENT_ID}
+        client_secret: ${env:SCOUT_CLIENT_SECRET}
+        token_url: ${env:SCOUT_TOKEN_URL}
+        endpoint_params:
+          audience: b14collector
+        timeout: 10s
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      resource:
+        attributes:
+          - {key: cloud.provider, value: azure, action: insert}
+          - {key: cloud.platform, value: azure_aks, action: insert}
+          - {key: cloud.account.id, value: "${env:AZURE_SUBSCRIPTION_ID}", action: insert}
+          - {key: cloud.region, value: "${env:AZURE_REGION}", action: insert}
+          - {key: k8s.cluster.name, value: "${env:AKS_CLUSTER_NAME}", action: insert}
+          - {key: deployment.environment.name, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: deployment.environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: service.name, value: otel-cluster, action: insert}
+    exporters:
+      debug:
+        verbosity: basic
+      otlp_http/b14:
+        endpoint: ${env:SCOUT_OTLP_ENDPOINT}
+        auth:
+          authenticator: oauth2client
+        compression: gzip
+        timeout: 30s
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
+    service:
+      extensions: [health_check, oauth2client]
+      pipelines:
+        metrics:
+          receivers: [k8s_cluster, prometheus]
+          processors: [memory_limiter, resource, batch]
+          exporters: [debug, otlp_http/b14]

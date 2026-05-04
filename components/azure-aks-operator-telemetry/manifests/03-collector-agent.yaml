@@ -1,0 +1,151 @@
+# Operator-managed agent collector. DaemonSet - one pod per node - scrapes
+# kubeletstats + hostmetrics. SA `otel-agent` is created by the operator from
+# spec.serviceAccount; provision.sh annotates it with the UAMI client-id.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-agent
+  namespace: otel
+spec:
+  mode: daemonset
+  image: otel/opentelemetry-collector-contrib:0.151.0
+  # spec.serviceAccount omitted on purpose: when omitted, operator auto-creates
+  # SA `<cr-name>-collector` (here: otel-agent-collector) AND the ClusterRole +
+  # binding that kubeletstats/hostmetrics need. Setting it explicitly puts the
+  # SA + RBAC on the user.
+  # spec.podLabels not supported on v1beta1 CRD: agent collector hits
+  # kubelet/host only, no Azure auth needed, so WI label is moot.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  envFrom:
+    - secretRef:
+        name: scout-oauth2
+    - configMapRef:
+        name: otel-azure-context
+  env:
+    - name: K8S_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: ENVIRONMENT
+      value: demo
+  config:
+    receivers:
+      hostmetrics:
+        collection_interval: 10s
+        scrapers:
+          cpu: {}
+          load: {}
+          memory: {}
+          disk: {}
+          network: {}
+          paging: {}
+          processes: {}
+          system: {}
+          filesystem:
+            exclude_mount_points:
+              match_type: regexp
+              mount_points:
+                - /dev/*
+                - /proc/*
+                - /sys/*
+                - /run/k3s/containerd/*
+                - /var/lib/docker/*
+                - /var/lib/kubelet/*
+                - /boot/efi
+                - /boot
+      kubeletstats:
+        collection_interval: 10s
+        node: ${env:K8S_NODE_NAME}
+        auth_type: serviceAccount
+        endpoint: https://${env:K8S_NODE_NAME}:10250
+        insecure_skip_verify: true
+        metric_groups: [container, pod, node, volume]
+        metrics:
+          container.uptime: {enabled: true}
+          k8s.container.cpu_limit_utilization: {enabled: true}
+          k8s.container.cpu_request_utilization: {enabled: true}
+          k8s.container.memory_limit_utilization: {enabled: true}
+          k8s.container.memory_request_utilization: {enabled: true}
+          k8s.node.uptime: {enabled: true}
+          k8s.pod.cpu_limit_utilization: {enabled: true}
+          k8s.pod.cpu_request_utilization: {enabled: true}
+          k8s.pod.memory_limit_utilization: {enabled: true}
+          k8s.pod.memory_request_utilization: {enabled: true}
+          k8s.pod.uptime: {enabled: true}
+          k8s.pod.volume.usage: {enabled: true}
+          k8s.container.cpu.node.utilization: {enabled: true}
+          k8s.container.memory.node.utilization: {enabled: true}
+          k8s.pod.cpu.node.utilization: {enabled: true}
+          k8s.pod.memory.node.utilization: {enabled: true}
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      oauth2client:
+        client_id: ${env:SCOUT_CLIENT_ID}
+        client_secret: ${env:SCOUT_CLIENT_SECRET}
+        token_url: ${env:SCOUT_TOKEN_URL}
+        endpoint_params:
+          audience: b14collector
+        timeout: 10s
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      resource:
+        attributes:
+          - {key: cloud.provider, value: azure, action: insert}
+          - {key: cloud.platform, value: azure_aks, action: insert}
+          - {key: cloud.account.id, value: "${env:AZURE_SUBSCRIPTION_ID}", action: insert}
+          - {key: cloud.region, value: "${env:AZURE_REGION}", action: insert}
+          - {key: k8s.cluster.name, value: "${env:AKS_CLUSTER_NAME}", action: insert}
+          - {key: deployment.environment.name, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: deployment.environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: service.name, value: otel-agent, action: insert}
+    exporters:
+      debug:
+        verbosity: basic
+      otlp_http/b14:
+        endpoint: ${env:SCOUT_OTLP_ENDPOINT}
+        auth:
+          authenticator: oauth2client
+        compression: gzip
+        timeout: 30s
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
+    service:
+      extensions: [health_check, oauth2client]
+      pipelines:
+        # Receives traces from auto-instrumented sample apps via OTLP HTTP and
+        # forwards them to Scout. Sample-app pods point at this DaemonSet's
+        # local node IP via the Instrumentation CR exporter endpoint.
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [debug, otlp_http/b14]
+        metrics:
+          receivers: [otlp, kubeletstats, hostmetrics]
+          processors: [memory_limiter, resource, batch]
+          exporters: [debug, otlp_http/b14]
+        # Sample app SDKs auto-emit logs alongside traces. Without a logs
+        # pipeline pointing the otlp receiver to Scout, those POSTs return 404.
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [debug, otlp_http/b14]

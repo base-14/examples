@@ -1,0 +1,44 @@
+# Single Instrumentation CR covering all 5 languages. Sample-app Deployments
+# annotate themselves with `instrumentation.opentelemetry.io/inject-{lang}: "otel/scout-instrumentation"`
+# to opt in. Image tags pinned (no :latest).
+#
+# Exporter endpoint points at the agent DaemonSet's pod IP (collector receives
+# traces via OTLP HTTP on :4318, then forwards to Scout). The downward-API
+# `OTEL_EXPORTER_OTLP_ENDPOINT` env on the sample app uses the host node's IP
+# at runtime - see deployment.yaml in each sample-app dir.
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: scout-instrumentation
+  namespace: otel
+spec:
+  exporter:
+    # Pod IP of the local node's otel-agent DaemonSet pod, OTLP HTTP :4318.
+    # Sample apps override this via OTEL_EXPORTER_OTLP_ENDPOINT pointing at
+    # the host node IP so traces always hit the local DaemonSet pod.
+    endpoint: http://$(NODE_IP):4318
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1.0"
+  resource:
+    addK8sUIDAttributes: true
+  java:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:1.33.6
+  python:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:0.61b0
+    env:
+      - name: OTEL_PYTHON_LOG_CORRELATION
+        value: "true"
+  nodejs:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:0.73.0
+  # dotnet field removed: ConfigMap-mounted Minimal API + OTel CLR profiler
+  # silently fails to bind Kestrel during dotnet-run-on-startup. Production
+  # users should pre-bake the image (dotnet publish) and use `image:` directly.
+  # Re-enable once a working sample-app shape is figured out.
+  go:
+    # NOTE: Go eBPF lives in a SEPARATE GHCR repo (opentelemetry-go-instrumentation,
+    # not opentelemetry-operator) and uses a `v` tag prefix.
+    image: ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:v0.23.0

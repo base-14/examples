@@ -1,0 +1,4 @@
+.env
+kubeconfig.yaml
+*.log
+observed-*.txt

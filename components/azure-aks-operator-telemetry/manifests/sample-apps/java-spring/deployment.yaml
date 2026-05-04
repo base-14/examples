@@ -1,0 +1,112 @@
+# Java 25 Spring Boot 3 minimal hello-world auto-instrumented via the operator's
+# Java init container. Compile-on-startup adds ~30-45s to first request - see
+# README "Java compile-on-startup" callout. App is intentionally minimal to
+# keep that time manageable; production readers should pre-bake the image.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: java-app-source
+  namespace: otel
+data:
+  pom.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <project xmlns="http://maven.apache.org/POM/4.0.0">
+      <modelVersion>4.0.0</modelVersion>
+      <groupId>io.base14.demo</groupId>
+      <artifactId>hello</artifactId>
+      <version>0.0.1</version>
+      <packaging>jar</packaging>
+      <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.1</version>
+      </parent>
+      <properties>
+        <java.version>21</java.version>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+          </plugin>
+        </plugins>
+      </build>
+    </project>
+  HelloApplication.java: |
+    package io.base14.demo;
+    import org.springframework.boot.SpringApplication;
+    import org.springframework.boot.autoconfigure.SpringBootApplication;
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    @SpringBootApplication
+    @RestController
+    public class HelloApplication {
+      public static void main(String[] args) { SpringApplication.run(HelloApplication.class, args); }
+      @GetMapping("/") public String hello() { return "hello\n"; }
+      @GetMapping("/slow") public String slow() throws InterruptedException { Thread.sleep(500); return "done\n"; }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-spring
+  namespace: otel
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: java-spring}}
+  template:
+    metadata:
+      labels: {app: java-spring}
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "otel/scout-instrumentation"
+    spec:
+      containers:
+        - name: app
+          image: maven:3.9-eclipse-temurin-21
+          workingDir: /app
+          command: ["sh", "-c"]
+          args:
+            - |
+              mkdir -p src/main/java/io/base14/demo
+              cp /src/HelloApplication.java src/main/java/io/base14/demo/
+              cp /src/pom.xml .
+              mvn -q package -DskipTests
+              java -jar target/hello-0.0.1.jar
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-agent-collector.otel.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: java-spring
+          volumeMounts:
+            - name: source
+              mountPath: /src
+      volumes:
+        - name: source
+          configMap:
+            name: java-app-source
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-spring
+  namespace: otel
+spec:
+  selector: {app: java-spring}
+  ports:
+    - port: 8080
+      targetPort: 8080

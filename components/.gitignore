@@ -2,3 +2,4 @@
 !.gitignore
 !snmp-telemetry/
 !sqlserver-telemetry/
+!azure-aks-operator-telemetry/

@@ -1,0 +1,86 @@
+# Node.js 25 Express hello-world auto-instrumented via the operator's
+# Node.js init container.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nodejs-app-source
+  namespace: otel
+data:
+  app.js: |
+    const express = require('express');
+    const app = express();
+    let counter = 0;
+    app.get('/', (req, res) => {
+      counter += 1;
+      res.json({message: 'hello', count: counter});
+    });
+    app.get('/slow', async (req, res) => {
+      await new Promise(r => setTimeout(r, 500));
+      res.json({message: 'done'});
+    });
+    app.listen(3000, () => console.log('listening 3000'));
+  package.json: |
+    {
+      "name": "nodejs-express",
+      "version": "1.0.0",
+      "dependencies": {"express": "^4.21.0"}
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-express
+  namespace: otel
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: nodejs-express}}
+  template:
+    metadata:
+      labels: {app: nodejs-express}
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "otel/scout-instrumentation"
+    spec:
+      containers:
+        - name: app
+          image: node:25-alpine
+          workingDir: /app
+          command: ["sh", "-c"]
+          args:
+            - |
+              cp /src/package.json /src/app.js .
+              npm install --silent
+              node app.js
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-agent-collector.otel.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: nodejs-express
+          volumeMounts:
+            - name: source
+              mountPath: /src
+            - name: workspace
+              mountPath: /app
+      volumes:
+        - name: source
+          configMap:
+            name: nodejs-app-source
+        - name: workspace
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejs-express
+  namespace: otel
+spec:
+  selector: {app: nodejs-express}
+  ports:
+    - port: 3000
+      targetPort: 3000

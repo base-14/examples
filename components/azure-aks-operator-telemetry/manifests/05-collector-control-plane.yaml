@@ -1,0 +1,120 @@
+# Operator-managed control-plane collector. In-cluster Deployment running
+# azure_monitor receiver against the AKS resource. Uses Workload Identity
+# (UAMI federated to SA otel-control-plane) - no Service Principal.
+# Replaces the standalone docker-run pattern from the Helm-first guide.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-control-plane
+  namespace: otel
+spec:
+  mode: deployment
+  replicas: 1
+  image: otel/opentelemetry-collector-contrib:0.151.0
+  # spec.serviceAccount omitted - operator auto-creates the SA. Control-plane
+  # collector uses SP env-var auth (azure_auth.service_principal below) reading
+  # AZURE_*_ID/SECRET from the azure-sp Secret (envFrom).
+  # spec.podLabels not supported on v1beta1 CRD - that's why WIF is unusable
+  # here and we fall back to SP env auth.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  envFrom:
+    - secretRef:
+        name: scout-oauth2
+    - secretRef:
+        name: azure-sp
+    - configMapRef:
+        name: otel-azure-context
+  env:
+    - name: ENVIRONMENT
+      value: demo
+  config:
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      azure_auth:
+        # SP env-var auth. AZURE_CLIENT_ID/SECRET/TENANT_ID injected from the
+        # azure-sp Secret (envFrom above).
+        service_principal:
+          tenant_id: ${env:AZURE_TENANT_ID}
+          client_id: ${env:AZURE_CLIENT_ID}
+          client_secret: ${env:AZURE_CLIENT_SECRET}
+      oauth2client:
+        client_id: ${env:SCOUT_CLIENT_ID}
+        client_secret: ${env:SCOUT_CLIENT_SECRET}
+        token_url: ${env:SCOUT_TOKEN_URL}
+        endpoint_params:
+          audience: b14collector
+        timeout: 10s
+    receivers:
+      azure_monitor:
+        subscription_ids: ["${env:AZURE_SUBSCRIPTION_ID}"]
+        resource_groups: ["${env:AZURE_RESOURCE_GROUP}"]
+        services: ["Microsoft.ContainerService/managedClusters"]
+        auth: {authenticator: azure_auth}
+        collection_interval: 60s
+        # Legacy ARM /metrics endpoint - Monitoring Reader propagates
+        # immediately. Switch to true once data-plane RBAC settles.
+        use_batch_api: false
+        cache_resources: 60
+        dimensions:
+          enabled: true
+        metrics:
+          "Microsoft.ContainerService/managedClusters":
+            apiserver_cpu_usage_percentage: []
+            apiserver_memory_usage_percentage: []
+            etcd_cpu_usage_percentage: []
+            etcd_database_usage_percentage: []
+            etcd_memory_usage_percentage: []
+            # Cluster autoscaler metrics: this validation pins maxCount=1 so
+            # autoscaler is enabled but inactive; metrics emit zero values.
+            # Customer doc recommends maxCount: 2 in production for non-zero data.
+            cluster_autoscaler_cluster_safe_to_autoscale: []
+            cluster_autoscaler_scale_down_in_cooldown: []
+            cluster_autoscaler_unneeded_nodes_count: []
+            cluster_autoscaler_unschedulable_pods_count: []
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      resource:
+        attributes:
+          - {key: cloud.provider, value: azure, action: insert}
+          - {key: cloud.platform, value: azure_aks, action: insert}
+          - {key: cloud.account.id, value: "${env:AZURE_SUBSCRIPTION_ID}", action: insert}
+          - {key: cloud.region, value: "${env:AZURE_REGION}", action: insert}
+          - {key: cloud.resource_id, value: "${env:AKS_RESOURCE_ID}", action: insert}
+          - {key: k8s.cluster.name, value: "${env:AKS_CLUSTER_NAME}", action: insert}
+          - {key: deployment.environment.name, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: deployment.environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: service.name, value: aks-control-plane, action: insert}
+    exporters:
+      debug:
+        verbosity: basic
+      otlp_http/b14:
+        endpoint: ${env:SCOUT_OTLP_ENDPOINT}
+        auth:
+          authenticator: oauth2client
+        compression: gzip
+        timeout: 30s
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
+    service:
+      extensions: [health_check, azure_auth, oauth2client]
+      pipelines:
+        metrics:
+          receivers: [azure_monitor]
+          processors: [memory_limiter, resource, batch]
+          exporters: [debug, otlp_http/b14]

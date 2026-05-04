@@ -1,0 +1,83 @@
+# Python 3.14 FastAPI hello-world auto-instrumented via the operator's
+# Python init container. Source mounted from a ConfigMap so readers can
+# verify "no code changes" - the app.py below is unmodified.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: python-app-source
+  namespace: otel
+data:
+  app.py: |
+    from fastapi import FastAPI
+    import time
+    app = FastAPI()
+    counter = {"count": 0}
+
+    @app.get("/")
+    def root():
+      counter["count"] += 1
+      return {"message": "hello", "count": counter["count"]}
+
+    @app.get("/slow")
+    def slow():
+      time.sleep(0.5)
+      return {"message": "done"}
+  requirements.txt: |
+    fastapi==0.118.0
+    uvicorn==0.36.0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-fastapi
+  namespace: otel
+  labels:
+    app: python-fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: python-fastapi}
+  template:
+    metadata:
+      labels: {app: python-fastapi}
+      annotations:
+        instrumentation.opentelemetry.io/inject-python: "otel/scout-instrumentation"
+    spec:
+      containers:
+        - name: app
+          image: python:3.14-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install --quiet -r /app/requirements.txt
+              uvicorn app:app --app-dir /app --host 0.0.0.0 --port 8000
+          ports:
+            - containerPort: 8000
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-agent-collector.otel.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: python-fastapi
+          volumeMounts:
+            - name: source
+              mountPath: /app
+      volumes:
+        - name: source
+          configMap:
+            name: python-app-source
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-fastapi
+  namespace: otel
+spec:
+  selector: {app: python-fastapi}
+  ports:
+    - port: 8000
+      targetPort: 8000
