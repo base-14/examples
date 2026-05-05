@@ -74,6 +74,7 @@
     "esbuild": "^0.25.0",
     "flatted": ">=3.4.2",
     "ioredis": "^5.10.1",
-    "protobufjs@8": "^8.0.1"
+    "protobufjs@8": "^8.0.1",
+    "uuid": ">=14.0.0"
   }
 }
