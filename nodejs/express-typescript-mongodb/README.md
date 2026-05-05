@@ -689,7 +689,7 @@ docker compose up --build app
    docker exec express-mongodb mongosh --eval "db.adminCommand('ping')"
    ```
 
-3. **Check connection string** in compose.yml matches `.env` settings
+3. **Check connection string** in compose.yaml matches `.env` settings
 
 ### Application won't start
 

@@ -273,7 +273,7 @@ ai-content-quality/
 │   ├── test-api.sh              # API smoke test script
 │   └── verify-scout.sh          # Telemetry verification script
 ├── promptfooconfig.yaml         # Eval pipeline configuration
-├── compose.yml                  # Docker Compose (app + OTel Collector)
+├── compose.yaml                  # Docker Compose (app + OTel Collector)
 ├── otel-collector-config.yaml   # Collector pipeline config
 ├── Dockerfile
 ├── Makefile

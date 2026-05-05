@@ -387,7 +387,7 @@ quarkus-postgres/
 │       └── java/                 # Tests
 ├── scripts/
 │   └── test-api.sh               # API test script
-├── compose.yml                   # Docker Compose
+├── compose.yaml                   # Docker Compose
 ├── Dockerfile                    # Multi-stage build
 ├── Makefile                      # Build automation
 └── pom.xml                       # Maven configuration

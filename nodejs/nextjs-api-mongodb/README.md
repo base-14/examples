@@ -131,5 +131,5 @@ npm run test:api
 │   └── jobs/              # Background workers
 ├── scripts/               # Utility scripts
 ├── instrumentation.ts     # Next.js instrumentation
-└── compose.yml            # Docker Compose
+└── compose.yaml            # Docker Compose
 ```

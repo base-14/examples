@@ -426,7 +426,7 @@ django-postgres/
 │   └── test-api.sh        # API test script
 ├── tests/
 │   └── conftest.py        # Pytest fixtures
-├── compose.yml            # Docker Compose
+├── compose.yaml            # Docker Compose
 ├── Dockerfile             # Multi-stage build
 └── requirements.txt       # Dependencies
 ```

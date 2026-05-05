@@ -449,7 +449,7 @@ go-fiber-postgres/
 │       └── telemetry.go          # OTEL initialization
 ├── scripts/
 │   └── test-api.sh               # API test script
-├── compose.yml                   # Docker Compose (no Redis!)
+├── compose.yaml                   # Docker Compose (no Redis!)
 ├── Dockerfile                    # API Dockerfile
 ├── Dockerfile.worker             # Worker Dockerfile
 └── go.mod                        # Go dependencies

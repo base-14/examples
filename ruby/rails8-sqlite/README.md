@@ -39,7 +39,7 @@ bin/rails credentials:edit
 ### Run the Application
 
 ```bash
-# Configure Scout credentials in docker-compose.yml
+# Configure Scout credentials in compose.yaml
 # Update SCOUT_CLIENT_ID, SCOUT_CLIENT_SECRET, SCOUT_TOKEN_URL, SCOUT_ENDPOINT
 
 # Start application
@@ -53,7 +53,7 @@ The app runs on port `3000`.
 
 ## Configuration
 
-### Environment Variables (docker-compose.yml)
+### Environment Variables (compose.yaml)
 
 | Variable | Required | Description |
 | -------- | -------- | ----------- |
@@ -172,7 +172,7 @@ successfully.
 
 ### Enable debug logging
 
-In `docker-compose.yml`:
+In `compose.yaml`:
 
 ```yaml
 environment:

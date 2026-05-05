@@ -157,12 +157,12 @@ displays human-readable INFO/WARN/ERROR labels.
 
 Application code reads only the right-hand column. AppHost / Compose handle the left-hand column wiring.
 
-| App reads | Aspire injection (AppHost) | Compose injection (compose.yml) |
+| App reads | Aspire injection (AppHost) | Compose injection (compose.yaml) |
 | --- | --- | --- |
 | `ASPNETCORE_HTTP_PORTS` | `WithHttpEndpoint(port: 8080, env: "ASPNETCORE_HTTP_PORTS")` | `8080` for api, `8081` for notify. |
 | `ConnectionStrings__articles` | `WithReference(articlesDb)` from postgres database resource. | Explicit `Host=postgres;Port=5432;...`. |
 | `Notify__BaseUrl` | `WithEnvironment("Notify__BaseUrl", notify.GetEndpoint("http"))` | `http://notify-svc:8081`. |
-| `OTEL_SERVICE_NAME` | Set per project in AppHost. | Set per service in compose.yml. |
+| `OTEL_SERVICE_NAME` | Set per project in AppHost. | Set per service in compose.yaml. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `collector.GetEndpoint("grpc")` -> `http://localhost:4317`. | `http://otel-collector:4317`. |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc`. | `grpc`. |
 | `SCOUT_*` (collector use only) | Read from AppHost configuration / `.env`. | Read from `.env` via `env_file`. |
@@ -218,7 +218,7 @@ docker ps --format '{{.Names}}' | grep -E 'pg-|otel-' | xargs -r docker rm -f
 ```
 
 If port 8080 / 8081 is in use by a system service, edit `WithHttpEndpoint(port: 8080, ...)` in `AppHost/AppHost.cs` and
-the `ports:` section of `compose.yml`.
+the `ports:` section of `compose.yaml`.
 
 ### Postgres slow first pull on Apple Silicon
 
@@ -299,7 +299,7 @@ csharp/aspire-postgres/
 +-- scripts/
 |   +-- test-api.sh          6 endpoints + distributed-trace probe
 |   +-- verify-scout.sh      Scout export verification (requires SCOUT_*)
-+-- compose.yml              Headless mode; same code, no AppHost
++-- compose.yaml             Headless mode; same code, no AppHost
 +-- AspirePostgres.sln
 +-- Makefile                 build, build-lint, up, compose-up, test-api, verify-scout
 +-- .env.example

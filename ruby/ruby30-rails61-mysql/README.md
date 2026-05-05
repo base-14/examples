@@ -109,7 +109,7 @@ end
 
 `use_all()` enables auto-instrumentation for Rack, ActionPack, ActiveRecord,
 ActiveSupport, and MySQL2. The OTLP exporter endpoint is configured via
-environment variables in `compose.yml`.
+environment variables in `compose.yaml`.
 
 ### 3. Custom Spans (app/controllers/items_controller.rb)
 
@@ -212,7 +212,7 @@ docker compose logs app | grep "trace_id"
 
 ## Configuration
 
-### Environment Variables (compose.yml)
+### Environment Variables (compose.yaml)
 
 | Variable | Required | Description |
 | -------- | -------- | ----------- |

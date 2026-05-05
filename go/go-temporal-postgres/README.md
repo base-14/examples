@@ -156,7 +156,7 @@ Each worker supports configurable failure rates and latency for realistic testin
 | shipping-worker | `SHIPPING_FAILURE_RATE`, `SHIPPING_LATENCY_*` | 2%, 20-100ms |
 | notification-worker | `NOTIFICATION_FAILURE_RATE`, `NOTIFICATION_LATENCY_*` | 1%, 5-30ms |
 
-Adjust in `compose.yml` or override with environment variables.
+Adjust in `compose.yaml` or override with environment variables.
 
 ## Testing
 

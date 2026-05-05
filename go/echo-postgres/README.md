@@ -409,7 +409,7 @@ go-echo-postgres/
 │       └── telemetry.go          # OTEL initialization
 ├── scripts/
 │   └── test-api.sh               # API test script
-├── compose.yml                   # Docker Compose
+├── compose.yaml                   # Docker Compose
 ├── Dockerfile                    # API Dockerfile
 ├── Dockerfile.worker             # Worker Dockerfile
 └── go.mod                        # Go dependencies

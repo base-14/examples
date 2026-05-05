@@ -378,7 +378,7 @@ express5-postgres/
 │   └── test-api.sh         # API test script
 ├── tests/
 │   └── setup.ts            # Test configuration
-├── compose.yml             # Docker Compose
+├── compose.yaml             # Docker Compose
 ├── Dockerfile              # Multi-stage build
 ├── drizzle.config.ts       # Drizzle ORM config
 └── package.json            # Dependencies

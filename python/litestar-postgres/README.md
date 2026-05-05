@@ -82,7 +82,7 @@ litestar-postgres/
 │   ├── pyproject.toml
 │   └── Dockerfile
 ├── config/otel-config.yaml    # collector pipeline (debug + Scout)
-├── compose.yml                # 4 services
+├── compose.yaml                # 4 services
 ├── Makefile                   # sync/test/lint/format/audit/check + docker-* targets
 └── scripts/
     ├── test-api.sh            # CRUD smoke against running stack
@@ -205,11 +205,11 @@ A few things that work in compose but you would change for a real deployment:
 
 | Variable                          | Set in           | Purpose                                       |
 | --------------------------------- | ---------------- | --------------------------------------------- |
-| `OTEL_SERVICE_NAME`               | `compose.yml`    | One per service                               |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`     | `compose.yml`    | Points to the collector                       |
-| `OTEL_EXPORTER_OTLP_PROTOCOL`     | `compose.yml`    | `http/protobuf`                                |
-| `OTEL_RESOURCE_ATTRIBUTES`        | `compose.yml`    | `deployment.environment`, `service.version`   |
-| `OTEL_PYTHON_LOG_CORRELATION`     | `compose.yml`    | Inject trace IDs onto LogRecords              |
-| `OTEL_METRIC_EXPORT_INTERVAL`     | `compose.yml`    | 10 s — fast feedback for dev                   |
-| `OTEL_BSP_SCHEDULE_DELAY`         | `compose.yml`    | 2 s span batch flush                          |
+| `OTEL_SERVICE_NAME`               | `compose.yaml`    | One per service                               |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`     | `compose.yaml`    | Points to the collector                       |
+| `OTEL_EXPORTER_OTLP_PROTOCOL`     | `compose.yaml`    | `http/protobuf`                                |
+| `OTEL_RESOURCE_ATTRIBUTES`        | `compose.yaml`    | `deployment.environment`, `service.version`   |
+| `OTEL_PYTHON_LOG_CORRELATION`     | `compose.yaml`    | Inject trace IDs onto LogRecords              |
+| `OTEL_METRIC_EXPORT_INTERVAL`     | `compose.yaml`    | 10 s — fast feedback for dev                   |
+| `OTEL_BSP_SCHEDULE_DELAY`         | `compose.yaml`    | 2 s span batch flush                          |
 | `SCOUT_*`                         | `.env`           | Read by collector for the `otlphttp/b14` exporter |

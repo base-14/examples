@@ -152,7 +152,7 @@ curl -X POST http://localhost:8080/api/articles \
 ```
 csharp/dotnet-sqlserver/
 ├── Makefile                # Build tasks
-├── compose.yml             # Docker stack
+├── compose.yaml             # Docker stack
 ├── Dockerfile              # API multi-stage build
 ├── Dockerfile.worker       # Worker multi-stage build
 ├── config/

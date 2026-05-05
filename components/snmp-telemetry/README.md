@@ -88,7 +88,7 @@ immediately. To forward upstream, edit `config/otel-collector.yaml`:
    ```
 
    and add `environment: [SCOUT_OTLP_TOKEN]` to the `otel-collector`
-   service in `docker-compose.yaml`.
+   service in `compose.yaml`.
 
 ## Adding a new device
 
