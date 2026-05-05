@@ -62,3 +62,6 @@ yarn-error.log
 # Ignore master key for decrypting credentials and more.
 /config/master.key
 
+# Verification artifacts (per-run output from scripts/verify-*.sh)
+**/.verify-report-*
+
