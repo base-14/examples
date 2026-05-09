@@ -72,6 +72,7 @@
     "ioredis": "^5.10.1",
     "flatted": ">=3.4.2",
     "follow-redirects": "^1.16.0",
+    "ip-address": ">=10.1.1",
     "undici": ">=7.24.0",
     "uuid": ">=14.0.0",
     "yauzl": ">=3.2.1"

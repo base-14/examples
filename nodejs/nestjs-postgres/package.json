@@ -75,6 +75,7 @@
     "serialize-javascript": ">=7.0.3",
     "multer": ">=2.1.1",
     "file-type": ">=21.3.2",
+    "fast-uri": ">=3.1.2",
     "@angular-devkit/core": {
       "ajv": ">=8.17.2"
     },
