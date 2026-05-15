@@ -18,5 +18,10 @@
   "devDependencies": {
     "typescript": "^6.0.2",
     "@types/node": "^24.0.0"
+  },
+  "overrides": {
+    "@grpc/proto-loader": {
+      "protobufjs": "^7.5.6"
+    }
   }
 }
