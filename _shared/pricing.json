@@ -1,7 +1,47 @@
 {
-  "version": "auto-2026-04-18",
-  "note": "Reviewed on 18 Apr 2026.",
+  "version": "auto-2026-05-16",
+  "note": "Reviewed 16 May 2026 against official pricing pages. Anthropic (full Opus/Sonnet/Haiku 4.x lineup) and Google Gemini (3.1/3/2.5/2.0) verified current and unchanged. OpenAI current lineup added from developers.openai.com: gpt-5.5, gpt-5.5-pro, gpt-5.4(+mini/nano/pro), gpt-5.3-codex. Legacy OpenAI entries (gpt-4o, gpt-4.1*, gpt-5.2, o1/o3) are no longer on OpenAI's official pricing page; retained for example/test lookups, figures unverified. Deprecation watch: claude-sonnet-4/opus-4 retire 2026-06-15; gemini-2.0-flash shuts down 2026-06-01. Anthropic Haiku 3.5 is retired from the first-party API but still live on Bedrock/Vertex, so it is included for lookup safety.",
   "models": {
+    "gpt-5.5": {
+      "provider": "openai",
+      "input": 5.0,
+      "output": 30.0,
+      "cached_input": 0.5
+    },
+    "gpt-5.5-pro": {
+      "provider": "openai",
+      "input": 30.0,
+      "output": 180.0
+    },
+    "gpt-5.4": {
+      "provider": "openai",
+      "input": 2.5,
+      "output": 15.0,
+      "cached_input": 0.25
+    },
+    "gpt-5.4-mini": {
+      "provider": "openai",
+      "input": 0.75,
+      "output": 4.5,
+      "cached_input": 0.075
+    },
+    "gpt-5.4-nano": {
+      "provider": "openai",
+      "input": 0.2,
+      "output": 1.25,
+      "cached_input": 0.02
+    },
+    "gpt-5.4-pro": {
+      "provider": "openai",
+      "input": 30.0,
+      "output": 180.0
+    },
+    "gpt-5.3-codex": {
+      "provider": "openai",
+      "input": 1.75,
+      "output": 14.0,
+      "cached_input": 0.175
+    },
     "gpt-4o": {
       "provider": "openai",
       "input": 2.5,
@@ -70,6 +110,12 @@
       "output": 5.0,
       "cached_input": 0.1
     },
+    "claude-haiku-3.5": {
+      "provider": "anthropic",
+      "input": 0.8,
+      "output": 4.0,
+      "cached_input": 0.08
+    },
     "claude-opus-4.6": {
       "provider": "anthropic",
       "input": 5.0,
@@ -111,6 +157,12 @@
       "input": 2.0,
       "output": 12.0,
       "cached_input": 0.2
+    },
+    "gemini-3.1-flash-lite": {
+      "provider": "google",
+      "input": 0.25,
+      "output": 1.5,
+      "cached_input": 0.025
     },
     "gemini-3.1-flash-lite-preview": {
       "provider": "google",
@@ -185,7 +237,9 @@
       "output": 10.0
     },
     "gemma-4": {
-      "provider": "google"
+      "provider": "google",
+      "input": 0.0,
+      "output": 0.0
     }
   },
   "ollama_note": "Ollama models run locally and have zero cost. Add local model IDs with input/output: 0.0"
