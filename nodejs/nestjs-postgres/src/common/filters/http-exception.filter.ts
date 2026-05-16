@@ -160,7 +160,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         typeof response === 'object' &&
         response !== null &&
         'message' in response &&
-        Array.isArray((response as { message: unknown }).message)
+        Array.isArray(response.message)
       ) {
         return ErrorCode.VALIDATION_ERROR;
       }
@@ -182,7 +182,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         response !== null &&
         'message' in response
       ) {
-        const messages = (response as { message: unknown }).message;
+        const messages = response.message;
         if (Array.isArray(messages)) {
           return {
             details: { validationErrors: messages.map((m) => String(m)) },

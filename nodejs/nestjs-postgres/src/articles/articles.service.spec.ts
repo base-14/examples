@@ -105,8 +105,8 @@ describe('ArticlesService', () => {
 
     it('should create an article', async () => {
       const newArticle = { ...mockArticle, ...createDto };
-      articlesRepository.create.mockReturnValue(newArticle as Article);
-      articlesRepository.save.mockResolvedValue(newArticle as Article);
+      articlesRepository.create.mockReturnValue(newArticle);
+      articlesRepository.save.mockResolvedValue(newArticle);
 
       const result = await service.create(createDto, mockUser.id);
 
@@ -160,7 +160,7 @@ describe('ArticlesService', () => {
     it('should update an article when owner', async () => {
       const updatedArticle = { ...mockArticle, ...updateDto };
       articlesRepository.findOne.mockResolvedValue(mockArticle);
-      articlesRepository.save.mockResolvedValue(updatedArticle as Article);
+      articlesRepository.save.mockResolvedValue(updatedArticle);
 
       const result = await service.update(
         mockArticle.id,
@@ -215,7 +215,7 @@ describe('ArticlesService', () => {
 
     it('should throw ConflictException if already published', async () => {
       const publishedArticle = { ...mockArticle, published: true };
-      articlesRepository.findOne.mockResolvedValue(publishedArticle as Article);
+      articlesRepository.findOne.mockResolvedValue(publishedArticle);
 
       await expect(
         service.publish(mockArticle.id, mockUser.id),
