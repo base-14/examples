@@ -1,0 +1,39 @@
+services:
+  # --- Next.js App ---
+  nextjs-app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=sample-nextjs-app
+      # Browser telemetry proxied through /api/otel (no CORS needed)
+      # To bypass proxy: NEXT_PUBLIC_OTEL_ENDPOINT=http://localhost:4318
+      - NEXT_PUBLIC_OTEL_SERVICE_NAME=sample-nextjs-app-browser
+      - NEXT_PUBLIC_BASE_URL=http://localhost:3000
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  # --- OpenTelemetry Collector ---
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC (server-side)
+      - "4318:4318"   # OTLP HTTP (browser-side + server-side)
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  # --- Jaeger (Trace Viewer) ---
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
