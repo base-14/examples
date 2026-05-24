@@ -1,0 +1,12 @@
+# Defaults applied on a fresh `idf.py build`. The generated sdkconfig is
+# gitignored; tweak through `idf.py menuconfig` or by editing this file.
+
+# Target: ESP32-S3 (has the internal temperature sensor the v5.x driver reads;
+# the classic WROOM-32 does not expose it through driver/temperature_sensor.h).
+CONFIG_IDF_TARGET="esp32s3"
+
+# Give app_main room for the cJSON build + TLS-capable MQTT stack.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# Enable MQTT 5.0 in esp-mqtt (Last Will, user properties).
+CONFIG_MQTT_PROTOCOL_5=y

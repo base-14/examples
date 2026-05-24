@@ -1,0 +1,21 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "wifi.c"
+        "mqtt_pub.c"
+        "sme_envelope.c"
+        "traceparent.c"
+        "sensors.c"
+    INCLUDE_DIRS "."
+    REQUIRES
+        esp_wifi
+        esp_event
+        esp_netif
+        nvs_flash
+        mqtt
+        json
+        esp_timer
+        esp_hw_support
+        driver
+        esp-tls
+)

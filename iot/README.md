@@ -16,7 +16,7 @@ up, so the recommended path is to work through them in order.
 | 2 | [`edge-collector-store-forward/`](./edge-collector-store-forward) | An edge Collector with disk-buffered store-and-forward, interval downsampling, priority routing, and a battery-aware filter, surviving simulated network disconnects. | Available |
 | 3 | [`opcua-bridge/`](./opcua-bridge) | A bridge service that subscribes to an OPC-UA simulator and emits OTLP metrics with industrial asset attributes, fault logs, and session spans, standing in for the absent contrib receiver. | Available |
 | 4 | [`sparkplug-bridge/`](./sparkplug-bridge) | A decoder that turns Sparkplug B NBIRTH / DBIRTH / DDATA messages into OTLP metrics with device lifecycle state and sequence-gap detection. | Available |
-| 5 | `esp32-firmware/` | Constrained-device firmware emitting a compact payload over MQTT, converted to OTLP by an edge Collector that reuses the Phase 1 and Phase 2 building blocks. | Coming soon |
+| 5 | [`esp32-firmware/`](./esp32-firmware) | Constrained-device firmware (ESP-IDF, C) emitting a compact SME-v1 JSON payload over MQTT, converted to OTLP by a bridge and an edge Collector that reuses the Phase 1 and Phase 2 building blocks. | Available |
 
 ## Sequencing
 

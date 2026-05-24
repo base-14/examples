@@ -1,0 +1,59 @@
+menu "MCU Telemetry Demo"
+
+    config WIFI_SSID
+        string "Wi-Fi SSID"
+        default "Wokwi-GUEST"
+        help
+            Wokwi provides the open "Wokwi-GUEST" AP with internet access,
+            which reaches the public test.mosquitto.org broker.
+
+    config WIFI_PASSWORD
+        string "Wi-Fi password"
+        default ""
+
+    config MQTT_BROKER_URI
+        string "MQTT broker URI"
+        default "mqtt://test.mosquitto.org:1883"
+        help
+            Public broker for the Wokwi path (no paid Wokwi gateway needed).
+            For real hardware on your LAN, point this at your own broker.
+
+    config MQTT_TOPIC_PREFIX
+        string "MQTT topic prefix"
+        default "scout/mcu"
+        help
+            The device publishes to <prefix>/<device_id>/telemetry and sets a
+            Last Will on <prefix>/<device_id>/offline. On the shared public
+            broker, use a unique prefix (e.g. scout-demo-<uuid>/mcu) so runs
+            do not collide, and set the same prefix on the sme-bridge.
+
+    config DEVICE_ID
+        string "Device ID"
+        default "esp32-dev-01"
+
+    config DEVICE_MODEL
+        string "Device model"
+        default "esp32-s3-devkitc"
+
+    config FIRMWARE_VERSION
+        string "Firmware version"
+        default "0.1.0"
+
+    config FIRMWARE_CHANNEL
+        string "Firmware release channel"
+        default "dev"
+
+    config FLEET_ID
+        string "Fleet ID"
+        default "fleet-demo"
+
+    config FLEET_TENANT
+        string "Fleet tenant"
+        default "acme"
+
+    config PUBLISH_INTERVAL_S
+        int "Publish interval (seconds)"
+        default 10
+        range 1 3600
+
+endmenu

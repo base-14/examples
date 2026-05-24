@@ -1,0 +1,13 @@
+# Wokwi simulation config. Build the firmware first (`idf.py build`), then run
+# `wokwi-cli firmware/wokwi` from the example root (or open this folder in the
+# Wokwi VS Code extension). Paths below are relative to this file.
+#
+# Wokwi's built-in gateway gives the simulated board outbound internet, so it
+# reaches the public test.mosquitto.org broker with no extra setup. Reaching a
+# broker on YOUR host (e.g. the Mosquitto in compose.yaml) instead requires the
+# Wokwi Private Gateway (paid) - see the README.
+
+[wokwi]
+version = 1
+firmware = "../build/esp32-mcu-telemetry.bin"
+elf = "../build/esp32-mcu-telemetry.elf"

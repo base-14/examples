@@ -1,0 +1,83 @@
+# Constrained-device path: ESP32 firmware -> MQTT -> sme-bridge -> Collector -> Scout.
+#
+#   ESP32 (Wokwi or hardware) ──SME-v1 JSON over MQTT──> mosquitto
+#                                                            │
+#   sme-bridge ──subscribe, parse, build per-device Resource──OTLP──> collector ─> Scout
+#
+# The firmware runs OUTSIDE compose: in the Wokwi simulator (CLI on the host)
+# or on real hardware. This file wraps the non-firmware services. The Wokwi
+# public-broker path talks to test.mosquitto.org, not this broker; the local
+# `mosquitto` here serves the `scripts/publish-sample.sh` device stand-in.
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mcu-mosquitto
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports:
+      - "1883:1883"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -t healthcheck/ping -m 1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mcu-net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.152.1
+    container_name: mcu-otel-collector
+    # Demo simplification: run as root so the named volume below is writable
+    # regardless of host/container UID mismatch (the contrib image is non-root).
+    user: "0:0"
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - mcu-queue:/var/lib/otelcol/storage
+    ports:
+      - "13133:13133" # health_check
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_OTLP_ENDPOINT=${SCOUT_OTLP_ENDPOINT:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-iot-demo}
+    # Distroless image: no shell for a container healthcheck (R8). Dependents
+    # use service_started; liveness is the external :13133 contract.
+    networks:
+      - mcu-net
+
+  sme-bridge:
+    build:
+      context: ./sme-bridge
+      dockerfile: Dockerfile
+    container_name: mcu-sme-bridge
+    environment:
+      - OTEL_SERVICE_NAME=sme-bridge
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      # Export metrics every 5s so device readings show up promptly.
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - MQTT_HOST=mosquitto
+      - TOPIC_PREFIX=${TOPIC_PREFIX:-scout/mcu}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - mcu-net
+
+networks:
+  mcu-net:
+    name: mcu-net
+    driver: bridge
+
+volumes:
+  mcu-queue:
