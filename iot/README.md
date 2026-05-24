@@ -13,7 +13,7 @@ up, so the recommended path is to work through them in order.
 | Phase | Example | What it demonstrates | Status |
 | --- | --- | --- | --- |
 | 1 | [`mqtt-trace-propagation/`](./mqtt-trace-propagation) | Trace context carried across an MQTT 5 broker (Mosquitto) via user properties: a publisher and subscriber service emit OTLP, and Scout stitches them into one end-to-end trace. | Available |
-| 2 | `edge-collector-store-forward/` | An edge Collector with disk-buffered store-and-forward and OTTL downsampling, surviving simulated network disconnects. | Coming soon |
+| 2 | [`edge-collector-store-forward/`](./edge-collector-store-forward) | An edge Collector with disk-buffered store-and-forward, interval downsampling, priority routing, and a battery-aware filter, surviving simulated network disconnects. | Available |
 | 3 | `opcua-bridge/` | A bridge service that subscribes to an OPC-UA simulator and emits OTLP metrics with industrial resource attributes, standing in for the absent contrib receiver. | Coming soon |
 | 4 | `sparkplug-bridge/` | A decoder that turns Sparkplug B NBIRTH / DBIRTH / DDATA messages into OTLP metrics with device lifecycle state. | Coming soon |
 | 5 | `esp32-firmware/` | Constrained-device firmware emitting a compact payload over MQTT, converted to OTLP by an edge Collector that reuses the Phase 1 and Phase 2 building blocks. | Coming soon |

@@ -1,0 +1,110 @@
+# Edge Collector: runs next to the devices. Buffers to disk so a backhaul
+# outage loses nothing, downsamples high-frequency gauges to save bandwidth,
+# and drops non-critical telemetry when a device's battery is low.
+
+extensions:
+  # Disk-backed queue. The sending_queue below persists here, so anything not
+  # yet acked by the upstream survives a collector restart or a network outage.
+  file_storage:
+    directory: /var/lib/otelcol/storage
+    timeout: 10s
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  # Battery-aware drop: skip non-critical uplinks once a device reports a low
+  # battery, to extend its life. Critical fleets are always exempt. This is a
+  # policy choice - tune the threshold per device class in a real deployment.
+  filter/low-battery:
+    error_mode: ignore
+    metrics:
+      datapoint:
+        - >-
+          resource.attributes["device.battery.level"] != nil and
+          resource.attributes["device.battery.level"] < 20 and
+          resource.attributes["fleet.priority"] != "critical"
+
+  # Time-bucket downsampling: collapse a 30s window of gauge readings to one
+  # datapoint (last value in the window). Cuts bandwidth on chatty sensors.
+  interval:
+    interval: 30s
+
+  batch:
+    send_batch_size: 512
+    timeout: 5s
+
+connectors:
+  # Route high-priority fleets straight through at full resolution; everything
+  # else takes the downsampling path. fleet.priority is a resource attribute,
+  # so routing on the resource context keeps each device's stream intact.
+  routing:
+    default_pipelines: [metrics/downsample]
+    error_mode: ignore
+    table:
+      - context: resource
+        condition: 'attributes["fleet.priority"] == "high"'
+        pipelines: [metrics/full-rate]
+
+exporters:
+  otlp_http/upstream:
+    endpoint: ${env:UPSTREAM_ENDPOINT}
+    # Persistent retry queue. With storage set, queued batches live on disk and
+    # are replayed after a restart or once the backhaul comes back. When the
+    # queue is full, new batches are dropped (not the old ones) - size it for
+    # your worst-case outage. 1000 batches is ample for this demo.
+    sending_queue:
+      enabled: true
+      storage: file_storage
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+
+  debug:
+    verbosity: basic
+
+service:
+  extensions: [file_storage]
+  telemetry:
+    metrics:
+      # Expose the collector's own metrics so the outage script can read
+      # otelcol_exporter_queue_size and watch the disk queue grow and drain.
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    metrics/ingest:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/low-battery]
+      exporters: [routing]
+    metrics/full-rate:
+      receivers: [routing]
+      processors: [batch]
+      exporters: [otlp_http/upstream, debug]
+    metrics/downsample:
+      receivers: [routing]
+      processors: [interval, batch]
+      exporters: [otlp_http/upstream, debug]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/upstream, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/upstream, debug]

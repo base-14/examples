@@ -1,0 +1,142 @@
+# Edge store-and-forward topology.
+#
+#   devices ─edge-net─> edge-collector ─backhaul-net─> upstream-collector ─> Scout
+#
+# Two networks let us cut the backhaul (disconnect upstream from backhaul-net)
+# while devices keep publishing to the edge. The edge buffers to a disk-backed
+# queue and replays once the link is back.
+#
+# The device services (mosquitto/producer/consumer/echo) are built from the
+# Phase 1 example next door and repointed at the edge collector. We inline them
+# rather than `include:` the Phase 1 compose, because that file ships its own
+# Scout-exporting collector, which the edge -> upstream path replaces here.
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: edge-mqtt-broker
+    volumes:
+      - ../mqtt-trace-propagation/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -p 1883 -t '$$SYS/broker/version' -C 1 -W 3 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - edge-net
+
+  edge-collector:
+    image: otel/opentelemetry-collector-contrib:0.152.1
+    container_name: edge-collector
+    # Demo simplification: run as root so the named volume below is writable
+    # regardless of host/container UID mismatch (the contrib image is non-root).
+    user: "0:0"
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./edge-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - edge-queue:/var/lib/otelcol/storage
+    environment:
+      - UPSTREAM_ENDPOINT=http://upstream-collector:4318
+    ports:
+      - "8888:8888"   # collector self-metrics (queue depth)
+      - "13133:13133" # health_check
+    # Distroless image: no shell for a container healthcheck (R8). Dependents
+    # use service_started; liveness is the external :13133 contract.
+    depends_on:
+      upstream-collector:
+        condition: service_started
+    networks:
+      - edge-net
+      - backhaul-net
+
+  upstream-collector:
+    image: otel/opentelemetry-collector-contrib:0.152.1
+    container_name: upstream-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./upstream-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_OTLP_ENDPOINT=${SCOUT_OTLP_ENDPOINT:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-iot-demo}
+    networks:
+      - backhaul-net
+
+  echo:
+    build:
+      context: ../mqtt-trace-propagation/echo
+      dockerfile: Dockerfile
+    container_name: edge-echo
+    environment:
+      - OTEL_SERVICE_NAME=mqtt-trace-echo
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://edge-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+    depends_on:
+      edge-collector:
+        condition: service_started
+    networks:
+      - edge-net
+
+  producer:
+    build:
+      context: ../mqtt-trace-propagation/producer
+      dockerfile: Dockerfile
+    container_name: edge-producer
+    environment:
+      - OTEL_SERVICE_NAME=mqtt-trace-producer
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://edge-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      # Export the temperature gauge every 2s so the edge has a high-frequency
+      # stream to downsample (the SDK default is 60s).
+      - OTEL_METRIC_EXPORT_INTERVAL=2000
+      - MQTT_BROKER_HOST=mosquitto
+      - DEVICE_ID=${DEVICE_ID:-sensor-001}
+      - FLEET_ID=${FLEET_ID:-fleet-demo}
+      - FLEET_PRIORITY=${FLEET_PRIORITY:-normal}
+      - DEVICE_BATTERY_LEVEL=${DEVICE_BATTERY_LEVEL:-100}
+      - PUBLISH_INTERVAL_S=${PUBLISH_INTERVAL_S:-2}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      edge-collector:
+        condition: service_started
+    networks:
+      - edge-net
+
+  consumer:
+    build:
+      context: ../mqtt-trace-propagation/consumer
+      dockerfile: Dockerfile
+    container_name: edge-consumer
+    environment:
+      - OTEL_SERVICE_NAME=mqtt-trace-consumer
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://edge-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - MQTT_BROKER_HOST=mosquitto
+      - ECHO_URL=http://echo:8000/echo
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      echo:
+        condition: service_healthy
+      edge-collector:
+        condition: service_started
+    networks:
+      - edge-net
+
+networks:
+  # Explicit names (not the compose project prefix) so the simulation scripts
+  # can `docker network disconnect backhaul-net ...` as documented.
+  edge-net:
+    name: edge-net
+    driver: bridge
+  backhaul-net:
+    name: backhaul-net
+    driver: bridge
+
+volumes:
+  edge-queue:

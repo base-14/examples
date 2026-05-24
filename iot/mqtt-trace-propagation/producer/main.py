@@ -39,6 +39,9 @@ tracer, meter = setup_telemetry()
 readings_published = meter.create_counter(
     "iot.readings.published", unit="{reading}", description="Sensor readings published"
 )
+temperature = meter.create_gauge(
+    "iot.sensor.temperature", unit="Cel", description="Latest sensor temperature reading"
+)
 
 # Spans opened at publish, closed on PUBACK. Keyed by MQTT message id.
 _pending: dict[int, trace.Span] = {}
@@ -68,10 +71,11 @@ def _publish_reading(client: mqtt.Client) -> None:
     props = Properties(PacketTypes.PUBLISH)
     props.UserProperty = context_to_user_properties(ctx)
 
+    reading = round(random.uniform(18.0, 26.0), 2)
     payload = json.dumps(
         {
             "device_id": DEVICE_ID,
-            "reading": round(random.uniform(18.0, 26.0), 2),
+            "reading": reading,
             "message_id": message_id,
             "ts": time.time(),
         }
@@ -79,6 +83,7 @@ def _publish_reading(client: mqtt.Client) -> None:
     info = client.publish(TOPIC, payload, qos=1, properties=props)
     _pending[info.mid] = span
     readings_published.add(1, {"device.id": DEVICE_ID})
+    temperature.set(reading, {"device.id": DEVICE_ID})
     trace_id = trace.format_trace_id(span.get_span_context().trace_id)
     log.info("published reading mid=%s trace_id=%s", info.mid, trace_id)
 
