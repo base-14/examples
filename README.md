@@ -111,6 +111,17 @@ Production-ready examples for integrating OpenTelemetry with
 | -------- | ------- |
 | **Mobile Demo** | [astronomy_shop_mobile](./astronomy_shop_mobile) |
 
+### IoT & Edge
+
+Local-first examples for device and edge instrumentation (MQTT, OPC-UA,
+Sparkplug B, ESP32). See [iot/](./iot) for the phase-by-phase
+progression.
+
+| Phase | Example | Status |
+| ----- | ------- | ------ |
+| **Track overview** | [iot](./iot) | Scaffolding |
+| **1 — MQTT trace propagation** | [iot/mqtt-trace-propagation](./iot/mqtt-trace-propagation) | Available |
+
 ## Quick Start
 
 ### 1. Choose Your Framework
