@@ -72,7 +72,7 @@ Production-ready examples for integrating OpenTelemetry with
 | Framework | Stack | Example | Features |
 | --------- | ----- | ------- | -------- |
 | **Laravel 8 (Legacy)** | Laravel 8 + PHP 8 + SQLite | [php8-laravel8-sqlite](./php/php8-laravel8-sqlite) | JWT auth, auto-instrumentation |
-| **Laravel 12** | Laravel 12 + PHP 8.5 + PostgreSQL 18 | [php85-laravel12-postgres](./php/php85-laravel12-postgres) | JWT auth, auto-instrumentation |
+| **Laravel 13** | Laravel 13 + PHP 8.5 + PostgreSQL 18 | [php85-laravel13-postgres](./php/php85-laravel13-postgres) | JWT auth, auto-instrumentation |
 | **Slim 4** | Slim 4 + PHP 8.4 + MongoDB 8 | [php84-slim4-mongodb](./php/php84-slim4-mongodb) | Auto-slim HTTP spans, MongoDB, log correlation |
 | **Slim 3 (Legacy)** | Slim 3 + PHP 8.4 + MongoDB 8 | [php84-slim3-mongodb](./php/php84-slim3-mongodb) | Manual TelemetryMiddleware, MongoDB, log correlation |
 | **Symfony 8** | Symfony 8 + PHP 8.5 + MySQL 8.4 | [symfony-mysql](./php/symfony-mysql) | Doctrine ORM, distributed tracing, notification microservice |

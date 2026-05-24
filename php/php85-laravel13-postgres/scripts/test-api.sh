@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Laravel 12 + PostgreSQL + OpenTelemetry API Testing Script
+# Laravel 13 + PostgreSQL + OpenTelemetry API Testing Script
 # Tests all API endpoints and validates response status codes
 
 set -e
@@ -9,7 +9,7 @@ API_URL=${API_URL:-http://localhost:8000}
 PASSED=0
 FAILED=0
 
-echo "=== Laravel 12 API Testing Script ==="
+echo "=== Laravel 13 API Testing Script ==="
 echo "Target: $API_URL"
 echo ""
 
@@ -148,7 +148,7 @@ ARTICLE1_RESPONSE=$(curl -s -X POST "$API_URL/api/articles" \
     -H "Authorization: Bearer $ALICE_TOKEN" \
     -H "Content-Type: application/json" \
     -H "Accept: application/json" \
-    -d '{"title":"Getting Started with Laravel 12","description":"A guide to Laravel 12","body":"Laravel 12 introduces many features.","tagList":["laravel","php","tutorial"]}')
+    -d '{"title":"Getting Started with Laravel 13","description":"A guide to Laravel 13","body":"Laravel 13 introduces many features.","tagList":["laravel","php","tutorial"]}')
 
 ARTICLE1_ID=$(echo "$ARTICLE1_RESPONSE" | jq -r '.article.id // empty')
 if [ -n "$ARTICLE1_ID" ] && [ "$ARTICLE1_ID" != "null" ]; then
@@ -190,7 +190,7 @@ if [ -n "$ARTICLE1_ID" ]; then
         -H "Authorization: Bearer $ALICE_TOKEN" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json" \
-        -d '{"title":"Updated Laravel 12 Guide"}')
+        -d '{"title":"Updated Laravel 13 Guide"}')
     if [ "$UPDATE_STATUS" -eq 200 ]; then
         echo "[PASS] Update article (HTTP 200)"
         ((PASSED++))

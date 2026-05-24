@@ -1,6 +1,6 @@
-# Laravel 12 + PHP 8.5 + PostgreSQL + OpenTelemetry
+# Laravel 13 + PHP 8.5 + PostgreSQL + OpenTelemetry
 
-Modern Laravel 12 application with automatic OpenTelemetry instrumentation for
+Modern Laravel 13 application with automatic OpenTelemetry instrumentation for
 distributed tracing, metrics, and logs. Demonstrates JWT authentication,
 PostgreSQL integration, and Base14 Scout observability platform integration.
 
@@ -11,7 +11,7 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 | Component | Version | EOL Status | Notes |
 | --------- | ------- | ---------- | ----- |
 | **PHP** | 8.5 | Active | Current stable |
-| **Laravel** | 12.x | Active | Latest LTS |
+| **Laravel** | 13.x | Active | Latest stable |
 | **PostgreSQL** | 18 | Active | Latest stable |
 | **OpenTelemetry SDK** | 1.6+ | N/A | Current |
 
@@ -60,7 +60,7 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 
 | Component | Version | Purpose |
 | --------- | ------- | ------- |
-| Laravel | 12.x | Web framework |
+| Laravel | 13.x | Web framework |
 | PHP | 8.5 | Runtime |
 | PostgreSQL | 18 | Database |
 | tymon/jwt-auth | 2.0 | JWT authentication |
@@ -80,7 +80,7 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 
 ```bash
 git clone https://github.com/base-14/examples.git
-cd examples/php/php85-laravel12-postgres
+cd examples/php/php85-laravel13-postgres
 ```
 
 ### 1. Set Base14 Scout Credentials
@@ -125,7 +125,7 @@ Seed credentials: `alice@example.com`, `bob@example.com`, `charlie@example.com`
 ## Viewing Traces in Scout
 
 1. **Login**: Navigate to `https://your-tenant.base14.io`
-2. **Find Service**: Traces → Select `php-laravel12-postgres-otel`
+2. **Find Service**: Traces → Select `php-laravel13-postgres-otel`
 3. **Explore**: Click any trace to see distributed view
 
 Scout provides:
@@ -150,7 +150,7 @@ Scout provides:
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
-| `OTEL_SERVICE_NAME` | `php-laravel12-postgres-otel` | Service identifier |
+| `OTEL_SERVICE_NAME` | `php-laravel13-postgres-otel` | Service identifier |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` | Collector endpoint |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | Export protocol |
 | `OTEL_PHP_AUTOLOAD_ENABLED` | `true` | Enable auto-instrumentation |
@@ -162,7 +162,7 @@ Scout provides:
 Automatically included in all telemetry:
 
 ```properties
-service.name=php-laravel12-postgres-otel
+service.name=php-laravel13-postgres-otel
 telemetry.sdk.name=opentelemetry
 telemetry.sdk.language=php
 deployment.environment=development

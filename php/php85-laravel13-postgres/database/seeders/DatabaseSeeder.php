@@ -56,10 +56,10 @@ class DatabaseSeeder extends Seeder
         // Create articles
         $article1 = Article::create([
             'author_id' => $alice->id,
-            'slug' => 'getting-started-laravel-12-'.Str::random(6),
-            'title' => 'Getting Started with Laravel 12',
-            'description' => 'A comprehensive guide to Laravel 12 new features',
-            'body' => 'Laravel 12 introduces several exciting features including improved performance, better developer experience, and enhanced security. This article explores the key changes and how to leverage them in your applications.',
+            'slug' => 'getting-started-laravel-13-'.Str::random(6),
+            'title' => 'Getting Started with Laravel 13',
+            'description' => 'A comprehensive guide to Laravel 13 new features',
+            'body' => 'Laravel 13 introduces several exciting features including improved performance, better developer experience, and enhanced security. This article explores the key changes and how to leverage them in your applications.',
         ]);
         $article1->tags()->attach([$tags[0]->id, $tags[1]->id]);
 
@@ -103,7 +103,7 @@ class DatabaseSeeder extends Seeder
         Comment::create([
             'article_id' => $article1->id,
             'author_id' => $bob->id,
-            'body' => 'Great introduction to Laravel 12! The section on improved performance is particularly interesting.',
+            'body' => 'Great introduction to Laravel 13! The section on improved performance is particularly interesting.',
         ]);
 
         Comment::create([

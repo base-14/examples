@@ -48,7 +48,7 @@ REPRESENTATIVE=(
   "kotlin/ktor-postgres"
   "rust/axum-postgres"
   "ruby/rails8-sqlite"
-  "php/php85-laravel12-postgres"
+  "php/php85-laravel13-postgres"
   "csharp/dotnet-sqlserver"
   "elixir/phoenix18-ecto3-postgres"
 )
@@ -76,7 +76,7 @@ ALL_PROJECTS=(
   "rust/axum-postgres"
   "ruby/rails8-sqlite"
   "ruby/ruby30-rails61-mysql"
-  "php/php85-laravel12-postgres"
+  "php/php85-laravel13-postgres"
   "php/php84-slim4-mongodb"
   "php/php84-slim3-mongodb"
   "php/symfony-mysql"

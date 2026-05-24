@@ -1,7 +1,7 @@
 # Laravel with OpenTelemetry (Legacy)
 
 > **Legacy Example** — This example uses Laravel 8.x which reached EOL in July 2023.
-> For new projects, use [php85-laravel12-postgres](../php85-laravel12-postgres) instead.
+> For new projects, use [php85-laravel13-postgres](../php85-laravel13-postgres) instead.
 
 Laravel 8.x application with OpenTelemetry auto-instrumentation for traces,
 metrics, and logs.

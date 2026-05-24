@@ -11,9 +11,9 @@ updates:
     ignore:
       - dependency-name: "*"
 
-  # PHP - Laravel 12 (Current - Enabled)
+  # PHP - Laravel 13 (Current - Enabled)
   - package-ecosystem: "composer"
-    directory: "/php/php85-laravel12-postgres"
+    directory: "/php/php85-laravel13-postgres"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

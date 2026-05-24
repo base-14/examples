@@ -77,7 +77,7 @@ if [ "$EXPORT_SUCCESS" -gt 0 ] || [ "$SPANS_SENT" -gt 0 ]; then
     echo "View your traces at:"
     echo "  1. Login to your Scout dashboard"
     echo "  2. Navigate to Traces"
-    echo "  3. Filter by service: php-laravel12-postgres-otel"
+    echo "  3. Filter by service: php-laravel13-postgres-otel"
 else
     echo "WARN - No export activity detected"
     echo ""
