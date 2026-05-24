@@ -45,7 +45,7 @@ Add custom spans using `@WithSpan` annotations for deeper application visibility
 1. Add dependency to `build.gradle`:
 
    ```gradle
-   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.10.0'
+   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.28.1'
    ```
 
 1. Enable annotations (already configured in `compose.yaml`):
@@ -195,7 +195,7 @@ Requires MongoDB and OTel Collector running locally on standard ports.
 Download the Java Agent first:
 
 ```bash
-wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.22.0/opentelemetry-javaagent.jar
+wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.28.1/opentelemetry-javaagent.jar
 ```
 
 Then run with the agent:

@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Download OpenTelemetry Java Agent
 RUN apt-get update && apt-get install -y wget && \
-  wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.22.0/opentelemetry-javaagent.jar \
+  wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.28.1/opentelemetry-javaagent.jar \
   -O /app/opentelemetry-javaagent.jar && \
   apt-get remove -y wget && \
   apt-get autoremove -y && \
