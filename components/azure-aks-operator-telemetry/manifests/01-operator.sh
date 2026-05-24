@@ -18,7 +18,7 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
   --namespace "$OPERATOR_NAMESPACE" \
   --create-namespace \
   --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib" \
-  --set "manager.collectorImage.tag=0.151.0" \
+  --set "manager.collectorImage.tag=0.152.1" \
   --wait --timeout 5m
 
 echo "==> Waiting for operator Deployment Available"
