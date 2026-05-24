@@ -12,9 +12,9 @@ A production-ready Rust web application demonstrating full OpenTelemetry instrum
 | **Axum** | 0.8.8 | Active | Tower-based async web framework |
 | **SQLx** | 0.8.6 | Active | Async PostgreSQL with compile-time queries |
 | **PostgreSQL** | 18 | Active (Nov 2029) | Latest stable |
-| **OpenTelemetry** | 0.31.0 | Active | Traces, metrics, logs via OTLP |
+| **OpenTelemetry** | 0.32.0 | Active | Traces, metrics, logs via OTLP |
 | **tracing** | 0.1.44 | Active | Instrumentation framework |
-| **tracing-opentelemetry** | 0.32.0 | Active | OTel bridge |
+| **tracing-opentelemetry** | 0.33.0 | Active | OTel bridge |
 | **jsonwebtoken** | 10.3.0 | Active | JWT authentication |
 | **argon2** | 0.5.3 | Active | Password hashing |
 
@@ -22,7 +22,7 @@ A production-ready Rust web application demonstrating full OpenTelemetry instrum
 **Verified**: 2026-02-15
 
 **Why This Stack**: Latest stable Rust with Axum 0.8 (Tower ecosystem) and SQLx for type-safe async
-PostgreSQL queries. OpenTelemetry 0.31 provides unified traces, metrics, and logs export via OTLP.
+PostgreSQL queries. OpenTelemetry 0.32 provides unified traces, metrics, and logs export via OTLP.
 
 ## What's Instrumented
 
@@ -290,13 +290,13 @@ docker build -f Dockerfile.worker -t rust-axum-worker .
 From `Cargo.toml`:
 
 ```toml
-opentelemetry = "0.31.0"
-opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio", "logs"] }
-opentelemetry-otlp = { version = "0.31.0", features = ["grpc-tonic", "trace", "logs"] }
-opentelemetry-appender-tracing = "0.31.0"
+opentelemetry = "0.32.0"
+opentelemetry_sdk = { version = "0.32.0", features = ["rt-tokio", "logs"] }
+opentelemetry-otlp = { version = "0.32.0", features = ["grpc-tonic", "trace", "logs"] }
+opentelemetry-appender-tracing = "0.32.0"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-tracing-opentelemetry = "0.32.0"
+tracing-opentelemetry = "0.33.0"
 ```
 
 ### Implementation
