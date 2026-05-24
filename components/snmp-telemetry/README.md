@@ -18,7 +18,7 @@ single command — no real hardware required.
            │
            │   SNMPv2c on UDP 1161
            ▼
-  otel-collector (contrib 0.149.0)
+  otel-collector (contrib 0.152.1)
     ├─ snmp/linux   → pipeline metrics/linux
     ├─ snmp/router  → pipeline metrics/router
     └─ snmp/ups     → pipeline metrics/ups
