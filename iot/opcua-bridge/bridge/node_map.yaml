@@ -1,0 +1,76 @@
+# OPC-UA node -> OTel mapping. Each entry subscribes to one node.
+#   kind: gauge   -> observable gauge (current value)
+#   kind: counter -> observable counter (monotonic cumulative value)
+#   kind: status  -> not a metric; the bridge logs an event when the value
+#                    changes, flagged when it becomes "fault"
+# Attributes use the locked asset.* schema (hierarchy via asset.parent_id),
+# see docs/instrument/iot/index.md.
+
+nodes:
+  - node_id: "ns=2;s=Pump1/Flow"
+    metric:
+      name: factory.pump.flow_rate
+      unit: "L/min"
+      kind: gauge
+      description: Pump discharge flow rate
+    attributes:
+      asset.id: pump-1
+      asset.type: pump
+      asset.name: Transfer Pump 1
+      asset.parent_id: line-1
+
+  - node_id: "ns=2;s=Pump1/VibrationRMS"
+    metric:
+      name: factory.pump.vibration_rms
+      unit: "mm/s"
+      kind: gauge
+      description: Pump vibration RMS
+    attributes:
+      asset.id: pump-1
+      asset.type: pump
+      asset.name: Transfer Pump 1
+      asset.parent_id: line-1
+
+  - node_id: "ns=2;s=Pump1/Status"
+    metric:
+      kind: status
+    attributes:
+      asset.id: pump-1
+      asset.type: pump
+      asset.name: Transfer Pump 1
+      asset.parent_id: line-1
+
+  - node_id: "ns=2;s=Conveyor1/SpeedRPM"
+    metric:
+      name: factory.conveyor.speed_rpm
+      unit: "rpm"
+      kind: gauge
+      description: Conveyor belt speed
+    attributes:
+      asset.id: conveyor-1
+      asset.type: conveyor
+      asset.name: Infeed Conveyor 1
+      asset.parent_id: line-1
+
+  - node_id: "ns=2;s=Oven1/TempC"
+    metric:
+      name: factory.oven.temp_c
+      unit: "Cel"
+      kind: gauge
+      description: Oven zone temperature
+    attributes:
+      asset.id: oven-1
+      asset.type: oven
+      asset.name: Cure Oven 1
+      asset.parent_id: line-1
+
+  - node_id: "ns=2;s=Line1/ThroughputCounter"
+    metric:
+      name: factory.line.throughput
+      unit: "{item}"
+      kind: counter
+      description: Items produced on the line
+    attributes:
+      asset.id: line-1
+      asset.type: line
+      asset.name: Assembly Line 1

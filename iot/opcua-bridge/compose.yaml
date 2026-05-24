@@ -1,0 +1,68 @@
+# OPC-UA -> OTel bridge.
+#
+#   opcua-server (asyncua) ──OPC-UA binary──> bridge ──OTLP──> collector ─> Scout
+#
+# The server simulates factory equipment; the bridge subscribes, maps node
+# values to OTLP metrics + fault logs, and forwards to Scout via the collector.
+
+services:
+  opcua-server:
+    build:
+      context: ./opcua-server
+      dockerfile: Dockerfile
+    container_name: opcua-server
+    environment:
+      - FAULT_INTERVAL_S=${FAULT_INTERVAL_S:-600}
+      - FAULT_DURATION_S=${FAULT_DURATION_S:-30}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 4840), 2)"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - opcua-net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.152.1
+    container_name: opcua-otel-collector
+    volumes:
+      - ./collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "13133:13133" # health_check
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_OTLP_ENDPOINT=${SCOUT_OTLP_ENDPOINT:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-iot-demo}
+    # Distroless image: no shell for a container healthcheck (R8). Dependents
+    # use service_started; liveness is the external :13133 contract.
+    networks:
+      - opcua-net
+
+  bridge:
+    build:
+      context: ./bridge
+      dockerfile: Dockerfile
+    container_name: opcua-bridge
+    environment:
+      - OTEL_SERVICE_NAME=opcua-bridge
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      # Export metrics every 5s so the factory readings show up promptly.
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - OPCUA_ENDPOINT=opc.tcp://opcua-server:4840/factory/
+      - SITE_ID=${SITE_ID:-site-hq}
+      - SITE_NAME=${SITE_NAME:-HQ Plant}
+      - FLEET_ID=${FLEET_ID:-factory-floor}
+    depends_on:
+      opcua-server:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - opcua-net
+
+networks:
+  opcua-net:
+    driver: bridge

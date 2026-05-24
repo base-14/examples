@@ -1,0 +1,15 @@
+[project]
+name = "opcua-otel-bridge"
+version = "0.1.0"
+description = "Bridges OPC-UA node values to OTLP metrics and logs with industrial asset attributes"
+requires-python = ">=3.13"
+dependencies = [
+    "asyncua==1.1.8",
+    "pyyaml==6.0.3",
+    "opentelemetry-api==1.42.1",
+    "opentelemetry-sdk==1.42.1",
+    "opentelemetry-exporter-otlp-proto-http==1.42.1",
+]
+
+[tool.uv]
+package = false
