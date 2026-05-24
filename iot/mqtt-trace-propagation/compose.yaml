@@ -1,0 +1,99 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: iot-mqtt-broker
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports:
+      - "1883:1883"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -p 1883 -t '$$SYS/broker/version' -C 1 -W 3 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - iot-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.152.1
+    container_name: iot-otel-collector
+    volumes:
+      - ./collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # health_check
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_OTLP_ENDPOINT=${SCOUT_OTLP_ENDPOINT:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-iot-demo}
+    # Distroless image: no shell/wget for a container healthcheck (R8). Liveness
+    # is the external :13133 health_check extension; dependents use service_started.
+    networks:
+      - iot-network
+
+  echo:
+    build:
+      context: ./echo
+      dockerfile: Dockerfile
+    container_name: iot-echo
+    environment:
+      - OTEL_SERVICE_NAME=mqtt-trace-echo
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+    depends_on:
+      otel-collector:
+        condition: service_started
+    networks:
+      - iot-network
+
+  producer:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    container_name: iot-producer
+    environment:
+      - OTEL_SERVICE_NAME=mqtt-trace-producer
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - MQTT_BROKER_HOST=mosquitto
+      - DEVICE_ID=${DEVICE_ID:-sensor-001}
+      - FLEET_ID=${FLEET_ID:-fleet-demo}
+      - FLEET_PRIORITY=${FLEET_PRIORITY:-normal}
+      - PUBLISH_INTERVAL_S=${PUBLISH_INTERVAL_S:-2}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - iot-network
+
+  consumer:
+    build:
+      context: ./consumer
+      dockerfile: Dockerfile
+    container_name: iot-consumer
+    environment:
+      - OTEL_SERVICE_NAME=mqtt-trace-consumer
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - MQTT_BROKER_HOST=mosquitto
+      - ECHO_URL=http://echo:8000/echo
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      echo:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - iot-network
+
+networks:
+  iot-network:
+    driver: bridge

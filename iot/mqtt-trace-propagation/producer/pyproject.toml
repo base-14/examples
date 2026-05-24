@@ -1,0 +1,23 @@
+[project]
+name = "mqtt-trace-producer"
+version = "0.1.0"
+description = "Simulated sensor that publishes readings to MQTT with W3C trace context in user properties"
+requires-python = ">=3.13"
+dependencies = [
+    "paho-mqtt==2.1.0",
+    "opentelemetry-api==1.42.1",
+    "opentelemetry-sdk==1.42.1",
+    "opentelemetry-exporter-otlp-proto-http==1.42.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
