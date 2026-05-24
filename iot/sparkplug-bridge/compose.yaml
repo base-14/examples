@@ -1,0 +1,90 @@
+# Sparkplug B -> OTel bridge.
+#
+#   simulator (Tahu-style) ──spBv1.0/# over MQTT──> mosquitto
+#                                                      │
+#   decoder ──subscribe──> decode protobuf, resolve aliases ──OTLP──> collector ─> Scout
+#
+# The simulator publishes NBIRTH/DBIRTH/DDATA for one edge node + two devices;
+# the decoder tracks lifecycle, resolves aliases, and forwards OTLP metrics +
+# lifecycle logs to Scout via the collector.
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: spb-mosquitto
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -t healthcheck/ping -m 1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spb-net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.152.1
+    container_name: spb-otel-collector
+    volumes:
+      - ./collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "13133:13133" # health_check
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_OTLP_ENDPOINT=${SCOUT_OTLP_ENDPOINT:?source ~/.config/base14/scout-otel-config.env or create .env}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-iot-demo}
+    # Distroless image: no shell for a container healthcheck (R8). Dependents
+    # use service_started; liveness is the external :13133 contract.
+    networks:
+      - spb-net
+
+  simulator:
+    build:
+      context: .
+      dockerfile: simulator/Dockerfile
+    container_name: spb-simulator
+    environment:
+      - MQTT_HOST=mosquitto
+      - DEVICE_CYCLE_S=${DEVICE_CYCLE_S:-300}
+      - DROP_EVERY_N=${DROP_EVERY_N:-0}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      decoder:
+        condition: service_healthy
+    networks:
+      - spb-net
+
+  decoder:
+    build:
+      context: .
+      dockerfile: decoder/Dockerfile
+    container_name: spb-decoder
+    environment:
+      - OTEL_SERVICE_NAME=sparkplug-decoder
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      # Export metrics every 5s so device readings show up promptly.
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - MQTT_HOST=mosquitto
+      - SITE_ID=${SITE_ID:-FactoryA}
+      - FLEET_ID=${FLEET_ID:-factory-floor}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - spb-net
+
+networks:
+  spb-net:
+    name: spb-net
+    driver: bridge

@@ -1,0 +1,13 @@
+This example vendors the Sparkplug B protobuf schema definition:
+
+  proto/sparkplug_b.proto
+
+Copyright (c) 2015, 2018 Cirrus Link Solutions and others.
+Licensed under the Eclipse Public License 2.0 (EPL-2.0),
+https://www.eclipse.org/legal/epl-2.0/
+SPDX-License-Identifier: EPL-2.0
+
+Source: Eclipse Tahu (https://github.com/eclipse/tahu).
+
+The Python bindings (sparkplug_b_pb2.py) are generated from this .proto at
+container build time and are not checked in.

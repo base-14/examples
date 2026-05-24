@@ -1,0 +1,5 @@
+.env
+.venv
+__pycache__/
+uv.lock
+sparkplug_b_pb2.py
