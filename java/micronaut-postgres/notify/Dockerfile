@@ -13,7 +13,7 @@ WORKDIR /app
 
 RUN apt-get update -qq && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-ARG OTEL_AGENT_VERSION=2.26.1
+ARG OTEL_AGENT_VERSION=2.28.1
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 
 RUN addgroup --gid 1001 appgroup && \

@@ -11,7 +11,7 @@ Articles CRUD API with distributed tracing, structured logging, and custom metri
 | Java | 25 (Eclipse Temurin) |
 | Micronaut | 4.8.x |
 | PostgreSQL | 18 |
-| OTel Java Agent | 2.26.1 |
+| OTel Java Agent | 2.28.1 |
 | OTel Collector | 0.148.0 (contrib) |
 
 ## Architecture
