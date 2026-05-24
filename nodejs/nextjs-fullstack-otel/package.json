@@ -26,8 +26,8 @@
     "@opentelemetry/sdk-trace-web": "^2.7.1",
     "@opentelemetry/semantic-conventions": "^1.41.1",
     "next": "16.2.6",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
     "web-vitals": "^5.2.0"
   },
   "overrides": {
