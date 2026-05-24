@@ -191,12 +191,12 @@ check_go() {
     local pkg current latest
     pkg=$(echo "$line" | awk '{print $1}')
     current=$(echo "$line" | awk '{print $2}')
-    latest=$(echo "$line" | grep -oE '\[v[^\]]+\]' | tr -d '[]')
+    latest=$(echo "$line" | grep -oE '\[v[^]]+\]' | tr -d '[]' || true)
     [[ -z "$latest" ]] && continue
 
     local cur_major lat_major bump_type
-    cur_major=$(echo "$current" | grep -oE '^v[0-9]+' | tr -d 'v')
-    lat_major=$(echo "$latest" | grep -oE '^v[0-9]+' | tr -d 'v')
+    cur_major=$(echo "$current" | grep -oE '^v[0-9]+' | tr -d 'v' || true)
+    lat_major=$(echo "$latest" | grep -oE '^v[0-9]+' | tr -d 'v' || true)
 
     if [[ "$cur_major" != "$lat_major" ]]; then
       bump_type="MAJOR"
