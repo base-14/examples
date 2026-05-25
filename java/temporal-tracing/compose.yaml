@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    container_name: temporal-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgres
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal-ui
+    depends_on:
+      temporal:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.144.0
+    container_name: otel-collector
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+    volumes:
+      - ./${OTEL_CONFIG:-config/otel-config.yaml}:/etc/otelcol-contrib/config.yaml
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-http://localhost:4318}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unused}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unused}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://placeholder.example.com/token}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: temporal-tracing-app
+    depends_on:
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: temporal-tracing-example
+    restart: "no"
