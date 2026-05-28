@@ -3,3 +3,11 @@
 !snmp-telemetry/
 !sqlserver-telemetry/
 !azure-aks-operator-telemetry/
+# _shared subtree: only the new azure/components tree is tracked. The rest
+# of _shared (cloud-infra, gcp, azure scraper, etc.) remains untracked
+# local-only work.
+!_shared/
+_shared/*
+!_shared/azure/
+_shared/azure/*
+!_shared/azure/components/
