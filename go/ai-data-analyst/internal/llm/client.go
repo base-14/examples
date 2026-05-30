@@ -45,6 +45,11 @@ type Client struct {
 	PrimaryProvider      string
 	FallbackProviderName string
 	FallbackModel        string
+
+	// CaptureContent gates recording of prompt and completion text on spans.
+	// Off by default: message content is sensitive and increases span size and
+	// cost. Toggled via OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT.
+	CaptureContent bool
 }
 
 func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerName string, req GenerateRequest) (*GenerateResponse, error) {
@@ -71,13 +76,15 @@ func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerNa
 		span.SetAttributes(attribute.String("nlsql.stage", req.Stage))
 	}
 
-	span.AddEvent("gen_ai.user.message", trace.WithAttributes(
-		attribute.String("gen_ai.input.messages", truncate(req.Prompt, 1000)),
-	))
-	if req.System != "" {
+	if c.CaptureContent {
 		span.AddEvent("gen_ai.user.message", trace.WithAttributes(
-			attribute.String("gen_ai.system_instructions", truncate(req.System, 500)),
+			attribute.String("gen_ai.input.messages", truncate(req.Prompt, 1000)),
 		))
+		if req.System != "" {
+			span.AddEvent("gen_ai.user.message", trace.WithAttributes(
+				attribute.String("gen_ai.system_instructions", truncate(req.System, 500)),
+			))
+		}
 	}
 
 	resp, err := provider.Generate(ctx, req)
@@ -106,9 +113,11 @@ func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerNa
 		span.SetAttributes(attribute.String("gen_ai.response.finish_reasons", resp.FinishReason))
 	}
 
-	span.AddEvent("gen_ai.assistant.message", trace.WithAttributes(
-		attribute.String("gen_ai.output.messages", truncate(resp.Content, 2000)),
-	))
+	if c.CaptureContent {
+		span.AddEvent("gen_ai.assistant.message", trace.WithAttributes(
+			attribute.String("gen_ai.output.messages", truncate(resp.Content, 2000)),
+		))
+	}
 
 	if c.Metrics != nil {
 		c.Metrics.RecordGenAIMetrics(ctx, telemetry.RecordParams{

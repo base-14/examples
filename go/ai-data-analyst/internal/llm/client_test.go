@@ -105,6 +105,42 @@ func TestGenerateOnceSuccess(t *testing.T) {
 	assert.Equal(t, "gen_ai.chat gpt-4.1", spans[0].Name)
 }
 
+func TestGenerateOnceContentCaptureGate(t *testing.T) {
+	run := func(capture bool) *tracetest.InMemoryExporter {
+		primary := &mockProvider{
+			name: "openai",
+			resp: &GenerateResponse{Content: "Hello!", Model: "gpt-4.1", InputTokens: 10, OutputTokens: 5},
+		}
+		client, exporter := newTestClient(t, primary, nil)
+		client.CaptureContent = capture
+		_, err := client.GenerateOnce(context.Background(), primary, "openai", testReq())
+		require.NoError(t, err)
+		return exporter
+	}
+
+	hasContent := func(exporter *tracetest.InMemoryExporter) bool {
+		for _, span := range exporter.GetSpans() {
+			for _, ev := range span.Events {
+				for _, kv := range ev.Attributes {
+					switch string(kv.Key) {
+					case "gen_ai.input.messages", "gen_ai.output.messages", "gen_ai.system_instructions":
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+
+	t.Run("off omits prompt and completion content", func(t *testing.T) {
+		assert.False(t, hasContent(run(false)), "content must not be recorded when capture is off")
+	})
+
+	t.Run("on records prompt and completion content", func(t *testing.T) {
+		assert.True(t, hasContent(run(true)), "content must be recorded when capture is on")
+	})
+}
+
 func TestGenerateWithRetrySuccess(t *testing.T) {
 	primary := &mockProvider{
 		name:    "openai",

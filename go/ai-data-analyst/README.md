@@ -4,11 +4,17 @@
 
 NL-to-SQL pipeline that translates natural language questions into SQL queries against World Bank economic data, with full OpenTelemetry observability.
 
-**Go 1.25 | Chi | Direct OpenAI API | Native OTel SDK | PostgreSQL**
+## Requirements
+
+* Go 1.26
+* Chi
+* Direct OpenAI API
+* Native OTel SDK
+* PostgreSQL
 
 ## Architecture
 
-```
+```text
 Question → Parse → Generate SQL → Validate → Execute → Explain → Answer
               │         │              │          │          │
            No LLM    gpt-4.1       No LLM    PostgreSQL  gpt-4.1-mini
@@ -54,16 +60,21 @@ Indicators include GDP growth, population, life expectancy, CO2 emissions, inter
 ## Observability
 
 Every question produces a trace with:
-- `pipeline_stage parse` — entity extraction, question classification
-- `gen_ai.chat {model}` — SQL generation with full GenAI semconv attributes
-- `pipeline_stage validate` — SQL safety checks
-- `pipeline_stage execute` — PostgreSQL query with row counts
-- `data_analyst SELECT/SET/INSERT` — individual DB operation spans
-- `gen_ai.chat {model}` — result explanation
+
+* `pipeline_stage parse` — entity extraction, question classification
+* `gen_ai.chat {model}` — SQL generation with full GenAI semconv attributes
+* `pipeline_stage validate` — SQL safety checks
+* `pipeline_stage execute` — PostgreSQL query with row counts
+* `data_analyst SELECT/SET/INSERT` — individual DB operation spans
+* `gen_ai.chat {model}` — result explanation
 
 GenAI metrics: token usage, operation duration, cost, retry count, fallback count, error count.
 HTTP metrics: request duration, request/response body size.
 Domain metrics: question duration, SQL validity, query rows, execution time, confidence.
+
+Prompt and completion text is recorded on spans only when
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`. It is off by default
+because message content is sensitive and increases span size and cost.
 
 ### Verify Telemetry
 
@@ -90,8 +101,8 @@ make test     # run tests
 
 ## Sample Questions
 
-- Top 10 countries by GDP growth in 2023
-- Compare life expectancy between Japan and Nigeria
-- How has internet usage changed in China?
-- What is the average unemployment rate in Europe?
-- Which countries have the highest CO2 emissions per capita?
+* Top 10 countries by GDP growth in 2023
+* Compare life expectancy between Japan and Nigeria
+* How has internet usage changed in China?
+* What is the average unemployment rate in Europe?
+* Which countries have the highest CO2 emissions per capita?

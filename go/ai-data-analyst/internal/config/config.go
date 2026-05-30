@@ -20,6 +20,7 @@ type Config struct {
 	OTelServiceName    string
 	OTelEndpoint       string
 	ScoutEnvironment   string
+	CaptureContent     bool
 	DefaultTemperature float64
 	DefaultMaxTokens   int
 }
@@ -40,6 +41,7 @@ func Load() *Config {
 		OTelServiceName:    envOr("OTEL_SERVICE_NAME", "ai-data-analyst"),
 		OTelEndpoint:       envOr("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
 		ScoutEnvironment:   envOr("SCOUT_ENVIRONMENT", "development"),
+		CaptureContent:     envOrBool("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", false),
 		DefaultTemperature: envOrFloat("DEFAULT_TEMPERATURE", 0.1),
 		DefaultMaxTokens:   envOrInt("DEFAULT_MAX_TOKENS", 1024),
 	}
@@ -48,6 +50,15 @@ func Load() *Config {
 func envOr(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok {
 		return v
+	}
+	return fallback
+}
+
+func envOrBool(key string, fallback bool) bool {
+	if v, ok := os.LookupEnv(key); ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
 	}
 	return fallback
 }

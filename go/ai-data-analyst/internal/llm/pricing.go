@@ -52,7 +52,7 @@ func findRelativePricing() string {
 	if !ok {
 		return ""
 	}
-	// internal/llm/pricing.go -> project root -> ../../_shared
+	// internal/llm/pricing.go -> repo root -> ../../../../_shared
 	dir := filepath.Dir(filename)
 	return filepath.Join(dir, "..", "..", "..", "..", "_shared", "pricing.json")
 }
