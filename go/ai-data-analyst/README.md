@@ -17,7 +17,7 @@ NL-to-SQL pipeline that translates natural language questions into SQL queries a
 ```text
 Question → Parse → Generate SQL → Validate → Execute → Explain → Answer
               │         │              │          │          │
-           No LLM    gpt-4.1       No LLM    PostgreSQL  gpt-4.1-mini
+           No LLM    gpt-5.5       No LLM    PostgreSQL  gpt-5.4-mini
 ```
 
 5-stage pipeline with manual OTel spans at every stage. Two LLM calls per question: SQL generation (capable model) and result explanation (fast model).
@@ -94,8 +94,8 @@ make test     # run tests
 
 | Provider | Models | Usage |
 | --- | --- | --- |
-| OpenAI | gpt-4.1 (capable), gpt-4.1-mini (fast) | Default primary |
-| Google | gemini-2.0-flash | `LLM_PROVIDER=google` |
+| OpenAI | gpt-5.5 (capable), gpt-5.4-mini (fast) | Default primary |
+| Google | gemini-2.5-flash-lite | `LLM_PROVIDER=google` |
 | Anthropic | claude-haiku-4-5-20251001 | Fallback (auto model switch via `FALLBACK_MODEL`) |
 | Ollama | Any local model | `LLM_PROVIDER=ollama` |
 

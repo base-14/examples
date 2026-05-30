@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 )
 
@@ -57,8 +58,23 @@ func findRelativePricing() string {
 	return filepath.Join(dir, "..", "..", "..", "..", "_shared", "pricing.json")
 }
 
+// normalizeModel maps a provider's dated snapshot ("gpt-4.1-2025-04-14",
+// "claude-haiku-4-5-20251001") back to the canonical pricing.json key.
+var (
+	dateSuffix       = regexp.MustCompile(`-\d{4}-\d{2}-\d{2}$|-\d{8}$`)
+	anthropicVersion = regexp.MustCompile(`-(\d+)-(\d+)$`)
+)
+
+func normalizeModel(model string) string {
+	m := dateSuffix.ReplaceAllString(model, "")
+	return anthropicVersion.ReplaceAllString(m, "-$1.$2")
+}
+
 func CalculateCost(model string, inputTokens, outputTokens int) float64 {
 	entry, ok := Pricing[model]
+	if !ok {
+		entry, ok = Pricing[normalizeModel(model)]
+	}
 	if !ok {
 		return 0.0
 	}

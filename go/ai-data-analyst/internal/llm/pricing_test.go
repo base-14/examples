@@ -24,6 +24,16 @@ func TestCalculateCostUnknownModel(t *testing.T) {
 	assert.Equal(t, 0.0, cost)
 }
 
+func TestCalculateCostDatedSnapshot(t *testing.T) {
+	openai := CalculateCost("gpt-4.1-2025-04-14", 1000, 500)
+	assert.Greater(t, openai, 0.0, "dated OpenAI snapshot must resolve a non-zero cost")
+	assert.InDelta(t, CalculateCost("gpt-4.1", 1000, 500), openai, 0.0001)
+
+	anthropic := CalculateCost("claude-haiku-4-5-20251001", 1000, 500)
+	assert.Greater(t, anthropic, 0.0, "dated Anthropic snapshot must resolve a non-zero cost")
+	assert.InDelta(t, CalculateCost("claude-haiku-4.5", 1000, 500), anthropic, 0.0001)
+}
+
 func TestProviderPorts(t *testing.T) {
 	assert.Equal(t, 443, ProviderPorts["openai"])
 	assert.Equal(t, 443, ProviderPorts["anthropic"])

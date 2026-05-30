@@ -13,8 +13,8 @@ func TestLoadDefaults(t *testing.T) {
 
 	assert.Equal(t, "8080", cfg.Port)
 	assert.Equal(t, "openai", cfg.LLMProvider)
-	assert.Equal(t, "gpt-4.1", cfg.LLMModelCapable)
-	assert.Equal(t, "gpt-4.1-mini", cfg.LLMModelFast)
+	assert.Equal(t, "gpt-5.5", cfg.LLMModelCapable)
+	assert.Equal(t, "gpt-5.4-mini", cfg.LLMModelFast)
 	assert.Equal(t, "anthropic", cfg.FallbackProvider)
 	assert.Equal(t, "claude-haiku-4-5-20251001", cfg.FallbackModel)
 	assert.Equal(t, "http://localhost:11434", cfg.OllamaBaseURL)
