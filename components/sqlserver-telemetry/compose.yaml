@@ -1,6 +1,6 @@
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2025-latest
     platform: linux/amd64
     container_name: sqlserver
     environment:
@@ -21,7 +21,7 @@ services:
       - mssql-data:/var/opt/mssql
 
   init-monitor-user:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2025-latest
     platform: linux/amd64
     container_name: sqlserver-init
     depends_on:
