@@ -26,7 +26,7 @@ services:
       - edge-net
 
   edge-collector:
-    image: otel/opentelemetry-collector-contrib:0.152.1
+    image: otel/opentelemetry-collector-contrib:0.153.0
     container_name: edge-collector
     # Demo simplification: run as root so the named volume below is writable
     # regardless of host/container UID mismatch (the contrib image is non-root).
@@ -50,7 +50,7 @@ services:
       - backhaul-net
 
   upstream-collector:
-    image: otel/opentelemetry-collector-contrib:0.152.1
+    image: otel/opentelemetry-collector-contrib:0.153.0
     container_name: upstream-collector
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:

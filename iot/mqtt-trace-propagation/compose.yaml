@@ -15,7 +15,7 @@ services:
       - iot-network
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.152.1
+    image: otel/opentelemetry-collector-contrib:0.153.0
     container_name: iot-otel-collector
     volumes:
       - ./collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro

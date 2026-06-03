@@ -23,7 +23,7 @@ services:
       - spb-net
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.152.1
+    image: otel/opentelemetry-collector-contrib:0.153.0
     container_name: spb-otel-collector
     volumes:
       - ./collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro

@@ -7,7 +7,7 @@ services:
       - otel-collector
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.147.0
+    image: otel/opentelemetry-collector-contrib:0.153.0
     volumes:
       - ./config/otel-config.yml:/etc/otelcol-contrib/config.yaml
     ports:
