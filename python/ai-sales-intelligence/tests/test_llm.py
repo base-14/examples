@@ -14,7 +14,7 @@ class TestCostCalculation:
         assert cost == expected
 
     def test_gemini_flash_cost(self):
-        cost = _calculate_cost("gemini-3-flash", 1000, 500)
+        cost = _calculate_cost("gemini-3-flash-preview", 1000, 500)
         expected = (1000 * 0.50 + 500 * 3.0) / 1_000_000
         assert cost == expected
 

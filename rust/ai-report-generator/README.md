@@ -84,7 +84,7 @@ make run      # run locally (needs DATABASE_URL)
 | Provider | Models | Usage |
 | --- | --- | --- |
 | OpenAI | gpt-4.1 (capable), gpt-4.1-mini (fast) | Default primary |
-| Google | gemini-2.0-flash | `LLM_PROVIDER=google` |
+| Google | gemini-2.5-flash-lite | `LLM_PROVIDER=google` |
 | Anthropic | claude-haiku-4-5-20251001 | Default fallback (auto model switch via `FALLBACK_MODEL`); `LLM_PROVIDER=anthropic` for primary |
 | Ollama | Any local model | `LLM_PROVIDER=ollama` |
 

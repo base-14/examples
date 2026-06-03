@@ -209,7 +209,7 @@ cp .env.example .env
 | Provider | Capable model | Fast model |
 |---|---|---|
 | Anthropic | `claude-sonnet-4-6` | `claude-haiku-4-5-20251001` |
-| Google | `gemini-2.5-flash` | `gemini-2.0-flash` |
+| Google | `gemini-2.5-flash` | `gemini-2.5-flash-lite` |
 | Ollama | `llama3.1:8b` | `llama3.2` |
 
 ---

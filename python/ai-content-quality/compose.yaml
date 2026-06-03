@@ -19,7 +19,7 @@ services:
       # Override with http://ollama:11434 when using --profile ollama (Dockerized Ollama).
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-google}
-      - FALLBACK_MODEL=${FALLBACK_MODEL:-gemini-2.0-flash}
+      - FALLBACK_MODEL=${FALLBACK_MODEL:-gemini-2.5-flash-lite}
       - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-60.0}
       - REVIEW_PROMPT_VERSION=${REVIEW_PROMPT_VERSION:-v1}
       - IMPROVE_PROMPT_VERSION=${IMPROVE_PROMPT_VERSION:-v1}

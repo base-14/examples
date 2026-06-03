@@ -515,8 +515,24 @@ def _record_token_metrics(
         )
 
 
+_MODEL_DATE_SUFFIX = re.compile(r"-\d{8}$")
+_MODEL_MINOR_VERSION = re.compile(r"^(claude-(?:sonnet|opus|haiku))-(\d+)-(\d+)$")
+
+
+def _normalize_model_id(model: str) -> str:
+    """Map a provider-returned model ID to its pricing.json key.
+
+    Providers return dated IDs (claude-sonnet-4-5-20250929) and dash-minor
+    forms (claude-opus-4-6); pricing keys are dot-form (claude-opus-4.6).
+    """
+    stripped = _MODEL_DATE_SUFFIX.sub("", model)
+    return _MODEL_MINOR_VERSION.sub(r"\1-\2.\3", stripped)
+
+
 def _calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    pricing = PRICING.get(model, {"input": 0.0, "output": 0.0})
+    pricing = PRICING.get(model) or PRICING.get(
+        _normalize_model_id(model), {"input": 0.0, "output": 0.0}
+    )
     return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
 

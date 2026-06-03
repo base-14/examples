@@ -29,7 +29,7 @@ export interface EmbeddingDescriptor {
 const ANTHROPIC_CAPABLE_DEFAULT = "claude-sonnet-4-6";
 const ANTHROPIC_FAST_DEFAULT = "claude-haiku-4-5-20251001";
 const GOOGLE_CAPABLE_DEFAULT = "gemini-2.5-flash";
-const GOOGLE_FAST_DEFAULT = "gemini-2.0-flash";
+const GOOGLE_FAST_DEFAULT = "gemini-2.5-flash-lite";
 const OLLAMA_CAPABLE_DEFAULT = "llama3.1:8b";
 const OLLAMA_FAST_DEFAULT = "llama3.2";
 const OPENAI_EMBED_DEFAULT = "text-embedding-3-small";
@@ -69,11 +69,20 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
 // Conservative fallback for unknown/custom models
 const DEFAULT_PRICING = { input: 3.0, output: 15.0 };
 
+const MODEL_DATE_SUFFIX = /-\d{8}$/;
+const MODEL_MINOR_VERSION = /^(claude-(?:sonnet|opus|haiku))-(\d+)-(\d+)$/;
+
+// Providers return dated IDs (claude-sonnet-4-5-20250929) and dash-minor forms
+// (claude-opus-4-6); pricing.json keys are dot-form (claude-opus-4.6).
+function normalizeModelId(modelId: string): string {
+  return modelId.replace(MODEL_DATE_SUFFIX, "").replace(MODEL_MINOR_VERSION, "$1-$2.$3");
+}
+
 function modelPricing(modelId: string): {
   inputCostPerMToken: number;
   outputCostPerMToken: number;
 } {
-  const p = MODEL_PRICING[modelId] ?? DEFAULT_PRICING;
+  const p = MODEL_PRICING[modelId] ?? MODEL_PRICING[normalizeModelId(modelId)] ?? DEFAULT_PRICING;
   return { inputCostPerMToken: p.input, outputCostPerMToken: p.output };
 }
 

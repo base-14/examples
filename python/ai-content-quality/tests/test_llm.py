@@ -45,7 +45,7 @@ def _make_client(
         model=model_name,
         llm=llm,
         fallback_provider="google",
-        fallback_model="gemini-2.0-flash",
+        fallback_model="gemini-2.5-flash-lite",
         fallback_llm=None,
     )
 
@@ -204,9 +204,9 @@ def test_token_metrics_uses_alternate_key_names() -> None:
     resp = MagicMock()
     resp.additional_kwargs = {"input_tokens": 200, "output_tokens": 100}
     common_attrs = {
-        "gen_ai.request.model": "gemini-2.0-flash",
+        "gen_ai.request.model": "gemini-2.5-flash-lite",
         "gen_ai.provider.name": "gcp.gemini",
-        "gen_ai.response.model": "gemini-2.0-flash",
+        "gen_ai.response.model": "gemini-2.5-flash-lite",
         "server.address": "generativelanguage.googleapis.com",
         "server.port": 443,
     }
@@ -215,7 +215,7 @@ def test_token_metrics_uses_alternate_key_names() -> None:
         patch.object(llm_mod, "token_usage", MagicMock()),
         patch.object(llm_mod, "cost_counter", MagicMock()),
     ):
-        _record_token_metrics(resp, common_attrs, "gemini-2.0-flash", "technical", "/score", span)
+        _record_token_metrics(resp, common_attrs, "gemini-2.5-flash-lite", "technical", "/score", span)
 
     span.set_attribute.assert_any_call("gen_ai.usage.input_tokens", 200)
     span.set_attribute.assert_any_call("gen_ai.usage.output_tokens", 100)
@@ -483,7 +483,7 @@ def _setup_generate_mocks(
         model=model_name,
         llm=llm,
         fallback_provider="google",
-        fallback_model="gemini-2.0-flash",
+        fallback_model="gemini-2.5-flash-lite",
         fallback_llm=None,
     )
 
@@ -540,14 +540,14 @@ async def test_generate_sets_content_attributes_on_span() -> None:
 @patch.object(llm_mod, "token_usage", MagicMock())
 @patch.object(llm_mod, "operation_duration", MagicMock())
 async def test_generate_sets_model_attributes_on_span() -> None:
-    client, tracer, span = _setup_generate_mocks(model_name="gemini-2.0-flash", provider="google")
+    client, tracer, span = _setup_generate_mocks(model_name="gemini-2.5-flash-lite", provider="google")
 
     with patch.object(llm_mod, "tracer", tracer):
         await LLMClient._generate_with_retry.__wrapped__(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/score"
         )
 
-    span.set_attribute.assert_any_call("gen_ai.request.model", "gemini-2.0-flash")
+    span.set_attribute.assert_any_call("gen_ai.request.model", "gemini-2.5-flash-lite")
     span.set_attribute.assert_any_call("gen_ai.provider.name", "gcp.gemini")
 
 
@@ -1140,7 +1140,7 @@ def test_create_llm_ollama_uses_base_url() -> None:
 
 
 async def test_generate_uses_fallback_when_primary_fails() -> None:
-    fallback_llm = _make_llm("gemini-2.0-flash")
+    fallback_llm = _make_llm("gemini-2.5-flash-lite")
     fallback_chat_resp = _make_chat_response(content='{"answer": "from fallback"}')
     fallback_llm.achat = AsyncMock(return_value=fallback_chat_resp)
 
@@ -1149,7 +1149,7 @@ async def test_generate_uses_fallback_when_primary_fails() -> None:
         model="gpt-4.1-nano",
         llm=_make_llm(),
         fallback_provider="google",
-        fallback_model="gemini-2.0-flash",
+        fallback_model="gemini-2.5-flash-lite",
         fallback_llm=fallback_llm,
     )
     client.llm.achat = AsyncMock(side_effect=RuntimeError("primary down"))
