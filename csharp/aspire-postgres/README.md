@@ -13,7 +13,7 @@ for CI and customer-environment use.
 | .NET SDK | 9.0.308 | Latest stable; arm64 native on Apple Silicon. |
 | ASP.NET Core | 9.0 | Minimal APIs. |
 | .NET Aspire | 13.2.4 | AppHost + Hosting.PostgreSQL. Dashboard auth on by default. |
-| PostgreSQL | 18 | Aspire-managed in dev; `postgres:18.3` image in Compose. |
+| PostgreSQL | 18 | Aspire-managed in dev; `postgres:18-alpine` image in Compose. |
 | Entity Framework Core | 9.0.15 | `EnsureCreated` at startup; no migrations. |
 | Npgsql.EntityFrameworkCore.PostgreSQL | 9.0.4 | EF Core 9 provider. |
 | OpenTelemetry .NET (core) | 1.15.3 | OTLP exporter + extensions hosting. |
@@ -220,20 +220,19 @@ docker ps --format '{{.Names}}' | grep -E 'pg-|otel-' | xargs -r docker rm -f
 If port 8080 / 8081 is in use by a system service, edit `WithHttpEndpoint(port: 8080, ...)` in `AppHost/AppHost.cs` and
 the `ports:` section of `compose.yaml`.
 
-### Postgres slow first pull on Apple Silicon
+### Postgres first pull
 
-`postgres:18.3` is ~310 MB and only ships an x86_64 image; Docker Desktop runs it under Rosetta. First pull can take
-60-120 seconds depending on bandwidth. Subsequent runs reuse the cached image.
+`postgres:18-alpine` ships a native arm64 image, so it runs without Rosetta on Apple Silicon. First pull can take
+30-90 seconds depending on bandwidth; subsequent runs reuse the cached image.
 
 ### Expected timing
 
-| Run | Apple Silicon, Rosetta on |
+| Run | Apple Silicon |
 | --- | --- |
 | First cold (image pulls + build) | 2 - 4 minutes |
 | Warm (`--no-build`, cached pulls) | under 90 seconds |
 
-Cold timing is dominated by `postgres:18.3` and `otel/opentelemetry-collector-contrib:0.151.0` pulls plus the initial
-`dotnet build`.
+Cold timing is dominated by image pulls plus the initial `dotnet build`.
 
 ### macOS dashboard cert trust (HTTPS profile)
 

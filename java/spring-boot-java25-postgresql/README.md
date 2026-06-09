@@ -258,7 +258,7 @@ logging.level.io.opentelemetry=DEBUG
 | Spring Boot | 3.5.9 |
 | OpenTelemetry Instrumentation | 2.28.1 |
 | OpenTelemetry SDK | managed by instrumentation BOM |
-| PostgreSQL | 17.7 |
+| PostgreSQL | 18 |
 | OTel Collector | 0.153.0 |
 | Gradle | 9.2.1 |
 | Java | 25 |
