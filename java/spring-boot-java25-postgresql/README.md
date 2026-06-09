@@ -20,7 +20,6 @@ This example uses **OpenTelemetry SDK Integration** (production-ready):
 - ✅ Database queries (JDBC/JPA) and connection pools
 - ✅ JVM metrics (memory, threads, GC)
 - ✅ Distributed trace propagation (W3C)
-- ✅ Custom business metrics via Micrometer
 
 ### What Requires Manual Instrumentation
 
@@ -103,7 +102,7 @@ Automatically included in telemetry:
 service.name=java-spring-boot-otel
 service.namespace=base14
 service.version=0.0.1-SNAPSHOT
-deployment.environment=dev
+deployment.environment.name=dev
 ```
 
 ## API Endpoints
@@ -195,7 +194,7 @@ All logs include `trace_id` and `span_id` for correlation.
 From `build.gradle` (BOM-managed):
 
 ```groovy
-implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.23.0")
+implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.28.1")
 implementation "io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter"
 implementation "io.micrometer:micrometer-tracing-bridge-otel"
 ```
@@ -208,7 +207,6 @@ Configured via `application.properties`:
 - OTLP exporter with HTTP/Protobuf protocol
 - Always-on sampling (100%), 30-second metric export interval
 - W3C trace context propagation
-- Custom business metrics via Micrometer counters
 
 ## Troubleshooting
 
@@ -258,10 +256,10 @@ logging.level.io.opentelemetry=DEBUG
 | Component | Version |
 | --------- | ------- |
 | Spring Boot | 3.5.9 |
-| OpenTelemetry Instrumentation | 2.23.0 |
-| OpenTelemetry SDK | 1.55.0 |
+| OpenTelemetry Instrumentation | 2.28.1 |
+| OpenTelemetry SDK | managed by instrumentation BOM |
 | PostgreSQL | 17.7 |
-| OTel Collector | 0.144.0 |
+| OTel Collector | 0.153.0 |
 | Gradle | 9.2.1 |
 | Java | 25 |
 

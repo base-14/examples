@@ -246,17 +246,17 @@ Error codes: `RESOURCE_NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`,
 **HTTP Spans** (automatic):
 
 - Span name: `GET /api/articles`, `POST /api/auth/login`, etc.
-- Attributes: `http.method`, `http.route`, `http.status_code`
+- Attributes: `http.request.method`, `http.route`, `http.response.status_code`
 
 **Database Spans** (automatic):
 
 - Span name: `pg.query`, etc.
-- Attributes: `db.system=postgresql`, `db.statement`
+- Attributes: `db.system.name=postgresql`, `db.query.text`
 
 **Redis Spans** (automatic):
 
 - Span name: `redis-GET`, `redis-SET`, etc.
-- Attributes: `db.system=redis`, `db.statement`
+- Attributes: `db.system.name=redis`, `db.query.text`
 
 **Custom Business Spans**:
 

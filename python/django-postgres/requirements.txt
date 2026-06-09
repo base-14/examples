@@ -10,13 +10,13 @@ python-dotenv>=1.2.1
 gunicorn>=25.1
 
 # OpenTelemetry
-opentelemetry-sdk>=1.40.0
-opentelemetry-exporter-otlp>=1.40.0
-opentelemetry-instrumentation-django>=0.61b0
-opentelemetry-instrumentation-psycopg>=0.61b0
-opentelemetry-instrumentation-celery>=0.61b0
-opentelemetry-instrumentation-redis>=0.61b0
-opentelemetry-instrumentation-logging>=0.61b0
+opentelemetry-sdk>=1.41.0
+opentelemetry-exporter-otlp>=1.41.0
+opentelemetry-instrumentation-django>=0.62b0
+opentelemetry-instrumentation-psycopg>=0.62b0
+opentelemetry-instrumentation-celery>=0.62b0
+opentelemetry-instrumentation-redis>=0.62b0
+opentelemetry-instrumentation-logging>=0.62b0
 
 # Testing
 pytest>=9.0.2

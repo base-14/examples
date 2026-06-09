@@ -31,7 +31,7 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
             elif status_code >= 400:
                 error_type = _get_error_type(status_code)
                 span.set_attribute("error.type", error_type)
-                span.set_attribute("http.status_code", status_code)
+                span.set_attribute("http.response.status_code", status_code)
 
             response.data["trace_id"] = trace_id
 

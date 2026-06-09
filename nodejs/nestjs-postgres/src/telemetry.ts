@@ -38,7 +38,7 @@ export function setupTelemetry(): NodeSDK {
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: serviceVersion,
-    'deployment.environment': serviceEnvironment,
+    'deployment.environment.name': serviceEnvironment,
     'service.namespace': 'base14-examples',
     'service.instance.id':
       process.env.HOSTNAME || `${serviceName}-${process.pid}`,

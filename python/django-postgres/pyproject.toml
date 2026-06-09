@@ -29,13 +29,13 @@ dependencies = [
     "PyJWT>=2.11,<3.0",
     "python-dotenv>=1.2.1",
     "gunicorn>=25.1",
-    "opentelemetry-sdk>=1.39.1",
-    "opentelemetry-exporter-otlp>=1.39.1",
-    "opentelemetry-instrumentation-django>=0.60b1",
-    "opentelemetry-instrumentation-psycopg>=0.60b1",
-    "opentelemetry-instrumentation-celery>=0.60b1",
-    "opentelemetry-instrumentation-redis>=0.60b1",
-    "opentelemetry-instrumentation-logging>=0.60b1",
+    "opentelemetry-sdk>=1.41",
+    "opentelemetry-exporter-otlp>=1.41",
+    "opentelemetry-instrumentation-django>=0.62b0",
+    "opentelemetry-instrumentation-psycopg>=0.62b0",
+    "opentelemetry-instrumentation-celery>=0.62b0",
+    "opentelemetry-instrumentation-redis>=0.62b0",
+    "opentelemetry-instrumentation-logging>=0.62b0",
 ]
 
 [project.optional-dependencies]

@@ -18,6 +18,7 @@ services:
       - OTEL_SERVICE_NAME=nestjs-postgres-app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-service.version=1.0.0}
+      - OTEL_SEMCONV_STABILITY_OPT_IN=http,database
     depends_on:
       postgres:
         condition: service_healthy

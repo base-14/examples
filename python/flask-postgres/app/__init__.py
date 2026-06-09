@@ -54,12 +54,6 @@ def create_app(config_class: type | None = None) -> Flask:
 
     register_error_handlers(app)
 
-    # Register metrics middleware
-    if not os.getenv("OTEL_SDK_DISABLED"):
-        from app.middleware.metrics import register_metrics_middleware
-
-        register_metrics_middleware(app)
-
     # Attach OTel log handler after app setup
     if not os.getenv("OTEL_SDK_DISABLED"):
         handler = get_otel_log_handler()

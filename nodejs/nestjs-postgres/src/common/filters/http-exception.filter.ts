@@ -79,8 +79,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
 
     httpErrorsCounter.add(1, {
-      'http.status_code': status,
-      'http.method': request.method,
+      'http.response.status_code': status,
+      'http.request.method': request.method,
       'http.route': (request.route as { path?: string })?.path || request.url,
       'error.code': errorCode,
       'error.category': status >= 500 ? 'server' : 'client',
@@ -92,9 +92,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         severityText: 'ERROR',
         body: message,
         attributes: {
-          'http.method': request.method,
-          'http.url': request.url,
-          'http.status_code': status,
+          'http.request.method': request.method,
+          'url.full': request.url,
+          'http.response.status_code': status,
           'error.code': errorCode,
           'error.type': exception instanceof Error ? exception.name : 'Error',
           'error.message': message,
@@ -123,9 +123,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         severityText: 'WARN',
         body: message,
         attributes: {
-          'http.method': request.method,
-          'http.url': request.url,
-          'http.status_code': status,
+          'http.request.method': request.method,
+          'url.full': request.url,
+          'http.response.status_code': status,
           'error.code': errorCode,
           ...(spanContext && {
             'trace.id': spanContext.traceId,

@@ -282,8 +282,7 @@ All spans share: otelTraceID: 59e443df8f7614a5b21c11d8c8f83a8d
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `http_requests_total` | Counter | Total HTTP requests by method, route, status |
-| `http_request_duration_seconds` | Histogram | Request latency in seconds |
+| `http.server.request.duration` | Histogram | Request duration in seconds by method, route, status (sample count gives request rate) |
 | `auth.login.attempts` | Counter | Login attempts by status (success/failed) |
 | `articles.created` | Counter | Articles created by author |
 | `celery_tasks_total` | Counter | Completed Celery tasks by name, status |
@@ -435,8 +434,7 @@ flask-postgres/
 │   │   ├── auth.py          # Auth endpoints
 │   │   └── articles.py      # Article endpoints
 │   ├── middleware/          # Flask middleware
-│   │   ├── auth.py          # JWT authentication
-│   │   └── metrics.py       # Metrics collection
+│   │   └── auth.py          # JWT authentication
 │   ├── services/            # Business logic
 │   │   └── auth.py          # Auth service
 │   └── jobs/                # Celery tasks

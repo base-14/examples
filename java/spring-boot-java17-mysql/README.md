@@ -11,7 +11,6 @@ traces, metrics, and logs.
 - Database queries (JDBC/JPA) and connection pool
 - JVM metrics (memory, threads, GC)
 - Distributed trace propagation (W3C)
-- Custom business metrics via Micrometer
 
 ## Prerequisites
 
@@ -85,7 +84,7 @@ Automatically included in telemetry:
 service.name=java-spring-boot-otel
 service.namespace=base14
 service.version=0.0.1-SNAPSHOT
-deployment.environment=dev
+deployment.environment.name=dev
 ```
 
 ## API Endpoints
@@ -218,8 +217,8 @@ logging.level.io.opentelemetry=DEBUG
 | Component | Version |
 | --------- | ------- |
 | Spring Boot | 3.5.9 |
-| OpenTelemetry Instrumentation | 2.23.0 |
-| OpenTelemetry SDK | 1.55.0 |
+| OpenTelemetry Instrumentation | 2.28.1 |
+| OpenTelemetry SDK | managed by instrumentation BOM |
 | MySQL | 9.1 |
 | Gradle | 9.2.1 |
 | Java | 17 (target) / 17-25 (supported) |
