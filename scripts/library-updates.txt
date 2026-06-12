@@ -1,0 +1,13 @@
+# Curated library bumps for update-libraries.sh
+# Format: <ecosystem>|<relpath>|<spec> [<spec> ...]   (npm | go)
+# Edit per maintenance pass; run --probe to classify, then --apply the clean set.
+
+# --- Clean majors triaged 2026-06-12 (build/lint verified) ---
+npm|nodejs/ai-contract-analyzer|typescript@6
+npm|nodejs/express-typescript-mongodb|typescript@6
+npm|nodejs/express5-postgres|typescript@6
+npm|nodejs/fastify-postgres|typescript@6 @fastify/rate-limit@11 fastify-plugin@6
+npm|nodejs/hono-postgres|typescript@6 @hono/node-server@2
+npm|nodejs/nextjs-api-mongodb|typescript@6
+npm|nodejs/nextjs-fullstack-otel|typescript@6 @types/node@25 eslint@10
+# go|go/go-temporal-postgres|buf.build/go/protovalidate@v1.2.0  # transitive only — go mod tidy drops it, not directly pinnable
