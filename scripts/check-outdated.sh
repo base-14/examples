@@ -76,7 +76,9 @@ check_nodejs() {
       local pkg current latest
       pkg=$(echo "$line" | awk '{print $1}')
       current=$(echo "$line" | awk '{print $2}' | sed 's/[\^~]//')
-      latest=$(echo "$line" | awk '{print $NF}' | sed 's/[\^~]//')
+      # latest = first token after the → arrow; newer ncu appends a trailing
+      # annotation (e.g. "[missing time]") that must not be read as the version.
+      latest=$(echo "$line" | sed 's/.*→[[:space:]]*//' | awk '{print $1}' | sed 's/[\^~]//')
 
       local cur_major lat_major bump_type
       cur_major="${current%%.*}"
