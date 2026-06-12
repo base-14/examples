@@ -53,6 +53,7 @@
     "zod": "^4.4.3"
   },
   "overrides": {
+    "@grpc/grpc-js": ">=1.14.4",
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.0"
     },

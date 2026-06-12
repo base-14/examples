@@ -66,6 +66,7 @@
     "zod": "^4.4.3"
   },
   "overrides": {
+    "@grpc/grpc-js": ">=1.14.4",
     "@grpc/proto-loader": {
       "protobufjs": "^7.5.6"
     },

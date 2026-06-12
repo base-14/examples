@@ -28,6 +28,7 @@
     "@types/node": "^24.12.4"
   },
   "overrides": {
+    "@grpc/grpc-js": ">=1.14.4",
     "@grpc/proto-loader": {
       "protobufjs": "^7.5.6"
     },
