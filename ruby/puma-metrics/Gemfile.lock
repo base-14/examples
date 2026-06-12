@@ -10,7 +10,7 @@ GEM
     nio4r (2.7.5)
     prometheus-client (4.2.5)
       base64
-    puma (6.6.1)
+    puma (8.0.2)
       nio4r (~> 2.0)
     rack (3.2.6)
     ruby-next-core (1.2.0)
@@ -32,11 +32,11 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  puma (~> 6.0)
+  puma (~> 8.0)
   rack (~> 3.0)
   yabeda
   yabeda-prometheus
   yabeda-puma-plugin
 
 BUNDLED WITH
-   2.5.22
+   2.5.23

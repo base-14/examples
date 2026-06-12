@@ -183,7 +183,7 @@ GEM
       drb (~> 2.0)
       prism (~> 1.5)
     msgpack (1.8.0)
-    net-imap (0.6.4)
+    net-imap (0.6.4.1)
       date
       net-protocol
     net-pop (0.1.2)
@@ -401,7 +401,7 @@ GEM
       date
       stringio
     public_suffix (6.0.2)
-    puma (7.1.0)
+    puma (8.0.2)
       nio4r (~> 2.0)
     raabro (1.4.0)
     racc (1.8.1)

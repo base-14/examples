@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Notification microservice that receives article-created events"
 requires-python = ">=3.14"
 dependencies = [
-    "litestar[standard]==2.21.1",
+    "litestar[standard]==2.22.0",
     "msgspec==0.21.1",
     "python-json-logger==4.1.0",
     # OpenTelemetry — SDK + auto-instrumentation
