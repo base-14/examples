@@ -14,8 +14,8 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "SQLAlchemy>=2.0.47",
     "email-validator>=2.3",
-    "passlib[bcrypt]>=1.7.4",
-    "bcrypt>=4.2.1",
+    "pwdlib[bcrypt]>=0.3",
+    "bcrypt>=5.0",
     "PyJWT>=2.11",
     "python-multipart>=0.0.22",
     "alembic>=1.18",
@@ -81,7 +81,7 @@ pretty = true
 
 [[tool.mypy.overrides]]
 module = [
-    "passlib.*",
+    "pwdlib.*",
     "opentelemetry.*",
     "sqlalchemy.*",
     "pydantic_settings.*",
