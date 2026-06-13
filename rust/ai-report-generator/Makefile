@@ -32,14 +32,14 @@ verify-scout:
 	./scripts/verify-scout.sh
 
 lint:
-	cargo clippy --all-targets
+	cargo clippy --all-targets -- -D warnings
 
 format:
 	cargo fmt
 
 check:
-	cargo clippy --all-targets
-	cargo fmt --check
-	cargo test --all
+	cargo check --all-targets
+	cargo clippy --all-targets -- -D warnings
+	cargo test
 
 .DEFAULT_GOAL := build

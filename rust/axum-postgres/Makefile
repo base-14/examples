@@ -42,17 +42,19 @@ verify-scout:
 	./scripts/verify-scout.sh
 
 lint:
-	cargo clippy --all-targets
+	cargo clippy --all-targets -- -D warnings
 
 format:
 	cargo fmt
 
 check:
 	cargo check --all-targets
+	cargo clippy --all-targets -- -D warnings
+	cargo test
 
 build-lint: build
 	@echo "Running build and lint..."
-	cargo clippy --all-targets
+	cargo clippy --all-targets -- -D warnings
 	cargo fmt --check
 	cargo test --all
 
