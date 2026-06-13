@@ -37,8 +37,9 @@ class Connection(Base):
     )
 
 
-# GIN index for full-text search — created after table via DDL event
-_fts_index = DDL(
+# GIN index for full-text search — created after table via DDL event.
+# DDL.__init__ is unannotated in SQLAlchemy, so strict mypy flags the call.
+_fts_index = DDL(  # type: ignore[no-untyped-call]
     "CREATE INDEX IF NOT EXISTS idx_connections_fts ON connections "
     "USING gin(to_tsvector('english', "
     "coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' "

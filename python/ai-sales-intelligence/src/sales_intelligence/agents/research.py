@@ -7,10 +7,12 @@ makes this efficient even at scale.
 
 import logging
 import uuid
+from typing import Any
 
 from opentelemetry import trace
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnClause
 
 from sales_intelligence.models import Connection
 from sales_intelligence.state import AgentState, ProspectData
@@ -21,7 +23,7 @@ tracer = trace.get_tracer(__name__)
 
 # Raw SQL expression matching the GIN index definition in models.py exactly,
 # so PostgreSQL uses the index instead of a sequential scan.
-_TSVECTOR_EXPR = literal_column(
+_TSVECTOR_EXPR: ColumnClause[Any] = literal_column(
     "to_tsvector('english', "
     "coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' "
     "|| coalesce(company, '') || ' ' || coalesce(position, ''))"

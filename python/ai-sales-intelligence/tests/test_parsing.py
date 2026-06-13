@@ -62,7 +62,7 @@ class TestExtractJson:
         assert extract_json("{}") == {}
 
     def test_whitespace_around_json(self):
-        text = "  \n  {\"x\": 1}  \n  "
+        text = '  \n  {"x": 1}  \n  '
         assert extract_json(text) == {"x": 1}
 
     def test_braces_inside_strings_ignored(self):
