@@ -246,6 +246,12 @@ upgrade_python() {
   else
     # pip: upgrade the venv via uv, then rewrite the == pins to resolved versions
     local venv_py=".venv/bin/python"; [[ -x "$venv_py" ]] || venv_py="venv/bin/python"
+    # tool dirs (e.g. loadgen) ship no venv; resolve in a throwaway one
+    local ephemeral=""
+    if [[ ! -x "$venv_py" ]]; then
+      ephemeral="/tmp/upgrade-deps-venv-$$"
+      uv venv "$ephemeral" >/dev/null 2>&1 && venv_py="$ephemeral/bin/python"
+    fi
     local names
     if [[ -n "$PY_FILTER" ]]; then
       names=$(grep -iE "^${PY_FILTER}[A-Za-z0-9._-]*==" requirements.txt | sed 's/[=<>].*//') || true
@@ -260,6 +266,7 @@ upgrade_python() {
         [[ -n "$v" ]] && sed -i '' -E "s/^(${p}==).*/\1${v}/" requirements.txt
       done
     fi
+    [[ -n "$ephemeral" ]] && rm -rf "$ephemeral"
     verify_make_check "python/$name" requirements.txt
   fi
 }
@@ -424,6 +431,10 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
   for dir in "$REPO_ROOT"/python/*/; do
     [[ -d "$dir" ]] || continue
     upgrade_python "$dir"
+  done
+  # python tool dirs that live outside python/
+  for dir in "$REPO_ROOT"/loadgen; do
+    [[ -d "$dir" ]] && upgrade_python "$dir"
   done
 fi
 
