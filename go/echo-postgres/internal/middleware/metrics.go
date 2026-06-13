@@ -10,10 +10,10 @@ import (
 )
 
 var (
-	meter            = otel.Meter("go-echo-postgres")
-	requestCounter   metric.Int64Counter
-	requestDuration  metric.Float64Histogram
-	activeRequests   metric.Int64UpDownCounter
+	meter           = otel.Meter("go-echo-postgres")
+	requestCounter  metric.Int64Counter
+	requestDuration metric.Float64Histogram
+	activeRequests  metric.Int64UpDownCounter
 )
 
 func InitMetrics() error {

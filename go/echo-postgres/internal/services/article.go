@@ -18,10 +18,10 @@ import (
 )
 
 var (
-	ErrArticleNotFound = errors.New("article not found")
-	ErrNotAuthor       = errors.New("not the author of this article")
+	ErrArticleNotFound  = errors.New("article not found")
+	ErrNotAuthor        = errors.New("not the author of this article")
 	ErrAlreadyFavorited = errors.New("article already favorited")
-	ErrNotFavorited    = errors.New("article not favorited")
+	ErrNotFavorited     = errors.New("article not favorited")
 )
 
 var articlesCreatedCounter metric.Int64Counter

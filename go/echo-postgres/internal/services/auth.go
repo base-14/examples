@@ -26,9 +26,9 @@ var (
 )
 
 var (
-	ErrUserExists       = errors.New("user already exists")
+	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserNotFound     = errors.New("user not found")
+	ErrUserNotFound       = errors.New("user not found")
 )
 
 type AuthService struct {
