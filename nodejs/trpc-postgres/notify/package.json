@@ -7,12 +7,12 @@
     "start": "node --require ./dist/tracing.js ./dist/server.js"
   },
   "dependencies": {
-    "@opentelemetry/sdk-node": "^0.218.0",
+    "@opentelemetry/sdk-node": "^0.219.0",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.76.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.218.0",
-    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.218.0",
-    "@opentelemetry/exporter-logs-otlp-grpc": "^0.218.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.219.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.219.0",
+    "@opentelemetry/exporter-logs-otlp-grpc": "^0.219.0",
     "pino": "^10.3.1"
   },
   "devDependencies": {
