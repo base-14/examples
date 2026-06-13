@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import TelemetryProvider from '@/components/TelemetryProvider';
@@ -33,9 +34,9 @@ export default function RootLayout({
           <nav className="bg-white border-b border-gray-200 px-6 py-3">
             <div className="max-w-4xl mx-auto flex gap-6 items-center">
               <span className="font-semibold text-lg">OTel Demo</span>
-              <a href="/" className="hover:text-blue-600">Home</a>
-              <a href="/products" className="hover:text-blue-600">Products</a>
-              <a href="/error-demo" className="hover:text-blue-600">Error Demo</a>
+              <Link href="/" className="hover:text-blue-600">Home</Link>
+              <Link href="/products" className="hover:text-blue-600">Products</Link>
+              <Link href="/error-demo" className="hover:text-blue-600">Error Demo</Link>
             </div>
           </nav>
           <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-8">
