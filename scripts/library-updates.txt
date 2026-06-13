@@ -9,5 +9,13 @@ npm|nodejs/express5-postgres|typescript@6
 npm|nodejs/fastify-postgres|typescript@6 @fastify/rate-limit@11 fastify-plugin@6
 npm|nodejs/hono-postgres|typescript@6 @hono/node-server@2
 npm|nodejs/nextjs-api-mongodb|typescript@6
-npm|nodejs/nextjs-fullstack-otel|typescript@6 @types/node@25 eslint@10
+npm|nodejs/nextjs-fullstack-otel|typescript@6 @types/node@25
 # go|go/go-temporal-postgres|buf.build/go/protovalidate@v1.2.0  # transitive only — go mod tidy drops it, not directly pinnable
+
+# --- Breaking migrations applied 2026-06-13 (build/lint/tests verified) ---
+npm|nodejs/nestjs-postgres|typeorm@1 typescript@6
+npm|nodejs/express-typescript-mongodb|mongoose@9 mongodb-memory-server@11 isomorphic-dompurify@3
+
+# --- BLOCKED (do not re-add until upstream lands) ---
+# npm|nodejs/nextjs-api-mongodb|eslint@10        # eslint-plugin-react 7.37.5 (latest) calls removed getFilename(); breaks under eslint 10
+# npm|nodejs/nextjs-fullstack-otel|eslint@10     # same blocker; the 2026-06-12 "clean" classification was wrong (lint crashed, not gated) — reverted to ^9
