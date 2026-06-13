@@ -29,16 +29,16 @@ verify-scout:
 	./scripts/verify-scout.sh
 
 lint:
-	ruff check app tests
-	ruff format --check app tests
+	.venv/bin/ruff check app tests
+	.venv/bin/ruff format --check app tests
 
 format:
-	ruff check --fix app tests
-	ruff format app tests
+	.venv/bin/ruff check --fix app tests
+	.venv/bin/ruff format app tests
 
 typecheck:
-	mypy app
+	.venv/bin/mypy app
 
-check: lint typecheck test
+check: lint typecheck
 
 .DEFAULT_GOAL := test

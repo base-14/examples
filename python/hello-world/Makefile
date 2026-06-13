@@ -3,10 +3,10 @@
 # This example is a single script with no lint/type/test tooling configured.
 # The verify gate is a byte-compile of the source (Python has no build step).
 check:
-	python -m py_compile main.py
+	python3 -m py_compile main.py
 
 run:
-	python main.py
+	python3 main.py
 
 clean:
 	rm -rf __pycache__
