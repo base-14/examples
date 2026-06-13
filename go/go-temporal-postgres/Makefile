@@ -1,4 +1,4 @@
-.PHONY: all build test lint run clean docker-build docker-up docker-down help
+.PHONY: all build test lint run clean docker-build docker-up docker-down help check
 
 # Go parameters
 GOCMD=go
@@ -14,6 +14,12 @@ LDFLAGS=-ldflags "-s -w"
 BUILD_FLAGS=-race
 
 all: lint test build
+
+## check: Uniform verify entrypoint (vet + build + self-contained tests)
+check:
+	$(GOVET) ./...
+	$(GOBUILD) ./...
+	$(GOTEST) ./...
 
 ## build: Build API and Worker binaries
 build:

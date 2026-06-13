@@ -24,7 +24,7 @@ format: ## ruff fix + format
 audit: ## pip-audit each service env for known CVEs
 	@for svc in $(SERVICES); do echo ">> pip-audit $$svc"; (cd $$svc && uv run --with pip-audit pip-audit --strict) || exit 1; done
 
-check: lint audit test ## lint + audit + test (run before commits)
+check: lint test ## lint + test (uniform verify gate; tests are self-contained)
 
 docker-build: ## build all images
 	docker compose build

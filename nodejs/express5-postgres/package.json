@@ -21,7 +21,8 @@
     "test:websocket": "node scripts/test-websocket.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "build:lint": "npm run build && npm run lint"
+    "build:lint": "npm run build && npm run lint",
+    "check": "npm run build && npm run lint && npm run test"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

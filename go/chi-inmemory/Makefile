@@ -1,7 +1,12 @@
-.PHONY: build test clean run run-server run-cli run-both docker-up docker-down docker-build docker-logs test-api lint format build-lint
+.PHONY: build test clean run run-server run-cli run-both docker-up docker-down docker-build docker-logs test-api lint format build-lint check
 
 BINARY_NAME=parking-lot
 MAIN_PACKAGE=./cmd/parking-lot
+
+check:
+	go vet ./...
+	go build ./...
+	go test ./...
 
 build:
 	go build -o $(BINARY_NAME) $(MAIN_PACKAGE)
