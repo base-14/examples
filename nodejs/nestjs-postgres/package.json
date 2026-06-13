@@ -61,7 +61,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "socket.io": "^4.8.3",
-    "typeorm": "^0.3.30",
+    "typeorm": "^1.0.0",
     "uuid": "^14.0.0",
     "winston": "^3.19.0",
     "zod": "^4.4.3"
@@ -86,9 +86,6 @@
     },
     "path-to-regexp": ">=8.4.0",
     "bullmq": {
-      "uuid": ">=14.0.0"
-    },
-    "typeorm": {
       "uuid": ">=14.0.0"
     }
   },
@@ -118,7 +115,7 @@
     "ts-loader": "^9.5.7",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4"
   },
   "jest": {
