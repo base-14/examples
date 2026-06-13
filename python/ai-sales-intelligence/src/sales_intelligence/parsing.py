@@ -2,9 +2,10 @@
 
 import json
 import re
+from typing import Any, cast
 
 
-def extract_json(text: str) -> dict:
+def extract_json(text: str) -> dict[str, Any]:
     """Extract the first valid JSON object from an LLM response.
 
     Handles common LLM quirks:
@@ -25,7 +26,7 @@ def extract_json(text: str) -> dict:
 
     # Try parsing the whole string first (fast path)
     try:
-        return json.loads(text)
+        return cast("dict[str, Any]", json.loads(text))
     except json.JSONDecodeError:
         pass
 
@@ -58,10 +59,10 @@ def extract_json(text: str) -> dict:
             if depth == 0:
                 candidate = text[start : i + 1]
                 try:
-                    return json.loads(candidate)
+                    return cast("dict[str, Any]", json.loads(candidate))
                 except json.JSONDecodeError:
                     # Remove trailing commas before } or ] and retry
                     fixed = re.sub(r",\s*([}\]])", r"\1", candidate)
-                    return json.loads(fixed)
+                    return cast("dict[str, Any]", json.loads(fixed))
 
     raise json.JSONDecodeError("Unterminated JSON object", text, start)
