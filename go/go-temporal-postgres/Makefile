@@ -15,8 +15,8 @@ BUILD_FLAGS=-race
 
 all: lint test build
 
-## check: Uniform verify entrypoint (vet + build + self-contained tests)
-check:
+## check: Uniform verify entrypoint (vet + build + lint + self-contained tests)
+check: lint
 	$(GOVET) ./...
 	$(GOBUILD) ./...
 	$(GOTEST) ./...

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -111,6 +112,11 @@ func main() {
 
 	if *count == 0 && *duration == 0 {
 		slog.Error("must specify either --count or --duration")
+		os.Exit(1)
+	}
+
+	if err := validateTargetURL(*apiURL); err != nil {
+		slog.Error("invalid target URL", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
@@ -236,18 +242,35 @@ func selectWeightedProduct() product {
 	return products[0]
 }
 
+func validateTargetURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("parse error: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("scheme must be http or https, got %q", u.Scheme)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("missing host")
+	}
+	return nil
+}
+
 func submitOrder(ctx context.Context, client *http.Client, url string, order OrderRequest) error {
 	body, err := json.Marshal(order)
 	if err != nil {
 		return fmt.Errorf("marshal error: %w", err)
 	}
 
+	// #nosec G704 -- url is operator-supplied loadgen config (--url/API_URL),
+	// scheme-validated at startup; targeting an operator-chosen endpoint is the tool's purpose.
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("request creation error: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	// #nosec G704 -- see above; request issued to the validated operator-supplied target.
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("request error: %w", err)
