@@ -18,6 +18,8 @@ SCOPE="all"
 NODE_FILTER=""      # passed verbatim to npm-check-updates as package filters
 GO_PATTERNS=""      # passed verbatim to `go get -u`
 SCOPE_GREP=""       # manifest grep guard; empty = no guard
+PY_FILTER=""        # pip/uv package-name prefix to upgrade
+DOTNET_FILTER=""    # NuGet package-name prefix to upgrade
 
 usage() {
   echo "Usage: $0 [--language nodejs|python|go|rust|java|all] [--scope all|otel] [--skip-major] [--dry-run]"
@@ -52,6 +54,8 @@ case "$SCOPE" in
     NODE_FILTER='@opentelemetry/* @fastify/otel'
     GO_PATTERNS='go.opentelemetry.io/otel/... go.opentelemetry.io/contrib/... github.com/GoogleCloudPlatform/opentelemetry-operations-go/...'
     SCOPE_GREP='@opentelemetry/|@fastify/otel|go.opentelemetry.io'
+    PY_FILTER='opentelemetry'
+    DOTNET_FILTER='OpenTelemetry'
     SKIP_MAJOR=true   # OTel sweep is minor/patch by definition
     ;;
   *) echo "Unknown scope: $SCOPE"; usage ;;
@@ -185,46 +189,114 @@ upgrade_nodejs() {
   fi
 }
 
+# $1=label, $2..=files to revert on failure under a scoped sweep.
+verify_make_check() {
+  local label="$1"; shift
+  if [[ ! -f Makefile ]] || ! grep -q '^check:' Makefile; then
+    echo "  UPGRADED (no make check)"; results+=("$label: UPGRADED (no verify)"); passed=$((passed + 1)); return
+  fi
+  echo "  Verifying: make check"
+  if make check >/dev/null 2>&1; then
+    echo "  PASS"; results+=("$label: PASS"); passed=$((passed + 1))
+  else
+    echo "  FAIL"; make check 2>&1 | tail -8 || true
+    results+=("$label: FAIL"); failed=$((failed + 1))
+    [[ "$SCOPE" != "all" && $# -gt 0 ]] && git checkout -- "$@" 2>/dev/null || true
+  fi
+}
+
 upgrade_python() {
   local dir="$1"
   local name
   name="$(basename "$dir")"
 
   if is_skipped "$name"; then return; fi
-  if [[ ! -f "$dir/requirements.txt" ]]; then return; fi
+  local mgr=""
+  [[ -f "$dir/uv.lock" ]] && mgr="uv"
+  [[ -z "$mgr" && -f "$dir/requirements.txt" ]] && mgr="pip"
+  [[ -z "$mgr" ]] && return   # no manifest (e.g. empty shell)
+
+  if [[ -n "$PY_FILTER" ]] && ! grep -qiE "$PY_FILTER" "$dir/pyproject.toml" "$dir/requirements.txt" 2>/dev/null; then
+    return
+  fi
 
   print_header "python/$name"
 
   if [[ "$DRY_RUN" == true ]]; then
-    echo "  [dry-run] Would update requirements.txt versions"
-    results+=("python/$name: DRY-RUN")
-    skipped=$((skipped + 1))
-    return
+    local what="all packages"; [[ -n "$PY_FILTER" ]] && what="packages matching /$PY_FILTER/"
+    echo "  [dry-run] manager=$mgr; would upgrade $what (minor/patch)"
+    results+=("python/$name: DRY-RUN"); skipped=$((skipped + 1)); return
   fi
 
-  echo "  Updating requirements.txt..."
-  if command -v pip-compile &>/dev/null; then
-    cd "$dir" && pip-compile --upgrade --strip-extras requirements.in 2>/dev/null || true
-  else
-    echo "  pip-tools not available, skipping auto-upgrade"
-    results+=("python/$name: SKIPPED (no pip-tools)")
-    skipped=$((skipped + 1))
-    return
-  fi
-
-  if [[ -f "$dir/Makefile" ]] && grep -q "check:" "$dir/Makefile"; then
-    echo "  Verifying: make check"
-    if cd "$dir" && make check 2>&1; then
-      results+=("python/$name: PASS")
-      passed=$((passed + 1))
+  cd "$dir" || return
+  echo "  Updating ($mgr)..."
+  if [[ "$mgr" == "uv" ]]; then
+    if [[ -n "$PY_FILTER" ]]; then
+      local args="" p
+      for p in $(grep -oiE "\"${PY_FILTER}[A-Za-z0-9._-]*" pyproject.toml | tr -d '"' | sort -u); do
+        args="$args --upgrade-package $p"
+      done
+      [[ -n "$args" ]] && uv lock $args >/dev/null 2>&1 || true
     else
-      results+=("python/$name: FAIL")
-      failed=$((failed + 1))
+      uv lock --upgrade >/dev/null 2>&1 || true
     fi
+    # extras + dev groups keep check tooling (mypy/ruff) installed
+    uv sync --all-extras --all-groups --quiet >/dev/null 2>&1 || uv sync --all-extras --quiet >/dev/null 2>&1 || true
+    verify_make_check "python/$name" pyproject.toml uv.lock
   else
-    results+=("python/$name: UPGRADED (no verify)")
-    passed=$((passed + 1))
+    # pip: upgrade the venv via uv, then rewrite the == pins to resolved versions
+    local venv_py=".venv/bin/python"; [[ -x "$venv_py" ]] || venv_py="venv/bin/python"
+    local names
+    if [[ -n "$PY_FILTER" ]]; then
+      names=$(grep -iE "^${PY_FILTER}[A-Za-z0-9._-]*==" requirements.txt | sed 's/[=<>].*//') || true
+    else
+      names=$(grep -E "==" requirements.txt | sed 's/[=<>].*//') || true
+    fi
+    if [[ -x "$venv_py" && -n "$names" ]]; then
+      uv pip install --python "$venv_py" --upgrade $names >/dev/null 2>&1 || true
+      local p v
+      for p in $names; do
+        v=$("$venv_py" -c "import importlib.metadata as m; print(m.version('$p'))" 2>/dev/null)
+        [[ -n "$v" ]] && sed -i '' -E "s/^(${p}==).*/\1${v}/" requirements.txt
+      done
+    fi
+    verify_make_check "python/$name" requirements.txt
   fi
+}
+
+upgrade_dotnet() {
+  local dir="$1"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+  local csproj
+  csproj=$(find "$dir" -maxdepth 1 -name '*.csproj' | head -1)
+  [[ -z "$csproj" ]] && return
+
+  if [[ -n "$DOTNET_FILTER" ]] && ! grep -qiE "$DOTNET_FILTER" "$csproj" 2>/dev/null; then
+    return
+  fi
+
+  print_header "csharp/$name"
+
+  local pat="${DOTNET_FILTER:-}"
+  local pkgs
+  pkgs=$(grep -oE 'PackageReference Include="[^"]+"' "$csproj" | sed 's/.*Include="//;s/"//' \
+          | { [[ -n "$pat" ]] && grep -iE "$pat" || cat; })
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "  [dry-run] would 'dotnet add package' (latest) for: $(echo $pkgs | tr '\n' ' ')"
+    results+=("csharp/$name: DRY-RUN"); skipped=$((skipped + 1)); return
+  fi
+
+  cd "$dir" || return
+  echo "  Updating (dotnet add package)..."
+  local p
+  for p in $pkgs; do
+    dotnet add "$csproj" package "$p" >/dev/null 2>&1 || true
+  done
+  verify_make_check "csharp/$name" "$(basename "$csproj")"
 }
 
 upgrade_go() {
@@ -337,10 +409,8 @@ upgrade_java() {
 echo "Upgrading dependencies..."
 echo "Language: $LANGUAGE | Scope: $SCOPE | Skip major: $SKIP_MAJOR | Dry run: $DRY_RUN"
 
-# Scoped sweeps only define node+go filters; pip/cargo/gradle family-scoping is a
-# separate effort, so skip python/rust/java when a scope is set and say why.
-scoped_only_nodego=false
-[[ "$SCOPE" != "all" ]] && scoped_only_nodego=true
+# rust/java have no scope filter, so they only run in an unscoped sweep
+[[ "$SCOPE" != "all" ]] && run_unscoped_langs=false || run_unscoped_langs=true
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "nodejs" ]]; then
   # find (not glob) so nested monorepo packages like trpc-postgres/{app,notify}
@@ -350,7 +420,7 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "nodejs" ]]; then
   done < <(find "$REPO_ROOT"/nodejs -maxdepth 3 -name package.json -not -path '*/node_modules/*' | sort)
 fi
 
-if [[ "$scoped_only_nodego" == false ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
+if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
   for dir in "$REPO_ROOT"/python/*/; do
     [[ -d "$dir" ]] || continue
     upgrade_python "$dir"
@@ -364,23 +434,30 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "go" ]]; then
   done
 fi
 
-if [[ "$scoped_only_nodego" == false ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "rust" ]]; then
+if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "csharp" || "$LANGUAGE" == "dotnet" ]]; then
+  for dir in "$REPO_ROOT"/csharp/*/; do
+    [[ -d "$dir" ]] || continue
+    upgrade_dotnet "$dir"
+  done
+fi
+
+if [[ "$run_unscoped_langs" == true ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "rust" ]]; then
   for dir in "$REPO_ROOT"/rust/*/; do
     [[ -d "$dir" ]] || continue
     upgrade_rust "$dir"
   done
 fi
 
-if [[ "$scoped_only_nodego" == false ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "java" ]]; then
+if [[ "$run_unscoped_langs" == true ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "java" ]]; then
   for dir in "$REPO_ROOT"/java/*/; do
     [[ -d "$dir" ]] || continue
     upgrade_java "$dir"
   done
 fi
 
-if [[ "$scoped_only_nodego" == true ]]; then
+if [[ "$run_unscoped_langs" == false ]]; then
   echo ""
-  echo "  (scope=$SCOPE: python/rust/java skipped — use the manual OTel version check for those)"
+  echo "  (scope=$SCOPE: rust/java skipped — no scoped filter defined for them yet)"
 fi
 
 echo ""

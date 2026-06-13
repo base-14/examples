@@ -7,10 +7,13 @@
 #
 # Manifest format (default: scripts/library-updates.txt), one bump-set per line:
 #   <ecosystem>|<relpath>|<spec> [<spec> ...]
-#   ecosystem = npm | go      (# comments and blank lines ignored)
+#   ecosystem = npm | go | python | dotnet   (# comments and blank lines ignored)
+#   spec      = name@version  (python/dotnet @ is mapped to ==/--version internally)
 # Example:
 #   npm|nodejs/fastify-postgres|typescript@6 @fastify/rate-limit@11
 #   go|go/go-temporal-postgres|buf.build/go/protovalidate@v1.2.0
+#   python|python/fastapi-postgres|fastapi@0.118.0 sqlalchemy@2.0.40
+#   dotnet|csharp/hello-world|OpenTelemetry@1.16.0
 #
 # Usage:
 #   ./scripts/update-libraries.sh --probe [manifest]   # dry-run + classify, reverts
@@ -70,6 +73,15 @@ node_lint_script() {
     process.stdout.write(b==='build'&&s['lint']?'lint':'')"
 }
 
+# build/lint gate via `make check`; absent target counts as a pass.
+make_check_gate() {
+  local step="$1"
+  if [[ -f Makefile ]] && grep -q '^check:' Makefile; then
+    make check >"$step" 2>&1; return $?
+  fi
+  echo "no make check target" >"$step"; return 0
+}
+
 # revert only the tracked files that actually exist (avoids git checkout aborting
 # on a non-existent pathspec), then restore deps to the committed lock.
 revert_npm() {
@@ -82,6 +94,22 @@ revert_go() {
   local f=()
   for p in go.mod go.sum; do [[ -f "$p" ]] && f+=("$p"); done
   git checkout -- "${f[@]}" 2>/dev/null
+}
+revert_python() {
+  local f=()
+  for p in pyproject.toml uv.lock requirements.txt; do [[ -f "$p" ]] && f+=("$p"); done
+  [[ ${#f[@]} -gt 0 ]] && git checkout -- "${f[@]}" 2>/dev/null
+  if [[ -f uv.lock ]]; then
+    uv sync --all-extras --all-groups --quiet >/dev/null 2>&1 || uv sync --all-extras --quiet >/dev/null 2>&1 || true
+  else
+    local venv_py=".venv/bin/python"; [[ -x "$venv_py" ]] || venv_py="venv/bin/python"
+    [[ -x "$venv_py" && -f requirements.txt ]] && uv pip install --python "$venv_py" -r requirements.txt >/dev/null 2>&1 || true
+  fi
+}
+revert_dotnet() {
+  local csproj="$1"
+  [[ -n "$csproj" && -f "$csproj" ]] && git checkout -- "$csproj" 2>/dev/null
+  dotnet restore >/dev/null 2>&1 || true
 }
 
 process_entry() {
@@ -101,8 +129,38 @@ process_entry() {
       local l; l="$(node_lint_script)"
       [[ -n "$l" ]] && { "$runner" run "$l" >>"$step" 2>&1; rc=$?; }
     fi
-  else
+  elif [[ "$eco" == "go" ]]; then
     go get $specs >"$step" 2>&1 && go mod tidy >>"$step" 2>&1 && go build ./... >>"$step" 2>&1; rc=$?
+  elif [[ "$eco" == "python" ]]; then
+    local mgr=""
+    [[ -f uv.lock ]] && mgr="uv"
+    [[ -z "$mgr" && -f requirements.txt ]] && mgr="pip"
+    if [[ -z "$mgr" ]]; then RESULTS+=("NO_MANIFEST | $rel | $specs"); popd >/dev/null; return; fi
+    local irc=0 s name ver; : >"$step"
+    if [[ "$mgr" == "uv" ]]; then
+      local pyspecs=""
+      for s in $specs; do pyspecs="$pyspecs ${s/@/==}"; done
+      uv add $pyspecs >>"$step" 2>&1 || irc=$?
+    else
+      local venv_py=".venv/bin/python"; [[ -x "$venv_py" ]] || venv_py="venv/bin/python"
+      for s in $specs; do
+        name="${s%@*}"; ver="${s#*@}"
+        uv pip install --python "$venv_py" "${name}==${ver}" >>"$step" 2>&1 || irc=$?
+        sed -i '' -E "s/^(${name}==).*/\1${ver}/" requirements.txt 2>/dev/null || true
+      done
+    fi
+    if [[ $irc -ne 0 ]]; then verdict="INSTALL_FAIL"; tail -8 "$step"; RESULTS+=("$verdict | $rel | $specs"); revert_python; popd >/dev/null; return; fi
+    make_check_gate "$step"; rc=$?
+  elif [[ "$eco" == "dotnet" ]]; then
+    local csproj; csproj=$(find . -maxdepth 1 -name '*.csproj' | head -1)
+    if [[ -z "$csproj" ]]; then RESULTS+=("NO_CSPROJ | $rel | $specs"); popd >/dev/null; return; fi
+    local irc=0 s name ver; : >"$step"
+    for s in $specs; do
+      name="${s%@*}"; ver="${s#*@}"
+      dotnet add "$csproj" package "$name" --version "$ver" >>"$step" 2>&1 || irc=$?
+    done
+    if [[ $irc -ne 0 ]]; then verdict="INSTALL_FAIL"; tail -8 "$step"; RESULTS+=("$verdict | $rel | $specs"); revert_dotnet "$csproj"; popd >/dev/null; return; fi
+    if [[ -f Makefile ]] && grep -q '^check:' Makefile; then make_check_gate "$step"; rc=$?; else dotnet build >"$step" 2>&1; rc=$?; fi
   fi
 
   if [[ $rc -eq 0 ]]; then verdict="CLEAN"; else verdict="BREAKS(rc=$rc)"; tail -12 "$step"; fi
@@ -111,7 +169,12 @@ process_entry() {
 
   if [[ "$MODE" == "probe" ]] || [[ $rc -ne 0 ]]; then
     # always revert in probe mode; in apply mode revert failures so the tree stays buildable
-    [[ "$eco" == "npm" ]] && revert_npm || revert_go
+    case "$eco" in
+      npm) revert_npm ;;
+      go) revert_go ;;
+      python) revert_python ;;
+      dotnet) revert_dotnet "${csproj:-}" ;;
+    esac
   fi
   popd >/dev/null
 }
