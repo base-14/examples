@@ -1,8 +1,8 @@
-import mongoose, { Schema, type Document } from 'mongoose';
+import mongoose, { Schema, Types, type Document } from 'mongoose';
 
 export interface IFavorite extends Document {
-  user: Schema.Types.ObjectId;
-  article: Schema.Types.ObjectId;
+  user: Types.ObjectId;
+  article: Types.ObjectId;
   createdAt: Date;
 }
 
