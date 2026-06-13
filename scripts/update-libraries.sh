@@ -61,6 +61,15 @@ node_build_script() {
     process.stdout.write(s['check']?'check':s['build-lint']?'build-lint':s['build']?'build':'')"
 }
 
+# returns 'lint' only when the build gate fell back to bare 'build' (check /
+# build-lint already include linting) and a standalone 'lint' script exists, so
+# lint regressions like an eslint-plugin crash can't slip through build-only.
+node_lint_script() {
+  node -e "const s=require('./package.json').scripts||{};
+    const b=s['check']?'check':s['build-lint']?'build-lint':s['build']?'build':'';
+    process.stdout.write(b==='build'&&s['lint']?'lint':'')"
+}
+
 # revert only the tracked files that actually exist (avoids git checkout aborting
 # on a non-existent pathspec), then restore deps to the committed lock.
 revert_npm() {
@@ -88,6 +97,10 @@ process_entry() {
     local b; b="$(node_build_script)"
     if [[ -z "$b" ]]; then RESULTS+=("NO_BUILD_SCRIPT | $rel | $specs"); revert_npm; popd >/dev/null; return; fi
     "$runner" run "$b" >"$step" 2>&1; rc=$?
+    if [[ $rc -eq 0 ]]; then
+      local l; l="$(node_lint_script)"
+      [[ -n "$l" ]] && { "$runner" run "$l" >>"$step" 2>&1; rc=$?; }
+    fi
   else
     go get $specs >"$step" 2>&1 && go mod tidy >>"$step" 2>&1 && go build ./... >>"$step" 2>&1; rc=$?
   fi
