@@ -1,10 +1,13 @@
-.PHONY: build test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout build-lint
+.PHONY: build test check clean dev docker-up docker-down docker-logs docker-build test-api verify-scout build-lint
 
 build:
 	./mvnw package -DskipTests
 
 test:
 	./mvnw test
+
+check:
+	./mvnw verify -DskipTests -B
 
 clean:
 	./mvnw clean

@@ -22,7 +22,7 @@
     "verify:scout": "bash scripts/verify-scout.sh",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "check": "npm run build && npm run lint && npm run test"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.4",

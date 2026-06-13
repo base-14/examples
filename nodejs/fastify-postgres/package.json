@@ -23,7 +23,7 @@
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "build:lint": "npm run build && npm run lint",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "check": "npm run build && npm run lint && npm run test"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",

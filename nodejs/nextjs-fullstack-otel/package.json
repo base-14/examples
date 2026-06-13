@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check": "npm run build && npm run lint"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

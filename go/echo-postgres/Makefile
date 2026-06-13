@@ -1,4 +1,9 @@
-.PHONY: build build-api build-worker test clean run docker-up docker-down docker-logs docker-build test-api verify-scout lint format build-lint tidy
+.PHONY: build build-api build-worker test clean run docker-up docker-down docker-logs docker-build test-api verify-scout lint format build-lint tidy check
+
+check:
+	go vet ./...
+	go build ./...
+	go test ./...
 
 build: build-api build-worker
 

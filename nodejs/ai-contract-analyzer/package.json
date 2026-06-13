@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "bunx biome check src tests",
     "format": "bunx biome format --write src tests",
-    "check": "bun run lint && bun run typecheck && bun run test",
+    "check": "bun run typecheck && bun run build && bun run lint && bun run test",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

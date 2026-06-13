@@ -10,9 +10,10 @@
     "lint": "eslint .",
     "worker": "tsx --import ./src/jobs/instrumentation.ts src/jobs/worker.ts",
     "build:worker": "esbuild src/jobs/instrumentation.ts src/jobs/worker.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist --external:bullmq --external:ioredis --external:pino --external:@opentelemetry/*",
-    "test": "vitest",
+    "test": "vitest run",
     "test:api": "./scripts/test-api.sh",
-    "build-lint": "next build && npm run lint"
+    "build-lint": "next build && npm run lint",
+    "check": "npm run build && npm run lint && npm run test"
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",
