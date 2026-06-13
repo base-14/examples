@@ -1,5 +1,6 @@
 """Flask application factory with OpenTelemetry instrumentation."""
 
+import contextlib
 import logging
 import os
 
@@ -66,11 +67,8 @@ def create_app(config_class: type | None = None) -> Flask:
     _configure_logging()
 
     # Create database tables (ignore race between Gunicorn workers)
-    with app.app_context():
-        try:
-            db.create_all()
-        except Exception:
-            pass
+    with app.app_context(), contextlib.suppress(Exception):
+        db.create_all()
 
     return app
 
