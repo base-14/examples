@@ -19,9 +19,9 @@ const (
 )
 
 var (
-	tracer           = otel.Tracer("go-echo-postgres")
-	meter            = otel.Meter("go-echo-postgres")
-	jobsEnqueued     metric.Int64Counter
+	tracer       = otel.Tracer("go-echo-postgres")
+	meter        = otel.Meter("go-echo-postgres")
+	jobsEnqueued metric.Int64Counter
 )
 
 type NotificationPayload struct {
