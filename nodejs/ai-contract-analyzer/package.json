@@ -21,9 +21,9 @@
     "docker:down": "docker compose down -v"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.79",
-    "@ai-sdk/google": "^3.0.79",
-    "@ai-sdk/openai": "^3.0.65",
+    "@ai-sdk/anthropic": "^3.0.84",
+    "@ai-sdk/google": "^3.0.82",
+    "@ai-sdk/openai": "^3.0.71",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-logs-otlp-http": "^0.219.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.219.0",
@@ -35,20 +35,20 @@
     "@opentelemetry/sdk-metrics": "^2.8.0",
     "@opentelemetry/sdk-node": "^0.219.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
-    "@traceloop/node-server-sdk": "^0.26.0",
-    "ai": "^6.0.191",
-    "hono": "^4.12.22",
+    "@traceloop/node-server-sdk": "^0.27.0",
+    "ai": "^6.0.204",
+    "hono": "^4.12.25",
     "ollama-ai-provider": "^1.2.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.21.0",
-    "pgvector": "^0.2.1",
+    "pgvector": "^0.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
     "@types/pg": "^8.20.0",
-    "vitest": "^4.1.7",
-    "@biomejs/biome": "^2.4.15",
+    "vitest": "^4.1.8",
+    "@biomejs/biome": "^2.5.0",
     "bun-types": "latest"
   }
 }
