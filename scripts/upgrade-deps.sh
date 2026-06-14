@@ -110,6 +110,18 @@ scoped_verify_cmd() {
   echo "$parts"   # empty = nothing to verify (runtime-only example, install-only)
 }
 
+# revert a node project's manifest to HEAD and restore node_modules. Checks out
+# files one at a time so a missing bun.lock/package-lock doesn't abort the whole
+# checkout (which would leave the bumped package.json in place).
+revert_node_manifest() {
+  local dir="$1" is_bun="$2" f
+  cd "$dir" || return
+  for f in package.json package-lock.json bun.lock; do
+    [[ -f "$f" ]] && git checkout -- "$f" 2>/dev/null || true
+  done
+  if [[ "$is_bun" == true ]]; then bun install >/dev/null 2>&1 || true; else npm install >/dev/null 2>&1 || true; fi
+}
+
 upgrade_nodejs() {
   local dir="$1"
   local name
@@ -143,10 +155,20 @@ upgrade_nodejs() {
   cd "$dir" && npx npm-check-updates -u $ncu_flags $NODE_FILTER 2>/dev/null || true
 
   echo "  Installing..."
+  local inst_rc=0
   if [[ "$is_bun" == true ]]; then
-    bun install 2>&1 | tail -3
+    bun install >/tmp/ud-install.log 2>&1 || inst_rc=$?
   else
-    npm install 2>&1 | tail -3
+    npm install >/tmp/ud-install.log 2>&1 || inst_rc=$?
+  fi
+  tail -3 /tmp/ud-install.log
+  # an install failure (e.g. EOVERRIDE) must not abort the whole sweep: revert
+  # this project's manifest and move on
+  if [[ $inst_rc -ne 0 ]]; then
+    echo "  INSTALL FAIL"
+    results+=("nodejs/$name: INSTALL_FAIL"); failed=$((failed + 1))
+    revert_node_manifest "$dir" "$is_bun"
+    return
   fi
 
   local verify_cmd runner="npm"
@@ -181,11 +203,8 @@ upgrade_nodejs() {
     echo "  FAIL"
     results+=("nodejs/$name: FAIL")
     failed=$((failed + 1))
-    # scoped sweeps revert failures so the tree only carries green changes
-    if [[ "$SCOPE" != "all" ]]; then
-      cd "$dir" && git checkout -- package.json package-lock.json 2>/dev/null || true
-      if [[ "$is_bun" == true ]]; then bun install >/dev/null 2>&1 || true; else npm install >/dev/null 2>&1 || true; fi
-    fi
+    # revert failures so the tree only carries green changes
+    revert_node_manifest "$dir" "$is_bun"
   fi
 }
 
@@ -327,7 +346,7 @@ upgrade_go() {
   fi
 
   echo "  Updating modules..."
-  cd "$dir" && go get -u $get_target 2>&1 | tail -5 && go mod tidy 2>&1
+  cd "$dir" && { go get -u $get_target 2>&1 | tail -5; go mod tidy 2>&1; } || true
 
   local verify_cmd="go build ./..."
   if [[ -f "$dir/Makefile" ]] && grep -q "check:" "$dir/Makefile"; then
@@ -365,7 +384,7 @@ upgrade_rust() {
   fi
 
   echo "  Updating Cargo.lock..."
-  cd "$dir" && cargo update 2>&1 | tail -5
+  cd "$dir" && { cargo update 2>&1 | tail -5 || true; }
 
   echo "  Verifying: cargo check && cargo clippy && cargo test"
   if cd "$dir" && cargo check 2>&1 && cargo clippy -- -D warnings 2>&1 && cargo test 2>&1; then
@@ -424,7 +443,9 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "nodejs" ]]; then
   # are reached, not just top-level project dirs
   while IFS= read -r pkg; do
     upgrade_nodejs "$(dirname "$pkg")"
-  done < <(find "$REPO_ROOT"/nodejs -maxdepth 3 -name package.json -not -path '*/node_modules/*' | sort)
+  done < <(find "$REPO_ROOT"/nodejs -maxdepth 3 -name package.json \
+            -not -path '*/node_modules/*' -not -path '*/.next/*' \
+            -not -path '*/dist/*' -not -path '*/build/*' | sort)
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
