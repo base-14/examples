@@ -94,7 +94,7 @@
     "@typescript-eslint/parser": "^8.59.4",
     "@vitest/coverage-v8": "^4.1.7",
     "@vitest/ui": "^4.1.7",
-    "eslint": "^10.4.0",
+    "eslint": "^10.5.0",
     "ioredis-mock": "^8.13.1",
     "mongodb-memory-server": "^11.0.0",
     "msw": "^2.14.6",
