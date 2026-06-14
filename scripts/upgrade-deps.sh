@@ -278,7 +278,11 @@ upgrade_python() {
       names=$(grep -E "==" requirements.txt | sed 's/[=<>].*//') || true
     fi
     if [[ -x "$venv_py" && -n "$names" ]]; then
-      uv pip install --python "$venv_py" --upgrade $names >/dev/null 2>&1 || true
+      # bound the install: a wheel-less pin (e.g. psycopg2-binary on a Python
+      # with no published wheel) falls into a source build that can hang the sweep
+      local to=""; command -v timeout >/dev/null 2>&1 && to="timeout 240"
+      command -v gtimeout >/dev/null 2>&1 && to="gtimeout 240"
+      $to uv pip install --python "$venv_py" --upgrade $names >/dev/null 2>&1 || true
       local p v
       for p in $names; do
         v=$("$venv_py" -c "import importlib.metadata as m; print(m.version('$p'))" 2>/dev/null)
