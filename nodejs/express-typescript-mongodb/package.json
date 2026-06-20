@@ -54,7 +54,7 @@
     "bullmq": "^5.77.1",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
-    "dompurify": "^3.4.5",
+    "dompurify": "^3.4.11",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
@@ -78,10 +78,15 @@
     "flatted": ">=3.4.2",
     "follow-redirects": "^1.16.0",
     "ip-address": ">=10.1.1",
-    "undici": ">=7.24.0",
+    "undici": ">=8.5.0",
     "uuid": ">=14.0.0",
     "yauzl": ">=3.2.1",
-    "ws": ">=8.20.1"
+    "ws": ">=8.21.0",
+    "form-data": ">=4.0.6",
+    "isomorphic-dompurify": {
+      "dompurify": ">=3.4.11"
+    },
+    "vite": ">=8.0.16"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
