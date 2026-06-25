@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "clean": "rm -rf node_modules dist coverage .next *.tsbuildinfo",
+    "reset": "docker compose down -v --remove-orphans",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",

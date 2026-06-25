@@ -6,6 +6,8 @@
   "private": true,
   "license": "MIT",
   "scripts": {
+    "clean": "rm -rf node_modules dist coverage .next *.tsbuildinfo",
+    "reset": "docker compose down -v --remove-orphans",
     "build": "nest build",
     "check": "npm run build && npm run lint && npm test",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

@@ -1,4 +1,4 @@
-.PHONY: build test lint check docker-build docker-up docker-down seed test-api
+.PHONY: build test lint check clean docker-build docker-up docker-down seed test-api
 
 BINARY_NAME=ai-data-analyst
 MAIN_PACKAGE=./cmd/server
@@ -8,6 +8,10 @@ build:
 
 test:
 	go test ./...
+
+clean:
+	go clean
+	rm -f $(BINARY_NAME)
 
 lint:
 	go vet ./...

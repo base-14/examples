@@ -5,6 +5,7 @@
   "description": "Node.js Hello World — OpenTelemetry",
   "main": "main.js",
   "scripts": {
+    "clean": "rm -rf node_modules dist coverage",
     "start": "node main.js",
     "check": "node --check main.js"
   },

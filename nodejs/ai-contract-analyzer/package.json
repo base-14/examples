@@ -4,6 +4,8 @@
   "description": "AI-powered contract analysis pipeline with OpenTelemetry observability",
   "type": "module",
   "scripts": {
+    "clean": "rm -rf node_modules dist coverage .next *.tsbuildinfo",
+    "reset": "docker compose down -v --remove-orphans",
     "dev": "bun run --watch --preload ./src/telemetry.ts src/index.ts",
     "start": "bun run --preload ./src/telemetry.ts src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",

@@ -1,4 +1,4 @@
-.PHONY: check build vet test
+.PHONY: check build vet test clean
 
 check:
 	go vet ./...
@@ -13,5 +13,8 @@ vet:
 
 test:
 	go test ./...
+
+clean:
+	go clean ./...
 
 .DEFAULT_GOAL := check

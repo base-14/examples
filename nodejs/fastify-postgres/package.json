@@ -7,6 +7,8 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "clean": "rm -rf node_modules dist coverage .next *.tsbuildinfo",
+    "reset": "docker compose down -v --remove-orphans",
     "dev": "tsx watch src/index.ts",
     "dev:worker": "tsx watch src/jobs/worker.ts",
     "build": "tsc",

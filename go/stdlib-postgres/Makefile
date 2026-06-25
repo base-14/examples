@@ -1,4 +1,4 @@
-.PHONY: check build lint vet fmt tidy test docker-build docker-up docker-down docker-logs test-api verify-scout
+.PHONY: check build lint vet fmt tidy test clean docker-build docker-up docker-down docker-logs test-api verify-scout
 
 check: vet build test
 	@echo "All checks passed."
@@ -10,6 +10,10 @@ build:
 test:
 	@cd app && go test ./...
 	@cd notify && go test ./...
+
+clean:
+	@cd app && go clean ./...
+	@cd notify && go clean ./...
 
 vet:
 	@cd app && go vet ./...

@@ -5,6 +5,8 @@
   "description": "Express.js + TypeScript + MongoDB + OpenTelemetry example",
   "main": "dist/index.js",
   "scripts": {
+    "clean": "rm -rf node_modules dist coverage .next *.tsbuildinfo",
+    "reset": "docker compose down -v --remove-orphans",
     "build": "tsc",
     "start": "node --import ./dist/instrumentation.js dist/index.js",
     "dev": "ts-node src/index.ts",
