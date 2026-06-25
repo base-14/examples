@@ -61,14 +61,16 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 export OTEL_TRACES_EXPORTER=otlp
 export OTEL_METRICS_EXPORTER=otlp
 export OTEL_LOGS_EXPORTER=otlp
-export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development,environment=development
 ```
 
 `OTEL_PHP_AUTOLOAD_ENABLED=true` is the key switch. It tells the
 SDK to automatically discover and activate the auto-instrumentation
 packages. Without it, the packages sit idle.
 
-Use `deployment.environment.name` (not the deprecated `deployment.environment`).
+Scout's UI filters on the lowercase `environment` key, so emit it
+alongside the OTel-native `deployment.environment.name`. The legacy
+`deployment.environment` is still accepted for backward compatibility.
 
 ## 4. Bootstrap Slim 4 with exception recording
 

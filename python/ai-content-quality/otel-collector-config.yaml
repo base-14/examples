@@ -53,6 +53,9 @@ processors:
       - key: deployment.environment
         value: ${SCOUT_ENVIRONMENT}
         action: upsert
+      - key: environment
+        value: ${SCOUT_ENVIRONMENT}
+        action: upsert
 
 exporters:
   # Base14 Scout exporter with retry and compression

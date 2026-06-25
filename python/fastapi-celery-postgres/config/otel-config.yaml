@@ -63,6 +63,9 @@ processors:
     - key: deployment.environment
       value: ${env:SCOUT_ENVIRONMENT}
       action: upsert
+    - key: environment
+      value: ${env:SCOUT_ENVIRONMENT}
+      action: upsert
     - key: service.namespace
       value: 'base14-examples'
       action: upsert

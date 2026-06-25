@@ -74,6 +74,7 @@ def setup_telemetry(
             "service.name": settings.otel_service_name,
             "service.version": "2.0.0",
             "deployment.environment": settings.scout_environment,
+            "environment": settings.scout_environment,
         }
     )
 

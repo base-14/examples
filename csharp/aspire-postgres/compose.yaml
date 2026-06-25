@@ -13,7 +13,7 @@ services:
       OTEL_SERVICE_NAME: articles-api
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development}
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development}
       SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
     depends_on:
       postgres:
@@ -41,7 +41,7 @@ services:
       OTEL_SERVICE_NAME: notify-svc
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development}
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development}
       SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
     depends_on:
       otel-collector:

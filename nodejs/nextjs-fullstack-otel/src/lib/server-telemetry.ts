@@ -16,6 +16,7 @@ const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'sample-nextjs-app',
   [ATTR_SERVICE_VERSION]: '1.0.0',
   'deployment.environment': process.env.NODE_ENV || 'development',
+  'environment': process.env.NODE_ENV || 'development',
 });
 
 const sdk = new NodeSDK({

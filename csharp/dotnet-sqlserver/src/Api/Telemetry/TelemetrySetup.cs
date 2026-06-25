@@ -17,6 +17,8 @@ public static class TelemetrySetup
                 .AddService(serviceName)
                 .AddAttributes([
                     new KeyValuePair<string, object>("deployment.environment",
+                        builder.Environment.EnvironmentName.ToLowerInvariant()),
+                    new KeyValuePair<string, object>("environment",
                         builder.Environment.EnvironmentName.ToLowerInvariant())
                 ]))
             .WithTracing(tracing => tracing

@@ -5,7 +5,7 @@ x-otel-env: &otel-env
   OTEL_METRICS_EXPORTER: otlp
   OTEL_LOGS_EXPORTER: otlp
   OTEL_PHP_AUTOLOAD_ENABLED: "true"
-  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development
 
 x-db-env: &db-env
   DB_CONNECTION: pgsql
@@ -95,7 +95,7 @@ services:
       <<: [*app-env, *db-env, *redis-env, *otel-env]
       APP_VERSION: 1.0.0
       OTEL_SERVICE_NAME: php-laravel13-postgres-otel
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,service.instance.role=web
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development,service.instance.role=web
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
@@ -126,7 +126,7 @@ services:
     environment:
       <<: [*app-env, *db-env, *redis-env, *otel-env]
       OTEL_SERVICE_NAME: php-laravel13-postgres-otel
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,service.instance.role=worker
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development,service.instance.role=worker
     healthcheck:
       test: ["CMD", "php", "artisan", "queue:monitor", "redis:default"]
       interval: 30s

@@ -269,7 +269,7 @@ quarkus.otel.metrics.enabled=true
 quarkus.otel.logs.enabled=true
 quarkus.otel.exporter.otlp.endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}
 quarkus.otel.exporter.otlp.protocol=http/protobuf
-quarkus.otel.resource.attributes=deployment.environment=${ENVIRONMENT:development}
+quarkus.otel.resource.attributes=deployment.environment=${ENVIRONMENT:development},environment=${ENVIRONMENT:development}
 ```
 
 ## Telemetry Data

@@ -14,7 +14,8 @@ OpenTelemetry::SDK.configure do |c|
   c.resource = OpenTelemetry::SDK::Resources::Resource.create(
     'service.name' => ENV.fetch('OTEL_SERVICE_NAME', 'rails5-app'),
     'service.version' => ENV.fetch('OTEL_SERVICE_VERSION', '1.0.0'),
-    'deployment.environment' => ENV.fetch('RAILS_ENV', 'development')
+    'deployment.environment' => ENV.fetch('RAILS_ENV', 'development'),
+    'environment' => ENV.fetch('RAILS_ENV', 'development')
   )
 
   # IMPORTANT: Use SimpleSpanProcessor for Ruby 2.7 to avoid threading issues

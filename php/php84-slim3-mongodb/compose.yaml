@@ -5,7 +5,7 @@ x-otel-env: &otel-env
   OTEL_METRICS_EXPORTER: otlp
   OTEL_LOGS_EXPORTER: otlp
   OTEL_PHP_AUTOLOAD_ENABLED: "true"
-  OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=development
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=development,environment=development
 
 x-mongo-env: &mongo-env
   MONGO_URI: mongodb://mongo:27017

@@ -21,7 +21,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - OTEL_SERVICE_NAME=express5-postgres-app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,7 +53,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - OTEL_SERVICE_NAME=express5-postgres-worker
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
     depends_on:
       postgres:
         condition: service_healthy

@@ -74,7 +74,7 @@ env[OTEL_TRACES_EXPORTER] = otlp
 env[OTEL_METRICS_EXPORTER] = otlp
 env[OTEL_LOGS_EXPORTER] = otlp
 env[OTEL_PHP_AUTOLOAD_ENABLED] = true
-env[OTEL_RESOURCE_ATTRIBUTES] = deployment.environment.name=development
+env[OTEL_RESOURCE_ATTRIBUTES] = deployment.environment.name=development,environment=development
 EOF
 ```
 

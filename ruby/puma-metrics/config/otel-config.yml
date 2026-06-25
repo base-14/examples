@@ -31,6 +31,9 @@ processors:
       - key: deployment.environment
         value: ${env:SCOUT_ENVIRONMENT}
         action: upsert
+      - key: environment
+        value: ${env:SCOUT_ENVIRONMENT}
+        action: upsert
       - key: service.name
         value: puma-metrics
         action: upsert

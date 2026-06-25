@@ -103,6 +103,7 @@ service.name=java-spring-boot-otel
 service.namespace=base14
 service.version=0.0.1-SNAPSHOT
 deployment.environment.name=dev
+environment=dev
 ```
 
 ## API Endpoints

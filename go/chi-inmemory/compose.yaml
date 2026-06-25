@@ -11,7 +11,7 @@ services:
       - APP_PORT=${APP_PORT:-8080}
       - OTEL_SERVICE_NAME=go-parking-lot-otel
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,environment=development}
     depends_on:
       otel-collector:
         condition: service_started

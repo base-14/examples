@@ -5,7 +5,7 @@ x-otel-env: &otel-env
   OTEL_METRICS_EXPORTER: otlp
   OTEL_LOGS_EXPORTER: otlp
   OTEL_METRIC_EXPORT_INTERVAL: "10000"
-  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development
 
 services:
   otel-collector:

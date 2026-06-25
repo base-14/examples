@@ -15,7 +15,7 @@ services:
       - OTEL_SERVICE_NAME=litestar-postgres-app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,service.version=1.0.0}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,environment=development,service.version=1.0.0}
       - OTEL_PYTHON_LOG_CORRELATION=true
       - OTEL_METRIC_EXPORT_INTERVAL=10000
       - OTEL_BSP_SCHEDULE_DELAY=2000
@@ -47,7 +47,7 @@ services:
       - OTEL_SERVICE_NAME=litestar-postgres-notify
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,service.version=1.0.0}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,environment=development,service.version=1.0.0}
       - OTEL_PYTHON_LOG_CORRELATION=true
       - OTEL_METRIC_EXPORT_INTERVAL=10000
       - OTEL_BSP_SCHEDULE_DELAY=2000

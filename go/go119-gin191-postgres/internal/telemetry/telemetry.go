@@ -47,6 +47,7 @@ func InitTelemetry(ctx context.Context) (*TelemetryProvider, error) {
 			semconv.ServiceName(serviceName),
 			semconv.ServiceVersion("1.0.0"),
 			attribute.String("deployment.environment", getEnvironment(environment)),
+			attribute.String("environment", getEnvironment(environment)),
 		),
 	)
 	if err != nil {

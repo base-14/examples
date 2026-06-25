@@ -147,6 +147,7 @@ Automatically included in telemetry:
 service.name=go119-gin-app
 service.version=1.0.0
 deployment.environment=development
+environment=development
 ```
 
 ## API Endpoints

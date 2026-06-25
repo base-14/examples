@@ -85,6 +85,7 @@ export class Logger {
       ...context,
       component: this.component,
       'deployment.environment': config.app.env,
+      'environment': config.app.env,
     };
 
     baseLogger.log(level, message, { ...logContext, ...traceContext });

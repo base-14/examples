@@ -16,7 +16,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - OTEL_SERVICE_NAME=express-mongodb-app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,service.version=1.0.0}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,environment=development,service.version=1.0.0}
     depends_on:
       mongo:
         condition: service_healthy

@@ -58,12 +58,14 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 export OTEL_TRACES_EXPORTER=otlp
 export OTEL_METRICS_EXPORTER=otlp
 export OTEL_LOGS_EXPORTER=otlp
-export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development,environment=development
 ```
 
 `OTEL_PHP_AUTOLOAD_ENABLED=true` activates auto-instrumentation
-(MongoDB spans). Use `deployment.environment.name` (not the
-deprecated `deployment.environment`).
+(MongoDB spans). Scout's UI filters on the lowercase `environment`
+key, so emit it alongside the OTel-native
+`deployment.environment.name`. The legacy `deployment.environment`
+is still accepted for backward compatibility.
 
 ## 5. Bootstrap Slim 3 with exception recording
 

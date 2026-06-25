@@ -18,6 +18,7 @@ const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
   [ATTR_SERVICE_VERSION]: '1.0.0',
   'deployment.environment': process.env.NODE_ENV || 'development',
+  'environment': process.env.NODE_ENV || 'development',
 });
 
 const traceExporter = new OTLPTraceExporter({

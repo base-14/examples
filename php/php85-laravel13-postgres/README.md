@@ -166,6 +166,7 @@ service.name=php-laravel13-postgres-otel
 telemetry.sdk.name=opentelemetry
 telemetry.sdk.language=php
 deployment.environment=development
+environment=development
 ```
 
 ## API Endpoints

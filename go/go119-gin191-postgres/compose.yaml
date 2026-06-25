@@ -12,7 +12,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgres://appuser:apppass@postgres:5432/appdb?sslmode=disable}
       - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-go119-gin-app}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-otel-collector:4317}
-      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment=development,environment=development}
       - LOG_DIR=/var/log/app
     volumes:
       - app-logs:/var/log/app

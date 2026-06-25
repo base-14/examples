@@ -154,6 +154,7 @@ service.name=java-spring-boot-otel-mongodb
 service.namespace=base14
 service.version=0.0.1-SNAPSHOT
 deployment.environment=dev
+environment=dev
 ```
 
 ## API Endpoints

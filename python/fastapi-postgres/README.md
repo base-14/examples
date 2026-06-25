@@ -177,6 +177,7 @@ Automatically included in telemetry:
 service.name=fastapi-postgres-app
 service.version=1.0.0
 deployment.environment=development
+environment=development
 ```
 
 ## API Endpoints

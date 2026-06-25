@@ -20,7 +20,7 @@ services:
       - REDIS_PORT=6379
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_SERVICE_NAME=nextjs-api-mongodb
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
     depends_on:
       mongodb:
         condition: service_healthy
@@ -52,7 +52,7 @@ services:
       - REDIS_PORT=6379
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_SERVICE_NAME=nextjs-api-worker
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development},service.namespace=examples
     depends_on:
       mongodb:
         condition: service_healthy
