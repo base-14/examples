@@ -12,6 +12,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Express 5** | Express 5 + TypeScript + PostgreSQL 18 | [express5-postgres](./nodejs/express5-postgres) | BullMQ jobs, WebSockets, auto-instrumentation |
 | **NestJS** | NestJS + TypeScript + PostgreSQL 18 | [nestjs-postgres](./nodejs/nestjs-postgres) | Enterprise architecture, BullMQ, WebSockets |
 | **Next.js** | Next.js 16 + TypeScript + MongoDB | [nextjs-api-mongodb](./nodejs/nextjs-api-mongodb) | BullMQ jobs, Mongoose, auto-instrumentation |
+| **Angular** | Angular 22 (zoneless) + Express 5 + PostgreSQL 18 | [angular-fullstack-otel](./nodejs/angular-fullstack-otel) | Browser SDK (traces, metrics, logs), Core Web Vitals, trace propagation browser to DB |
 | **Fastify** | Fastify 5 + TypeScript + PostgreSQL 18 | [fastify-postgres](./nodejs/fastify-postgres) | Drizzle ORM, BullMQ jobs, Pino logging |
 | **tRPC** | tRPC 11 + TypeScript 6 + Prisma 7 + PostgreSQL 18 | [trpc-postgres](./nodejs/trpc-postgres) | OTel Node SDK, distributed tracing, tRPC-to-REST bridge |
 | **Express (Legacy)** | Express + TypeScript + MongoDB | [express-typescript-mongodb](./nodejs/express-typescript-mongodb) | MongoDB integration, Redis |

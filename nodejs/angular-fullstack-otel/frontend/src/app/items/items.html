@@ -1,0 +1,9 @@
+<h2>Items</h2>
+<button (click)="loadItems()">Load items</button>
+<button (click)="triggerApiError()">Trigger API error</button>
+<button (click)="triggerError()">Trigger error</button>
+<ul>
+  @for (item of items(); track item.id) {
+    <li>{{ item.name }} - {{ item.price }}</li>
+  }
+</ul>

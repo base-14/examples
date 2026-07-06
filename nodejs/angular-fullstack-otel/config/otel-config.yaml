@@ -1,0 +1,85 @@
+# OpenTelemetry Collector Configuration
+# Angular Full-Stack OpenTelemetry Example | Jun 2026
+#
+# Receives OTLP from the Angular browser SDK (direct, CORS-enabled) and the
+# Express backend, then exports to base14 Scout (when creds are set) and the
+# debug exporter (always, for local validation).
+
+extensions:
+  oauth2client:
+    client_id: ${env:SCOUT_CLIENT_ID}
+    client_secret: ${env:SCOUT_CLIENT_SECRET}
+    token_url: ${env:SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        # The browser posts OTLP/HTTP directly from the SPA origin, so CORS must
+        # allow it. Add every origin the SPA is served from.
+        cors:
+          allowed_origins:
+            - http://localhost:4200   # ng serve (dev)
+            - http://localhost:8080   # nginx container
+          allowed_headers:
+            - "*"
+
+processors:
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+  resource:
+    # Both apps already emit the dual keys `deployment.environment.name` and
+    # `environment` (same value). Only backfill `environment` (the key Scout
+    # filters on) when a source omits it - `insert` never overwrites a value the
+    # app set, so per-service environments stay intact.
+    attributes:
+      - key: environment
+        value: ${env:SCOUT_ENVIRONMENT}
+        action: insert
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+exporters:
+  otlp_http/b14:
+    endpoint: ${env:SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [oauth2client, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_http/b14, debug]

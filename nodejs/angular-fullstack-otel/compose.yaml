@@ -1,0 +1,95 @@
+# Angular Full-Stack OpenTelemetry Example - Docker Compose
+#
+# Four services: postgres, otel-collector (OTLP in with browser CORS; Scout +
+# debug out), the Express backend, and the nginx-served Angular frontend.
+
+services:
+  # ==========================================================================
+  # PostgreSQL 18 - seeded with the items table on first start
+  # ==========================================================================
+  postgres:
+    image: postgres:18.2-alpine3.23
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: items
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d items"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # OpenTelemetry Collector - OTLP in (CORS for the browser), Scout + debug out
+  # ==========================================================================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    command: ["--config=/etc/otelcol-config.yaml"]
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP (browser exports here)
+      - "13133:13133" # Health check
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-http://localhost:4318}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Express + Postgres API - auto-instrumented with the Node SDK
+  # ==========================================================================
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/items
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      DEPLOY_ENV: development
+      PORT: "3000"
+      # Stable HTTP metric name (http.server.request.duration); else the old http.server.duration.
+      OTEL_SEMCONV_STABILITY_OPT_IN: http
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Angular SPA - built to static assets, served by nginx with SPA fallback.
+  # The browser (running on the host) reaches the collector and API via the
+  # published host ports, so its origin is http://localhost:8080.
+  # ==========================================================================
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+      - otel-collector
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
