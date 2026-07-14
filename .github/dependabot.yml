@@ -78,6 +78,20 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
 
+  # Node.js - Angular fullstack (frontend)
+  - package-ecosystem: "npm"
+    directory: "/nodejs/angular-fullstack-otel/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Node.js - Angular fullstack (backend)
+  - package-ecosystem: "npm"
+    directory: "/nodejs/angular-fullstack-otel/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
   # Go - Echo
   - package-ecosystem: "gomod"
     directory: "/go/echo-postgres"
