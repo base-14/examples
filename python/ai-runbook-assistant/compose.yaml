@@ -1,0 +1,71 @@
+services:
+  app:
+    build: .
+    container_name: ai-runbook-assistant
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/runbooks
+      - INSTRUMENTATION_MODE=${INSTRUMENTATION_MODE:-callback}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen3.5:9B}
+      # Ollama runs on the HOST (not a compose service) to keep the image small
+      # and reuse the existing model cache. Reachable via host.docker.internal.
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OTEL_SERVICE_NAME=ai-runbook-assistant
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_ENABLED=true
+      - OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+      - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # reach host Ollama on Linux
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_DB: runbooks
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"  # 5433 on host to avoid clashing with a local postgres
+    volumes:
+      # pg18 image expects the mount at /var/lib/postgresql (data lives in a
+      # version subdir); mounting .../data fails on first start.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+
+volumes:
+  postgres_data:

@@ -1,0 +1,47 @@
+{
+  "checkout": {
+    "status": {"replicas_healthy": 2, "replicas_total": 3, "last_deploy": "14m ago", "recent_restarts": ["OOMKilled x2"]},
+    "metrics": {"cpu": "63%", "memory": "95%", "error_rate": "5.1%", "p99_latency": "0.9s", "disk": "47%"},
+    "logs": [
+      "2026-06-29T11:40:02Z WARN container memory cgroup near limit",
+      "2026-06-29T11:41:18Z ERROR OOMKilled: container checkout exceeded memory limit",
+      "2026-06-29T11:41:19Z INFO restarting pod checkout-7c9f (backoff)"
+    ]
+  },
+  "payments": {
+    "status": {"replicas_healthy": 3, "replicas_total": 3, "last_deploy": "2h ago", "recent_restarts": []},
+    "metrics": {"cpu": "44%", "memory": "61%", "error_rate": "2.3%", "p99_latency": "4.7s", "disk": "39%"},
+    "logs": [
+      "2026-06-29T11:38:55Z WARN db pool exhausted: 20/20 connections in use",
+      "2026-06-29T11:39:10Z ERROR timeout acquiring connection from pool after 5s",
+      "2026-06-29T11:39:44Z WARN slow query detected: SELECT on ledger took 3.9s"
+    ]
+  },
+  "cart": {
+    "status": {"replicas_healthy": 4, "replicas_total": 4, "last_deploy": "9m ago", "recent_restarts": []},
+    "metrics": {"cpu": "57%", "memory": "52%", "error_rate": "11.4%", "p99_latency": "1.2s", "disk": "33%"},
+    "logs": [
+      "2026-06-29T11:42:01Z ERROR upstream returned 503 from cart-api",
+      "2026-06-29T11:42:07Z ERROR 500 internal error serializing cart response",
+      "2026-06-29T11:42:33Z WARN error budget burn rate elevated for cart SLO"
+    ]
+  },
+  "inventory": {
+    "status": {"replicas_healthy": 2, "replicas_total": 2, "last_deploy": "3d ago", "recent_restarts": []},
+    "metrics": {"cpu": "38%", "memory": "49%", "error_rate": "0.8%", "p99_latency": "0.6s", "disk": "94%"},
+    "logs": [
+      "2026-06-29T11:35:12Z WARN node disk pressure: ephemeral-storage at 94%",
+      "2026-06-29T11:36:40Z ERROR no space left on device writing /var/lib/index",
+      "2026-06-29T11:37:02Z WARN kubelet evicting pod inventory-5d8b due to DiskPressure"
+    ]
+  },
+  "auth": {
+    "status": {"replicas_healthy": 3, "replicas_total": 3, "last_deploy": "1d ago", "recent_restarts": []},
+    "metrics": {"cpu": "29%", "memory": "41%", "error_rate": "7.6%", "p99_latency": "0.4s", "disk": "28%"},
+    "logs": [
+      "2026-06-29T11:30:18Z WARN TLS certificate for auth.internal expires in 18h",
+      "2026-06-29T11:44:51Z ERROR x509: certificate has expired or is not yet valid",
+      "2026-06-29T11:44:52Z ERROR handshake failure: client rejected expired server cert"
+    ]
+  }
+}

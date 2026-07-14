@@ -29,6 +29,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Litestar** | Litestar 2.21 + PostgreSQL 18 (uv) | [litestar-postgres](./python/litestar-postgres) | Two-service distributed tracing, async SQLAlchemy + asyncpg, notification microservice |
 | **AI Sales Intelligence** | FastAPI + LangChain + OpenAI | [ai-sales-intelligence](./python/ai-sales-intelligence) | GenAI observability, unified tracing |
 | **AI Content Quality** | FastAPI + LlamaIndex + Promptfoo | [ai-content-quality](./python/ai-content-quality) | Eval-driven development, structured output |
+| **AI Runbook Assistant** | FastAPI + LangChain/LangGraph + pgvector | [ai-runbook-assistant](./python/ai-runbook-assistant) | Custom LangChain callback handler vs auto-instrumentation, GenAI semconv, token/cost metrics |
 
 ### Go
 
@@ -290,6 +291,15 @@ Async Python web framework (Litestar 2.21 on Python 3.14, uv-managed) with SQLAl
 Distributed tracing via the Litestar OTel plugin, trace-correlated JSON logs through `python-json-logger`, and custom metrics via OTel Meter API.
 
 [View README →](./python/litestar-postgres/README.md)
+
+### AI Runbook Assistant
+
+SRE incident-diagnosis agent (LangChain 1.x `create_agent` on LangGraph, pgvector RAG, tool calling) with two
+interchangeable instrumentation modes: a hand-written OTel callback handler emitting GenAI semantic conventions, and
+zero-code OpenLLMetry. HTTP, agent, LLM, tool, vector search, and the database write land in one trace, alongside
+`gen_ai.client.*` metrics and trace-correlated logs.
+
+[View README →](./python/ai-runbook-assistant/README.md)
 
 ### Symfony
 

@@ -1,0 +1,391 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "title": "Executive Summary",
+      "type": "row"
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Requests Processed",
+      "gridPos": {"h": 4, "w": 5, "x": 0, "y": 1},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "blue"}, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Tool Calls",
+      "gridPos": {"h": 4, "w": 5, "x": 5, "y": 1},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "green"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT count() as tool_calls FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'execute_tool'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Tool Success Rate",
+      "gridPos": {"h": 4, "w": 5, "x": 10, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.7}, {"color": "green", "value": 0.85}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "targets": [{"rawSql": "SELECT 1 - countIf(StatusCode = 'Error') / nullIf(count(), 0) as tool_success FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'execute_tool'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Total Cost",
+      "gridPos": {"h": 4, "w": 5, "x": 15, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 2, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost'", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "Request Success Rate",
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.95}, {"color": "green", "value": 0.99}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "targets": [{"rawSql": "SELECT 1 - countIf(StatusCode = 'Error') / nullIf(count(), 0) as success_rate FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Cost by Provider",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "color": {"mode": "palette-classic"}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "ollama"}, "properties": [{"id": "color", "value": {"fixedColor": "#6B7280", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "anthropic"}, "properties": [{"id": "color", "value": {"fixedColor": "#D97706", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "openai"}, "properties": [{"id": "color", "value": {"fixedColor": "#10A37F", "mode": "fixed"}}]}
+      ]},
+      "options": {"orientation": "horizontal", "showValue": "always", "barWidth": 0.7},
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.provider.name'] as provider, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost' AND Attributes['gen_ai.provider.name'] != '' GROUP BY provider ORDER BY cost DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Requests & Token Trend",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 5},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 0, "lineWidth": 2}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "requests"}, "properties": [{"id": "unit", "value": "short"}, {"id": "custom.axisPlacement", "value": "left"}]},
+        {"matcher": {"id": "byName", "options": "tokens"}, "properties": [{"id": "unit", "value": "short"}, {"id": "custom.axisPlacement", "value": "right"}, {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"rawSql": "SELECT $timeSeries as t, count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent' GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"},
+        {"rawSql": "SELECT $timeSeries as t, sum(Sum) as tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' GROUP BY t ORDER BY t", "refId": "B", "format": "time_series"}
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 11},
+      "id": 9,
+      "title": "Token & Cost Efficiency",
+      "type": "row"
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Avg Input Tokens",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 12},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1000}, {"color": "red", "value": 2000}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT sum(Sum) / nullIf(sum(Count), 0) as avg_input FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.token.type'] = 'input'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Avg Output Tokens",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 12},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT sum(Sum) / nullIf(sum(Count), 0) as avg_output FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.token.type'] = 'output'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Cost per 1K Tokens",
+      "description": "Total cost normalized per 1,000 tokens consumed",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 12},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(t.total_tokens, 0) * 1000 as cost_per_1k FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost') c, (SELECT sum(Sum) as total_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage') t", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Avg Cost / Request",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 12},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(r.requests, 0) as avg_cost FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost') c, (SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent') r", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 14,
+      "type": "barchart",
+      "title": "Input vs Output Tokens by Model",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": [
+        {"matcher": {"id": "byName", "options": "input_tokens"}, "properties": [{"id": "color", "value": {"fixedColor": "light-blue", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "output_tokens"}, "properties": [{"id": "color", "value": {"fixedColor": "light-green", "mode": "fixed"}}]}
+      ]},
+      "options": {"orientation": "horizontal", "showValue": "always", "barWidth": 0.7, "groupWidth": 0.7},
+      "targets": [{"rawSql": "SELECT a.model, a.input_tokens, b.output_tokens FROM (SELECT Attributes['gen_ai.request.model'] as model, sum(Sum) as input_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.token.type'] = 'input' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) a LEFT JOIN (SELECT Attributes['gen_ai.request.model'] as model, sum(Sum) as output_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.token.type'] = 'output' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) b ON a.model = b.model ORDER BY a.input_tokens DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "Token Usage by Model",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "fieldConfig": {"defaults": {}, "overrides": [
+        {"matcher": {"id": "byName", "options": "avg_input"}, "properties": [{"id": "unit", "value": "short"}, {"id": "displayName", "value": "Avg Input Tokens"}]},
+        {"matcher": {"id": "byName", "options": "avg_output"}, "properties": [{"id": "unit", "value": "short"}, {"id": "displayName", "value": "Avg Output Tokens"}]},
+        {"matcher": {"id": "byName", "options": "cost_per_req"}, "properties": [{"id": "unit", "value": "currencyUSD"}, {"id": "displayName", "value": "Cost/Request"}, {"id": "decimals", "value": 4}]}
+      ]},
+      "options": {"showHeader": true, "sortBy": [{"displayName": "Avg Input Tokens", "desc": true}]},
+      "targets": [{"rawSql": "SELECT t.model, t.avg_input, t.avg_output, c.cost_per_req FROM (SELECT Attributes['gen_ai.request.model'] as model, sum(Sum) / nullIf(sum(Count), 0) as avg_input, sumIf(Sum, Attributes['gen_ai.token.type'] = 'output') / nullIf(sumIf(Count, Attributes['gen_ai.token.type'] = 'output'), 0) as avg_output FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) t LEFT JOIN (SELECT Attributes['gen_ai.request.model'] as model, (argMax(Value, TimeUnix) - argMin(Value, TimeUnix)) / nullIf(sum(Count), 0) as cost_per_req FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) c ON t.model = c.model ORDER BY t.avg_input DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 24},
+      "id": 16,
+      "title": "Model A/B Comparison",
+      "type": "row"
+    },
+    {
+      "id": 17,
+      "type": "table",
+      "title": "Model Head-to-Head",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 25},
+      "fieldConfig": {"defaults": {}, "overrides": [
+        {"matcher": {"id": "byName", "options": "avg_latency_s"}, "properties": [{"id": "unit", "value": "s"}, {"id": "displayName", "value": "Avg Latency"}, {"id": "decimals", "value": 1}]},
+        {"matcher": {"id": "byName", "options": "error_rate"}, "properties": [{"id": "unit", "value": "percentunit"}, {"id": "displayName", "value": "Error Rate"}, {"id": "decimals", "value": 1}]},
+        {"matcher": {"id": "byName", "options": "total_requests"}, "properties": [{"id": "displayName", "value": "Requests"}]}
+      ]},
+      "options": {"showHeader": true, "sortBy": [{"displayName": "Requests", "desc": true}]},
+      "targets": [{"rawSql": "SELECT SpanAttributes['gen_ai.request.model'] as model, count() as total_requests, avg(Duration / 1000000000) as avg_latency_s, countIf(StatusCode = 'Error') / nullIf(count(), 0) as error_rate FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'chat' AND SpanAttributes['gen_ai.request.model'] != '' GROUP BY model ORDER BY total_requests DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Latency by Model Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 33},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 0, "lineWidth": 2}, "unit": "s"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(SpanAttributes['gen_ai.request.model'] as model, avg(Duration / 1000000000) as avg_s) FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'chat' AND SpanAttributes['gen_ai.request.model'] != '' GROUP BY t, model ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Token Usage by Model Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 33},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "stacking": {"mode": "normal"}}, "unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(Attributes['gen_ai.request.model'] as model, sum(Sum) as tokens) FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.request.model'] != '' GROUP BY t, model ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 41},
+      "id": 20,
+      "title": "End-to-End Latency Breakdown",
+      "type": "row"
+    },
+    {
+      "id": 21,
+      "type": "barchart",
+      "title": "Where Time Goes (Avg Request)",
+      "description": "Average time spent in each operation as a percentage of the request",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 42},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "options": {"orientation": "horizontal", "showValue": "always", "barWidth": 0.7, "stacking": "percent"},
+      "targets": [{"rawSql": "SELECT SpanAttributes['gen_ai.operation.name'] as operation, avg(Duration / 1000000000) as avg_s FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] IN ('chat', 'execute_tool', 'retrieval') GROUP BY operation ORDER BY avg_s DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Time by Operation (Stacked)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 50},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 30, "lineWidth": 2, "stacking": {"mode": "normal"}}, "unit": "s"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"rawSql": "$columns(SpanAttributes['gen_ai.operation.name'] as operation, avg(Duration / 1000000000) as avg_s) FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] IN ('chat', 'execute_tool', 'retrieval') GROUP BY t, operation ORDER BY t", "refId": "A", "format": "time_series"}]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "LLM Time vs Request Time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 50},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}, "unit": "s"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"rawSql": "SELECT $timeSeries as t, avg(Duration / 1000000000) as llm_time FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'chat' GROUP BY t ORDER BY t", "refId": "A", "format": "time_series"},
+        {"rawSql": "SELECT $timeSeries as t, avg(Duration / 1000000000) as request_time FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent' GROUP BY t ORDER BY t", "refId": "B", "format": "time_series"}
+      ]
+    },
+    {
+      "id": 24,
+      "type": "barchart",
+      "title": "p50 / p90 / p99 by Operation",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 58},
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 1}, "overrides": [
+        {"matcher": {"id": "byName", "options": "p50"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "p90"}, "properties": [{"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "p99"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]}
+      ]},
+      "options": {"orientation": "horizontal", "showValue": "always", "barWidth": 0.6, "groupWidth": 0.7},
+      "targets": [{"rawSql": "SELECT SpanAttributes['gen_ai.operation.name'] as operation, quantile(0.5)(Duration / 1000000000) as p50, quantile(0.9)(Duration / 1000000000) as p90, quantile(0.99)(Duration / 1000000000) as p99 FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] IN ('invoke_agent', 'chat', 'execute_tool', 'retrieval') GROUP BY operation ORDER BY p50 DESC", "refId": "A", "format": "table"}]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 66},
+      "id": 25,
+      "title": "Retrieval & Tool Volume",
+      "type": "row"
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "Cost per Request",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 67},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.05}, {"color": "red", "value": 0.1}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(r.requests, 0) as cost_per_request FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost') c, (SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent') r", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Avg Request Duration",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 67},
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 30}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT avg(Duration / 1000000000) as avg_request_s FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent'", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 28,
+      "type": "stat",
+      "title": "Tool Calls per Request",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 67},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT tc.tool_calls / nullIf(r.requests, 0) as tools_per_request FROM (SELECT count() as tool_calls FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'execute_tool') tc, (SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent') r", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 29,
+      "type": "stat",
+      "title": "Avg Chunks Retrieved",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 67},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "targets": [{"rawSql": "SELECT avg(toFloat64OrZero(SpanAttributes['app.retrieval.chunk_count'])) as avg_chunks FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'retrieval' AND SpanAttributes['app.retrieval.chunk_count'] != ''", "refId": "A", "format": "table"}]
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "Tool Usage Matrix",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 71},
+      "fieldConfig": {"defaults": {}, "overrides": [
+        {"matcher": {"id": "byName", "options": "calls"}, "properties": [{"id": "displayName", "value": "Calls"}]},
+        {"matcher": {"id": "byName", "options": "avg_duration_ms"}, "properties": [{"id": "unit", "value": "ms"}, {"id": "displayName", "value": "Avg Duration"}, {"id": "decimals", "value": 1}]},
+        {"matcher": {"id": "byName", "options": "errors"}, "properties": [{"id": "displayName", "value": "Errors"}, {"id": "custom.cellOptions", "value": {"type": "color-background"}}, {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}]}
+      ]},
+      "options": {"showHeader": true, "sortBy": [{"displayName": "Calls", "desc": true}]},
+      "targets": [{"rawSql": "SELECT SpanAttributes['gen_ai.tool.name'] as tool, count() as calls, countIf(StatusCode = 'Error') as errors, avg(Duration / 1000000) as avg_duration_ms FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'execute_tool' AND SpanAttributes['gen_ai.tool.name'] != '' GROUP BY tool ORDER BY calls DESC", "refId": "A", "format": "table"}]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["ai", "genai", "llm", "otel", "sre"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": true, "text": "ai-runbook-assistant", "value": "ai-runbook-assistant"},
+        "definition": "SELECT DISTINCT ServiceName FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai-runbook%' ORDER BY ServiceName",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "service",
+        "options": [],
+        "query": "SELECT DISTINCT ServiceName FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName LIKE 'ai-runbook%' ORDER BY ServiceName",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "definition": "SELECT DISTINCT SpanAttributes['gen_ai.request.model'] as model FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.request.model'] != '' ORDER BY model",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": "SELECT DISTINCT SpanAttributes['gen_ai.request.model'] as model FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.request.model'] != '' ORDER BY model",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "definition": "SELECT DISTINCT SpanAttributes['gen_ai.agent.name'] as agent FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.agent.name'] != '' ORDER BY agent",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "agent",
+        "options": [],
+        "query": "SELECT DISTINCT SpanAttributes['gen_ai.agent.name'] as agent FROM infraspec.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.agent.name'] != '' ORDER BY agent",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "definition": "SELECT DISTINCT Attributes['gen_ai.provider.name'] as provider FROM infraspec.otel_metrics_sum WHERE TimeUnix > now() - INTERVAL 1 HOUR AND ServiceName = 'ai-runbook-assistant' AND Attributes['gen_ai.provider.name'] != '' ORDER BY provider",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "provider",
+        "options": [],
+        "query": "SELECT DISTINCT Attributes['gen_ai.provider.name'] as provider FROM infraspec.otel_metrics_sum WHERE TimeUnix > now() - INTERVAL 1 HOUR AND ServiceName = 'ai-runbook-assistant' AND Attributes['gen_ai.provider.name'] != '' ORDER BY provider",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "AI Runbook Assistant - Strategic",
+  "uid": "runbook-strategic",
+  "version": 1
+}

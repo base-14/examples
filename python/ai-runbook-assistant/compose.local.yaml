@@ -1,0 +1,14 @@
+# Local-only override: run the stack WITHOUT Base14 Scout credentials.
+# The Scout-ready collector config requires oauth2client (it fails to start with
+# blank creds), so this swaps in the debug-only config for local inspection.
+#
+# Usage:
+#   docker compose -f compose.yaml -f compose.local.yaml up -d --build
+#   ./scripts/verify-scout.sh
+#
+# Drop the -f compose.local.yaml once SCOUT_* are set in .env to export to Scout.
+
+services:
+  otel-collector:
+    volumes:
+      - ./otel-collector-config.local.yaml:/etc/otel-collector-config.yaml:ro
