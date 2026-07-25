@@ -36,20 +36,20 @@
   "license": "MIT",
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/api-logs": "^0.219.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.219.0",
-    "@opentelemetry/exporter-metrics-otlp-http": "^0.219.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
-    "@opentelemetry/instrumentation-express": "^0.67.0",
-    "@opentelemetry/instrumentation-http": "^0.219.0",
-    "@opentelemetry/instrumentation-ioredis": "^0.67.0",
-    "@opentelemetry/instrumentation-mongodb": "^0.72.0",
-    "@opentelemetry/instrumentation-mongoose": "^0.65.0",
-    "@opentelemetry/instrumentation-winston": "^0.63.0",
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/instrumentation-express": "^0.69.0",
+    "@opentelemetry/instrumentation-http": "^0.221.0",
+    "@opentelemetry/instrumentation-ioredis": "^0.69.0",
+    "@opentelemetry/instrumentation-mongodb": "^0.74.0",
+    "@opentelemetry/instrumentation-mongoose": "^0.67.0",
+    "@opentelemetry/instrumentation-winston": "^0.65.0",
     "@opentelemetry/resources": "^2.8.0",
-    "@opentelemetry/sdk-logs": "^0.219.0",
-    "@opentelemetry/sdk-node": "^0.219.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
     "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
@@ -63,7 +63,7 @@
     "ioredis": "^5.10.1",
     "isomorphic-dompurify": "^3.0.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.0.0",
+    "mongoose": "^9.8.0",
     "socket.io": "^4.8.3",
     "winston": "^3.19.0",
     "zod": "^4.4.3"
@@ -86,9 +86,13 @@
     "ws": ">=8.21.0",
     "form-data": ">=4.0.6",
     "isomorphic-dompurify": {
-      "dompurify": ">=3.4.11"
+      "dompurify": ">=3.4.12"
     },
-    "vite": ">=8.0.16"
+    "vite": ">=8.0.16",
+    "brace-expansion": ">=5.0.8",
+    "body-parser": ">=2.3.0",
+    "postcss": ">=8.5.18",
+    "minimatch": ">=10.2.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

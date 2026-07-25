@@ -35,22 +35,22 @@
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11.0.1",
     "@nestjs/websockets": "^11.1.26",
-    "@opentelemetry/api-logs": "^0.219.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.219.0",
-    "@opentelemetry/exporter-metrics-otlp-http": "^0.219.0",
-    "@opentelemetry/exporter-prometheus": "^0.219.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
-    "@opentelemetry/instrumentation-express": "^0.67.0",
-    "@opentelemetry/instrumentation-http": "^0.219.0",
-    "@opentelemetry/instrumentation-ioredis": "^0.67.0",
-    "@opentelemetry/instrumentation-nestjs-core": "^0.65.0",
-    "@opentelemetry/instrumentation-pg": "^0.71.0",
-    "@opentelemetry/instrumentation-winston": "^0.63.0",
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-prometheus": "^0.221.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/instrumentation-express": "^0.69.0",
+    "@opentelemetry/instrumentation-http": "^0.221.0",
+    "@opentelemetry/instrumentation-ioredis": "^0.69.0",
+    "@opentelemetry/instrumentation-nestjs-core": "^0.67.0",
+    "@opentelemetry/instrumentation-pg": "^0.73.0",
+    "@opentelemetry/instrumentation-winston": "^0.65.0",
     "@opentelemetry/resources": "^2.8.0",
-    "@opentelemetry/sdk-logs": "^0.219.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
     "@opentelemetry/sdk-metrics": "^2.8.0",
-    "@opentelemetry/sdk-node": "^0.219.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.78.1",
@@ -63,7 +63,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "socket.io": "^4.8.3",
-    "typeorm": "^1.0.0",
+    "typeorm": "^1.1.0",
     "uuid": "^14.0.0",
     "winston": "^3.19.0",
     "zod": "^4.4.3"
@@ -71,8 +71,10 @@
   "overrides": {
     "@grpc/grpc-js": ">=1.14.4",
     "@grpc/proto-loader": {
-      "protobufjs": ">=7.6.3"
+      "protobufjs": ">=8.6.6"
     },
+    "protobufjs": ">=8.6.6",
+    "brace-expansion": ">=5.0.8",
     "qs": "^6.14.2",
     "diff": ">=8.0.3",
     "flatted": ">=3.4.2",
@@ -81,18 +83,19 @@
     "serialize-javascript": ">=7.0.3",
     "multer": ">=2.2.0",
     "file-type": ">=21.3.2",
-    "fast-uri": ">=3.1.2",
+    "fast-uri": ">=4.1.1",
     "ws": ">=8.21.0",
     "form-data": ">=4.0.6",
     "@babel/core": ">=7.29.6",
-    "js-yaml": ">=4.2.0",
+    "js-yaml": ">=4.3.0",
     "@angular-devkit/core": {
       "ajv": ">=8.17.2"
     },
     "path-to-regexp": ">=8.4.0",
     "bullmq": {
       "uuid": ">=14.0.0"
-    }
+    },
+    "minimatch": ">=10.2.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",

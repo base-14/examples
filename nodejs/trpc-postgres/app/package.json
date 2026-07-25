@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
-    "@opentelemetry/exporter-logs-otlp-grpc": "^0.219.0",
-    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.219.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.219.0",
-    "@opentelemetry/sdk-node": "^0.219.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
+    "@opentelemetry/exporter-logs-otlp-grpc": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.221.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.221.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/instrumentation": "^7.8.0",
@@ -33,9 +33,12 @@
     "@grpc/proto-loader": {
       "protobufjs": "^7.5.6"
     },
-    "hono": "^4.12.18",
-    "@hono/node-server": "^1.19.13",
-    "fast-uri": ">=3.1.2",
-    "esbuild": "^0.28.1"
+    "hono": "^4.12.27",
+    "@hono/node-server": ">=2.0.5",
+    "fast-uri": ">=3.1.4",
+    "esbuild": "^0.28.1",
+    "brace-expansion": ">=5.0.8",
+    "minimatch": ">=10.2.5",
+    "valibot": ">=1.4.2"
   }
 }

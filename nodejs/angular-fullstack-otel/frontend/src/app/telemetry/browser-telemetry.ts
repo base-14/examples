@@ -107,9 +107,11 @@ export function initBrowserTelemetry(): void {
   const loggerProvider = new LoggerProvider({
     resource,
     processors: [
-      new BatchLogRecordProcessor(
-        new OTLPLogExporter({ url: `${environment.otelCollectorUrl}/v1/logs` }),
-      ),
+      new BatchLogRecordProcessor({
+        exporter: new OTLPLogExporter({
+          url: `${environment.otelCollectorUrl}/v1/logs`,
+        }),
+      }),
     ],
   });
   logs.setGlobalLoggerProvider(loggerProvider);

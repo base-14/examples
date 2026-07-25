@@ -39,7 +39,7 @@ export function setupTelemetry(): NodeSDK {
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: serviceVersion,
     'deployment.environment.name': serviceEnvironment,
-    'environment': serviceEnvironment,
+    environment: serviceEnvironment,
     'service.namespace': 'base14-examples',
     'service.instance.id':
       process.env.HOSTNAME || `${serviceName}-${process.pid}`,
@@ -71,7 +71,7 @@ export function setupTelemetry(): NodeSDK {
 
   const loggerProvider = new LoggerProvider({
     resource,
-    processors: [new BatchLogRecordProcessor(logExporter)],
+    processors: [new BatchLogRecordProcessor({ exporter: logExporter })],
   });
 
   logs.setGlobalLoggerProvider(loggerProvider);

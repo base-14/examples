@@ -39,11 +39,11 @@ const sdk = new NodeSDK({
 
   // Logs — batch and export via OTLP HTTP
   logRecordProcessors: [
-    new BatchLogRecordProcessor(
-      new OTLPLogExporter({
+    new BatchLogRecordProcessor({
+      exporter: new OTLPLogExporter({
         url: `${OTEL_ENDPOINT}/v1/logs`,
-      })
-    ),
+      }),
+    }),
   ],
 
   // Auto-instrument HTTP, fetch, etc. Disable noisy ones.

@@ -31,7 +31,7 @@ const sdk = new NodeSDK({
       process.env.OTEL_METRIC_EXPORT_INTERVAL || "10000"
     ),
   }),
-  logRecordProcessors: [new BatchLogRecordProcessor(logExporter)],
+  logRecordProcessors: [new BatchLogRecordProcessor({ exporter: logExporter })],
   instrumentations: [
     getNodeAutoInstrumentations({
       "@opentelemetry/instrumentation-fs": { enabled: false },

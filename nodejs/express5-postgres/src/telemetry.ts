@@ -38,11 +38,11 @@ const sdk = new NodeSDK({
     }),
     exportIntervalMillis: 60000,
   }),
-  logRecordProcessor: new BatchLogRecordProcessor(
-    new OTLPLogExporter({
+  logRecordProcessor: new BatchLogRecordProcessor({
+    exporter: new OTLPLogExporter({
       url: `${otlpEndpoint}/v1/logs`,
-    })
-  ),
+    }),
+  }),
   instrumentations: [
     getNodeAutoInstrumentations({
       '@opentelemetry/instrumentation-http': {
