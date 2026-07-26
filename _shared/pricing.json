@@ -1,22 +1,40 @@
 {
-  "version": "auto-2026-06-03",
-  "note": "Reviewed 3 June 2026 against official pricing pages (fetched 2026-06-03). Added claude-opus-4.8 (new flagship, released 2026-05-28) and gemini-3.5-flash (GA, Google I/O 2026-05-19). gpt-5.4/5.5 lineup, Claude Opus/Sonnet/Haiku 4.x, and Gemini 3.1/2.5 figures re-confirmed unchanged. Legacy OpenAI entries (gpt-4o, gpt-4.1*, gpt-5.2, o1/o3) are no longer on OpenAI's official pricing page; retained for example/test lookups, figures unverified. gemini-2.0-flash + -2.0-flash-lite RETIRED 2026-06-01 (kept for lookup safety; do not use for new work). Deprecation watch: claude-sonnet-4/opus-4 retire 2026-06-15; gemini-2.5-flash shuts down 2026-10-16. Anthropic Haiku 3.5 is retired from the first-party API but still live on Bedrock/Vertex, so it is included for lookup safety.",
+  "version": "verified-2026-07-26",
+  "note": "Reviewed 26 July 2026 against official provider pages (fetched 2026-07-26). NEW: Claude 5 family (claude-opus-5, claude-sonnet-5, claude-fable-5, claude-mythos-5); OpenAI GPT-5.6 line (gpt-5.6-sol/terra/luna, released 2026-07-09 - Sol/Terra/Luna replace the base/mini/nano tier names) and chat-latest; Google gemini-3.6-flash + gemini-3.5-flash-lite (both GA 2026-07-21); first entries for open-weights labs DeepSeek (v4-flash, v4-pro) and Z.ai GLM (5.2/5.1/5/4.7/4.7-flashx). All other openai/anthropic/google figures re-confirmed unchanged. GPT-5.6 long-context tier (>272K input) is 2x input / 1.5x output and is NOT represented here - these are the short-context rates. claude-sonnet-5 carries introductory pricing of $2/$10 through 2026-08-31; the listed $3/$15 is the standard rate that resumes after. claude-mythos-5 is invitation-only (Project Glasswing), included for lookup safety. RETIRED but retained for lookup safety, figures unverified: claude-sonnet-4 + claude-opus-4 (retired 2026-06-15), claude-haiku-3.5 (first-party retired; still live on Bedrock/Vertex), gemini-2.0-flash + -2.0-flash-lite (2026-06-01), legacy OpenAI gpt-4o/gpt-4.1*/gpt-5.2/o1/o3, and the Gemini preview/robotics entries Google no longer surfaces. Deprecation watch: claude-opus-4.1 retires 2026-08-05; gpt-5.2-chat-latest + gpt-5.3-chat-latest shut down 2026-08-10; gemini-2.5-pro, -2.5-flash and -2.5-flash-lite all shut down 2026-10-16; gemini-3.1-flash-lite 2027-05-07; the gpt-5/o3 dated snapshots leave the API 2026-12-11. Moonshot Kimi K3 (1M ctx, single tier) and MiniMax M3/M2.7 sourced from kimi.com/resources/kimi-k3-pricing and platform.minimax.io/docs/guides/pricing-paygo. MiniMax bills M3 by context length: the listed rate is the standard ≤512K tier; >512K is 0.60/2.40 (cached 0.12) and the priority tier is 1.5x standard - neither variant is represented here. MiniMax describes the M3 rates as a permanent 50% discount on its base rates.",
   "models": {
+    "gpt-5.6-sol": {
+      "provider": "openai",
+      "input": 5,
+      "output": 30,
+      "cached_input": 0.5
+    },
+    "gpt-5.6-terra": {
+      "provider": "openai",
+      "input": 2.5,
+      "output": 15,
+      "cached_input": 0.25
+    },
+    "gpt-5.6-luna": {
+      "provider": "openai",
+      "input": 1,
+      "output": 6,
+      "cached_input": 0.1
+    },
     "gpt-5.5": {
       "provider": "openai",
-      "input": 5.0,
-      "output": 30.0,
+      "input": 5,
+      "output": 30,
       "cached_input": 0.5
     },
     "gpt-5.5-pro": {
       "provider": "openai",
-      "input": 30.0,
-      "output": 180.0
+      "input": 30,
+      "output": 180
     },
     "gpt-5.4": {
       "provider": "openai",
       "input": 2.5,
-      "output": 15.0,
+      "output": 15,
       "cached_input": 0.25
     },
     "gpt-5.4-mini": {
@@ -33,19 +51,25 @@
     },
     "gpt-5.4-pro": {
       "provider": "openai",
-      "input": 30.0,
-      "output": 180.0
+      "input": 30,
+      "output": 180
     },
     "gpt-5.3-codex": {
       "provider": "openai",
       "input": 1.75,
-      "output": 14.0,
+      "output": 14,
       "cached_input": 0.175
+    },
+    "chat-latest": {
+      "provider": "openai",
+      "input": 5,
+      "output": 30,
+      "cached_input": 0.5
     },
     "gpt-4o": {
       "provider": "openai",
       "input": 2.5,
-      "output": 10.0
+      "output": 10
     },
     "gpt-4o-mini": {
       "provider": "openai",
@@ -54,8 +78,8 @@
     },
     "gpt-4.1": {
       "provider": "openai",
-      "input": 2.0,
-      "output": 8.0
+      "input": 2,
+      "output": 8
     },
     "gpt-4.1-mini": {
       "provider": "openai",
@@ -70,12 +94,12 @@
     "gpt-5.2": {
       "provider": "openai",
       "input": 1.75,
-      "output": 14.0
+      "output": 14
     },
     "o1": {
       "provider": "openai",
-      "input": 15.0,
-      "output": 60.0
+      "input": 15,
+      "output": 60
     },
     "o1-mini": {
       "provider": "openai",
@@ -84,90 +108,126 @@
     },
     "o3": {
       "provider": "openai",
-      "input": 2.0,
-      "output": 8.0
+      "input": 2,
+      "output": 8
     },
     "o3-mini": {
       "provider": "openai",
       "input": 1.1,
       "output": 4.4
     },
+    "claude-fable-5": {
+      "provider": "anthropic",
+      "input": 10,
+      "output": 50,
+      "cached_input": 1
+    },
+    "claude-mythos-5": {
+      "provider": "anthropic",
+      "input": 10,
+      "output": 50,
+      "cached_input": 1
+    },
+    "claude-opus-5": {
+      "provider": "anthropic",
+      "input": 5,
+      "output": 25,
+      "cached_input": 0.5
+    },
+    "claude-sonnet-5": {
+      "provider": "anthropic",
+      "input": 3,
+      "output": 15,
+      "cached_input": 0.3
+    },
     "claude-opus-4.8": {
       "provider": "anthropic",
-      "input": 5.0,
-      "output": 25.0,
+      "input": 5,
+      "output": 25,
       "cached_input": 0.5
     },
     "claude-opus-4.7": {
       "provider": "anthropic",
-      "input": 5.0,
-      "output": 25.0,
+      "input": 5,
+      "output": 25,
       "cached_input": 0.5
     },
     "claude-sonnet-4.6": {
       "provider": "anthropic",
-      "input": 3.0,
-      "output": 15.0,
+      "input": 3,
+      "output": 15,
       "cached_input": 0.3
     },
     "claude-haiku-4.5": {
       "provider": "anthropic",
-      "input": 1.0,
-      "output": 5.0,
+      "input": 1,
+      "output": 5,
       "cached_input": 0.1
     },
     "claude-haiku-3.5": {
       "provider": "anthropic",
       "input": 0.8,
-      "output": 4.0,
+      "output": 4,
       "cached_input": 0.08
     },
     "claude-opus-4.6": {
       "provider": "anthropic",
-      "input": 5.0,
-      "output": 25.0,
+      "input": 5,
+      "output": 25,
       "cached_input": 0.5
     },
     "claude-sonnet-4.5": {
       "provider": "anthropic",
-      "input": 3.0,
-      "output": 15.0,
+      "input": 3,
+      "output": 15,
       "cached_input": 0.3
     },
     "claude-opus-4.5": {
       "provider": "anthropic",
-      "input": 5.0,
-      "output": 25.0,
+      "input": 5,
+      "output": 25,
       "cached_input": 0.5
     },
     "claude-opus-4.1": {
       "provider": "anthropic",
-      "input": 15.0,
-      "output": 75.0,
+      "input": 15,
+      "output": 75,
       "cached_input": 1.5
     },
     "claude-sonnet-4": {
       "provider": "anthropic",
-      "input": 3.0,
-      "output": 15.0,
+      "input": 3,
+      "output": 15,
       "cached_input": 0.3
     },
     "claude-opus-4": {
       "provider": "anthropic",
-      "input": 15.0,
-      "output": 75.0,
+      "input": 15,
+      "output": 75,
       "cached_input": 1.5
+    },
+    "gemini-3.6-flash": {
+      "provider": "google",
+      "input": 1.5,
+      "output": 7.5,
+      "cached_input": 0.15
     },
     "gemini-3.5-flash": {
       "provider": "google",
       "input": 1.5,
-      "output": 9.0,
+      "output": 9,
       "cached_input": 0.15
+    },
+    "gemini-3.5-flash-lite": {
+      "provider": "google",
+      "input": 0.3,
+      "output": 2.5,
+      "cached_input": 0.03
     },
     "gemini-3.1-pro-preview": {
       "provider": "google",
-      "input": 2.0,
-      "output": 12.0,
+      "input": 2,
+      "output": 12,
       "cached_input": 0.2
     },
     "gemini-3.1-flash-lite": {
@@ -190,13 +250,13 @@
     "gemini-3-flash-preview": {
       "provider": "google",
       "input": 0.5,
-      "output": 3.0,
+      "output": 3,
       "cached_input": 0.05
     },
     "gemini-2.5-pro": {
       "provider": "google",
       "input": 1.25,
-      "output": 10.0,
+      "output": 10,
       "cached_input": 0.125
     },
     "gemini-2.5-flash": {
@@ -220,7 +280,7 @@
     "gemini-2.5-flash-native-audio-preview-12-2025": {
       "provider": "google",
       "input": 0.5,
-      "output": 2.0
+      "output": 2
     },
     "gemini-2.0-flash": {
       "provider": "google",
@@ -235,8 +295,8 @@
     },
     "gemini-robotics-er-1.6-preview": {
       "provider": "google",
-      "input": 1.0,
-      "output": 5.0
+      "input": 1,
+      "output": 5
     },
     "gemini-robotics-er-1.5-preview": {
       "provider": "google",
@@ -246,13 +306,74 @@
     "gemini-2.5-computer-use-preview-10-2025": {
       "provider": "google",
       "input": 1.25,
-      "output": 10.0
+      "output": 10
     },
     "gemma-4": {
       "provider": "google",
-      "input": 0.0,
-      "output": 0.0
+      "input": 0,
+      "output": 0
+    },
+    "deepseek-v4-pro": {
+      "provider": "deepseek",
+      "input": 0.435,
+      "output": 0.87,
+      "cached_input": 0.003625
+    },
+    "deepseek-v4-flash": {
+      "provider": "deepseek",
+      "input": 0.14,
+      "output": 0.28,
+      "cached_input": 0.0028
+    },
+    "kimi-k3": {
+      "provider": "moonshot",
+      "input": 3,
+      "output": 15,
+      "cached_input": 0.3
+    },
+    "minimax-m3": {
+      "provider": "minimax",
+      "input": 0.3,
+      "output": 1.2,
+      "cached_input": 0.06
+    },
+    "minimax-m2.7": {
+      "provider": "minimax",
+      "input": 0.3,
+      "output": 1.2,
+      "cached_input": 0.06
+    },
+    "minimax-m2.7-highspeed": {
+      "provider": "minimax",
+      "input": 0.6,
+      "output": 2.4,
+      "cached_input": 0.06
+    },
+    "glm-5.2": {
+      "provider": "zai",
+      "input": 1.4,
+      "output": 4.4
+    },
+    "glm-5.1": {
+      "provider": "zai",
+      "input": 1.4,
+      "output": 4.4
+    },
+    "glm-5": {
+      "provider": "zai",
+      "input": 1,
+      "output": 3.2
+    },
+    "glm-4.7": {
+      "provider": "zai",
+      "input": 0.6,
+      "output": 2.2
+    },
+    "glm-4.7-flashx": {
+      "provider": "zai",
+      "input": 0.07,
+      "output": 0.4
     }
   },
-  "ollama_note": "Ollama models run locally and have zero cost. Add local model IDs with input/output: 0.0"
+  "ollama_note": "Ollama models run locally and have zero cost. Add local model IDs with input/output: 0.0. The deepseek/zai entries above are first-party hosted-API rates - a locally-served copy of the same open weights costs nothing and should use its Ollama tag as the key."
 }
