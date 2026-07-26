@@ -60,8 +60,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       DEPLOY_ENV: development
       PORT: "3000"
-      # Stable HTTP metric name (http.server.request.duration); else the old http.server.duration.
-      OTEL_SEMCONV_STABILITY_OPT_IN: http
     ports:
       - "3000:3000"
     depends_on:

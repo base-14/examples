@@ -12,8 +12,8 @@ const env = process.env.DEPLOY_ENV || 'development';
 const base = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318';
 
 // http.server.request.duration + runtime-node metrics and pino log-bridging are
-// automatic once a reader/processor exists. Stable metric name needs
-// OTEL_SEMCONV_STABILITY_OPT_IN=http (compose.yaml).
+// automatic once a reader/processor exists. instrumentation-http 0.221.0 emits
+// stable HTTP semconv only, so no OTEL_SEMCONV_STABILITY_OPT_IN is needed.
 const sdk = new NodeSDK({
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: 'angular-items-api',
