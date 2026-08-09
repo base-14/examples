@@ -35,20 +35,20 @@ input → [stage 1] → [stage 2] → [stage 3] → output
 **Code sample (Vercel AI SDK)**
 
 ```typescript
-import { generateObject } from "ai";
+import { Output, generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
 // Stage 1: Extract key facts
-const { object: facts } = await generateObject({
+const { output: facts } = await generateText({
   model: anthropic("claude-haiku-4-5-20251001"),
-  schema: FactsSchema,
+  output: Output.object({ schema: FactsSchema }),
   prompt: rawDocument,
 });
 
 // Stage 2: Analyze extracted facts
-const { object: analysis } = await generateObject({
+const { output: analysis } = await generateText({
   model: anthropic("claude-sonnet-4-6"),
-  schema: AnalysisSchema,
+  output: Output.object({ schema: AnalysisSchema }),
   prompt: JSON.stringify(facts),
 });
 
@@ -94,7 +94,7 @@ input → [router/classifier] → dispatch:
 **Code sample**
 
 ```typescript
-import { generateObject } from "ai";
+import { Output, generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
@@ -105,13 +105,13 @@ const RouteSchema = z.object({
 });
 
 async function routeDocument(text: string) {
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: anthropic("claude-haiku-4-5-20251001"), // cheap model for routing
-    schema: RouteSchema,
+    output: Output.object({ schema: RouteSchema }),
     system: "Classify this legal document. Be concise.",
     prompt: text.slice(0, 2000), // only need the first ~2000 chars to classify
   });
-  return object;
+  return output;
 }
 
 // Dispatch based on routing result
@@ -172,16 +172,16 @@ const report = synthesize(extractResult, riskResult, summaryResult);
 **Code sample (Vercel AI SDK with parallel agent calls)**
 
 ```typescript
-import { generateObject } from "ai";
+import { Output, generateText } from "ai";
 
 async function parallelAnalysis(document: string) {
   const [clauses, risks, summary] = await Promise.all([
-    generateObject({ model, schema: ClauseSchema, prompt: document }),
-    generateObject({ model, schema: RiskSchema, prompt: document }),
-    generateObject({ model, schema: SummarySchema, prompt: document }),
+    generateText({ model, output: Output.object({ schema: ClauseSchema }), prompt: document }),
+    generateText({ model, output: Output.object({ schema: RiskSchema }), prompt: document }),
+    generateText({ model, output: Output.object({ schema: SummarySchema }), prompt: document }),
   ]);
 
-  return synthesize(clauses.object, risks.object, summary.object);
+  return synthesize(clauses.output, risks.output, summary.output);
 }
 ```
 
@@ -301,9 +301,9 @@ let result = null;
 let feedback: string[] = [];
 
 while (attempt < MAX_ITERATIONS) {
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: anthropic("claude-sonnet-4-6"),
-    schema: ExtractionSchema,
+    output: Output.object({ schema: ExtractionSchema }),
     system: EXTRACTION_SYSTEM_PROMPT,
     prompt: feedback.length > 0
       ? `${contractText}\n\nPrevious attempt feedback:\n${feedback.join("\n")}\n\nPlease fix these issues.`
@@ -311,18 +311,20 @@ while (attempt < MAX_ITERATIONS) {
   });
 
   // Evaluate using a different, cheaper model
-  const { object: evaluation } = await generateObject({
+  const { output: evaluation } = await generateText({
     model: anthropic("claude-haiku-4-5-20251001"),
-    schema: z.object({
-      passed: z.boolean(),
-      issues: z.array(z.string()),
+    output: Output.object({
+      schema: z.object({
+        passed: z.boolean(),
+        issues: z.array(z.string()),
+      }),
     }),
     system: "You are a contract data validator. Check the extracted data for completeness and consistency.",
-    prompt: `Contract: ${contractText.slice(0, 1000)}\n\nExtracted data: ${JSON.stringify(object)}`,
+    prompt: `Contract: ${contractText.slice(0, 1000)}\n\nExtracted data: ${JSON.stringify(output)}`,
   });
 
   if (evaluation.passed) {
-    result = object;
+    result = output;
     break;
   }
 
@@ -438,9 +440,9 @@ async function extractWithContext(text: string, documentType: string) {
     SCHEMA_BY_TYPE[documentType], // only the relevant schema
   ].join("\n\n");
 
-  return generateObject({
+  return generateText({
     model: anthropic("claude-sonnet-4-6"),
-    schema: ExtractionSchema,
+    output: Output.object({ schema: ExtractionSchema }),
     system: systemPrompt,
     prompt: text,
   });
@@ -539,7 +541,7 @@ async function queryContract(question: string, contractId: string, pool: Pool) {
 
 These are not competing approaches. They serve different purposes and are used together.
 
-| Dimension | `generateObject` (Structured Output) | Tool Use (`generateText` with tools) |
+| Dimension | Structured Output (`generateText` with `output`) | Tool Use (`generateText` with `tools`) |
 |-----------|--------------------------------------|--------------------------------------|
 | **Purpose** | Constrain response format to a Zod schema | Let the model invoke external systems |
 | **Best for** | Final extraction, classification, structured reports | Fetching live data, taking side-effecting actions |
@@ -560,10 +562,10 @@ const { text, toolResults } = await generateText({
   prompt: `Analyze this clause: ${clauseText}`,
 });
 
-// Final step: use generateObject to enforce schema on the output
-const { object: structuredResult } = await generateObject({
+// Final step: use an `output` setting to enforce schema on the output
+const { output: structuredResult } = await generateText({
   model: anthropic("claude-sonnet-4-6"),
-  schema: ClauseAnalysisSchema,
+  output: Output.object({ schema: ClauseAnalysisSchema }),
   prompt: `Based on this analysis, extract structured findings: ${text}`,
 });
 ```

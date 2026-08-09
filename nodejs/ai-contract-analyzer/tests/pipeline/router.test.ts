@@ -9,8 +9,9 @@ vi.mock("../../src/providers.ts", () => ({
 }));
 
 vi.mock("ai", () => ({
-  generateObject: vi.fn().mockResolvedValue({
-    object: {
+  Output: { object: (opts: unknown) => opts },
+  generateText: vi.fn().mockResolvedValue({
+    output: {
       document_type: "nda",
       complexity: "standard",
       requires_full_analysis: true,
@@ -33,12 +34,12 @@ describe("routeDocument", () => {
   });
 
   it("only passes the first 3000 chars to the model", async () => {
-    const { generateObject } = await import("ai");
+    const { generateText } = await import("ai");
     const longText = "x".repeat(10_000);
 
     await routeDocument(longText);
 
-    const call = vi.mocked(generateObject).mock.calls.at(-1)?.[0] as { prompt: string };
+    const call = vi.mocked(generateText).mock.calls.at(-1)?.[0] as { prompt: string };
     expect(call.prompt.length).toBe(3000);
   });
 

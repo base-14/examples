@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getCapableModel } from "../providers.ts";
 import type { ExtractionResult, RiskResult, SummaryResult } from "../types/pipeline.ts";
@@ -66,9 +66,9 @@ ${
 }`;
 
   const capableDescriptor = getCapableModel();
-  const { object, usage } = await generateObject({
+  const { output, usage } = await generateText({
     model: capableDescriptor.model,
-    schema: SummarySchema,
+    output: Output.object({ schema: SummarySchema }),
     maxOutputTokens: 2_000,
     system: `You are a senior attorney writing a contract review memo for a business client.
 Write in clear, plain English — no Latin phrases, no unnecessary jargon.
@@ -86,7 +86,7 @@ Negotiation points should be specific and actionable.`,
     1_000_000;
 
   return {
-    summary: object,
+    summary: output,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
     cost_usd: costUsd,

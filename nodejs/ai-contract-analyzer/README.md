@@ -40,8 +40,8 @@ POST /api/contracts
     ├─ ingest      Parse PDF or plain text, split into chunks
     ├─ route       Fast model classifies document type + complexity
     ├─ embed  ─┐   Embedding model indexes chunks for semantic search   (concurrent)
-    ├─ extract ┘   Capable model extracts 41 CUAD clause types
-    ├─ score       Capable model scores risk level per clause
+    ├─ extract ┘   Capable model extracts the CUAD clauses for that document type
+    ├─ score       Fast model scores risk level per clause
     └─ summarize   Capable model writes plain-English summary for review
          │
          └─ PostgreSQL 18 + pgvector

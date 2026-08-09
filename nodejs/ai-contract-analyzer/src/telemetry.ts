@@ -40,7 +40,11 @@ if (otelEnabled) {
   // Logs are exported to the collector so Scout can correlate them with traces
   // via trace_id / span_id injected by logger.ts.
   const loggerProvider = new LoggerProvider({
-    processors: [new BatchLogRecordProcessor(new OTLPLogExporter({ url: `${endpoint}/v1/logs` }))],
+    processors: [
+      new BatchLogRecordProcessor({
+        exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs` }),
+      }),
+    ],
   });
   logs.setGlobalLoggerProvider(loggerProvider);
 }

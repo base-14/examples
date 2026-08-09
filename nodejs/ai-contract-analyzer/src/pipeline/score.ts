@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getFastModel } from "../providers.ts";
 import { CUAD_CLAUSE_TYPES } from "../types/clauses.ts";
@@ -64,9 +64,9 @@ Missing clause types: ${missingClauses || "(none missing)"}
 Assess the risk level for each present clause and identify which missing clauses are concerning.`;
 
   const fastDescriptor = getFastModel();
-  const { object, usage } = await generateObject({
+  const { output, usage } = await generateText({
     model: fastDescriptor.model,
-    schema: RiskSchema,
+    output: Output.object({ schema: RiskSchema }),
     maxOutputTokens: 3_000,
     system: `You are a contract risk analyst. For each present clause, assess:
 - risk_level: critical (immediate action), high (significant concern), medium (review), low (acceptable), none (standard)
@@ -87,7 +87,7 @@ Set overall_risk to the highest risk level found across all clauses.`,
     1_000_000;
 
   return {
-    risks: object,
+    risks: output,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
     cost_usd: costUsd,

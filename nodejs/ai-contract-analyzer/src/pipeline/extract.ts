@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getCapableModel, getFastModel } from "../providers.ts";
 import { CLAUSES_BY_TYPE, ClauseSchema, CUAD_CLAUSE_TYPES } from "../types/clauses.ts";
@@ -85,9 +85,9 @@ export async function extractClauses(
         : fullText;
 
     const capableDescriptor = getCapableModel();
-    const { object, usage: genUsage } = await generateObject({
+    const { output: extraction, usage: genUsage } = await generateText({
       model: capableDescriptor.model,
-      schema: ExtractionSchema,
+      output: Output.object({ schema: ExtractionSchema }),
       maxOutputTokens: 8_000,
       system: systemPrompt,
       prompt: generatorPrompt,
@@ -101,14 +101,14 @@ export async function extractClauses(
       (genInput * capableDescriptor.inputCostPerMToken +
         genOutput * capableDescriptor.outputCostPerMToken) /
       1_000_000;
-    lastExtraction = object;
+    lastExtraction = extraction;
 
     // ── Evaluator (different model — catches different failure modes) ───────
-    const presentWithEmptyExcerpt = object.clauses
+    const presentWithEmptyExcerpt = extraction.clauses
       .filter((c) => c.present && c.text_excerpt.trim() === "")
       .map((c) => c.clause_type);
 
-    const highConfidenceAbsent = object.clauses
+    const highConfidenceAbsent = extraction.clauses
       .filter((c) => !c.present && c.confidence > 0.5)
       .map((c) => c.clause_type);
 
@@ -116,9 +116,9 @@ export async function extractClauses(
 ${contractPreview}
 
 Extracted data:
-- contract_type: ${object.contract_type}
-- parties: ${object.parties.map((p) => p.name).join(", ") || "(none)"}
-- clauses marked present: ${object.clauses.filter((c) => c.present).length}
+- contract_type: ${extraction.contract_type}
+- parties: ${extraction.parties.map((p) => p.name).join(", ") || "(none)"}
+- clauses marked present: ${extraction.clauses.filter((c) => c.present).length}
 - clauses present but missing text_excerpt: ${presentWithEmptyExcerpt.join(", ") || "(none)"}
 - clauses absent but confidence > 0.5: ${highConfidenceAbsent.join(", ") || "(none)"}
 
@@ -129,9 +129,9 @@ Check for:
 4. parties array empty when parties are visible in the excerpt`;
 
     const fastDescriptor = getFastModel();
-    const { object: evaluation, usage: evalUsage } = await generateObject({
+    const { output: evaluation, usage: evalUsage } = await generateText({
       model: fastDescriptor.model,
-      schema: EvaluationSchema,
+      output: Output.object({ schema: EvaluationSchema }),
       system:
         "You are a contract data validator. Return passed=true only if none of the listed issues are present.",
       prompt: evalPrompt,

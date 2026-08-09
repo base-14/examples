@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // vi.mock is hoisted — factory must not reference module-level variables
-vi.mock("ai", () => ({ generateObject: vi.fn() }));
+vi.mock("ai", () => ({ Output: { object: (opts: unknown) => opts }, generateText: vi.fn() }));
 vi.mock("../../src/providers.ts", () => ({
   getCapableModel: vi.fn().mockReturnValue({
     model: "mock-capable-model",
@@ -15,7 +15,7 @@ vi.mock("../../src/providers.ts", () => ({
   }),
 }));
 
-import { generateObject } from "ai";
+import { generateText } from "ai";
 import { extractClauses } from "../../src/pipeline/extract.ts";
 
 // Satisfies both ExtractionSchema and EvaluationSchema so the same object works for all calls
@@ -59,16 +59,16 @@ const EXTRACTION_OBJECT = {
   issues: [],
 };
 
-const mockResult = (object: unknown, inputTokens = 25000, outputTokens = 4000) =>
-  ({ object, usage: { inputTokens, outputTokens } }) as unknown as Awaited<
-    ReturnType<typeof generateObject>
+const mockResult = (output: unknown, inputTokens = 25000, outputTokens = 4000) =>
+  ({ output, usage: { inputTokens, outputTokens } }) as unknown as Awaited<
+    ReturnType<typeof generateText>
   >;
 
 describe("extractClauses", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Default: generator and evaluator both pass on first try
-    vi.mocked(generateObject).mockResolvedValue(mockResult(EXTRACTION_OBJECT));
+    vi.mocked(generateText).mockResolvedValue(mockResult(EXTRACTION_OBJECT));
   });
 
   it("returns extraction result with clauses and metadata", async () => {
@@ -103,21 +103,21 @@ describe("extractClauses", () => {
     await extractClauses("contract text", { force_full_extraction: true });
 
     // First call is the generator — check its system prompt
-    const generatorCall = vi.mocked(generateObject).mock.calls[0]?.[0];
+    const generatorCall = vi.mocked(generateText).mock.calls[0]?.[0];
     expect((generatorCall as { system: string }).system).toContain("(41)");
   });
 
   it("narrows clause types based on document type", async () => {
     await extractClauses("contract text", undefined, "nda");
 
-    const generatorCall = vi.mocked(generateObject).mock.calls[0]?.[0];
+    const generatorCall = vi.mocked(generateText).mock.calls[0]?.[0];
     const system = (generatorCall as { system: string }).system;
     expect(system).toContain("non_disclosure");
     expect(system).not.toContain("(41)");
   });
 
   it("retries extraction when evaluator fails and passes feedback to generator", async () => {
-    vi.mocked(generateObject)
+    vi.mocked(generateText)
       .mockResolvedValueOnce(mockResult(EXTRACTION_OBJECT)) // generator attempt 1
       .mockResolvedValueOnce(
         mockResult(
@@ -132,12 +132,12 @@ describe("extractClauses", () => {
     const result = await extractClauses("contract text");
 
     // 4 total calls: generator, evaluator, generator, evaluator
-    expect(vi.mocked(generateObject).mock.calls).toHaveLength(4);
+    expect(vi.mocked(generateText).mock.calls).toHaveLength(4);
 
     // Second generator prompt must contain feedback from the first failed evaluation
     const secondGeneratorPrompt = (
-      vi.mocked(generateObject).mock.calls[2]?.[0] as { prompt: string }
-    ).prompt;
+      vi.mocked(generateText).mock.calls[2]?.[0] as { prompt: string } | undefined
+    )?.prompt;
     expect(secondGeneratorPrompt).toContain("Previous extraction had these issues");
     expect(secondGeneratorPrompt).toContain("non_disclosure clause present");
 

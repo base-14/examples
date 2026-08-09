@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("ai", () => ({
-  generateObject: vi.fn().mockResolvedValue({
-    object: {
+  Output: { object: (opts: unknown) => opts },
+  generateText: vi.fn().mockResolvedValue({
+    output: {
       clause_risks: [
         {
           clause_type: "liability_cap",

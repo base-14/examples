@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getFastModel } from "../providers.ts";
 import type { RouteResult } from "../types/pipeline.ts";
@@ -22,9 +22,9 @@ export async function routeDocument(fullText: string): Promise<RouteResult> {
   const preview = fullText.slice(0, 3000);
 
   const fastDescriptor = getFastModel();
-  const { object, usage } = await generateObject({
+  const { output, usage } = await generateText({
     model: fastDescriptor.model,
-    schema: RouteSchema,
+    output: Output.object({ schema: RouteSchema }),
     system: `You are a legal document classifier. Identify the document type, complexity, and whether it requires full analysis.
 Be conservative: if in doubt about document type, use "unknown". If in doubt about complexity, go higher.`,
     prompt: preview,
@@ -38,7 +38,7 @@ Be conservative: if in doubt about document type, use "unknown". If in doubt abo
     1_000_000;
 
   return {
-    ...object,
+    ...output,
     input_tokens: inputTokens,
     cost_usd: costUsd,
   };
