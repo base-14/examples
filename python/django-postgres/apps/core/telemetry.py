@@ -77,7 +77,7 @@ def setup_telemetry() -> None:
     DjangoInstrumentor().instrument(excluded_urls="health")
     PsycopgInstrumentor().instrument()
     RedisInstrumentor().instrument()
-    CeleryInstrumentor().instrument()
+    CeleryInstrumentor().instrument()  # type: ignore[no-untyped-call]  # untyped __init__ upstream
     LoggingInstrumentor().instrument(set_logging_format=True)
 
     _telemetry_initialized = True
