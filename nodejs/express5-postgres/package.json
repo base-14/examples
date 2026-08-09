@@ -58,7 +58,8 @@
     "esbuild": "^0.28.1",
     "uuid": ">=14.0.0",
     "ws": ">=8.21.0",
-    "brace-expansion": ">=5.0.8",
+    "brace-expansion": ">=5.0.9",
+    "socket.io-parser": ">=4.2.7",
     "body-parser": ">=2.3.0",
     "postcss": ">=8.5.18",
     "minimatch": ">=10.2.5"

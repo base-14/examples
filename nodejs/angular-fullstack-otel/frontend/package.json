@@ -46,9 +46,15 @@
     "@babel/core": "^7.29.7",
     "esbuild": "^0.28.1",
     "@hono/node-server": ">=2.0.5",
-    "fast-uri": ">=3.1.4",
+    "fast-uri": ">=4.1.2",
+    "hono": ">=4.12.34",
+    "ip-address": ">=10.3.1",
+    "undici": ">=7.29.0 <8",
+    "node-gyp": {
+      "undici": ">=6.28.0 <7"
+    },
     "postcss": ">=8.5.18",
-    "brace-expansion": ">=5.0.8",
+    "brace-expansion": ">=5.0.9",
     "minimatch": ">=10.2.5"
   }
 }

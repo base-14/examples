@@ -47,7 +47,7 @@
     "uuid": ">=14.0.0",
     "@babel/core": ">=7.29.6",
     "js-yaml": ">=4.3.0",
-    "brace-expansion": ">=5.0.8",
+    "brace-expansion": ">=5.0.9",
     "minimatch": ">=10.2.5",
     "sharp": ">=0.35.0"
   },
