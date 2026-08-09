@@ -31,3 +31,6 @@ coverage/
 # Misc
 *.tgz
 .eslintcache
+
+# TypeScript incremental build info
+*.tsbuildinfo
