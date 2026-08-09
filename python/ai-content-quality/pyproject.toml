@@ -96,6 +96,7 @@ select = [
 ignore = [
     "E501",     # line too long (handled by formatter)
     "PLR0913",  # too many arguments
+    "PLR0917",  # too many positional arguments
     "PLR2004",  # magic value comparison
     "ARG001",   # unused function argument
     "ARG002",   # unused method argument
