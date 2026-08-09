@@ -11,6 +11,8 @@ repositories {
 }
 
 dependencies {
+    implementation(platform("io.opentelemetry:opentelemetry-bom:1.65.0"))
+
     annotationProcessor("io.micronaut.data:micronaut-data-processor")
     annotationProcessor("io.micronaut.serde:micronaut-serde-processor")
 
@@ -19,7 +21,7 @@ dependencies {
     implementation("io.micronaut.data:micronaut-data-hibernate-jpa")
     implementation("io.micronaut.sql:micronaut-jdbc-hikari")
     implementation("io.micronaut.flyway:micronaut-flyway")
-    implementation("io.opentelemetry:opentelemetry-api:1.48.0")
+    implementation("io.opentelemetry:opentelemetry-api")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     runtimeOnly("org.postgresql:postgresql")
