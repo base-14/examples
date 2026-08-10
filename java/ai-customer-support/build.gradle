@@ -17,6 +17,9 @@ repositories {
     mavenCentral()
 }
 
+// Spring Boot 4.0.7 manages OpenTelemetry 1.55.0; 1.62.0 fixes GHSA-rcgg-9c38-7xpx
+ext['opentelemetry.version'] = '1.65.0'
+
 dependencyManagement {
     imports {
         mavenBom "org.springframework.ai:spring-ai-bom:2.0.0"
