@@ -30,7 +30,7 @@ services:
   # OpenTelemetry Collector - OTLP in (CORS for the browser), Scout + debug out
   # ==========================================================================
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.153.0
+    image: otel/opentelemetry-collector-contrib:0.158.0
     command: ["--config=/etc/otelcol-config.yaml"]
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-config.yaml:ro

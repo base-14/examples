@@ -8,7 +8,7 @@ metadata:
   namespace: otel
 spec:
   mode: daemonset
-  image: otel/opentelemetry-collector-contrib:0.152.1
+  image: otel/opentelemetry-collector-contrib:0.158.0
   # spec.serviceAccount omitted on purpose: when omitted, operator auto-creates
   # SA `<cr-name>-collector` (here: otel-agent-collector) AND the ClusterRole +
   # binding that kubeletstats/hostmetrics need. Setting it explicitly puts the
