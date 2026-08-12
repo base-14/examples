@@ -84,7 +84,7 @@ echo "4. Create User (POST /signup)"
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -L \
     -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
-    -X POST "$BASE_URL/signup" \
+    "$BASE_URL/signup" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "authenticity_token=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$CSRF_TOKEN'''))")&user%5Bname%5D=TestUser+${TIMESTAMP}&user%5Bemail%5D=testuser-${TIMESTAMP}%40example.com&user%5Bpassword%5D=password123&user%5Bpassword_confirmation%5D=password123")
 STATUS=$(echo "$RESPONSE" | tail -1)
@@ -137,12 +137,12 @@ echo "9. Logout"
 HOME_PAGE=$(curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" "$BASE_URL/")
 CSRF_TOKEN=$(extract_csrf_token "$HOME_PAGE")
 
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" -L \
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
     -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
     -X DELETE "$BASE_URL/logout" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "authenticity_token=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$CSRF_TOKEN'''))")")
-check_status "DELETE /logout (sign out)" "200" "$STATUS"
+check_status "DELETE /logout (sign out)" "302" "$STATUS"
 
 # ------------------------------------------------------------------
 # 10. Login with existing user
@@ -161,7 +161,7 @@ fi
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -L \
     -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
-    -X POST "$BASE_URL/login" \
+    "$BASE_URL/login" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "authenticity_token=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$CSRF_TOKEN'''))")&email=testuser-${TIMESTAMP}%40example.com&password=password123")
 STATUS=$(echo "$RESPONSE" | tail -1)
