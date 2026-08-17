@@ -1,0 +1,31 @@
+# syntax=docker/dockerfile:1
+
+ARG WP_VERSION=7.0.4
+
+FROM composer:2 AS vendor
+
+WORKDIR /opt/otel
+
+COPY composer.json composer.lock* ./
+
+# The extension is not present in this stage, so its platform requirement is skipped.
+RUN composer install \
+      --no-dev \
+      --prefer-dist \
+      --optimize-autoloader \
+      --ignore-platform-req=ext-opentelemetry \
+      --ignore-platform-req=ext-mysqli
+
+FROM wordpress:${WP_VERSION}-php8.4-fpm
+
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y $PHPIZE_DEPS libfcgi-bin && \
+    pecl install opentelemetry-1.2.1 && \
+    apt-get purge -y --auto-remove $PHPIZE_DEPS && \
+    rm -rf /var/lib/apt/lists/*
+
+# Outside the docroot: the entrypoint and core updates both rewrite /var/www/html.
+COPY --from=vendor /opt/otel/vendor /opt/otel/vendor
+
+COPY config/otel.ini /usr/local/etc/php/conf.d/99-otel.ini
+COPY config/php-fpm.conf /usr/local/etc/php-fpm.d/zz-wordpress.conf

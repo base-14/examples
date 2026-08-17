@@ -1,0 +1,27 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "base14/wordpress-mariadb-otel",
+    "type": "project",
+    "description": "WordPress + MariaDB + OpenTelemetry auto-instrumentation example for Base14 Scout",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4",
+        "open-telemetry/sdk": "^1.15",
+        "open-telemetry/exporter-otlp": "^1.4",
+        "open-telemetry/opentelemetry-auto-wordpress": "^0.2",
+        "open-telemetry/opentelemetry-auto-mysqli": "^0.4",
+        "php-http/guzzle7-adapter": "^1.1",
+        "guzzlehttp/psr7": "^2.8"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "tbachert/spi": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

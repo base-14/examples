@@ -1,0 +1,13 @@
+.env
+vendor/
+
+# Capture and measurement tooling used to validate this example. Kept out of the
+# repo; the summaries and the numbers they produced live in the docs.
+capture/
+observed-spans.md
+observed-performance.md
+scripts/capture-spans.sh
+scripts/measure-overhead.sh
+scripts/compare-attribute-keys.py
+scripts/compare-trace-structure.py
+scripts/__pycache__/

@@ -1,0 +1,188 @@
+x-otel-env: &otel-env
+  OTEL_SERVICE_NAME: wordpress-mariadb-otel
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
+  OTEL_PHP_AUTOLOAD_ENABLED: "true"
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development
+
+x-db-creds: &db-creds
+  WORDPRESS_DB_HOST: mariadb:3306
+  WORDPRESS_DB_USER: wordpress
+  WORDPRESS_DB_PASSWORD: wordpress
+
+x-wp-env: &wp-env
+  <<: *db-creds
+  WORDPRESS_DB_NAME: wordpress
+  WORDPRESS_CONFIG_EXTRA: |
+    define('DISABLE_WP_CRON', true);
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.158.0
+    container_name: wordpress-otel-collector
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+      - "55679:55679"
+      - "${COLLECTOR_METRICS_PORT:-8888}:8888"
+    volumes:
+      - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+      - ./capture:/capture
+    environment:
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL}
+    restart: unless-stopped
+    networks:
+      - wordpress-network
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: wordpress-mariadb
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpress
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./config/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - wordpress-network
+
+  wordpress:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        WP_VERSION: ${WP_VERSION:-7.0.4}
+    container_name: wordpress-app
+    ports:
+      - "${WP_APACHE_PORT:-8080}:80"
+    volumes:
+      - wordpress-data:/var/www/html
+    environment:
+      <<: [*wp-env, *otel-env]
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development,service.instance.role=apache
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - wordpress-network
+
+  wp-init:
+    image: wordpress:cli-php8.4
+    container_name: wordpress-init
+    user: "33:33"
+    volumes:
+      - wordpress-data:/var/www/html
+      - ./scripts/init-wordpress.sh:/init-wordpress.sh:ro
+    environment:
+      <<: *db-creds
+      WORDPRESS_DB_NAME: wordpress
+      WP_URL: http://localhost:${WP_APACHE_PORT:-8080}
+      OTEL_SDK_DISABLED: "true"
+    entrypoint: ["/bin/bash", "/init-wordpress.sh"]
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - wordpress-network
+
+  wordpress-fpm:
+    build:
+      context: .
+      dockerfile: Dockerfile.fpm
+      args:
+        WP_VERSION: ${WP_VERSION:-7.0.4}
+    container_name: wordpress-fpm
+    profiles: ["fpm"]
+    volumes:
+      - wordpress-fpm-data:/var/www/html
+    environment:
+      <<: [*wp-env, *otel-env]
+      WORDPRESS_DB_NAME: wordpress_fpm
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development,service.instance.role=fpm
+    healthcheck:
+      # FPM speaks FastCGI, not HTTP; cgi-fcgi pings ping.path (config/php-fpm.conf).
+      # Also gates readiness: wp-init-fpm must not seed before a worker answers.
+      test: ["CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong"]
+      interval: 5s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - wordpress-network
+
+  nginx:
+    image: nginx:1.29-alpine
+    container_name: wordpress-nginx
+    profiles: ["fpm"]
+    ports:
+      - "${WP_FPM_PORT:-8081}:80"
+    volumes:
+      - wordpress-fpm-data:/var/www/html:ro
+      - ./config/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      wordpress-fpm:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - wordpress-network
+
+  wp-init-fpm:
+    image: wordpress:cli-php8.4
+    container_name: wordpress-init-fpm
+    user: "33:33"
+    profiles: ["fpm"]
+    volumes:
+      - wordpress-fpm-data:/var/www/html
+      - ./scripts/init-wordpress.sh:/init-wordpress.sh:ro
+    environment:
+      <<: *db-creds
+      WORDPRESS_DB_NAME: wordpress_fpm
+      WP_URL: http://localhost:${WP_FPM_PORT:-8081}
+      OTEL_SDK_DISABLED: "true"
+    entrypoint: ["/bin/bash", "/init-wordpress.sh"]
+    depends_on:
+      wordpress-fpm:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - wordpress-network
+
+volumes:
+  wordpress-data:
+  wordpress-fpm-data:
+  mariadb-data:
+
+networks:
+  wordpress-network:
+    driver: bridge
