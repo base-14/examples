@@ -124,7 +124,7 @@ func sayHello(ctx context.Context, tracer trace.Tracer, logger log.Logger, count
 	var rec log.Record
 	rec.SetSeverityText("INFO")
 	rec.SetSeverity(log.SeverityInfo)
-	rec.SetBody(log.StringValue("Hello, World!"))
+	rec.SetBody(attribute.StringValue("Hello, World!"))
 	logger.Emit(ctx, rec)
 
 	counter.Add(ctx, 1)
@@ -141,7 +141,7 @@ func checkDiskSpace(ctx context.Context, tracer trace.Tracer, logger log.Logger)
 	var rec log.Record
 	rec.SetSeverityText("WARN")
 	rec.SetSeverity(log.SeverityWarn)
-	rec.SetBody(log.StringValue("Disk usage above 90%"))
+	rec.SetBody(attribute.StringValue("Disk usage above 90%"))
 	logger.Emit(ctx, rec)
 
 	span.SetAttributes(attribute.Int("disk.usage_percent", 92))
@@ -162,6 +162,6 @@ func parseConfig(ctx context.Context, tracer trace.Tracer, logger log.Logger) {
 	var rec log.Record
 	rec.SetSeverityText("ERROR")
 	rec.SetSeverity(log.SeverityError)
-	rec.SetBody(log.StringValue("Failed to parse configuration: " + err.Error()))
+	rec.SetBody(attribute.StringValue("Failed to parse configuration: " + err.Error()))
 	logger.Emit(ctx, rec)
 }
