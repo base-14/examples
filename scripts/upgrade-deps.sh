@@ -22,7 +22,7 @@ PY_FILTER=""        # pip/uv package-name prefix to upgrade
 DOTNET_FILTER=""    # NuGet package-name prefix to upgrade
 
 usage() {
-  echo "Usage: $0 [--language nodejs|python|go|rust|java|all] [--scope all|otel] [--skip-major] [--dry-run]"
+  echo "Usage: $0 [--language nodejs|python|go|rust|java|csharp|ruby|php|elixir|all] [--scope all|otel] [--skip-major] [--dry-run]"
   echo ""
   echo "Upgrade dependencies across all example projects."
   echo ""
@@ -342,6 +342,206 @@ upgrade_dotnet() {
   verify_make_check "csharp/$name" "${changed[@]}"
 }
 
+# Emit "name major" per locked dependency, so a sweep can tell whether an
+# update crossed a major boundary that a loose manifest constraint allowed.
+# A lockfile git does not track cannot be reverted or committed, so the sweep has
+# nothing to deliver for that project.
+lock_tracked() {
+  git ls-files --error-unmatch "$1" >/dev/null 2>&1
+}
+
+lock_majors() {
+  local eco="$1" file="$2"
+  [[ -f "$file" ]] || return 0
+  case "$eco" in
+    ruby)
+      sed -nE 's/^    ([A-Za-z0-9_.-]+) \(([0-9]+)\..*/\1 \2/p' "$file" | sort -u ;;
+    php)
+      python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+for section in ('packages', 'packages-dev'):
+    for p in d.get(section, []):
+        v = p['version'].lstrip('v')
+        print(p['name'], v.split('.')[0])
+" "$file" 2>/dev/null | sort -u ;;
+    elixir)
+      sed -nE 's/^[[:space:]]*"([A-Za-z0-9_]+)": \{:hex, :[A-Za-z0-9_]+, "([0-9]+)\..*/\1 \2/p' "$file" | sort -u ;;
+  esac
+}
+
+# Reverts $3.. and returns 1 when --skip-major is set and a major moved.
+guard_major_bump() {
+  local label="$1" before="$2"; shift 2
+  local eco="$1" lockfile="$2"; shift 2
+  [[ "$SKIP_MAJOR" == true ]] || return 0
+
+  local after crossed
+  after=$(lock_majors "$eco" "$lockfile")
+  crossed=$(awk 'NR==FNR{b[$1]=$2; next} ($1 in b) && b[$1]!=$2 {print $1}' \
+            <(printf '%s\n' "$before") <(printf '%s\n' "$after") | sort -u)
+  [[ -z "$crossed" ]] && return 0
+
+  echo "  MAJOR CROSSED (reverting): $(tr '\n' ' ' <<< "$crossed")"
+  git checkout -- "$@" 2>/dev/null || true
+  results+=("$label: REVERTED (major bump under --skip-major)")
+  skipped=$((skipped + 1))
+  return 1
+}
+
+upgrade_ruby() {
+  local dir="${1%/}"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+  if [[ ! -f "$dir/Gemfile" ]]; then return; fi
+  if [[ -n "$SCOPE_GREP" ]] && ! grep -qE "$SCOPE_GREP" "$dir/Gemfile"; then return; fi
+
+  print_header "ruby/$name"
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "  [dry-run] Would run: bundle update"
+    results+=("ruby/$name: DRY-RUN"); skipped=$((skipped + 1)); return
+  fi
+
+  cd "$dir" || return
+  if ! lock_tracked Gemfile.lock; then
+    echo "  Skipped: Gemfile.lock is not tracked by git"
+    results+=("ruby/$name: SKIPPED (untracked Gemfile.lock)"); skipped=$((skipped + 1)); return
+  fi
+  local before
+  before=$(lock_majors ruby Gemfile.lock)
+
+  echo "  Updating gems..."
+  if ! bundle update >/tmp/ud-ruby.log 2>&1; then
+    echo "  UPDATE FAIL"; tail -4 /tmp/ud-ruby.log
+    results+=("ruby/$name: UPDATE_FAIL"); failed=$((failed + 1))
+    git checkout -- Gemfile.lock 2>/dev/null || true
+    return
+  fi
+
+  if ! guard_major_bump "ruby/$name" "$before" ruby Gemfile.lock Gemfile.lock; then return 0; fi
+
+  local verify_cmd="bundle install"
+  [[ -f Makefile ]] && grep -q '^check:' Makefile && verify_cmd="make check"
+
+  echo "  Verifying: $verify_cmd"
+  if eval "$verify_cmd" >/dev/null 2>&1; then
+    echo "  PASS"; results+=("ruby/$name: PASS"); passed=$((passed + 1))
+  else
+    echo "  FAIL"; eval "$verify_cmd" 2>&1 | tail -6 || true
+    results+=("ruby/$name: FAIL"); failed=$((failed + 1))
+    git checkout -- Gemfile.lock 2>/dev/null || true
+  fi
+}
+
+upgrade_php() {
+  local dir="${1%/}"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+  if [[ ! -f "$dir/composer.json" ]]; then return; fi
+  if [[ -n "$SCOPE_GREP" ]] && ! grep -qE "$SCOPE_GREP" "$dir/composer.json"; then return; fi
+
+  print_header "php/$name"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "  Skipped: docker required (composer runs in the composer:2 image)"
+    results+=("php/$name: SKIPPED (no docker)"); skipped=$((skipped + 1)); return
+  fi
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "  [dry-run] Would run: composer update --with-all-dependencies (composer:2)"
+    results+=("php/$name: DRY-RUN"); skipped=$((skipped + 1)); return
+  fi
+
+  cd "$dir" || return
+  if ! lock_tracked composer.lock; then
+    echo "  Skipped: composer.lock is not tracked by git"
+    results+=("php/$name: SKIPPED (untracked composer.lock)"); skipped=$((skipped + 1)); return
+  fi
+  local before
+  before=$(lock_majors php composer.lock)
+
+  echo "  Updating packages..."
+  if ! docker run --rm -v "$PWD":/app -w /app composer:2 \
+        update --with-all-dependencies --ignore-platform-reqs --no-scripts \
+        --no-interaction >/tmp/ud-php.log 2>&1; then
+    echo "  UPDATE FAIL"; tail -4 /tmp/ud-php.log
+    results+=("php/$name: UPDATE_FAIL"); failed=$((failed + 1))
+    git checkout -- composer.json composer.lock 2>/dev/null || true
+    return
+  fi
+
+  if ! guard_major_bump "php/$name" "$before" php composer.lock composer.json composer.lock; then return 0; fi
+
+  echo "  Verifying: composer validate"
+  if docker run --rm -v "$PWD":/app -w /app composer:2 \
+       validate --no-check-publish --no-interaction >/dev/null 2>&1; then
+    echo "  PASS"; results+=("php/$name: PASS"); passed=$((passed + 1))
+  else
+    echo "  FAIL"
+    docker run --rm -v "$PWD":/app -w /app composer:2 \
+      validate --no-check-publish --no-interaction 2>&1 | tail -6 || true
+    results+=("php/$name: FAIL"); failed=$((failed + 1))
+    git checkout -- composer.json composer.lock 2>/dev/null || true
+  fi
+}
+
+upgrade_elixir() {
+  local dir="${1%/}"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+  if [[ ! -f "$dir/mix.exs" ]]; then return; fi
+  if [[ -n "$SCOPE_GREP" ]] && ! grep -qE "$SCOPE_GREP" "$dir/mix.exs"; then return; fi
+
+  print_header "elixir/$name"
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "  [dry-run] Would run: mix deps.update --all"
+    results+=("elixir/$name: DRY-RUN"); skipped=$((skipped + 1)); return
+  fi
+
+  cd "$dir" || return
+  if ! lock_tracked mix.lock; then
+    echo "  Skipped: mix.lock is not tracked by git"
+    results+=("elixir/$name: SKIPPED (untracked mix.lock)"); skipped=$((skipped + 1)); return
+  fi
+  if ! mix deps.get >/tmp/ud-elixir.log 2>&1; then
+    echo "  SETUP FAIL"; tail -3 /tmp/ud-elixir.log
+    results+=("elixir/$name: SETUP_FAIL"); failed=$((failed + 1)); return
+  fi
+
+  local before
+  before=$(lock_majors elixir mix.lock)
+
+  echo "  Updating deps..."
+  if ! mix deps.update --all >/tmp/ud-elixir.log 2>&1; then
+    echo "  UPDATE FAIL"; tail -4 /tmp/ud-elixir.log
+    results+=("elixir/$name: UPDATE_FAIL"); failed=$((failed + 1))
+    git checkout -- mix.lock 2>/dev/null || true
+    return
+  fi
+
+  if ! guard_major_bump "elixir/$name" "$before" elixir mix.lock mix.lock; then return 0; fi
+
+  local verify_cmd="mix compile --warnings-as-errors"
+  [[ -f Makefile ]] && grep -q '^check:' Makefile && verify_cmd="make check"
+
+  echo "  Verifying: $verify_cmd"
+  if eval "$verify_cmd" >/dev/null 2>&1; then
+    echo "  PASS"; results+=("elixir/$name: PASS"); passed=$((passed + 1))
+  else
+    echo "  FAIL"; eval "$verify_cmd" 2>&1 | tail -6 || true
+    results+=("elixir/$name: FAIL"); failed=$((failed + 1))
+    git checkout -- mix.lock 2>/dev/null || true
+  fi
+}
+
 upgrade_go() {
   local dir="$1"
   local name
@@ -504,6 +704,27 @@ if [[ "$run_unscoped_langs" == true ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE"
     [[ -d "$dir" ]] || continue
     upgrade_java "$dir"
   done
+fi
+
+if [[ "$run_unscoped_langs" == true ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "ruby" ]]; then
+  while IFS= read -r manifest; do
+    upgrade_ruby "$(dirname "$manifest")"
+  done < <(find "$REPO_ROOT"/ruby -maxdepth 3 -name Gemfile \
+            -not -path '*/vendor/*' -not -path '*/.*/*' | sort)
+fi
+
+if [[ "$run_unscoped_langs" == true ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "php" ]]; then
+  while IFS= read -r manifest; do
+    upgrade_php "$(dirname "$manifest")"
+  done < <(find "$REPO_ROOT"/php -maxdepth 3 -name composer.json \
+            -not -path '*/vendor/*' -not -path '*/.*/*' | sort)
+fi
+
+if [[ "$run_unscoped_langs" == true ]] && [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "elixir" ]]; then
+  while IFS= read -r manifest; do
+    upgrade_elixir "$(dirname "$manifest")"
+  done < <(find "$REPO_ROOT"/elixir -maxdepth 3 -name mix.exs \
+            -not -path '*/deps/*' -not -path '*/_build/*' -not -path '*/.*/*' | sort)
 fi
 
 if [[ "$run_unscoped_langs" == false ]]; then

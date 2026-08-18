@@ -10,7 +10,7 @@ LANGUAGE="all"
 MAJOR_ONLY=false
 
 usage() {
-  echo "Usage: $0 [--language nodejs|python|go|rust|java|all] [--major-only]"
+  echo "Usage: $0 [--language nodejs|python|go|rust|java|csharp|ruby|php|elixir|all] [--major-only]"
   echo ""
   echo "Check outdated packages across all example projects."
   echo ""
@@ -341,6 +341,188 @@ check_java() {
   fi
 }
 
+classify_bump() {
+  local cur="${1#v}" lat="${2#v}"
+  if [[ "${cur%%.*}" != "${lat%%.*}" ]]; then echo "MAJOR"
+  elif [[ "${cur%.*}" != "${lat%.*}" ]]; then echo "minor"
+  else echo "patch"; fi
+}
+
+# Prints one bump line and updates the caller's `count` / `majors`.
+emit_bump() {
+  local pkg="$1" current="$2" latest="$3" bump_type
+  bump_type=$(classify_bump "$current" "$latest")
+  [[ "$bump_type" == "MAJOR" ]] && majors=$((majors + 1))
+  [[ "$MAJOR_ONLY" == true && "$bump_type" != "MAJOR" ]] && return 0
+  count=$((count + 1))
+  if [[ "$bump_type" == "MAJOR" ]]; then
+    printf "  ⚠ MAJOR  %-45s %s → %s\n" "$pkg" "$current" "$latest"
+  else
+    printf "  %-8s %-45s %s → %s\n" "$bump_type" "$pkg" "$current" "$latest"
+  fi
+}
+
+check_ruby() {
+  local dir="$1"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+  if [[ ! -f "$dir/Gemfile" ]]; then return; fi
+
+  print_header "ruby/$name"
+
+  local output rc=0
+  output=$(cd "$dir" && bundle outdated --parseable 2>&1) || rc=$?
+  # `bundle outdated` exits 1 when outdated gems exist, so only treat a nonzero
+  # exit with no parseable rows as a real failure
+  if [[ $rc -ne 0 ]] && ! grep -q '(newest ' <<< "$output"; then
+    echo "  Check failed: $(grep -v '^$' <<< "$output" | tail -1)"
+    return
+  fi
+
+  local count=0 majors=0
+  while IFS= read -r line; do
+    [[ "$line" =~ ^([a-zA-Z0-9._-]+)\ \(newest\ ([^,]+),\ installed\ ([^,\)]+) ]] || continue
+    emit_bump "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[2]}"
+  done <<< "$output"
+
+  [[ $count -eq 0 ]] && echo "  All up to date"
+  total_outdated=$((total_outdated + count))
+  total_major=$((total_major + majors))
+}
+
+check_php() {
+  local dir="$1"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+  if [[ ! -f "$dir/composer.json" ]]; then return; fi
+
+  print_header "php/$name"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "  Skipped: docker required (composer runs in the composer:2 image)"
+    return
+  fi
+
+  local output errfile rc=0
+  errfile=$(mktemp)
+  output=$(cd "$dir" && docker run --rm -v "$PWD":/app -w /app composer:2 \
+            outdated --format=json --ignore-platform-reqs --no-interaction 2>"$errfile") || rc=$?
+  if [[ $rc -ne 0 ]] || ! grep -q '"installed"' <<< "$output"; then
+    echo "  Check failed: $(grep -v '^$' "$errfile" | tail -1)"
+    rm -f "$errfile"
+    return
+  fi
+  rm -f "$errfile"
+
+  local count=0 majors=0
+  while IFS=$'\t' read -r pkg cur lat; do
+    [[ -z "$pkg" ]] && continue
+    emit_bump "$pkg" "$cur" "$lat"
+  done < <(printf '%s' "$output" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for p in data.get('installed', []):
+    latest = p.get('latest')
+    if latest and latest != p.get('version'):
+        print(f\"{p['name']}\t{p['version']}\t{latest}\")
+")
+
+  [[ $count -eq 0 ]] && echo "  All up to date"
+  total_outdated=$((total_outdated + count))
+  total_major=$((total_major + majors))
+}
+
+check_elixir() {
+  local dir="$1"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+  if [[ ! -f "$dir/mix.exs" ]]; then return; fi
+
+  print_header "elixir/$name"
+
+  local output
+  output=$(cd "$dir" && mix deps.get >/dev/null 2>&1; mix hex.outdated 2>&1 || true)
+  if ! grep -q '^Dependency' <<< "$output"; then
+    echo "  Check failed: $(grep -v '^$' <<< "$output" | head -1)"
+    return
+  fi
+
+  local count=0 majors=0
+  while IFS= read -r line; do
+    local pkg versions cur lat
+    pkg="${line%% *}"
+    [[ "$pkg" =~ ^[a-z][a-z0-9_]*$ ]] || continue
+    versions=$(awk '{for (i=2; i<=NF; i++) if ($i ~ /^[0-9]+\./) print $i}' <<< "$line")
+    cur=$(sed -n 1p <<< "$versions")
+    lat=$(sed -n 2p <<< "$versions")
+    [[ -z "$cur" || -z "$lat" || "$cur" == "$lat" ]] && continue
+    emit_bump "$pkg" "$cur" "$lat"
+  done <<< "$output"
+
+  [[ $count -eq 0 ]] && echo "  All up to date"
+  total_outdated=$((total_outdated + count))
+  total_major=$((total_major + majors))
+}
+
+check_dotnet() {
+  local dir="${1%/}"
+  local name
+  name="$(basename "$dir")"
+
+  if is_skipped "$name"; then return; fi
+
+  local csprojs
+  csprojs=$(find "$dir" -maxdepth 3 -name '*.csproj' \
+             -not -path '*/bin/*' -not -path '*/obj/*' | sort)
+  [[ -z "$csprojs" ]] && return
+
+  print_header "csharp/$name"
+
+  if ! command -v dotnet >/dev/null 2>&1; then
+    echo "  Check failed: dotnet CLI not installed"
+    return
+  fi
+
+  local csproj output rows="" rc
+  for csproj in $csprojs; do
+    rc=0
+    dotnet restore "$csproj" >/dev/null 2>&1 || rc=$?
+    if [[ $rc -ne 0 ]]; then
+      echo "  ${csproj#$dir/}: restore failed"
+      continue
+    fi
+    rc=0
+    output=$(dotnet list "$csproj" package --outdated 2>&1) || rc=$?
+    if [[ $rc -ne 0 ]]; then
+      echo "  ${csproj#$dir/}: $(grep -v '^$' <<< "$output" | tail -1)"
+      continue
+    fi
+    rows+=$(awk '$1 == ">" && $NF ~ /^[0-9]/ {print $2, $(NF-1), $NF}' <<< "$output")
+    rows+=$'\n'
+  done
+
+  rows=$(grep -v '^[[:space:]]*$' <<< "$rows" | sort -u || true)
+
+  local count=0 majors=0 pkg cur lat
+  while read -r pkg cur lat; do
+    [[ -z "$pkg" ]] && continue
+    emit_bump "$pkg" "$cur" "$lat"
+  done <<< "$rows"
+
+  [[ $count -eq 0 ]] && echo "  All up to date"
+  total_outdated=$((total_outdated + count))
+  total_major=$((total_major + majors))
+}
+
 echo "Checking outdated dependencies..."
 echo "Language: $LANGUAGE | Major only: $MAJOR_ONLY"
 
@@ -379,6 +561,34 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "java" ]]; then
   for dir in "$REPO_ROOT"/java/*/; do
     [[ -d "$dir" ]] || continue
     check_java "$dir"
+  done
+fi
+
+if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "ruby" ]]; then
+  while IFS= read -r manifest; do
+    check_ruby "$(dirname "$manifest")"
+  done < <(find "$REPO_ROOT"/ruby -maxdepth 3 -name Gemfile \
+            -not -path '*/vendor/*' -not -path '*/.*/*' | sort)
+fi
+
+if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "php" ]]; then
+  while IFS= read -r manifest; do
+    check_php "$(dirname "$manifest")"
+  done < <(find "$REPO_ROOT"/php -maxdepth 3 -name composer.json \
+            -not -path '*/vendor/*' -not -path '*/.*/*' | sort)
+fi
+
+if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "elixir" ]]; then
+  while IFS= read -r manifest; do
+    check_elixir "$(dirname "$manifest")"
+  done < <(find "$REPO_ROOT"/elixir -maxdepth 3 -name mix.exs \
+            -not -path '*/deps/*' -not -path '*/_build/*' -not -path '*/.*/*' | sort)
+fi
+
+if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "csharp" ]]; then
+  for dir in "$REPO_ROOT"/csharp/*/; do
+    [[ -d "$dir" ]] || continue
+    check_dotnet "$dir"
   done
 fi
 
