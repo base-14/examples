@@ -23,9 +23,9 @@
     "docker:down": "docker compose down -v"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.84",
-    "@ai-sdk/google": "^3.0.82",
-    "@ai-sdk/openai": "^3.0.71",
+    "@ai-sdk/anthropic": "^3.0.111",
+    "@ai-sdk/google": "^3.0.110",
+    "@ai-sdk/openai": "^3.0.97",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
@@ -38,19 +38,19 @@
     "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@traceloop/node-server-sdk": "^0.27.0",
-    "ai": "^6.0.204",
-    "hono": "^4.12.25",
+    "ai": "^6.0.256",
+    "hono": "^4.13.2",
     "ollama-ai-provider": "^1.2.0",
     "pdf-parse": "^2.4.5",
-    "pg": "^8.21.0",
+    "pg": "^8.23.0",
     "pgvector": "^0.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
-    "@types/pg": "^8.20.0",
-    "vitest": "^4.1.8",
-    "@biomejs/biome": "^2.5.0",
+    "@types/pg": "^8.21.0",
+    "vitest": "^4.1.10",
+    "@biomejs/biome": "^2.5.8",
     "bun-types": "latest"
   }
 }
