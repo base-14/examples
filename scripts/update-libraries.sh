@@ -152,7 +152,8 @@ process_entry() {
     if [[ $irc -ne 0 ]]; then verdict="INSTALL_FAIL"; tail -8 "$step"; RESULTS+=("$verdict | $rel | $specs"); revert_python; popd >/dev/null; return; fi
     make_check_gate "$step"; rc=$?
   elif [[ "$eco" == "dotnet" ]]; then
-    local csproj; csproj=$(find . -maxdepth 1 -name '*.csproj' | head -1)
+    local csproj; csproj=$(find . -maxdepth 3 -name '*.csproj' \
+      -not -path '*/bin/*' -not -path '*/obj/*' | head -1)
     if [[ -z "$csproj" ]]; then RESULTS+=("NO_CSPROJ | $rel | $specs"); popd >/dev/null; return; fi
     local irc=0 s name ver; : >"$step"
     for s in $specs; do

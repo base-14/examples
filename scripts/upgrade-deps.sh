@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Legacy projects to skip
-SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|php8-laravel8-sqlite"
+SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|php8-laravel8-sqlite|ruby30-rails61-mysql"
 
 LANGUAGE="all"
 SKIP_MAJOR=false
@@ -295,38 +295,51 @@ upgrade_python() {
 }
 
 upgrade_dotnet() {
-  local dir="$1"
+  local dir="${1%/}"
   local name
   name="$(basename "$dir")"
 
   if is_skipped "$name"; then return; fi
-  local csproj
-  csproj=$(find "$dir" -maxdepth 1 -name '*.csproj' | head -1)
-  [[ -z "$csproj" ]] && return
+  local csprojs
+  csprojs=$(find "$dir" -maxdepth 3 -name '*.csproj' \
+             -not -path '*/bin/*' -not -path '*/obj/*' | sort)
+  [[ -z "$csprojs" ]] && return
 
-  if [[ -n "$DOTNET_FILTER" ]] && ! grep -qiE "$DOTNET_FILTER" "$csproj" 2>/dev/null; then
+  if [[ -n "$DOTNET_FILTER" ]] && ! grep -qliE "$DOTNET_FILTER" $csprojs 2>/dev/null; then
     return
   fi
 
   print_header "csharp/$name"
 
   local pat="${DOTNET_FILTER:-}"
-  local pkgs
-  pkgs=$(grep -oE 'PackageReference Include="[^"]+"' "$csproj" | sed 's/.*Include="//;s/"//' \
-          | { [[ -n "$pat" ]] && grep -iE "$pat" || cat; })
+  local csproj pkgs p changed=()
+  for csproj in $csprojs; do
+    pkgs=$(grep -oE 'PackageReference Include="[^"]+"' "$csproj" | sed 's/.*Include="//;s/"//' \
+            | { [[ -n "$pat" ]] && grep -iE "$pat" || cat; } || true)
+    [[ -z "$pkgs" ]] && continue
+    changed+=("${csproj#$dir/}")
+
+    if [[ "$DRY_RUN" == true ]]; then
+      echo "  [dry-run] ${csproj#$dir/}: would 'dotnet add package' (latest) for: $(echo $pkgs | tr '\n' ' ')"
+      continue
+    fi
+
+    echo "  Updating ${csproj#$dir/} (dotnet add package)..."
+    for p in $pkgs; do
+      dotnet add "$csproj" package "$p" >/dev/null 2>&1 || true
+    done
+  done
+
+  if [[ ${#changed[@]} -eq 0 ]]; then
+    results+=("csharp/$name: NO_PACKAGES"); skipped=$((skipped + 1)); return
+  fi
 
   if [[ "$DRY_RUN" == true ]]; then
-    echo "  [dry-run] would 'dotnet add package' (latest) for: $(echo $pkgs | tr '\n' ' ')"
     results+=("csharp/$name: DRY-RUN"); skipped=$((skipped + 1)); return
   fi
 
   cd "$dir" || return
-  echo "  Updating (dotnet add package)..."
-  local p
-  for p in $pkgs; do
-    dotnet add "$csproj" package "$p" >/dev/null 2>&1 || true
-  done
-  verify_make_check "csharp/$name" "$(basename "$csproj")"
+  verify_make_check "csharp/$name" "${changed[@]}"
 }
 
 upgrade_go() {
@@ -453,10 +466,12 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "nodejs" ]]; then
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
-  for dir in "$REPO_ROOT"/python/*/; do
-    [[ -d "$dir" ]] || continue
+  while IFS= read -r dir; do
     upgrade_python "$dir"
-  done
+  done < <(find "$REPO_ROOT"/python -maxdepth 3 \
+            \( -name pyproject.toml -o -name requirements.txt \) \
+            -not -path '*/.venv/*' -not -path '*/node_modules/*' \
+            -exec dirname {} \; | sort -u)
   # python tool dirs that live outside python/
   for dir in "$REPO_ROOT"/loadgen; do
     [[ -d "$dir" ]] && upgrade_python "$dir"
@@ -464,10 +479,10 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "go" ]]; then
-  for dir in "$REPO_ROOT"/go/*/; do
-    [[ -d "$dir" ]] || continue
-    upgrade_go "$dir"
-  done
+  while IFS= read -r mod; do
+    upgrade_go "$(dirname "$mod")"
+  done < <(find "$REPO_ROOT"/go -maxdepth 3 -name go.mod \
+            -not -path '*/vendor/*' | sort)
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "csharp" || "$LANGUAGE" == "dotnet" ]]; then

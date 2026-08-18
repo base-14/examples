@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Legacy projects to skip
-SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|php8-laravel8-sqlite"
+SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|php8-laravel8-sqlite|ruby30-rails61-mysql"
 
 LANGUAGE="all"
 MAJOR_ONLY=false
@@ -116,7 +116,24 @@ check_python() {
   name="$(basename "$dir")"
 
   if is_skipped "$name"; then return; fi
-  if [[ ! -f "$dir/requirements.txt" ]]; then return; fi
+
+  local specs
+  if [[ -f "$dir/requirements.txt" ]]; then
+    specs=$(cat "$dir/requirements.txt")
+  elif [[ -f "$dir/pyproject.toml" ]]; then
+    specs=$(python3 - "$dir/pyproject.toml" <<'PY'
+import sys, tomllib
+d = tomllib.load(open(sys.argv[1], 'rb')).get('project', {})
+out = list(d.get('dependencies', []))
+for group in d.get('optional-dependencies', {}).values():
+    out.extend(group)
+print('\n'.join(out))
+PY
+)
+  else
+    return
+  fi
+  [[ -z "$specs" ]] && return
 
   print_header "python/$name"
 
@@ -126,7 +143,7 @@ check_python() {
   while IFS= read -r line; do
     [[ -z "$line" || "$line" =~ ^# ]] && continue
     local pkg current
-    pkg=$(echo "$line" | sed 's/[>=<~!].*//')
+    pkg=$(echo "$line" | sed 's/[>=<~!;].*//; s/\[.*\]//; s/[[:space:]]*$//')
     current=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     [[ -z "$current" ]] && continue
 
@@ -157,7 +174,7 @@ check_python() {
     else
       printf "  %-8s %-45s %s → %s\n" "$bump_type" "$pkg" "$current" "$latest"
     fi
-  done < "$dir/requirements.txt"
+  done <<< "$specs"
 
   if [[ $count -eq 0 ]]; then
     echo "  All up to date"
@@ -328,24 +345,27 @@ echo "Checking outdated dependencies..."
 echo "Language: $LANGUAGE | Major only: $MAJOR_ONLY"
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "nodejs" ]]; then
-  for dir in "$REPO_ROOT"/nodejs/*/; do
-    [[ -d "$dir" ]] || continue
-    check_nodejs "$dir"
-  done
+  while IFS= read -r pkg; do
+    check_nodejs "$(dirname "$pkg")"
+  done < <(find "$REPO_ROOT"/nodejs -maxdepth 3 -name package.json \
+            -not -path '*/node_modules/*' -not -path '*/.next/*' \
+            -not -path '*/dist/*' -not -path '*/build/*' | sort)
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
-  for dir in "$REPO_ROOT"/python/*/; do
-    [[ -d "$dir" ]] || continue
+  while IFS= read -r dir; do
     check_python "$dir"
-  done
+  done < <(find "$REPO_ROOT"/python -maxdepth 3 \
+            \( -name pyproject.toml -o -name requirements.txt \) \
+            -not -path '*/.venv/*' -not -path '*/node_modules/*' \
+            -exec dirname {} \; | sort -u)
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "go" ]]; then
-  for dir in "$REPO_ROOT"/go/*/; do
-    [[ -d "$dir" ]] || continue
-    check_go "$dir"
-  done
+  while IFS= read -r mod; do
+    check_go "$(dirname "$mod")"
+  done < <(find "$REPO_ROOT"/go -maxdepth 3 -name go.mod \
+            -not -path '*/vendor/*' | sort)
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "rust" ]]; then
