@@ -84,8 +84,8 @@ GEM
     bcrypt_pbkdf (1.1.1-arm64-darwin)
     bigdecimal (4.1.2)
     bindex (0.8.1)
-    bootsnap (1.19.0)
-      msgpack (~> 1.2)
+    bootsnap (1.25.0)
+      msgpack (~> 1.5)
     brakeman (7.1.1)
       racc
     builder (3.3.0)
