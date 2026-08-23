@@ -1,5 +1,5 @@
 fastapi[all]==0.133.1
-pydantic==2.12.5
+pydantic==2.13.4
 psycopg2-binary==2.9.11
 SQLAlchemy==2.0.47
 email-validator==2.3.0
