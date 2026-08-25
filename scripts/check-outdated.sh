@@ -137,6 +137,13 @@ PY
 
   print_header "python/$name"
 
+  local pip_bin
+  pip_bin=$(command -v pip || command -v pip3 || true)
+  if [[ -z "$pip_bin" ]]; then
+    echo "  SKIP: no pip on PATH"
+    return
+  fi
+
   local count=0
   local majors=0
 
@@ -148,7 +155,7 @@ PY
     [[ -z "$current" ]] && continue
 
     local latest
-    latest=$(pip index versions "$pkg" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
+    latest=$("$pip_bin" index versions "$pkg" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
     [[ -z "$latest" || "$latest" == "$current" ]] && continue
 
     local cur_major lat_major bump_type
