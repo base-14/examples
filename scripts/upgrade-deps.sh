@@ -220,7 +220,7 @@ verify_make_check() {
   else
     echo "  FAIL"; make check 2>&1 | tail -8 || true
     results+=("$label: FAIL"); failed=$((failed + 1))
-    [[ "$SCOPE" != "all" && $# -gt 0 ]] && git checkout -- "$@" 2>/dev/null || true
+    [[ $# -gt 0 ]] && git checkout -- "$@" 2>/dev/null || true
   fi
 }
 
@@ -577,9 +577,7 @@ upgrade_go() {
   else
     results+=("go/$name: FAIL")
     failed=$((failed + 1))
-    if [[ "$SCOPE" != "all" ]]; then
-      cd "$dir" && git checkout -- go.mod go.sum 2>/dev/null || true
-    fi
+    cd "$dir" && git checkout -- go.mod go.sum 2>/dev/null || true
   fi
 }
 
@@ -610,6 +608,7 @@ upgrade_rust() {
   else
     results+=("rust/$name: FAIL")
     failed=$((failed + 1))
+    cd "$dir" && git checkout -- Cargo.lock Cargo.toml 2>/dev/null || true
   fi
 }
 
