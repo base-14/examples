@@ -37,7 +37,8 @@ lives in each project's `Makefile`, or as a `clean` script in its `package.json`
 
 ## Dependency maintenance
 
-- `check-outdated.sh` reports outdated dependencies across the example projects.
+- `check-outdated.sh` reports outdated dependencies across the example projects. For gradle projects it injects the
+  ben-manes versions plugin via `gradle-versions.init.gradle`, so the six gradle builds need no plugin of their own.
 - `upgrade-deps.sh` runs a blanket dependency upgrade (optionally scoped to the OTel family) and verifies each project.
 - `update-libraries.sh` applies curated, hand-picked `package@version` bumps from `library-updates.txt` and verifies build/lint.
 - `verify-collector-bump.sh` runs `test-api.sh` and `verify-scout.sh` per project after an OTel Collector version bump.

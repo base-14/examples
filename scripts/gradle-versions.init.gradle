@@ -1,0 +1,21 @@
+// Applies the ben-manes versions plugin to the gradle examples without editing
+// their builds. check-outdated.sh passes it via:
+//   ./gradlew dependencyUpdates --no-daemon -I scripts/gradle-versions.init.gradle
+initscript {
+    repositories { gradlePluginPortal() }
+    dependencies { classpath 'io.github.ben-manes:gradle-versions-plugin:0.61.0' }
+}
+
+// stability filter from the plugin README: only offer stable candidates
+def isNonStable = { String version ->
+    def stableKeyword = ['RELEASE', 'FINAL', 'GA'].any { version.toUpperCase().contains(it) }
+    def regex = /^[0-9,.v-]+(-r)?$/
+    return !stableKeyword && !(version ==~ regex)
+}
+
+allprojects {
+    apply plugin: com.github.benmanes.gradle.versions.VersionsPlugin
+    tasks.named('dependencyUpdates').configure {
+        rejectVersionIf { isNonStable(it.candidate.version) }
+    }
+}

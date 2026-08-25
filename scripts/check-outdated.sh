@@ -325,7 +325,7 @@ check_rust() {
 check_java() {
   local dir="$1"
   local name
-  name="$(basename "$dir")"
+  name="${dir#"$REPO_ROOT"/java/}"  # keep parent for nested modules (micronaut-postgres/app)
 
   if is_skipped "$name"; then return; fi
 
@@ -333,13 +333,16 @@ check_java() {
 
   local raw output
   if [[ -f "$dir/gradlew" ]]; then
-    # a failed build and a clean report both produce no matches, so check the
-    # exit status before calling it up to date
-    if ! raw=$(cd "$dir" && ./gradlew dependencyUpdates --no-daemon 2>&1); then
-      echo "  CANNOT CHECK: gradlew dependencyUpdates failed (ben-manes versions plugin not applied?)"
+    # the init script injects the ben-manes versions plugin; a failed build and
+    # a clean report both produce no matches, so check the exit status before
+    # calling it up to date
+    if ! raw=$(cd "$dir" && ./gradlew dependencyUpdates --no-daemon \
+                 -I "$REPO_ROOT/scripts/gradle-versions.init.gradle" 2>&1); then
+      echo "  CANNOT CHECK: gradlew dependencyUpdates failed"
       return
     fi
-    output=$(grep -E '^\s+-' <<< "$raw" || true)
+    # keep only upgrade lines; the report also lists up-to-date deps as "- pkg:ver"
+    output=$(grep -E '^\s+-.*\[.*->.*\]' <<< "$raw" || true)
   elif [[ -f "$dir/pom.xml" ]]; then
     # processDependencyManagement=false keeps this to direct dependencies; the
     # default walks the whole managed BOM (1700+ lines on quarkus)
