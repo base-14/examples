@@ -21,8 +21,7 @@ public static class ArticleEndpoints
             var result = await articleService.GetArticlesAsync(userId, limit ?? 20, offset ?? 0);
             return Results.Ok(result);
         })
-        .WithName("GetArticles")
-        .WithOpenApi();
+        .WithName("GetArticles");
 
         articles.MapPost("/", async (
             CreateArticleRequest request,
@@ -38,8 +37,7 @@ public static class ArticleEndpoints
         })
         .AddEndpointFilter<ValidationFilter<CreateArticleRequest>>()
         .RequireAuthorization()
-        .WithName("CreateArticle")
-        .WithOpenApi();
+        .WithName("CreateArticle");
 
         articles.MapGet("/{slug}", async (
             string slug,
@@ -52,8 +50,7 @@ public static class ArticleEndpoints
                 ? Results.NotFound(new { error = "Article not found" })
                 : Results.Ok(article);
         })
-        .WithName("GetArticle")
-        .WithOpenApi();
+        .WithName("GetArticle");
 
         articles.MapPut("/{slug}", async (
             string slug,
@@ -79,8 +76,7 @@ public static class ArticleEndpoints
         })
         .AddEndpointFilter<ValidationFilter<UpdateArticleRequest>>()
         .RequireAuthorization()
-        .WithName("UpdateArticle")
-        .WithOpenApi();
+        .WithName("UpdateArticle");
 
         articles.MapDelete("/{slug}", async (
             string slug,
@@ -104,8 +100,7 @@ public static class ArticleEndpoints
             }
         })
         .RequireAuthorization()
-        .WithName("DeleteArticle")
-        .WithOpenApi();
+        .WithName("DeleteArticle");
 
         articles.MapPost("/{slug}/favorite", async (
             string slug,
@@ -122,8 +117,7 @@ public static class ArticleEndpoints
                 : Results.Ok(article);
         })
         .RequireAuthorization()
-        .WithName("FavoriteArticle")
-        .WithOpenApi();
+        .WithName("FavoriteArticle");
 
         articles.MapDelete("/{slug}/favorite", async (
             string slug,
@@ -140,8 +134,7 @@ public static class ArticleEndpoints
                 : Results.Ok(article);
         })
         .RequireAuthorization()
-        .WithName("UnfavoriteArticle")
-        .WithOpenApi();
+        .WithName("UnfavoriteArticle");
 
         return group;
     }

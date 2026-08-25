@@ -22,8 +22,7 @@ public static class AuthEndpoints
             }
         })
         .AddEndpointFilter<ValidationFilter<RegisterRequest>>()
-        .WithName("Register")
-        .WithOpenApi();
+        .WithName("Register");
 
         group.MapPost("/login", async (LoginRequest request, AuthService authService) =>
         {
@@ -34,8 +33,7 @@ public static class AuthEndpoints
             return Results.Ok(new AuthResponse(result.Value.User, result.Value.Token));
         })
         .AddEndpointFilter<ValidationFilter<LoginRequest>>()
-        .WithName("Login")
-        .WithOpenApi();
+        .WithName("Login");
 
         group.MapGet("/user", async (ClaimsPrincipal principal, AuthService authService) =>
         {
@@ -47,13 +45,11 @@ public static class AuthEndpoints
             return user is null ? Results.NotFound() : Results.Ok(user);
         })
         .RequireAuthorization()
-        .WithName("GetCurrentUser")
-        .WithOpenApi();
+        .WithName("GetCurrentUser");
 
         group.MapPost("/logout", () => Results.Ok(new { message = "Logged out successfully" }))
         .RequireAuthorization()
-        .WithName("Logout")
-        .WithOpenApi();
+        .WithName("Logout");
 
         return group;
     }

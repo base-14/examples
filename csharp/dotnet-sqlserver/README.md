@@ -1,4 +1,4 @@
-# .NET 9 ASP.NET Core + Azure SQL Edge + OpenTelemetry Example
+# .NET 10 ASP.NET Core + Azure SQL Edge + OpenTelemetry Example
 
 A production-ready ASP.NET Core 9 REST API demonstrating full OpenTelemetry instrumentation with Minimal APIs, Entity Framework Core, and Azure SQL Edge.
 
@@ -19,7 +19,7 @@ A production-ready ASP.NET Core 9 REST API demonstrating full OpenTelemetry inst
 **Version Selection**: Latest Stable
 **Verified**: 2026-02-15
 
-**Why This Stack**: .NET 9 with Minimal APIs for lightweight endpoint routing and EF Core 9 for
+**Why This Stack**: .NET 10 with Minimal APIs for lightweight endpoint routing and EF Core 10 for
 SQL Server integration. Azure SQL Edge provides ARM64-native SQL Server compatibility for all platforms.
 
 ## What's Instrumented
@@ -49,7 +49,7 @@ SQL Server integration. Azure SQL Edge provides ARM64-native SQL Server compatib
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **.NET 9 SDK** (for local development only)
+3. **.NET 10 SDK** (for local development only)
 
 ## Quick Start
 
@@ -223,7 +223,7 @@ Custom business metrics exported via OTLP:
 ## Development
 
 ```bash
-# Install .NET 9 SDK from https://dot.net
+# Install .NET 10 SDK from https://dot.net
 
 # Using Makefile
 make build          # Build all projects

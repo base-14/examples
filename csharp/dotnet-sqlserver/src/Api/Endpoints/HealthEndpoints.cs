@@ -32,8 +32,7 @@ public static class HealthEndpoints
                 ? Results.Ok(health)
                 : Results.Json(health, statusCode: 503);
         })
-        .WithName("HealthCheck")
-        .WithOpenApi();
+        .WithName("HealthCheck");
 
         return group;
     }
