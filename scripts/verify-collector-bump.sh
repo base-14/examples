@@ -34,7 +34,7 @@ REPORT_FILE="$ROOT_DIR/scripts/.verify-report-$(date +%Y%m%d-%H%M%S).txt"
 STARTUP_TIMEOUT=120
 
 # Legacy projects — always skip
-LEGACY_PROJECTS="go/go119-gin191-postgres ruby/ruby27-rails52-mysql8 php/php8-laravel8-sqlite"
+LEGACY_PROJECTS="go/go119-gin191-postgres ruby/ruby27-rails52-mysql8 ruby/ruby30-rails61-mysql php/php8-laravel8-sqlite php/php84-slim3-mongodb nodejs/express-typescript-mongodb"
 
 # AI projects — skip unless LLM API keys are set
 AI_PROJECTS="python/ai-sales-intelligence python/ai-content-quality nodejs/ai-contract-analyzer go/ai-data-analyst rust/ai-report-generator java/ai-customer-support"

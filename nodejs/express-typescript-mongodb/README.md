@@ -1,8 +1,12 @@
-# Express.js + TypeScript + MongoDB + OpenTelemetry
+# Express.js + TypeScript + MongoDB + OpenTelemetry (Legacy)
 
-A production-ready example demonstrating Express.js 5.x REST API with
-TypeScript, MongoDB, and comprehensive OpenTelemetry instrumentation for
-end-to-end observability.
+> **Legacy Example** — This example is pinned and no longer takes dependency
+> sweeps. For new projects, use
+> [express5-postgres](../express5-postgres) instead. Keep this one for the
+> MongoDB, Mongoose and Socket.io instrumentation it demonstrates.
+
+Express.js 5.x REST API with TypeScript, MongoDB, and OpenTelemetry
+instrumentation for end-to-end observability.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/express)
 

@@ -1,7 +1,10 @@
 # Maintenance scripts
 
 Run these by hand from the repository root during maintenance. They sweep every example project, skipping the legacy projects
-(`go119-gin191-postgres`, `ruby27-rails52-mysql8`, `php8-laravel8-sqlite`).
+(`go119-gin191-postgres`, `ruby27-rails52-mysql8`, `ruby30-rails61-mysql`, `php8-laravel8-sqlite`, `php84-slim3-mongodb`,
+`express-typescript-mongodb`). Legacy projects are pinned on purpose, so they take no dependency, collector, or clean sweeps.
+The list is held in `SKIP_PROJECTS` in `check-outdated.sh`, `upgrade-deps.sh` and `clean.sh`, and in `LEGACY_PROJECTS` in
+`verify-collector-bump.sh` — change all four together.
 
 ## `clean.sh` — reclaim disk and reset docker state
 

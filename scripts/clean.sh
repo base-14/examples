@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Legacy projects to skip (parity with upgrade-deps.sh)
-SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|php8-laravel8-sqlite"
+SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|ruby30-rails61-mysql|php8-laravel8-sqlite|php84-slim3-mongodb|express-typescript-mongodb"
 
 # Top-level dirs whose immediate children are projects.
 CONTAINER_DIRS="nodejs python go rust java csharp ruby php kotlin bun elixir flutter components iot"

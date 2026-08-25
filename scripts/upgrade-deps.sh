@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Legacy projects to skip
-SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|php8-laravel8-sqlite|ruby30-rails61-mysql"
+SKIP_PROJECTS="go119-gin191-postgres|ruby27-rails52-mysql8|ruby30-rails61-mysql|php8-laravel8-sqlite|php84-slim3-mongodb|express-typescript-mongodb"
 
 LANGUAGE="all"
 SKIP_MAJOR=false
