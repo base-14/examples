@@ -41,7 +41,7 @@
     "bullmq": "^5.81.3",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
-    "ioredis": "^5.11.1",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
     "pino": "^10.3.1",
