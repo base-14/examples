@@ -38,7 +38,7 @@
     "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "bcrypt": "^6.0.0",
-    "bullmq": "^5.81.3",
+    "bullmq": "^6.2.0",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "ioredis": "^5.11.1",
