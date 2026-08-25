@@ -2,20 +2,31 @@
 # Format: <ecosystem>|<relpath>|<spec> [<spec> ...]   (npm | go)
 # Edit per maintenance pass; run --probe to classify, then --apply the clean set.
 
-# --- Clean majors triaged 2026-06-12 (build/lint verified) ---
-npm|nodejs/ai-contract-analyzer|typescript@6
-npm|nodejs/express-typescript-mongodb|typescript@6
-npm|nodejs/express5-postgres|typescript@6
-npm|nodejs/fastify-postgres|typescript@6 @fastify/rate-limit@11 fastify-plugin@6
-npm|nodejs/hono-postgres|typescript@6 @hono/node-server@2
-npm|nodejs/nextjs-api-mongodb|typescript@6
-npm|nodejs/nextjs-fullstack-otel|typescript@6 @types/node@25
+# --- Clean majors triaged 2026-06-12 (build/lint verified, applied) ---
+# npm|nodejs/ai-contract-analyzer|typescript@6
+# npm|nodejs/express-typescript-mongodb|typescript@6
+# npm|nodejs/express5-postgres|typescript@6
+# npm|nodejs/fastify-postgres|typescript@6 @fastify/rate-limit@11 fastify-plugin@6
+# npm|nodejs/hono-postgres|typescript@6 @hono/node-server@2
+# npm|nodejs/nextjs-api-mongodb|typescript@6
+# npm|nodejs/nextjs-fullstack-otel|typescript@6 @types/node@25
 # go|go/go-temporal-postgres|buf.build/go/protovalidate@v1.2.0  # transitive only — go mod tidy drops it, not directly pinnable
 
 # --- Breaking migrations applied 2026-06-13 (build/lint/tests verified) ---
-npm|nodejs/nestjs-postgres|typeorm@1 typescript@6
-npm|nodejs/express-typescript-mongodb|mongoose@9 mongodb-memory-server@11 isomorphic-dompurify@3
+# npm|nodejs/nestjs-postgres|typeorm@1 typescript@6
+# npm|nodejs/express-typescript-mongodb|mongoose@9 mongodb-memory-server@11 isomorphic-dompurify@3
+
+# --- Major decisions 2026-08-25, probed clean (one spec per line so each bump classifies alone) ---
+npm|nodejs/express5-postgres|bullmq@6
+npm|nodejs/express5-postgres|ioredis@6
+npm|nodejs/nestjs-postgres|bullmq@6
+npm|nodejs/angular-fullstack-otel/frontend|jsdom@30
+npm|nodejs/angular-fullstack-otel/frontend|web-vitals@6
 
 # --- BLOCKED (do not re-add until upstream lands) ---
 # npm|nodejs/nextjs-api-mongodb|eslint@10        # eslint-plugin-react 7.37.5 (latest) calls removed getFilename(); breaks under eslint 10
 # npm|nodejs/nextjs-fullstack-otel|eslint@10     # same blocker; the 2026-06-12 "clean" classification was wrong (lint crashed, not gated) — reverted to ^9
+# npm|nodejs/express5-postgres|typescript@7      # probed 2026-08-25: tsgo compiles and tests pass, but typescript-eslint refuses TS 7.0
+# npm|nodejs/nestjs-postgres|typescript@7        # same typescript-eslint blocker
+# npm|nodejs/angular-fullstack-otel/backend|typescript@7   # probed 2026-08-25: tsc rc=2
+# npm|nodejs/angular-fullstack-otel/frontend|typescript@7  # probed 2026-08-25: @angular/compiler-cli crashes on init under TS 7
