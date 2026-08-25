@@ -22,7 +22,7 @@ Click a log entry in LogX → **Trace Info** tab → **Open trace details** to s
 
 ## Prerequisites
 
-- .NET 9.0+
+- .NET 10.0+
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup docs](../../scout-collector/README.md))
 
 ## Run It
