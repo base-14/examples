@@ -224,6 +224,30 @@ verify_make_check() {
   fi
 }
 
+# Rewrite requirements.txt "==" pins to the versions uv resolved into uv.lock.
+# No-op when the project has no requirements.txt.
+sync_requirements_from_lock() {
+  [[ -f requirements.txt && -f uv.lock ]] || return 0
+  python3 - <<'PYSYNC'
+import re
+lock = open('uv.lock').read()
+resolved = {n.lower(): v for n, v in
+            re.findall(r'^name = "([^"]+)"\nversion = "([^"]+)"', lock, re.M)}
+out, changed = [], 0
+for line in open('requirements.txt'):
+    m = re.match(r'^([A-Za-z0-9._-]+)(\[[^\]]*\])?==(\S+)(.*)$', line.rstrip('\n'))
+    if m:
+        name, extras, cur, rest = m.groups()
+        new = resolved.get(name.lower())
+        if new and new != cur:
+            out.append(f"{name}{extras or ''}=={new}{rest}\n"); changed += 1; continue
+    out.append(line)
+if changed:
+    open('requirements.txt', 'w').writelines(out)
+    print(f"  Synced {changed} requirements.txt pins from uv.lock")
+PYSYNC
+}
+
 upgrade_python() {
   local dir="$1"
   local name
@@ -264,7 +288,11 @@ upgrade_python() {
     if ! guard_major_bump "python/$name" "$before_py" python uv.lock pyproject.toml uv.lock; then return 0; fi
     # extras + dev groups keep check tooling (mypy/ruff) installed
     uv sync --all-extras --all-groups --quiet >/dev/null 2>&1 || uv sync --all-extras --quiet >/dev/null 2>&1 || true
-    verify_make_check "python/$name" pyproject.toml uv.lock
+    # a project carrying BOTH uv.lock and requirements.txt would otherwise keep its
+    # stale == pins forever: the uv branch never touches them, and check-outdated
+    # reads requirements.txt, so the same bumps get reported every week
+    sync_requirements_from_lock
+    verify_make_check "python/$name" pyproject.toml uv.lock requirements.txt
   else
     # pip: upgrade the venv via uv, then rewrite the == pins to resolved versions
     local venv_py=".venv/bin/python"; [[ -x "$venv_py" ]] || venv_py="venv/bin/python"
