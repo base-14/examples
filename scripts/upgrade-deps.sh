@@ -285,7 +285,7 @@ upgrade_python() {
     else
       uv lock --upgrade >/dev/null 2>&1 || true
     fi
-    if ! guard_major_bump "python/$name" "$before_py" python uv.lock pyproject.toml uv.lock; then return 0; fi
+    if ! guard_or_retry "python/$name" "$before_py" python uv.lock pyproject.toml uv.lock; then return 0; fi
     # extras + dev groups keep check tooling (mypy/ruff) installed
     uv sync --all-extras --all-groups --quiet >/dev/null 2>&1 || uv sync --all-extras --quiet >/dev/null 2>&1 || true
     # a project carrying BOTH uv.lock and requirements.txt would otherwise keep its
@@ -408,7 +408,9 @@ for m in re.finditer(r'^name = \"([^\"]+)\"\nversion = \"([0-9]+)\.', t, re.M):
   esac
 }
 
-# Reverts $3.. and returns 1 when --skip-major is set and a major moved.
+# Reverts $5.. and returns 1 when --skip-major is set and a major moved.
+# Crossed package names land in GUARD_CROSSED for retry_holding_majors.
+GUARD_CROSSED=""
 guard_major_bump() {
   local label="$1" before="$2"; shift 2
   local eco="$1" lockfile="$2"; shift 2
@@ -422,6 +424,50 @@ guard_major_bump() {
 
   echo "  MAJOR CROSSED (reverting): $(tr '\n' ' ' <<< "$crossed")"
   git checkout -- "$@" 2>/dev/null || true
+  GUARD_CROSSED="$crossed"
+  return 1
+}
+
+# Re-runs the update holding each crossed package on its current major.
+retry_holding_majors() {
+  local eco="$1" crossed="$2" p maj
+  case "$eco" in
+    python)
+      local holds=()
+      for p in $crossed; do
+        maj=$(lock_majors python uv.lock | awk -v p="$p" '$1==p{print $2}')
+        [[ -n "$maj" ]] && holds+=(--upgrade-package "${p}<$((maj+1))")
+      done
+      uv lock --upgrade "${holds[@]}" >/dev/null 2>&1 ;;
+    php)
+      local with=()
+      for p in $crossed; do
+        maj=$(lock_majors php composer.lock | awk -v p="$p" '$1==p{print $2}')
+        [[ -n "$maj" ]] && with+=(--with "${p}:^${maj}")
+      done
+      docker run --rm -v "$PWD":/app -w /app composer:2 \
+        update --with-all-dependencies --ignore-platform-reqs --no-scripts \
+        --no-interaction "${with[@]}" >/dev/null 2>&1 ;;
+    ruby)
+      local gems
+      gems=$(sed -nE 's/^[[:space:]]*gem "([^"]+)".*/\1/p' Gemfile \
+             | grep -vxF -f <(printf '%s\n' $crossed) | tr '\n' ' ')
+      [[ -n "$gems" ]] && bundle update $gems >/dev/null 2>&1 ;;
+    elixir)
+      local deps
+      deps=$(sed -nE 's/^[[:space:]]*\{:([a-z_0-9]+),.*/\1/p' mix.exs \
+             | grep -vxF -f <(printf '%s\n' $crossed) | tr '\n' ' ')
+      [[ -n "$deps" ]] && mix deps.update $deps >/dev/null 2>&1 ;;
+  esac
+}
+
+# guard, then one retry with crossers held; REVERTED only if still crossing.
+guard_or_retry() {
+  local label="$1" eco="$3"
+  guard_major_bump "$@" && return 0
+  echo "  Retrying with majors held: $(tr '\n' ' ' <<< "$GUARD_CROSSED")"
+  retry_holding_majors "$eco" "$GUARD_CROSSED"
+  guard_major_bump "$@" && return 0
   results+=("$label: REVERTED (major bump under --skip-major)")
   skipped=$((skipped + 1))
   return 1
@@ -459,7 +505,7 @@ upgrade_ruby() {
     return
   fi
 
-  if ! guard_major_bump "ruby/$name" "$before" ruby Gemfile.lock Gemfile.lock; then return 0; fi
+  if ! guard_or_retry "ruby/$name" "$before" ruby Gemfile.lock Gemfile.lock; then return 0; fi
 
   local verify_cmd="bundle install"
   [[ -f Makefile ]] && grep -q '^check:' Makefile && verify_cmd="make check"
@@ -513,7 +559,7 @@ upgrade_php() {
     return
   fi
 
-  if ! guard_major_bump "php/$name" "$before" php composer.lock composer.json composer.lock; then return 0; fi
+  if ! guard_or_retry "php/$name" "$before" php composer.lock composer.json composer.lock; then return 0; fi
 
   echo "  Verifying: composer validate"
   if docker run --rm -v "$PWD":/app -w /app composer:2 \
@@ -565,7 +611,7 @@ upgrade_elixir() {
     return
   fi
 
-  if ! guard_major_bump "elixir/$name" "$before" elixir mix.lock mix.lock; then return 0; fi
+  if ! guard_or_retry "elixir/$name" "$before" elixir mix.lock mix.lock; then return 0; fi
 
   local verify_cmd="mix compile --warnings-as-errors"
   [[ -f Makefile ]] && grep -q '^check:' Makefile && verify_cmd="make check"
