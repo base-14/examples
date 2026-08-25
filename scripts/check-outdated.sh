@@ -29,6 +29,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# under --major-only a quiet project may still have minors pending
+CLEAN_MSG="All up to date"
+[[ "$MAJOR_ONLY" == true ]] && CLEAN_MSG="No major updates (minors may exist)"
+
 total_outdated=0
 total_major=0
 
@@ -63,7 +67,7 @@ check_nodejs() {
   fi
 
   if echo "$output" | grep -q "All dependencies match"; then
-    echo "  All up to date"
+    echo "  $CLEAN_MSG"
     return
   fi
 
@@ -184,7 +188,7 @@ PY
   done <<< "$specs"
 
   if [[ $count -eq 0 ]]; then
-    echo "  All up to date"
+    echo "  $CLEAN_MSG"
   fi
 
   total_outdated=$((total_outdated + count))
@@ -205,7 +209,7 @@ check_go() {
   output=$(cd "$dir" && go list -m -u all 2>/dev/null | grep '\[' || true)
 
   if [[ -z "$output" ]]; then
-    echo "  All up to date"
+    echo "  $CLEAN_MSG"
     return
   fi
 
@@ -244,7 +248,7 @@ check_go() {
   done <<< "$output"
 
   if [[ $count -eq 0 ]]; then
-    echo "  All up to date"
+    echo "  $CLEAN_MSG"
   fi
 
   total_outdated=$((total_outdated + count))
@@ -270,7 +274,7 @@ check_rust() {
   output=$(cd "$dir" && cargo outdated --root-deps-only 2>/dev/null || true)
 
   if echo "$output" | grep -q "All dependencies are up to date"; then
-    echo "  All up to date"
+    echo "  $CLEAN_MSG"
     return
   fi
 
@@ -311,7 +315,7 @@ check_rust() {
   done <<< "$output"
 
   if [[ $count -eq 0 ]]; then
-    echo "  All up to date"
+    echo "  $CLEAN_MSG"
   fi
 
   total_outdated=$((total_outdated + count))
@@ -351,7 +355,7 @@ check_java() {
   fi
 
   if [[ -z "$output" ]]; then
-    echo "  All up to date"
+    echo "  $CLEAN_MSG"
   else
     echo "$output"
   fi
@@ -403,7 +407,7 @@ check_ruby() {
     emit_bump "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[2]}"
   done <<< "$output"
 
-  [[ $count -eq 0 ]] && echo "  All up to date"
+  [[ $count -eq 0 ]] && echo "  $CLEAN_MSG"
   total_outdated=$((total_outdated + count))
   total_major=$((total_major + majors))
 }
@@ -450,7 +454,7 @@ for p in data.get('installed', []):
         print(f\"{p['name']}\t{p['version']}\t{latest}\")
 ")
 
-  [[ $count -eq 0 ]] && echo "  All up to date"
+  [[ $count -eq 0 ]] && echo "  $CLEAN_MSG"
   total_outdated=$((total_outdated + count))
   total_major=$((total_major + majors))
 }
@@ -484,7 +488,7 @@ check_elixir() {
     emit_bump "$pkg" "$cur" "$lat"
   done <<< "$output"
 
-  [[ $count -eq 0 ]] && echo "  All up to date"
+  [[ $count -eq 0 ]] && echo "  $CLEAN_MSG"
   total_outdated=$((total_outdated + count))
   total_major=$((total_major + majors))
 }
@@ -534,7 +538,7 @@ check_dotnet() {
     emit_bump "$pkg" "$cur" "$lat"
   done <<< "$rows"
 
-  [[ $count -eq 0 ]] && echo "  All up to date"
+  [[ $count -eq 0 ]] && echo "  $CLEAN_MSG"
   total_outdated=$((total_outdated + count))
   total_major=$((total_major + majors))
 }
