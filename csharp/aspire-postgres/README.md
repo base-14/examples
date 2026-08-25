@@ -10,14 +10,14 @@ for CI and customer-environment use.
 
 | Component | Version | Notes |
 | --- | --- | --- |
-| .NET SDK | 9.0.308 | Latest stable; arm64 native on Apple Silicon. |
-| ASP.NET Core | 9.0 | Minimal APIs. |
+| .NET SDK | 10.0.400 | Latest stable; arm64 native on Apple Silicon. |
+| ASP.NET Core | 10.0 | Minimal APIs. |
 | .NET Aspire | 13.2.4 | AppHost + Hosting.PostgreSQL. Dashboard auth on by default. |
 | PostgreSQL | 18 | Aspire-managed in dev; `postgres:18-alpine` image in Compose. |
-| Entity Framework Core | 9.0.15 | `EnsureCreated` at startup; no migrations. |
-| Npgsql.EntityFrameworkCore.PostgreSQL | 9.0.4 | EF Core 9 provider. |
-| OpenTelemetry .NET (core) | 1.15.3 | OTLP exporter + extensions hosting. |
-| OpenTelemetry instrumentation | AspNetCore 1.15.2, Http 1.15.1, Runtime 1.15.1, EFCore 1.15.1-beta.1 | Per-package latest stable (the contrib EF Core package is still beta). |
+| Entity Framework Core | 10.0.11 | `EnsureCreated` at startup; no migrations. |
+| Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 | EF Core 10 provider. |
+| OpenTelemetry .NET (core) | 1.18.0 | OTLP exporter + extensions hosting. |
+| OpenTelemetry instrumentation | AspNetCore 1.18.0, Http 1.18.0, Runtime 1.18.0, EFCore 1.15.1-beta.1 | Per-package latest stable (the contrib EF Core package is still beta). |
 | OTel Collector contrib | 0.151.0 | Receives OTLP from the apps; OAuth2 export to Scout. |
 
 **Verified**: 2026-04-29.
@@ -68,6 +68,7 @@ collector config.
 
 ```bash
 cd csharp/aspire-postgres
+# AppHost builds need the Aspire CLI: dotnet tool install -g Aspire.Cli
 cp .env.example .env  # optional: fill in SCOUT_* credentials for Scout export
 
 make up
