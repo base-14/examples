@@ -414,7 +414,7 @@ dev = [
 requires-dist = [
     { name = "celery", specifier = ">=5.6,<6.0" },
     { name = "dj-database-url", specifier = ">=3.0.1" },
-    { name = "django", specifier = ">=5.2.11,<5.3" },
+    { name = "django", specifier = ">=5.2.11,<6.2" },
     { name = "django-stubs", marker = "extra == 'dev'", specifier = ">=5.2.9" },
     { name = "djangorestframework", specifier = ">=3.16.1,<4.0" },
     { name = "djangorestframework-stubs", marker = "extra == 'dev'", specifier = ">=3.16.8" },
@@ -433,7 +433,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-django", marker = "extra == 'dev'", specifier = ">=4.11.1" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
-    { name = "redis", specifier = ">=7.1.1,<8.0" },
+    { name = "redis", specifier = ">=7.1.1,<9.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.4" },
 ]
 provides-extras = ["dev"]
