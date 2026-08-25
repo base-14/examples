@@ -53,7 +53,7 @@
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
-    "bullmq": "^5.81.3",
+    "bullmq": "^6.2.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dompurify": "^3.4.14",
