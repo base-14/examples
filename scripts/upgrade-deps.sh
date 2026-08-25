@@ -248,6 +248,8 @@ upgrade_python() {
   fi
 
   cd "$dir" || return
+  local before_py=""
+  [[ "$mgr" == "uv" ]] && before_py=$(lock_majors python uv.lock)
   echo "  Updating ($mgr)..."
   if [[ "$mgr" == "uv" ]]; then
     if [[ -n "$PY_FILTER" ]]; then
@@ -259,6 +261,7 @@ upgrade_python() {
     else
       uv lock --upgrade >/dev/null 2>&1 || true
     fi
+    if ! guard_major_bump "python/$name" "$before_py" python uv.lock pyproject.toml uv.lock; then return 0; fi
     # extras + dev groups keep check tooling (mypy/ruff) installed
     uv sync --all-extras --all-groups --quiet >/dev/null 2>&1 || uv sync --all-extras --quiet >/dev/null 2>&1 || true
     verify_make_check "python/$name" pyproject.toml uv.lock
@@ -367,6 +370,13 @@ for section in ('packages', 'packages-dev'):
 " "$file" 2>/dev/null | sort -u ;;
     elixir)
       sed -nE 's/^[[:space:]]*"([A-Za-z0-9_]+)": \{:hex, :[A-Za-z0-9_]+, "([0-9]+)\..*/\1 \2/p' "$file" | sort -u ;;
+    python)
+      python3 -c "
+import re, sys
+t = open(sys.argv[1]).read()
+for m in re.finditer(r'^name = \"([^\"]+)\"\nversion = \"([0-9]+)\.', t, re.M):
+    print(m.group(1), m.group(2))
+" "$file" 2>/dev/null | sort -u ;;
   esac
 }
 

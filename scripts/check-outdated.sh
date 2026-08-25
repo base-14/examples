@@ -327,24 +327,33 @@ check_java() {
 
   print_header "java/$name"
 
+  local raw output
   if [[ -f "$dir/gradlew" ]]; then
-    local output
-    output=$(cd "$dir" && ./gradlew dependencyUpdates --no-daemon 2>/dev/null | grep -E '^\s+-' || true)
-    if [[ -z "$output" ]]; then
-      echo "  All up to date (or run manually to verify)"
-    else
-      echo "$output"
+    # a failed build and a clean report both produce no matches, so check the
+    # exit status before calling it up to date
+    if ! raw=$(cd "$dir" && ./gradlew dependencyUpdates --no-daemon 2>&1); then
+      echo "  CANNOT CHECK: gradlew dependencyUpdates failed (ben-manes versions plugin not applied?)"
+      return
     fi
+    output=$(grep -E '^\s+-' <<< "$raw" || true)
   elif [[ -f "$dir/pom.xml" ]]; then
-    local output
-    output=$(cd "$dir" && mvn versions:display-dependency-updates -q 2>/dev/null | grep -E '^\[INFO\].*->' || true)
-    if [[ -z "$output" ]]; then
-      echo "  All up to date (or run manually to verify)"
-    else
-      echo "$output"
+    # processDependencyManagement=false keeps this to direct dependencies; the
+    # default walks the whole managed BOM (1700+ lines on quarkus)
+    if ! raw=$(cd "$dir" && mvn versions:display-dependency-updates \
+                 -DprocessDependencyManagement=false 2>&1); then
+      echo "  CANNOT CHECK: mvn versions:display-dependency-updates failed"
+      return
     fi
+    output=$(grep -E '^\[INFO\].*->' <<< "$raw" || true)
   else
     echo "  No build tool detected"
+    return
+  fi
+
+  if [[ -z "$output" ]]; then
+    echo "  All up to date"
+  else
+    echo "$output"
   fi
 }
 
@@ -565,10 +574,11 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "rust" ]]; then
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "java" ]]; then
-  for dir in "$REPO_ROOT"/java/*/; do
-    [[ -d "$dir" ]] || continue
-    check_java "$dir"
-  done
+  while IFS= read -r build; do
+    check_java "$(dirname "$build")"
+  done < <(find "$REPO_ROOT"/java -maxdepth 3 \
+            \( -name pom.xml -o -name build.gradle -o -name build.gradle.kts \) \
+            -not -path '*/build/*' -not -path '*/target/*' | sort)
 fi
 
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "ruby" ]]; then
