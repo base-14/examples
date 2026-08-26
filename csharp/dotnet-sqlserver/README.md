@@ -17,7 +17,7 @@ A production-ready ASP.NET Core 9 REST API demonstrating full OpenTelemetry inst
 | **BCrypt.Net-Next** | 4.0.3 | Active | Password hashing |
 
 **Version Selection**: Latest Stable
-**Verified**: 2026-02-15
+**Verified**: 2026-08-26
 
 **Why This Stack**: .NET 10 with Minimal APIs for lightweight endpoint routing and EF Core 10 for
 SQL Server integration. Azure SQL Edge provides ARM64-native SQL Server compatibility for all platforms.

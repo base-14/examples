@@ -20,7 +20,7 @@ for CI and customer-environment use.
 | OpenTelemetry instrumentation | AspNetCore 1.18.0, Http 1.18.0, Runtime 1.18.0, EFCore 1.15.1-beta.1 | Per-package latest stable (the contrib EF Core package is still beta). |
 | OTel Collector contrib | 0.151.0 | Receives OTLP from the apps; OAuth2 export to Scout. |
 
-**Verified**: 2026-04-29.
+**Verified**: 2026-08-26.
 
 ## What's instrumented
 
