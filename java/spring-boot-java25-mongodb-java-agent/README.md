@@ -45,7 +45,7 @@ Add custom spans using `@WithSpan` annotations for deeper application visibility
 1. Add dependency to `build.gradle`:
 
    ```gradle
-   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.30.0'
+   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.31.1'
    ```
 
 1. Enable annotations (already configured in `compose.yaml`):
@@ -102,7 +102,7 @@ Check the application logs for the agent startup message:
 docker logs spring-app | grep otel.javaagent
 ```
 
-You should see: `[otel.javaagent] OpenTelemetry Javaagent 2.30.0`
+You should see: `[otel.javaagent] OpenTelemetry Javaagent 2.31.1`
 
 ## Configuration
 
@@ -196,7 +196,7 @@ Requires MongoDB and OTel Collector running locally on standard ports.
 Download the Java Agent first:
 
 ```bash
-wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.30.0/opentelemetry-javaagent.jar
+wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.31.1/opentelemetry-javaagent.jar
 ```
 
 Then run with the agent:
@@ -266,7 +266,7 @@ Check startup logs for the agent message:
 docker logs spring-app | grep otel.javaagent
 ```
 
-Expected: `[otel.javaagent] OpenTelemetry Javaagent 2.30.0`
+Expected: `[otel.javaagent] OpenTelemetry Javaagent 2.31.1`
 
 If missing, verify the agent path in Dockerfile and ENTRYPOINT.
 
