@@ -356,8 +356,24 @@ upgrade_dotnet() {
     fi
 
     echo "  Updating ${csproj#$dir/} (dotnet add package)..."
+    # resolve the latest version per package so --skip-major can hold majors;
+    # a bare 'dotnet add package' always takes the newest release
+    local outdated cur lat
+    if ! dotnet restore "$csproj" >/dev/null 2>&1; then
+      echo "  restore failed (dotnet SDK $(dotnet --version 2>/dev/null)); skipping ${csproj#$dir/}"
+      continue
+    fi
+    # '|| true' keeps a failed 'dotnet list' from ending the script under 'set -e'
+    outdated=$(dotnet list "$csproj" package --outdated 2>/dev/null \
+                | awk '$1 == ">" && $NF ~ /^[0-9]/ {print $2, $(NF-1), $NF}' || true)
     for p in $pkgs; do
-      dotnet add "$csproj" package "$p" >/dev/null 2>&1 || true
+      read -r cur lat <<< "$(awk -v p="$p" '$1 == p {print $2, $3}' <<< "$outdated")"
+      [[ -z "$lat" ]] && continue
+      if [[ "$SKIP_MAJOR" == true && "${cur%%.*}" != "${lat%%.*}" ]]; then
+        echo "  skip major: $p $cur -> $lat"
+        continue
+      fi
+      dotnet add "$csproj" package "$p" --version "$lat" >/dev/null 2>&1 || true
     done
   done
 

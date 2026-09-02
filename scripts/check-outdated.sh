@@ -515,18 +515,20 @@ check_dotnet() {
     return
   fi
 
-  local csproj output rows="" rc
+  local csproj output rows="" rc failed=0
   for csproj in $csprojs; do
     rc=0
     dotnet restore "$csproj" >/dev/null 2>&1 || rc=$?
     if [[ $rc -ne 0 ]]; then
       echo "  ${csproj#$dir/}: restore failed"
+      failed=$((failed + 1))
       continue
     fi
     rc=0
     output=$(dotnet list "$csproj" package --outdated 2>&1) || rc=$?
     if [[ $rc -ne 0 ]]; then
       echo "  ${csproj#$dir/}: $(grep -v '^$' <<< "$output" | tail -1)"
+      failed=$((failed + 1))
       continue
     fi
     rows+=$(awk '$1 == ">" && $NF ~ /^[0-9]/ {print $2, $(NF-1), $NF}' <<< "$output")
@@ -541,7 +543,12 @@ check_dotnet() {
     emit_bump "$pkg" "$cur" "$lat"
   done <<< "$rows"
 
-  [[ $count -eq 0 ]] && echo "  $CLEAN_MSG"
+  # a failed restore is not a clean result; the SDK pin is the usual cause
+  if [[ $failed -gt 0 ]]; then
+    echo "  CANNOT CHECK: $failed project(s) failed restore (dotnet SDK $(dotnet --version 2>/dev/null); set ASDF_DOTNET_CORE_VERSION to match the target framework)"
+  elif [[ $count -eq 0 ]]; then
+    echo "  $CLEAN_MSG"
+  fi
   total_outdated=$((total_outdated + count))
   total_major=$((total_major + majors))
 }
