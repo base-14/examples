@@ -3,7 +3,7 @@ module ai-data-analyst
 go 1.26.1
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.66.0
+	github.com/anthropics/anthropic-sdk-go v1.69.0
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/exaring/otelpgx v0.11.1
 	github.com/go-chi/chi/v5 v5.3.2

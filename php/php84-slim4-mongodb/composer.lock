@@ -266,16 +266,16 @@
         },
         {
             "name": "google/protobuf",
-            "version": "v5.36.0",
+            "version": "v5.36.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/protocolbuffers/protobuf-php.git",
-                "reference": "9c105104b54709ecd902494ab340ed2122789b2d"
+                "reference": "d64d16befba8632967f604b9644c0bb8f64cfbc3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/protocolbuffers/protobuf-php/zipball/9c105104b54709ecd902494ab340ed2122789b2d",
-                "reference": "9c105104b54709ecd902494ab340ed2122789b2d",
+                "url": "https://api.github.com/repos/protocolbuffers/protobuf-php/zipball/d64d16befba8632967f604b9644c0bb8f64cfbc3",
+                "reference": "d64d16befba8632967f604b9644c0bb8f64cfbc3",
                 "shasum": ""
             },
             "require": {
@@ -304,9 +304,9 @@
                 "proto"
             ],
             "support": {
-                "source": "https://github.com/protocolbuffers/protobuf-php/tree/v5.36.0"
+                "source": "https://github.com/protocolbuffers/protobuf-php/tree/v5.36.1"
             },
-            "time": "2026-08-20T13:06:50+00:00"
+            "time": "2026-08-31T22:07:31+00:00"
         },
         {
             "name": "graham-campbell/result-type",
@@ -764,16 +764,16 @@
         },
         {
             "name": "mongodb/mongodb",
-            "version": "2.4.0",
+            "version": "2.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mongodb/mongo-php-library",
-                "reference": "066ee1fd2ed0418798d4e024299b33f75f915bb4"
+                "reference": "b72cc2ecf4a11d3871f78a119a8f3cc7ab6d6c29"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mongodb/mongo-php-library/zipball/066ee1fd2ed0418798d4e024299b33f75f915bb4",
-                "reference": "066ee1fd2ed0418798d4e024299b33f75f915bb4",
+                "url": "https://api.github.com/repos/mongodb/mongo-php-library/zipball/b72cc2ecf4a11d3871f78a119a8f3cc7ab6d6c29",
+                "reference": "b72cc2ecf4a11d3871f78a119a8f3cc7ab6d6c29",
                 "shasum": ""
             },
             "require": {
@@ -833,7 +833,7 @@
                 "mongodb",
                 "persistence"
             ],
-            "time": "2026-08-18T14:20:54+00:00"
+            "time": "2026-08-27T14:43:15+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -2760,16 +2760,16 @@
         },
         {
             "name": "slim/slim",
-            "version": "4.15.2",
+            "version": "4.15.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/slimphp/Slim.git",
-                "reference": "e12cb05ca2a14e8f459d019e87a31dc915b80470"
+                "reference": "3675bf6baac66b07032575b7bef4200b60b7974b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/slimphp/Slim/zipball/e12cb05ca2a14e8f459d019e87a31dc915b80470",
-                "reference": "e12cb05ca2a14e8f459d019e87a31dc915b80470",
+                "url": "https://api.github.com/repos/slimphp/Slim/zipball/3675bf6baac66b07032575b7bef4200b60b7974b",
+                "reference": "3675bf6baac66b07032575b7bef4200b60b7974b",
                 "shasum": ""
             },
             "require": {
@@ -2872,7 +2872,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-22T08:00:12+00:00"
+            "time": "2026-09-01T17:11:05+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",

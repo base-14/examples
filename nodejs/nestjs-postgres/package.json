@@ -24,17 +24,17 @@
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.5",
-    "@nestjs/common": "^11.2.2",
+    "@nestjs/common": "^11.2.3",
     "@nestjs/config": "^4.0.4",
-    "@nestjs/core": "^11.2.2",
+    "@nestjs/core": "^11.2.3",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.2.2",
-    "@nestjs/platform-socket.io": "^11.2.2",
+    "@nestjs/platform-express": "^11.2.3",
+    "@nestjs/platform-socket.io": "^11.2.3",
     "@nestjs/terminus": "^11.1.1",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11.0.3",
-    "@nestjs/websockets": "^11.2.2",
+    "@nestjs/websockets": "^11.2.3",
     "@opentelemetry/api-logs": "^0.222.0",
     "@opentelemetry/auto-instrumentations-node": "^0.80.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.222.0",
@@ -53,7 +53,7 @@
     "@opentelemetry/sdk-node": "^0.222.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "bcrypt": "^6.0.0",
-    "bullmq": "^6.2.1",
+    "bullmq": "^6.3.4",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "helmet": "^8.3.0",
@@ -63,10 +63,10 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "socket.io": "^4.8.3",
-    "typeorm": "^1.1.0",
+    "typeorm": "^1.1.1",
     "uuid": "^14.0.2",
     "winston": "^3.19.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "overrides": {
     "@grpc/grpc-js": ">=1.14.4",
@@ -100,11 +100,11 @@
     "browserslist": ">=4.28.7"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.6",
+    "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^11.1.0",
-    "@nestjs/testing": "^11.2.2",
+    "@nestjs/testing": "^11.2.3",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
@@ -115,8 +115,8 @@
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
-    "globals": "^17.11.0",
-    "jest": "^30.4.2",
+    "globals": "^17.12.0",
+    "jest": "^30.5.1",
     "prettier": "^3.9.6",
     "socket.io-client": "^4.8.3",
     "source-map-support": "^0.5.21",
@@ -126,7 +126,7 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.68.0"
+    "typescript-eslint": "^8.69.0"
   },
   "jest": {
     "moduleFileExtensions": [
