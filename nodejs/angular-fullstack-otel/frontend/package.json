@@ -15,7 +15,7 @@
     "@angular/compiler": "^22.1.4",
     "@angular/core": "^22.1.4",
     "@angular/forms": "^22.1.4",
-    "@angular/platform-browser": "^22.1.4",
+    "@angular/platform-browser": "^22.1.5",
     "@angular/router": "^22.1.4",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.222.0",
