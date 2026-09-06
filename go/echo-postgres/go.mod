@@ -1,6 +1,6 @@
 module go-echo-postgres
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -16,7 +16,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.2
 )
