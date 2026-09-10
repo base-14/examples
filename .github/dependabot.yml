@@ -71,12 +71,15 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
 
-  # Node.js - Express TypeScript MongoDB
+  # Node.js - Express TypeScript MongoDB (Legacy - Disabled)
   - package-ecosystem: "npm"
     directory: "/nodejs/express-typescript-mongodb"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    # Disable Dependabot PRs for this project - kept as a legacy example
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
 
   # Node.js - Angular fullstack (frontend)
   - package-ecosystem: "npm"
