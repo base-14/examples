@@ -10,6 +10,27 @@ metrics, and logs. Uses MySQL 8, Redis, and Sidekiq.
 >
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails)
 
+## How to instrument Rails 5.2 on Ruby 2.7 with OpenTelemetry
+
+1. Pin Ruby 2.7 compatible gems in the `Gemfile`: `opentelemetry-sdk` (>= 1.2.0),
+   `opentelemetry-exporter-otlp` (>= 0.24.2), `opentelemetry-instrumentation-rack` (~> 0.22.1),
+   `opentelemetry-instrumentation-action_pack` (~> 0.4.1),
+   `opentelemetry-instrumentation-active_record` (~> 0.4.1),
+   `opentelemetry-instrumentation-active_support` (~> 0.3.0) and
+   `opentelemetry-instrumentation-sidekiq` (~> 0.23.0). `opentelemetry-instrumentation-all` is not
+   used.
+2. In `config/initializers/opentelemetry.rb`, call `OpenTelemetry::SDK.configure` with an explicit
+   `Resource`, a `SimpleSpanProcessor` wrapping `OpenTelemetry::Exporter::OTLP::Exporter` (the
+   `BatchSpanProcessor` has GVL issues on Ruby 2.7), then `c.use_all`.
+3. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and `OTEL_TRACES_EXPORTER=otlp` in
+   `docker-compose.yml` for both the web and Sidekiq containers.
+
+This example adds Sidekiq job spans, custom model spans (`article.favorite`, `user.follow`,
+`comment.created`) created through `OpenTelemetryHelper.tracer`, and a `SimpleSpanProcessor` setup
+that works on Ruby 2.7. The full guide is
+[Rails OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails/).
+
 ## What's Instrumented
 
 - HTTP requests and responses

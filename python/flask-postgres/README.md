@@ -3,7 +3,30 @@
 Production-ready Flask REST API with automatic OpenTelemetry instrumentation, JWT authentication,
 Celery background tasks, and PostgreSQL integration with base14 Scout.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/python)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/flask)
+
+## How to instrument Flask with OpenTelemetry
+
+1. Install `opentelemetry-sdk`, `opentelemetry-exporter-otlp`,
+   `opentelemetry-instrumentation-flask`, `opentelemetry-instrumentation-sqlalchemy`,
+   `opentelemetry-instrumentation-celery`, `opentelemetry-instrumentation-redis` and
+   `opentelemetry-instrumentation-logging` from `requirements.txt`.
+2. In `create_app()` in `app/__init__.py`, call `setup_telemetry()` from `app/telemetry.py`
+   before constructing `Flask(__name__)`, then call `instrument_flask_app(app)`, which runs
+   `FlaskInstrumentor().instrument_app(app, excluded_urls="/api/health,/health")`.
+   `setup_telemetry()` registers OTLP trace, metric and log exporters and calls the
+   SQLAlchemy, Redis, Celery and logging instrumentors. The Celery worker repeats the setup
+   from a `worker_process_init` handler in `app/jobs/celery.py`.
+3. Set `OTEL_SERVICE_NAME=flask-postgres-app`, `OTEL_EXPORTER_OTLP_ENDPOINT`
+   (`http://otel-collector:4318` in `compose.yaml`, `http://localhost:4318` in
+   `.env.example` for local runs) and `OTEL_SEMCONV_STABILITY_OPT_IN=http,database`.
+   `compose.yaml` also sets `OTEL_RESOURCE_ATTRIBUTES` for environment and namespace.
+
+This example adds custom spans and counters for auth routes (`user.register`, `user.login`,
+auth attempts), job duration and completion metrics in the Celery tasks, OTLP log export with
+trace correlation and email masking in the collector's `transform/pii` processor. The full
+guide is
+[Flask OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/flask/).
 
 ## Stack Profile
 

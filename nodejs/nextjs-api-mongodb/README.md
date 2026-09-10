@@ -4,6 +4,22 @@
 
 A production-ready REST API built with Next.js 16, MongoDB, and OpenTelemetry.
 
+## How to instrument Next.js with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
+   `@opentelemetry/exporter-prometheus`, `@opentelemetry/sdk-metrics`, `@opentelemetry/resources`,
+   `@opentelemetry/semantic-conventions` and `@opentelemetry/api`.
+2. Add `instrumentation.ts` at the project root with a `register()` hook that imports
+   `src/lib/telemetry.ts` when `NEXT_RUNTIME === 'nodejs'`; that file builds a `NodeSDK` with
+   `getNodeAutoInstrumentations()` and calls `sdk.start()`.
+3. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and
+   `OTEL_SERVICE_NAME=nextjs-api-mongodb` in `.env`.
+
+This example adds OTLP log export, a Prometheus metric reader next to the OTLP one, a `withSpan()`
+helper for custom spans, and a separately instrumented BullMQ worker process. The full guide is
+[Next.js OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nextjs/).
+
 ## Stack
 
 - **Framework**: Next.js 16.1.2 (Turbopack)

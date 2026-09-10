@@ -12,6 +12,25 @@ metrics, and logs.
 >
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/laravel)
 
+## How to instrument Laravel 8 with OpenTelemetry
+
+1. Add `open-telemetry/sdk`, `open-telemetry/exporter-otlp`,
+   `open-telemetry/opentelemetry-auto-laravel` and `open-telemetry/opentelemetry-auto-psr18` to
+   `composer.json`, then build the `opentelemetry` PHP extension in the Dockerfile with
+   `pecl install opentelemetry && docker-php-ext-enable opentelemetry`.
+2. Set `OTEL_PHP_AUTOLOAD_ENABLED=true` in `docker-compose.yml`. The extension loads the SDK and
+   `opentelemetry-auto-laravel` from Composer's autoloader on each request, so the application
+   contains no OpenTelemetry code of its own.
+3. Point the SDK at the collector with `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_SERVICE_NAME=php-laravel8-sqlite-otel` and
+   `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER` set to `otlp`, all
+   in `docker-compose.yml`. The collector forwards to Scout using the `SCOUT_*` variables.
+
+This example adds Eloquent query spans over SQLite, Guzzle client spans through the PSR-18
+instrumentation, and a collector configuration that authenticates to Scout with OIDC. The full
+guide is
+[Laravel OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/laravel/).
+
 ## What's Instrumented
 
 - HTTP requests and responses

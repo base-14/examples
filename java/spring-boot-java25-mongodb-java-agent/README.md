@@ -5,6 +5,23 @@ Spring Boot 3.5.9 application with OpenTelemetry instrumentation using the
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives#java-agent-approach)
 
+## How to instrument Spring Boot with the OpenTelemetry Java agent
+
+1. Add no OpenTelemetry dependencies. `build.gradle` only lists Spring Boot starters
+   (`spring-boot-starter-web`, `spring-boot-starter-data-mongodb`, `spring-boot-starter-actuator`).
+2. Attach the agent at startup. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (2.31.1)
+   and runs `java -javaagent:/app/opentelemetry-javaagent.jar -jar /app/app.jar`. No code changes
+   are needed.
+3. Configure export in `compose.yaml` with `OTEL_SERVICE_NAME=java-spring-boot-otel-mongodb`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`
+   and `OTEL_LOGS_EXPORTER` set to `otlp`.
+
+This example adds Spring Data MongoDB operation spans, controller-level spans enabled with
+`OTEL_INSTRUMENTATION_SPRING_WEBMVC_CONTROLLER_ENABLED=true`, and per-library toggles through
+`OTEL_INSTRUMENTATION_*_ENABLED` variables. The full guide is
+[Spring Boot OpenTelemetry Alternatives](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives/).
+
 ## Instrumentation Approach
 
 This example uses **OpenTelemetry Java Agent** (zero-code instrumentation):

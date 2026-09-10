@@ -2,7 +2,29 @@
 
 Django REST API with automatic OpenTelemetry instrumentation, JWT authentication, Celery background tasks, and PostgreSQL integration with base14 Scout.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/python)
+> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/django)
+
+## How to instrument Django with OpenTelemetry
+
+1. Install `opentelemetry-sdk`, `opentelemetry-exporter-otlp`,
+   `opentelemetry-instrumentation-django`, `opentelemetry-instrumentation-psycopg`,
+   `opentelemetry-instrumentation-celery`, `opentelemetry-instrumentation-redis` and
+   `opentelemetry-instrumentation-logging` from `requirements.txt`.
+2. Call `setup_telemetry()` from `apps/core/telemetry.py` in `config/wsgi.py` before
+   `get_wsgi_application()`, and again from the Celery `worker_process_init` signal in
+   `config/celery.py`. It registers OTLP trace, metric and log exporters and calls
+   `DjangoInstrumentor().instrument(excluded_urls="health")` plus the psycopg, Redis, Celery
+   and logging instrumentors.
+3. Set `OTEL_SERVICE_NAME=django-postgres-celery-app`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development,...` and
+   `OTEL_SEMCONV_STABILITY_OPT_IN=http,database` as in `.env.example` and `compose.yaml`.
+
+This example adds custom spans and counters for auth and article views (`user.login`,
+`article.create`, auth attempts, articles created), OTLP log export with trace correlation,
+per-worker telemetry init for Celery and email masking in the collector's `transform/pii`
+processor. The full guide is
+[Django OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/django/).
 
 ## Stack Profile
 

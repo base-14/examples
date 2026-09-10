@@ -5,6 +5,22 @@ metrics, and logs.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/elixir-phoenix)
 
+## How to instrument Phoenix with OpenTelemetry
+
+1. Add `{:opentelemetry, "~> 1.3"}`, `{:opentelemetry_exporter, "~> 1.6"}`,
+   `{:opentelemetry_phoenix, "~> 2.0"}` and `{:opentelemetry_ecto, "~> 1.1"}` to `mix.exs`,
+   and list `:opentelemetry` and `:opentelemetry_exporter` under `extra_applications`.
+2. Call `OpentelemetryPhoenix.setup(adapter: :bandit)` and
+   `OpentelemetryEcto.setup([:chat_app, :repo])` at the start of `ChatApp.Application.start/2`,
+   and configure `:opentelemetry_exporter` with `otlp_protocol: :http_protobuf` in
+   `config/runtime.exs`.
+3. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://otel-collector:4318`) in
+   `compose.yaml`; `runtime.exs` reads the endpoint and falls back to `http://[::1]:4318`.
+
+This example adds Ecto query spans, LiveView event spans, custom `with_span` blocks around
+message creation and delivery, and trace and span ids in `Logger.metadata`. The full guide is
+[Elixir Phoenix OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/elixir-phoenix/).
+
 ## What's Instrumented
 
 - HTTP requests and LiveView events

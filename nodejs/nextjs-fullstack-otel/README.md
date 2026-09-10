@@ -1,6 +1,28 @@
 # Next.js OpenTelemetry Sample — Full Stack Instrumentation
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nextjs-fullstack/)
+
 A reference implementation showing how to instrument a Next.js App Router application with OpenTelemetry, covering **both server-side and browser-side** telemetry.
+
+## How to instrument Next.js with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node` and `@opentelemetry/auto-instrumentations-node` for the
+   server, `@opentelemetry/sdk-trace-web`, `@opentelemetry/auto-instrumentations-web` and
+   `@opentelemetry/context-zone` for the browser, plus `@opentelemetry/exporter-trace-otlp-http`,
+   `@opentelemetry/exporter-metrics-otlp-http`, `@opentelemetry/exporter-logs-otlp-http`,
+   `@opentelemetry/resources`, `@opentelemetry/semantic-conventions` and `web-vitals`.
+2. Add `instrumentation.ts` at the project root with a `register()` hook that imports
+   `src/lib/server-telemetry.ts` (a `NodeSDK` with `getNodeAutoInstrumentations()`) when
+   `NEXT_RUNTIME === 'nodejs'`. Wrap the root layout in `TelemetryProvider`, which calls
+   `initBrowserTelemetry()` to register a `WebTracerProvider` with `getWebAutoInstrumentations()`.
+3. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and `OTEL_SERVICE_NAME=sample-nextjs-app`
+   for the server and `NEXT_PUBLIC_OTEL_SERVICE_NAME=sample-nextjs-app-browser` for the browser,
+   which exports through the `/api/otel` proxy route unless `NEXT_PUBLIC_OTEL_ENDPOINT` is set.
+
+This example adds browser-to-server trace propagation on fetch, browser error and unhandled
+rejection spans, Core Web Vitals spans, and console output captured as OTLP logs on both sides. The
+full guide is
+[Next.js Full-Stack OpenTelemetry](https://docs.base14.io/instrument/apps/auto-instrumentation/nextjs-fullstack/).
 
 ## Quick Start (run the sample locally)
 

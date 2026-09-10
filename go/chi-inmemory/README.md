@@ -4,7 +4,23 @@ Go-based parking lot management system with OpenTelemetry instrumentation.
 Features both CLI and HTTP REST API interfaces with custom metrics and
 distributed tracing via base14 Scout.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/go)
+> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
+
+## How to instrument Go Chi with OpenTelemetry
+
+1. Add `github.com/go-chi/chi/v5`, `go.opentelemetry.io/otel`, `go.opentelemetry.io/otel/sdk`,
+   `go.opentelemetry.io/otel/sdk/metric` and the `otlptracehttp` and `otlpmetrichttp` exporters
+   to `go.mod`. No otelchi or otelhttp contrib package is used.
+2. Call `parking.NewTelemetryProvider()` to build the exporters and set the global tracer and
+   meter providers, then register the hand-written `r.Use(TracingMiddleware)` on the Chi router.
+   It starts one span per request with `tracer.Start`.
+3. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://otel-collector:4318`) and
+   `OTEL_RESOURCE_ATTRIBUTES` in `.env` or `compose.yaml`.
+
+This example adds request spans without a contrib middleware, custom parking-lot metrics such as
+`parking_operations_total`, `parking_lot_occupancy` and `operation_duration_seconds`, and a
+resource built from `OTEL_RESOURCE_ATTRIBUTES`. The full guide is
+[Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go/).
 
 ## What's Instrumented
 

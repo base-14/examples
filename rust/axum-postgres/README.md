@@ -2,7 +2,26 @@
 
 A production-ready Rust web application demonstrating full OpenTelemetry instrumentation with Axum, SQLx, and PostgreSQL-native background jobs.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/rust)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/axum)
+
+## How to instrument Axum with OpenTelemetry
+
+1. Add `opentelemetry`, `opentelemetry_sdk` (features `rt-tokio`, `logs`), `opentelemetry-otlp`
+   (features `grpc-tonic`, `trace`, `logs`), `opentelemetry-appender-tracing`, `tracing`,
+   `tracing-subscriber`, `tracing-opentelemetry` and `tower-http` (feature `trace`) to
+   `Cargo.toml`.
+2. Call `init_telemetry(&config)` from `src/telemetry/init.rs` at the start of `main()`. It builds
+   an OTLP `SdkTracerProvider` and `SdkLoggerProvider`, then installs `OpenTelemetryLayer` and
+   `OpenTelemetryTracingBridge` on the `tracing_subscriber` registry. Add
+   `TraceLayer::new_for_http().make_span_with(HttpMakeSpan).on_response(HttpOnResponse)` to the
+   router so every request gets a span named `METHOD /path`.
+3. Set `OTEL_SERVICE_NAME=rust-axum-postgres` and
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` in `.env`.
+
+This example adds `#[instrument]` spans on service and repository functions, SQLx query events
+inside those spans, request IDs on HTTP spans, trace-correlated logs exported over OTLP, and a
+separate PostgreSQL-backed background worker binary. The full guide is
+[Axum OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/axum/).
 
 ## Stack Profile
 

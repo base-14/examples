@@ -11,7 +11,28 @@ logs.
 The frontend is **Angular 22 (zoneless)**. The instrumentation works the same on a
 zone.js app; see [Zoneless vs zone.js](#zoneless-vs-zonejs) below.
 
-> [Full Documentation](https://docs.base14.io/docs/instrument/apps/auto-instrumentation/angular)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/angular)
+
+## How to instrument Angular with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-trace-web`, `@opentelemetry/auto-instrumentations-web`,
+   `@opentelemetry/instrumentation`, `@opentelemetry/sdk-metrics`, `@opentelemetry/sdk-logs`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
+   `@opentelemetry/exporter-logs-otlp-http`, `@opentelemetry/resources`,
+   `@opentelemetry/semantic-conventions`, `@opentelemetry/api`, `@opentelemetry/api-logs` and
+   `web-vitals` in the Angular project.
+2. Call `initBrowserTelemetry()` in `frontend/src/main.ts` before `bootstrapApplication()`. It registers a
+   `WebTracerProvider`, sets a global `MeterProvider` and `LoggerProvider`, and calls
+   `registerInstrumentations()` with `getWebAutoInstrumentations()`.
+3. Set `otelCollectorUrl: 'http://localhost:4318'` and `otelServiceName: 'angular-browser'` in
+   `frontend/src/environments/environment.ts`. The Express backend reads
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` from `compose.yaml` and preloads its
+   Node SDK with `node -r ./dist/instrumentation.js`.
+
+This example adds W3C trace context propagation from the browser through an Express + Postgres
+API, Core Web Vitals as histogram metrics with tuned buckets, a `router.navigation` span per route
+change, and pino logs bridged to OTLP on the backend. The full guide is
+[Angular OpenTelemetry](https://docs.base14.io/instrument/apps/auto-instrumentation/angular/).
 
 ## Stack Profile
 
@@ -192,7 +213,7 @@ error lands. The HttpClient error interceptor (`error-interceptor.ts`) sidesteps
 this by capturing the active context synchronously on the request path and
 re-entering it when it emits, so failed-request logs reliably carry the trace id.
 See the
-[Angular instrumentation guide](https://docs.base14.io/docs/instrument/apps/auto-instrumentation/angular)
+[Angular instrumentation guide](https://docs.base14.io/instrument/apps/auto-instrumentation/angular)
 for the zone-based variant.
 
 ## Project Layout

@@ -3,7 +3,26 @@
 A production-ready example demonstrating Express 5 REST API with TypeScript, PostgreSQL, Redis,
 background jobs, WebSockets, and comprehensive OpenTelemetry instrumentation for end-to-end observability.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nodejs)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/express)
+
+## How to instrument Express 5 with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
+   `@opentelemetry/exporter-logs-otlp-http`, `@opentelemetry/sdk-logs`,
+   `@opentelemetry/resources`, `@opentelemetry/semantic-conventions` and `@opentelemetry/api`.
+2. Create `src/telemetry.ts` that builds a `NodeSDK` with `getNodeAutoInstrumentations()` and
+   the three OTLP exporters, then calls `sdk.start()`. Import it as the first line of
+   `src/index.ts` and `src/jobs/worker.ts` with `import './telemetry.js'`.
+3. Set `OTEL_SERVICE_NAME=express5-postgres-app` and
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in `.env`. The compose file points the
+   app at `http://otel-collector:4318` and adds `OTEL_RESOURCE_ATTRIBUTES` for environment
+   and namespace.
+
+This example adds pg query spans, BullMQ job trace propagation into a separate worker process,
+Socket.io WebSocket event spans and Pino logs with `traceId` and `spanId` injected. The full
+guide is
+[Express.js OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/express/).
 
 ## Stack Profile
 

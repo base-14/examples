@@ -5,6 +5,21 @@ River job queue (PostgreSQL-native), and comprehensive OpenTelemetry instrumenta
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
 
+## How to instrument Go Fiber with OpenTelemetry
+
+1. Add `github.com/gofiber/contrib/otelfiber/v2`, `github.com/XSAM/otelsql`,
+   `go.opentelemetry.io/contrib/bridges/otelslog`, `go.opentelemetry.io/otel/sdk` and the
+   `otlptracehttp`, `otlpmetrichttp` and `otlploghttp` exporters to `go.mod`.
+2. Register `app.Use(otelfiber.Middleware())` on the Fiber app and open the database with
+   `otelsql.Open("pgx", databaseURL, ...)`; `telemetry.Init` sets the global tracer, meter and
+   logger providers.
+3. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` in `.env` (`http://localhost:4318`)
+   or `compose.yaml` (`http://otel-collector:4318`).
+
+This example adds otelsql query spans and connection pool metrics, slog logs exported over OTLP
+through the otelslog bridge, a custom HTTP metrics middleware, and River background jobs. The full
+guide is [Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go/).
+
 ## Stack Profile
 
 | Component | Version | EOL Status | Current Version |

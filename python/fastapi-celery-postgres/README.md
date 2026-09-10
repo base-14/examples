@@ -3,7 +3,33 @@
 FastAPI + Celery reference application demonstrating **OpenTelemetry
 auto-instrumentation** and **unified observability** with base14 Scout.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/python)
+> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/celery)
+
+## How to instrument FastAPI and Celery with OpenTelemetry
+
+1. Install `opentelemetry-distro`, `opentelemetry-exporter-otlp`,
+   `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-celery`,
+   `opentelemetry-instrumentation-sqlalchemy`, `opentelemetry-instrumentation-redis` and
+   `opentelemetry-instrumentation-logging` from `pyproject.toml`.
+2. Run both processes under the `opentelemetry-instrument` CLI, as `compose.yaml` does with
+   `opentelemetry-instrument uvicorn app.main:app` and
+   `opentelemetry-instrument celery -A app.tasks.celery worker`. In code,
+   `setup_telemetry(app, engine)` from `app/telemetry/__init__.py` calls
+   `FastAPIInstrumentor.instrument_app(app, ...)`,
+   `SQLAlchemyInstrumentor().instrument(engine=engine, ...)`, `CeleryInstrumentor().instrument()`
+   and `RedisInstrumentor().instrument()`, and a `worker_process_init` handler repeats the
+   setup inside each Celery worker process.
+3. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_TRACES_EXPORTER=otlp`,
+   `OTEL_METRICS_EXPORTER=otlp`, `OTEL_LOGS_EXPORTER=otlp` and
+   `OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true` as in `.env.example` and
+   `compose.yaml`.
+
+This example adds trace propagation from the API into the task by calling `inject(headers)`
+and passing `headers` to `apply_async`, custom `process_task` and `heavy_processing` spans in
+the worker, and SQL comments on queries through the SQLAlchemy instrumentor's
+`enable_commenter` option. The full guide is
+[Celery OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/celery/).
 
 ## Stack Profile
 

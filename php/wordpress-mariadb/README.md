@@ -9,6 +9,28 @@ through `auto_prepend_file`, so the traces come from WordPress core and the
 Two deployment profiles are included, Apache + mod_php (default) and PHP-FPM +
 nginx (`--profile fpm`). Both produce the same spans.
 
+## How to instrument WordPress with OpenTelemetry
+
+1. Add `open-telemetry/sdk`, `open-telemetry/exporter-otlp`,
+   `open-telemetry/opentelemetry-auto-wordpress` and `open-telemetry/opentelemetry-auto-mysqli`
+   to `composer.json`. The Dockerfile runs `composer install` in a `composer:2` stage, copies
+   the result to `/opt/otel/vendor` outside the docroot, and builds the extension on the
+   `wordpress:7.0.4-php8.4-apache` image with `pecl install opentelemetry-1.2.1`.
+2. Copy `config/otel.ini` to `/usr/local/etc/php/conf.d/99-otel.ini`. It sets
+   `extension=opentelemetry.so` and `auto_prepend_file=/opt/otel/vendor/autoload.php`, so with
+   `OTEL_PHP_AUTOLOAD_ENABLED=true` the SDK and both instrumentation packages load before
+   WordPress core runs. No plugin is installed and no theme is changed.
+3. Point the SDK at the collector with `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_SERVICE_NAME=wordpress-mariadb-otel` and
+   `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER` set to `otlp`, all
+   in `compose.yaml`. `.env.example` holds the `SCOUT_*` values the collector exports with.
+
+This example adds `WP.*` spans for the stages of `WP::main()`, a `mysqli_query` child under every
+`wpdb.query`, a PHP-FPM + nginx profile whose pool keeps `clear_env = no` so workers see the
+`OTEL_*` variables, and a `service.instance.role` attribute that separates the Apache and FPM
+profiles. The full guide is
+[WordPress OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/wordpress/).
+
 ## Prerequisites
 
 - Docker and Docker Compose.

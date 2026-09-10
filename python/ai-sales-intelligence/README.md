@@ -4,6 +4,29 @@
 
 AI-powered sales intelligence agent demonstrating **unified observability** for AI applications using OpenTelemetry and Base14 Scout.
 
+## How to instrument LangGraph with OpenTelemetry
+
+1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`,
+   `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-sqlalchemy`,
+   `opentelemetry-instrumentation-httpx` and `opentelemetry-instrumentation-logging` from
+   `pyproject.toml`. No LangGraph-specific instrumentation package is used.
+2. Call `setup_telemetry(engine)` from `src/sales_intelligence/telemetry.py` before creating
+   the FastAPI app. It registers OTLP trace and metric exporters and calls
+   `HTTPXClientInstrumentor().instrument()`, `LoggingInstrumentor().instrument(...)` and
+   `SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)`. After creating the app,
+   call `instrument_fastapi(app)`. Each LangGraph node is wrapped in `src/sales_intelligence/graph.py` with
+   `tracer.start_as_current_span(f"invoke_agent {name}")` because there is no
+   auto-instrumentation for the graph itself.
+3. Set `OTEL_SERVICE_NAME=ai-sales-intelligence`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and `OTEL_ENABLED=true` as in
+   `compose.yaml` (`.env.example` uses `http://localhost:4318` for local runs).
+
+This example adds `gen_ai.chat {model}` spans with GenAI semantic convention attributes,
+token usage, duration, cost, retry and fallback metrics from `src/sales_intelligence/llm.py`, PII-scrubbed prompt and
+completion events, and custom HTTP request metrics from `src/sales_intelligence/middleware/metrics.py`. The full
+guide is
+[LangGraph OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/langgraph/).
+
 ## Why Unified Observability?
 
 Modern AI applications combine traditional infrastructure (HTTP, databases) with AI/LLM operations. Most teams use **fragmented tools**:

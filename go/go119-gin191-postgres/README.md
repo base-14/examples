@@ -2,7 +2,23 @@
 
 Go application with OpenTelemetry instrumentation.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/go)
+> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
+
+## How to instrument Go Gin with OpenTelemetry
+
+1. Add `github.com/gin-gonic/gin`,
+   `go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin`,
+   `go.opentelemetry.io/otel/sdk` and the `otlptracegrpc` and `otlpmetricgrpc` exporters to
+   `go.mod`. This example pins Go 1.19 with OTel 1.17 and otelgin 0.42.
+2. Call `telemetry.InitTelemetry(ctx)` to dial the collector over gRPC and set the global tracer
+   and meter providers, then register `router.Use(otelgin.Middleware(serviceName))` on the Gin
+   router.
+3. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` (`otel-collector:4317`, host and port
+   only) and `OTEL_RESOURCE_ATTRIBUTES` in `.env` or `compose.yaml`.
+
+This example adds a hand-written GORM callback tracer that emits a client span per query,
+handler-level spans for each user operation, and OTLP export over gRPC on port 4317. The full
+guide is [Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go/).
 
 ## Stack Profile
 

@@ -5,6 +5,23 @@ DB correlation, and log correlation.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails-legacy#ruby-30--rails-61)
 
+## How to instrument Rails 6.1 on Ruby 3.0 with OpenTelemetry
+
+1. Pin the last Ruby 3.0 compatible gems in the `Gemfile`: `opentelemetry-api` 1.4.0,
+   `opentelemetry-sdk` 1.7.0, `opentelemetry-exporter-otlp` 0.29.1,
+   `opentelemetry-instrumentation-rails` 0.34.1 and `opentelemetry-instrumentation-mysql2` 0.28.0.
+2. Create `config/initializers/opentelemetry.rb` that requires `opentelemetry/sdk` and
+   `opentelemetry/exporter/otlp`, then calls `OpenTelemetry::SDK.configure { |c| c.use_all }`.
+3. Set `OTEL_SERVICE_NAME=ruby30-rails61-mysql-otel`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and `OTEL_TRACES_EXPORTER=otlp` in `compose.yaml`;
+   `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER` are set to `none`.
+
+This example adds a custom `item.create` span with `item.title` and `item.id` attributes,
+`span.record_exception` with an error status on `RecordNotFound`, and MySQL2 query spans alongside
+ActiveRecord model spans. The full guide is
+[Rails Legacy OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails-legacy/).
+
 ## Why This Stack
 
 Ruby 3.0 reached EOL in March 2024, and Rails 6.1 in April

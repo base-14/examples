@@ -4,6 +4,29 @@
 
 Full-stack observability example using Elysia 1.4, Drizzle ORM, and the OTel Node SDK on Bun.
 
+## How to instrument Elysia on Bun with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node`, `@opentelemetry/instrumentation-pg`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
+   `@opentelemetry/exporter-logs-otlp-http`, `@opentelemetry/sdk-metrics`,
+   `@opentelemetry/sdk-logs`, `@opentelemetry/api`, `@opentelemetry/api-logs`,
+   `@opentelemetry/resources` and `@opentelemetry/semantic-conventions`.
+2. Create `app/src/tracing.ts` that builds a `NodeSDK` with
+   `instrumentations: [new PgInstrumentation({ requireParentSpan: true })]`, calls
+   `sdk.start()` and registers a global `LoggerProvider`. Preload it with
+   `bun run --preload ./src/tracing.ts ./src/index.ts`. HTTP server spans are created by hand
+   with `tracer.startActiveSpan()` in the route handlers and the `onError` hook, since
+   `auto-instrumentations-node` is not used on Bun.
+3. Set `OTEL_SERVICE_NAME=elysia-articles`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
+   `OTEL_METRIC_EXPORT_INTERVAL=10000` on the app service in `compose.yaml`. The exporters
+   default to `http://localhost:4318`.
+
+This example adds pg query spans, manual `propagation.inject()` on `fetch()` headers to a second
+notify service, OTel log records from `@opentelemetry/api-logs` with trace and span IDs and an
+`articles.created` counter. The full guide is
+[Elysia (Bun) OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/elysia/).
+
 ## Stack
 
 | Component | Version |

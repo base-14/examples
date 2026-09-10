@@ -6,6 +6,30 @@ AI-powered content quality analysis with eval-driven development and unified obs
 
 **Stack**: Python 3.14 · FastAPI · LlamaIndex · Promptfoo · OpenTelemetry · Base14 Scout
 
+## How to instrument LlamaIndex with OpenTelemetry
+
+1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`,
+   `opentelemetry-instrumentation-fastapi` and `opentelemetry-instrumentation-logging` from
+   `pyproject.toml`. No LlamaIndex-specific instrumentation package is used.
+2. Call `setup_telemetry(service_name=..., otlp_endpoint=...)` from
+   `src/content_quality/telemetry.py` at import time in `src/content_quality/main.py`, before the app is created.
+   It registers OTLP trace, metric and log exporters and `LoggingInstrumentor()`. After
+   creating the app, call `instrument_fastapi(app)`, which runs
+   `FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])`.
+   LlamaIndex LLM calls are wrapped by hand in `src/content_quality/services/llm.py` with
+   `tracer.start_as_current_span(f"gen_ai.chat {model_name}")`.
+3. Set `SERVICE_NAME=ai-content-quality` and `OTLP_ENDPOINT=http://otel-collector:4318` as in
+   `compose.yaml` (`.env.example` uses `http://localhost:4318` for local runs), plus
+   `OTEL_SDK_DISABLED=false` and `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false`.
+   This example reads its own `SERVICE_NAME` and `OTLP_ENDPOINT` variables rather than the
+   standard `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+This example adds GenAI semantic convention spans and metrics (`gen_ai.client.token.usage`,
+`gen_ai.client.operation.duration`, `gen_ai.client.cost`, retry and fallback counters), custom
+HTTP request metrics from `src/content_quality/middleware/metrics.py`, PII scrubbing of captured prompt and
+completion events, and OTLP logs correlated with traces. The full guide is
+[LlamaIndex OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/llamaindex/).
+
 ## Why Eval-Driven
 
 AI applications suffer from "prompt roulette" — teams iterate on prompts by gut feel, ship without quality gates, and have no visibility into LLM behavior in production. This project demonstrates an eval-driven workflow: systematic prompt evaluation with Promptfoo before deploy, CI quality gates blocking regressions, and full production observability through OpenTelemetry with traces spanning HTTP through LLM calls.

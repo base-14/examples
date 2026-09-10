@@ -6,6 +6,29 @@ add observability to PHP applications using Base14 Scout.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/slim)
 
+## How to instrument Slim 4 with OpenTelemetry
+
+1. Add `open-telemetry/sdk`, `open-telemetry/exporter-otlp`,
+   `open-telemetry/opentelemetry-auto-slim`, `open-telemetry/opentelemetry-auto-mongodb` and
+   `open-telemetry/opentelemetry-logger-monolog` to `composer.json`, then build the extensions in
+   the `php:8.4-fpm` stage of the Dockerfile with
+   `pecl install mongodb opentelemetry && docker-php-ext-enable mongodb opentelemetry`.
+2. Set `OTEL_PHP_AUTOLOAD_ENABLED=true`. The extension loads the SDK and the Slim and MongoDB
+   instrumentation from Composer's autoloader, so route and query spans need no application
+   code. `public/index.php` requires `src/telemetry.php`, which registers
+   `App\Telemetry\Shutdown` to flush telemetry when a PHP-FPM worker exits, and
+   `config/php-fpm.conf` sets `clear_env = no` so the `OTEL_*` variables reach the workers.
+3. Point the SDK at the collector with `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_SERVICE_NAME=php-slim4-mongodb-otel`,
+   `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER` set to `otlp`, and
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development,environment=development`,
+   as in `.env.example` and `compose.yaml`.
+
+This example adds MongoDB client spans under each route span, exception recording on the active
+span from the Slim error handler, Monolog log correlation through the
+`opentelemetry-logger-monolog` handler, and `app.*` business counters. The full guide is
+[Slim Framework OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/slim/).
+
 ## Stack Profile
 
 | Component | Version | Status | Notes |

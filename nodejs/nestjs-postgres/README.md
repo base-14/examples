@@ -6,6 +6,28 @@ OpenTelemetry instrumentation for end-to-end observability.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nestjs)
 
+## How to instrument NestJS with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node`, `@opentelemetry/instrumentation-http`,
+   `@opentelemetry/instrumentation-express`, `@opentelemetry/instrumentation-nestjs-core`,
+   `@opentelemetry/instrumentation-pg`, `@opentelemetry/instrumentation-ioredis`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
+   `@opentelemetry/exporter-logs-otlp-http`, `@opentelemetry/exporter-prometheus`,
+   `@opentelemetry/sdk-metrics`, `@opentelemetry/sdk-logs`, `@opentelemetry/api-logs`,
+   `@opentelemetry/resources` and `@opentelemetry/semantic-conventions`.
+2. `src/telemetry.ts` exports `setupTelemetry()`, which builds a `NodeSDK` with explicit
+   `HttpInstrumentation`, `ExpressInstrumentation`, `NestInstrumentation`, `PgInstrumentation`
+   and `IORedisInstrumentation` instances and calls `sdk.start()`. `src/instrumentation.ts`
+   calls it, and the app is started with `node --import ./dist/instrumentation.js dist/main.js`.
+3. Set `OTEL_SERVICE_NAME=nestjs-postgres-app`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
+   `OTEL_RESOURCE_ATTRIBUTES=service.version=1.0.0` in `.env`.
+
+This example adds NestJS controller and guard spans from `instrumentation-nestjs-core`, pg query
+spans with `enhancedDatabaseReporting`, BullMQ job trace propagation, a Socket.io gateway and a
+Prometheus `/metrics` endpoint alongside OTLP metrics. The full guide is
+[NestJS OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nestjs/).
+
 ## Stack Profile
 
 | Component         | Version  | Status | Notes                           |

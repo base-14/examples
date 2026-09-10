@@ -6,6 +6,26 @@ for CI and customer-environment use.
 
 > [Full documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/dotnet-aspire/)
 
+## How to instrument .NET Aspire with OpenTelemetry
+
+1. Add `OpenTelemetry.Extensions.Hosting`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
+   `OpenTelemetry.Instrumentation.AspNetCore`, `OpenTelemetry.Instrumentation.Http`,
+   `OpenTelemetry.Instrumentation.EntityFrameworkCore` and `OpenTelemetry.Instrumentation.Runtime`
+   to `ServiceDefaults/ServiceDefaults.csproj`, and reference that project from each service.
+2. Call `builder.AddServiceDefaults()` in each service's `Program.cs`. `ConfigureOpenTelemetry()`
+   in `ServiceDefaults/Extensions.cs` runs `builder.Services.AddOpenTelemetry()` with
+   `WithTracing(...)` and `WithMetrics(...)`, adds `builder.Logging.AddOpenTelemetry(...)`, and
+   calls `UseOtlpExporter()` when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+3. Set `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` and `OTEL_SERVICE_NAME`
+   per project. `AppHost/AppHost.cs` injects them with `WithEnvironment()` pointing at the
+   collector's gRPC endpoint, and `compose.yaml` sets them to `http://otel-collector:4317`.
+
+This example adds `traceparent` propagation from articles-api to notify-svc over HttpClient, EF
+Core query spans against PostgreSQL, a custom `ActivitySource` and `Meter` registered with
+`AddSource()` and `AddMeter()`, and an Aspire-managed collector container that forwards to base14
+Scout. The full guide is
+[.NET Aspire OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/dotnet-aspire/).
+
 ## Stack profile
 
 | Component | Version | Notes |

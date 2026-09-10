@@ -4,6 +4,23 @@
 
 Full-stack observability example using tRPC 11, Prisma 7, and the OTel Node SDK.
 
+## How to instrument tRPC with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node`,
+   `@opentelemetry/exporter-trace-otlp-grpc`, `@opentelemetry/exporter-metrics-otlp-grpc`,
+   `@opentelemetry/exporter-logs-otlp-grpc`, `@opentelemetry/api` and `@prisma/instrumentation`.
+2. Create `app/src/tracing.ts` that builds a `NodeSDK` with `getNodeAutoInstrumentations()`
+   (with `instrumentation-pino` enabled) plus `new PrismaInstrumentation()` and calls
+   `sdk.start()`. Preload it with `node --require ./dist/tracing.js ./dist/server.js`.
+3. Set `OTEL_SERVICE_NAME=trpc-articles`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317`
+   and `OTEL_METRIC_EXPORT_INTERVAL=10000` on the app service in `compose.yaml`. The exporters
+   use OTLP over gRPC and default to `http://localhost:4317`.
+
+This example adds Prisma query spans, Pino logs with `trace_id` and `span_id` injected, trace
+propagation over `fetch()` to a second notify service and an `articles.created` counter. The
+full guide is
+[tRPC OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/trpc/).
+
 ## Stack
 
 | Component | Version |

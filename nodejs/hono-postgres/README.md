@@ -6,6 +6,27 @@ instrumentation for end-to-end observability.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/hono)
 
+## How to instrument Hono with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node`, `@hono/otel`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
+   `@opentelemetry/exporter-logs-otlp-http`, `@opentelemetry/sdk-metrics`,
+   `@opentelemetry/sdk-logs`, `@opentelemetry/api-logs`, `@opentelemetry/resources` and
+   `@opentelemetry/semantic-conventions`.
+2. Create `src/telemetry.ts` that builds a `NodeSDK` with `getNodeAutoInstrumentations()` and
+   calls `sdk.start()`, and import it as the first line of `src/index.ts` and
+   `src/jobs/worker.ts` with `import './telemetry.js'`. In `src/app.ts`, register
+   `app.use('*', httpInstrumentationMiddleware())` from `@hono/otel` for route-level spans.
+3. Set `OTEL_SERVICE_NAME=hono-postgres-app` and
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in `.env`. The compose file points the
+   app at `http://otel-collector:4318` and adds `OTEL_RESOURCE_ATTRIBUTES` for environment
+   and namespace.
+
+This example adds route-parameterized HTTP spans from `@hono/otel`, pg query spans, BullMQ
+PRODUCER and CONSUMER spans across a separate worker service, Pino logs emitted as OTel log
+records with trace correlation and a Prometheus `/metrics` endpoint. The full guide is
+[Hono OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/hono/).
+
 ## Stack Profile
 
 | Component         | Version  | Status | Notes                           |

@@ -6,6 +6,26 @@ A comprehensive Go example demonstrating business-level decision making with Tem
 
 > **Note:** This is a demonstration application optimized for learning and telemetry exploration. See [Production Considerations](#production-considerations) for guidance on hardening for real-world use.
 
+## How to instrument Go Temporal with OpenTelemetry
+
+1. Add `go.temporal.io/sdk`, `go.temporal.io/sdk/contrib/opentelemetry`,
+   `go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho`,
+   `github.com/uptrace/opentelemetry-go-extra/otelgorm`,
+   `go.opentelemetry.io/contrib/bridges/otelslog`, `go.opentelemetry.io/otel/sdk` and the
+   `otlptracehttp`, `otlpmetrichttp` and `otlploghttp` exporters to `go.mod`.
+2. Create `opentelemetry.NewTracingInterceptor(opentelemetry.TracerOptions{...})` and pass it
+   in `worker.Options.Interceptors` to `worker.New`; the API registers
+   `e.Use(otelecho.Middleware(serviceName))` and the database layer calls
+   `db.Use(otelgorm.NewPlugin())`. `telemetry.Init` sets the global tracer, meter and logger
+   providers.
+3. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` per service in `compose.yaml`
+   (`http://otel-collector:4318`) or `.env` (`http://localhost:4318`).
+
+This example adds Temporal workflow and activity spans from the worker interceptor, GORM query
+spans, a separate service name for each worker (fraud, inventory, payment, shipping,
+notification), and slog logs exported over OTLP. The full guide is
+[Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go/).
+
 ## Business Use Case: Order Fulfillment Decision Engine
 
 This example implements an order fulfillment workflow with:

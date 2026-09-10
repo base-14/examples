@@ -4,6 +4,22 @@
 
 Articles CRUD API with distributed tracing, structured logging, and custom metrics — instrumented with the OTel Java Agent.
 
+## How to instrument Ktor with OpenTelemetry
+
+1. Add `io.opentelemetry:opentelemetry-api:1.48.0` to `app/build.gradle.kts` for custom metrics and
+   span attributes. HTTP, JDBC and Netty tracing come from the OpenTelemetry Java agent, which
+   needs no code dependency.
+2. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (`OTEL_AGENT_VERSION=2.28.1`) and
+   sets `JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"`. There is no
+   `install(...)` telemetry plugin in `app/src/main/kotlin/com/example/Application.kt`; the agent instruments Ktor at startup.
+3. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://otel-collector:4318`),
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and `OTEL_LOGS_EXPORTER=otlp` in `compose.yaml`.
+
+This example adds a custom `articles.created` counter through `GlobalOpenTelemetry.getMeter`,
+attributes on the current span in route handlers, JSON logs exported over OTLP by the agent,
+and a second `notify` service called over `java.net.http.HttpClient`. The full guide is
+[Ktor OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/ktor/).
+
 ## Stack
 
 | Component | Version |

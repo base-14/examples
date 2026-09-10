@@ -6,6 +6,25 @@ AI-powered contract analysis pipeline demonstrating **multi-stage LLM observabil
 
 **Stack**: Bun 1.2 · Hono 4 · Vercel AI SDK 6 · Anthropic / Google / Ollama · PostgreSQL 18 + pgvector · OpenTelemetry
 
+## How to instrument Vercel AI SDK with OpenTelemetry
+
+1. Install `ai` and a provider package (`@ai-sdk/anthropic`, `@ai-sdk/google`, `@ai-sdk/openai` or
+   `ollama-ai-provider`), plus `@opentelemetry/sdk-node`, `@opentelemetry/api`,
+   `@opentelemetry/instrumentation-pg`, `@opentelemetry/sdk-metrics`, `@opentelemetry/sdk-logs`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http` and
+   `@opentelemetry/exporter-logs-otlp-http`.
+2. Preload `src/telemetry.ts` with `bun run --preload ./src/telemetry.ts src/index.ts`; it starts
+   a `NodeSDK` with OTLP trace and metric exporters and `PgInstrumentation`. Wrap each model with
+   `withSemconv()` from `src/llm/middleware.ts`, which uses the AI SDK `wrapLanguageModel()` to open
+   a `gen_ai.chat {model}` span around every call.
+3. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`, `OTEL_SERVICE_NAME=ai-contract-analyzer`
+   and `OTEL_ENABLED=true` in `.env`.
+
+This example adds GenAI semantic convention span attributes and events, `gen_ai.client.*` metrics
+for token usage, cost, duration and retries, a span per pipeline stage, and provider fallback. The
+full guide is
+[Vercel AI SDK OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/vercel-ai-sdk/).
+
 ---
 
 ## Why Multi-Stage Observability?

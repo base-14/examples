@@ -6,6 +6,26 @@ Conversational AI customer support agent with RAG retrieval, tool calling, inten
 
 **Java 25 | Spring Boot 4.0.3 | Spring AI 2.0 | WebFlux | pgvector | OTel Java Agent**
 
+## How to instrument Spring AI with OpenTelemetry
+
+1. Add `spring-ai-starter-model-openai` (plus the `anthropic` and `ollama` starters) and
+   `spring-ai-starter-vector-store-pgvector` from `spring-ai-bom` 2.0.0, together with
+   `spring-boot-starter-actuator`, `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp`
+   and `opentelemetry-api`, to `build.gradle`.
+2. Run under the OpenTelemetry Java agent. The `Dockerfile` downloads `opentelemetry-javaagent.jar`
+   (2.31.1) and starts the app with `-javaagent:/app/opentelemetry-javaagent.jar`. Spring AI's
+   ChatModel and VectorStore observations flow through Micrometer, and
+   `spring.ai.chat.observations.include-input` / `include-output` control prompt capture.
+3. Set `OTEL_SERVICE_NAME=ai-customer-support` and
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in `.env` (copied from `.env.example`);
+   `application.yml` derives `management.otlp.tracing.endpoint` and
+   `management.otlp.metrics.export.url` from the same variable.
+
+This example adds manual `gen_ai.chat` spans carrying `gen_ai.usage.input_tokens`,
+`gen_ai.usage.output_tokens` and `gen_ai.usage.cost_usd`, a `gen_ai.client.token.usage` histogram,
+RAG retrieval over pgvector, and `support.*` metrics for escalations and tool calls. The full guide
+is [Spring AI OpenTelemetry Instrumentation](https://docs.base14.io/guides/ai-observability/spring-ai-llm-observability/).
+
 ## Architecture
 
 ```

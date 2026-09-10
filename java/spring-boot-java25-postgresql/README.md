@@ -5,6 +5,26 @@ Spring Boot 3.5.9 application with OpenTelemetry instrumentation using the
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
 
+## How to instrument Spring Boot with OpenTelemetry
+
+1. Add `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` and
+   `io.micrometer:micrometer-tracing-bridge-otel` to `build.gradle`, with versions managed by the
+   `opentelemetry-instrumentation-bom` (2.30.0) platform.
+2. Enable the starter in `application.properties` with
+   `otel.java.global-autoconfigure.enabled=true`, `otel.instrumentation.jdbc.enabled=true`,
+   `otel.instrumentation.spring-webmvc.enabled=true` and
+   `otel.instrumentation.logback-appender.enabled=true`. No `-javaagent` flag is used.
+3. Point the exporter at the collector in `compose.yaml` with
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and
+   `OTEL_RESOURCE_ATTRIBUTES=service.name=java-spring-boot-otel,...`, which override the
+   `otel.exporter.otlp.*` defaults in `application.properties`.
+
+This example adds JDBC and JPA query spans against PostgreSQL with statement sanitizing, Logback log
+records exported over OTLP with trace correlation, Actuator with all Micrometer metrics enabled, and
+W3C trace propagation. The full guide is
+[Spring Boot OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot/).
+
 ## Instrumentation Approach
 
 This example uses **OpenTelemetry SDK Integration** (production-ready):

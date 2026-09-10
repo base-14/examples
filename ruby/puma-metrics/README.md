@@ -1,6 +1,6 @@
 # Puma Metrics with OpenTelemetry
 
-> 📚 [Full Documentation](https://docs.base14.io/category/app-instrumentation)
+> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails)
 
 A minimal example showing how to expose Puma runtime metrics (threads, workers,
 backlog, etc.) from a Ruby web server and ship them to

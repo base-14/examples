@@ -6,6 +6,25 @@ Economic report generation pipeline that retrieves FRED indicator data from Post
 
 **Rust 1.92 | Axum | async-openai | tracing + OTel SDK | PostgreSQL**
 
+## How to instrument async-openai LLM calls in Rust with OpenTelemetry
+
+1. Add `async-openai`, `opentelemetry`, `opentelemetry_sdk` (features `rt-tokio`, `logs`,
+   `metrics`), `opentelemetry-otlp` (features `grpc-tonic`, `trace`, `logs`, `metrics`),
+   `opentelemetry-appender-tracing`, `tracing`, `tracing-subscriber` and `tracing-opentelemetry`
+   to `Cargo.toml`.
+2. Call `init_telemetry(&config)` from `src/telemetry/init.rs` at the start of `main()`. It builds
+   OTLP tracer, meter and logger providers and installs `OpenTelemetryLayer` and
+   `OpenTelemetryTracingBridge` on the `tracing_subscriber` registry. `LlmClient` in
+   `src/llm/client.rs` opens a `gen_ai.chat {model}` span around each chat completion and records
+   the response model, token counts and cost on it.
+3. Set `OTEL_SERVICE_NAME=ai-report-generator` and
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` in `.env`.
+
+This example adds GenAI semantic convention span attributes and message events, `gen_ai.client.*`
+metrics for token usage, cost, duration, retries and fallbacks, a span per pipeline stage, and
+retry with provider fallback. The full guide is
+[Rust LLM Observability with OpenTelemetry](https://docs.base14.io/guides/ai-observability/rust-llm-observability/).
+
 ## Architecture
 
 ```

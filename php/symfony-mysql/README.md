@@ -7,6 +7,29 @@ demonstrating distributed tracing, trace-log correlation, structured
 logging, and custom metrics via OpenTelemetry. Exports to
 [Base14 Scout][scout] observability platform.
 
+## How to instrument Symfony with OpenTelemetry
+
+1. Add `open-telemetry/sdk`, `open-telemetry/exporter-otlp`,
+   `open-telemetry/opentelemetry-auto-symfony`, `open-telemetry/opentelemetry-auto-pdo`,
+   `open-telemetry/opentelemetry-auto-psr18` and `open-telemetry/opentelemetry-auto-psr3` to
+   `app/composer.json`, then build the `opentelemetry` PHP extension in `app/Dockerfile` with
+   `pecl install opentelemetry && docker-php-ext-enable opentelemetry`.
+2. Set `OTEL_PHP_AUTOLOAD_ENABLED=true`. The extension loads the SDK and the auto-instrumentation
+   packages when Composer's autoloader runs, so no bundle is registered in `app/config/bundles.php`.
+   `app/config/services.yaml` exposes `TracerProviderInterface` and `MeterProviderInterface` through
+   `OpenTelemetry\API\Globals` factories for autowiring, and tags
+   `App\Service\OtelTraceProcessor` as a Monolog processor.
+3. Point the SDK at the collector with `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_SERVICE_NAME=symfony-articles` and
+   `OTEL_PHP_PSR3_MODE=export` from `.env.example`. `compose.yaml` also sets
+   `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER` to `otlp`.
+
+This example adds Doctrine query spans through the PDO instrumentation, W3C `traceparent`
+propagation to a separate `symfony-notify` service, log export over OTLP with `trace_id` and
+`span_id` on every record, and an `articles.created` counter from the Meter API. The full guide
+is
+[Symfony OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/symfony/).
+
 ## Stack Profile
 
 | Component | Version | EOL Status | Notes |

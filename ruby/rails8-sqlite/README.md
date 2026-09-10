@@ -5,6 +5,21 @@ metrics, and logs.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails)
 
+## How to instrument Rails with OpenTelemetry
+
+1. Add `opentelemetry-sdk`, `opentelemetry-exporter-otlp` and `opentelemetry-instrumentation-all`
+   to the `Gemfile` and run `bundle install`.
+2. Create `config/initializers/opentelemetry.rb` that requires `opentelemetry/sdk`,
+   `opentelemetry/exporter/otlp` and `opentelemetry/instrumentation/all`, then calls
+   `OpenTelemetry::SDK.configure { |c| c.use_all }`.
+3. Set `OTEL_SERVICE_NAME=ruby-rails8-sqlite-otel`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and `OTEL_TRACES_EXPORTER=otlp` in `compose.yaml`.
+
+This example adds ActiveRecord, Active Job and Action Pack spans from the `all` bundle, and a Rails
+logger formatter that prefixes every log line with `trace_id` and `span_id` for correlation. The
+full guide is [Rails OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/rails/).
+
 ## What's Instrumented
 
 - HTTP requests and responses

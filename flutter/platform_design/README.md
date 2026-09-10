@@ -1,5 +1,7 @@
 # Platform Design
 
+> [Full Documentation](https://docs.base14.io/instrument/mobile/flutter/)
+
 Instead of transliterating widgets one by one between Cupertino and Material,
 Android and iOS apps often follow different information architecture patterns
 that require some design decisions.

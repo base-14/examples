@@ -6,6 +6,29 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/laravel)
 
+## How to instrument Laravel 13 with OpenTelemetry
+
+1. Add `open-telemetry/sdk`, `open-telemetry/exporter-otlp`,
+   `open-telemetry/opentelemetry-auto-laravel`, `open-telemetry/opentelemetry-auto-psr18`,
+   `open-telemetry/opentelemetry-logger-monolog` and `mismatch/opentelemetry-auto-redis` to
+   `composer.json`, then build the `opentelemetry` PHP extension in the Dockerfile with
+   `pecl install opentelemetry && docker-php-ext-enable opentelemetry`.
+2. Set `OTEL_PHP_AUTOLOAD_ENABLED=true`. The extension then loads the SDK and the
+   auto-instrumentation packages from Composer's autoloader on every request, so HTTP, Eloquent,
+   Redis and Guzzle spans need no Laravel code. `App\Providers\TelemetryServiceProvider`,
+   registered in `bootstrap/providers.php`, flushes telemetry on shutdown and on SIGTERM.
+3. Point the SDK at the collector with `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_SERVICE_NAME=php-laravel13-postgres-otel`
+   and `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER` set to `otlp`,
+   as in `.env.example` and `compose.yaml`. The collector forwards to Scout using the `SCOUT_*`
+   variables.
+
+This example adds queue job tracing with a span link from the HTTP request to the worker, a
+`service.instance.role` resource attribute that separates web and worker telemetry, an `otlp`
+Monolog log channel that exports logs with trace context, and a telemetry flush on SIGTERM. The
+full guide is
+[Laravel OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/laravel/).
+
 ## Stack Profile
 
 | Component | Version | EOL Status | Notes |
@@ -66,7 +89,7 @@ PostgreSQL integration, and Base14 Scout observability platform integration.
 | tymon/jwt-auth | 2.0 | JWT authentication |
 | open-telemetry/sdk | 1.6+ | Telemetry SDK |
 | open-telemetry/exporter-otlp | 1.3+ | OTLP exporter |
-| open-telemetry/opentelemetry-auto-laravel | 1.2+ | Auto-instrumentation |
+| open-telemetry/opentelemetry-auto-laravel | 1.7+ | Auto-instrumentation |
 | mismatch/opentelemetry-auto-redis | 0.3+ | Redis auto-instrumentation |
 | OTel Collector | 0.144.0 | Telemetry pipeline |
 
@@ -303,7 +326,7 @@ Prometheus-compatible metrics at `/api/metrics`:
   "require": {
     "open-telemetry/sdk": "^1.6",
     "open-telemetry/exporter-otlp": "^1.3",
-    "open-telemetry/opentelemetry-auto-laravel": "^1.2",
+    "open-telemetry/opentelemetry-auto-laravel": "^1.7",
     "open-telemetry/opentelemetry-auto-psr18": "^1.1"
   }
 }

@@ -4,6 +4,21 @@ A production-ready Go REST API demonstrating Echo framework with GORM ORM, Asynq
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
 
+## How to instrument Go Echo with OpenTelemetry
+
+1. Add `go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho`,
+   `github.com/uptrace/opentelemetry-go-extra/otelgorm`, `go.opentelemetry.io/otel/sdk` and the
+   `otlptracehttp` and `otlpmetrichttp` exporters to `go.mod`.
+2. Register `e.Use(otelecho.Middleware(serviceName))` on the Echo instance and
+   `db.Use(otelgorm.NewPlugin())` on the GORM connection; `telemetry.Init` builds the exporters
+   and calls `otel.SetTracerProvider` and `otel.SetMeterProvider`.
+3. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://otel-collector:4318`) in
+   `.env` or `compose.yaml`.
+
+This example adds GORM query spans, a custom HTTP metrics middleware, and trace context propagation
+into Asynq background jobs. The full guide is
+[Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go/).
+
 ## Stack Profile
 
 | Component | Version | EOL Status | Current Version |

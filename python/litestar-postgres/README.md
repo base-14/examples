@@ -1,8 +1,33 @@
 # Litestar + PostgreSQL — OpenTelemetry walkthrough
 
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/litestar/)
+
 A two-service Python example that shows what end-to-end observability looks
 like in practice. The point is not the CRUD app — it's *what you see in your
 collector* when traffic flows through it.
+
+## How to instrument Litestar with OpenTelemetry
+
+1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp`,
+   `opentelemetry-distro`, `opentelemetry-instrumentation`,
+   `opentelemetry-instrumentation-asgi`, `opentelemetry-instrumentation-sqlalchemy`,
+   `opentelemetry-instrumentation-httpx`, `opentelemetry-instrumentation-asyncpg` and
+   `opentelemetry-instrumentation-logging` from `app/pyproject.toml`.
+2. Start the server under the `opentelemetry-instrument` CLI, as the `app/Dockerfile` CMD does
+   with `opentelemetry-instrument uvicorn src.main:app`. Litestar has its own router, so the
+   generic ASGI patch does not produce server spans. `app/src/main.py` therefore registers
+   `OpenTelemetryPlugin(config=OpenTelemetryConfig())` from `litestar.contrib.opentelemetry`
+   and `compose.yaml` sets `OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=asgi`.
+3. Set `OTEL_SERVICE_NAME=litestar-postgres-app`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_PYTHON_LOG_CORRELATION=true` and
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=development,...` as in `compose.yaml`
+   and `.env.example`. No SDK setup code is needed in the app.
+
+This example adds asyncpg query spans, a distributed trace across two Litestar services
+through httpx context propagation, an `articles.created` counter from `app/src/telemetry.py`
+and JSON logs carrying `trace_id` and `span_id`. The full guide is
+[Litestar OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/litestar/).
 
 ## What this example demonstrates
 

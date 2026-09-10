@@ -4,7 +4,27 @@ FastAPI application with automatic OpenTelemetry instrumentation,
 JWT authentication, and PostgreSQL integration with base14 Scout.
 
 > 📚 [Full Documentation](
-> <https://docs.base14.io/instrument/apps/custom-instrumentation/python>)
+> <https://docs.base14.io/instrument/apps/auto-instrumentation/fast-api>)
+
+## How to instrument FastAPI with OpenTelemetry
+
+1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp`,
+   `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-sqlalchemy` and
+   `opentelemetry-instrumentation-requests` from `requirements.txt`.
+2. Call `setup_telemetry()` from `app/telemetry.py` at the top of `app/main.py` to register
+   OTLP trace and metric exporters, then call
+   `FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])`
+   and `RequestsInstrumentor().instrument()`. `app/database.py` calls
+   `SQLAlchemyInstrumentor().instrument(engine=engine)` on the engine it creates.
+3. Set `OTEL_SERVICE_NAME=fastapi-postgres-app`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=development,...` as in `.env.example`
+   and `compose.yaml`. The exporters read these variables directly.
+
+This example adds SQLAlchemy query spans, a custom `http_requests_total` counter from
+`app/MetricsMiddleware.py`, outbound `requests` spans and a health endpoint excluded from
+tracing. The full guide is
+[FastAPI OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/fast-api/).
 
 ## Stack Profile
 

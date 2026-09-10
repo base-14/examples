@@ -2,7 +2,23 @@
 
 Production-ready Quarkus REST API with built-in OpenTelemetry instrumentation, JWT authentication, and PostgreSQL integration with base14 Scout.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/java)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/quarkus)
+
+## How to instrument Quarkus with OpenTelemetry
+
+1. Add the `io.quarkus:quarkus-opentelemetry` extension to `pom.xml`, next to `quarkus-rest`,
+   `quarkus-hibernate-orm-panache` and `quarkus-jdbc-postgresql`.
+2. Turn on the signals in `application.properties` with `quarkus.otel.traces.enabled=true`,
+   `quarkus.otel.metrics.enabled=true` and `quarkus.otel.logs.enabled=true`, and set
+   `quarkus.otel.service.name=${quarkus.application.name}`. No agent or code is needed.
+3. Set `quarkus.otel.exporter.otlp.endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}`
+   and `quarkus.otel.exporter.otlp.protocol=http/protobuf` in `application.properties`;
+   `compose.yaml` and `.env.example` supply `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+This example adds custom counters (`articles.created`, `favorites.added`) built from
+`GlobalOpenTelemetry.getMeter`, Hibernate ORM Panache query spans, and JWT-authenticated endpoints
+traced end to end. The full guide is
+[Quarkus OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/quarkus/).
 
 ## Stack Profile
 

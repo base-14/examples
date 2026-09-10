@@ -2,7 +2,24 @@
 
 A production-ready ASP.NET Core 9 REST API demonstrating full OpenTelemetry instrumentation with Minimal APIs, Entity Framework Core, and Azure SQL Edge.
 
-> [Full Documentation](https://docs.base14.io/instrument/apps/custom-instrumentation/dotnet)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/dotnet)
+
+## How to instrument ASP.NET Core with OpenTelemetry
+
+1. Add `OpenTelemetry.Extensions.Hosting`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
+   `OpenTelemetry.Instrumentation.AspNetCore`, `OpenTelemetry.Instrumentation.Http`,
+   `OpenTelemetry.Instrumentation.SqlClient` and `OpenTelemetry.Instrumentation.Runtime` to
+   `src/Api/Api.csproj`.
+2. Call `builder.AddTelemetry()` in `src/Api/Program.cs`. `src/Api/Telemetry/TelemetrySetup.cs`
+   runs `builder.Services.AddOpenTelemetry()` with `WithTracing(...)` and `WithMetrics(...)`, each
+   ending in `AddOtlpExporter()`, and adds `builder.Logging.AddOpenTelemetry(...)` for logs.
+3. Set `OTEL_SERVICE_NAME=dotnet-sqlserver` and `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317`
+   in `.env`.
+
+This example adds SqlClient spans for EF Core queries against Azure SQL Edge, custom
+`ActivitySource` spans in the auth, article and job queue services, trace-based metric exemplars,
+and a separately instrumented background worker. The full guide is
+[ASP.NET Core OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/dotnet/).
 
 ## Stack Profile
 

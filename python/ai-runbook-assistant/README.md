@@ -7,6 +7,31 @@ end with OpenTelemetry and viewable in [Base14 Scout](https://base14.io).
 The focus is how you instrument LangChain with OpenTelemetry, and the trade-offs between
 the two ways to do it.
 
+## How to instrument LangChain with OpenTelemetry
+
+1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`,
+   `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-sqlalchemy`,
+   `opentelemetry-instrumentation-httpx`, `opentelemetry-instrumentation-logging` and
+   `opentelemetry-instrumentation-langchain` (OpenLLMetry) from `pyproject.toml`.
+2. Call `setup_telemetry(engine=engine)` from `src/runbook_assistant/telemetry/setup.py` in
+   the FastAPI lifespan. It registers OTLP trace, metric and log exporters and the httpx,
+   logging and SQLAlchemy instrumentors, then picks the LangChain mode from
+   `INSTRUMENTATION_MODE`: `auto` calls `LangchainInstrumentor().instrument()`, `callback`
+   passes an `OTelCallbackHandler` to the agent through `config={"callbacks": [...]}`.
+   `instrument_fastapi(app)` then calls
+   `FastAPIInstrumentor.instrument_app(app, excluded_urls="healthz,readyz")`.
+3. Set `OTEL_SERVICE_NAME=ai-runbook-assistant`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
+   `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental` and
+   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false` as in `.env.example` and
+   `compose.yaml`.
+
+This example adds a hand-written callback handler emitting OTel GenAI semantic convention
+spans, `gen_ai.client.token.usage`, `gen_ai.client.operation.duration` and `gen_ai.client.cost`
+metrics, OTLP logs correlated with the active trace, and PII scrubbing of captured prompt
+content. The full guide is
+[LangChain OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/langchain/).
+
 ## What you will learn
 
 - How a LangChain callback handler maps onto OTel spans, metrics, and events, and why

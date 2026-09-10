@@ -10,6 +10,29 @@ instrumentation for end-to-end observability.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/express)
 
+## How to instrument Express with OpenTelemetry
+
+1. Install `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node`,
+   `@opentelemetry/instrumentation-mongoose`, `@opentelemetry/instrumentation-winston`,
+   `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
+   `@opentelemetry/exporter-logs-otlp-http`, `@opentelemetry/sdk-logs`,
+   `@opentelemetry/api-logs`, `@opentelemetry/resources` and
+   `@opentelemetry/semantic-conventions`.
+2. `src/telemetry.ts` exports `setupTelemetry()`, which builds a `NodeSDK` with
+   `getNodeAutoInstrumentations()` plus `MongooseInstrumentation` and
+   `WinstonInstrumentation` and calls `sdk.start()`. `src/instrumentation.ts`
+   calls it, and the app is started with
+   `node --import ./dist/instrumentation.js dist/index.js`.
+3. Set `OTEL_SERVICE_NAME=express-mongodb-app`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=development,environment=development,service.version=1.0.0`
+   in `.env`.
+
+This example adds MongoDB and Mongoose query spans, Winston log records with
+trace correlation, Socket.io WebSocket event spans and BullMQ job propagation.
+The full guide is
+[Express.js OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/express/).
+
 ## Stack Profile
 
 | Component         | Version  | Status | Notes                             |

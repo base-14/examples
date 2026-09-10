@@ -5,6 +5,24 @@
 End-to-end observability example using only the Go standard library
 `net/http`, `pgx` for PostgreSQL, and the OTel Go SDK.
 
+## How to instrument Go net/http with OpenTelemetry
+
+1. Add `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp`,
+   `github.com/exaring/otelpgx`, `go.opentelemetry.io/contrib/bridges/otelslog`,
+   `go.opentelemetry.io/otel/sdk` and the `otlptracehttp`, `otlpmetrichttp` and `otlploghttp`
+   exporters to `go.mod`.
+2. Wrap the mux with `otelhttp.NewHandler(mux, "http.server", ...)`, set
+   `cfg.ConnConfig.Tracer = otelpgx.NewTracer()` on the pgx pool config, and use
+   `otelhttp.NewTransport` for outbound calls; `initTelemetry` sets the global tracer, meter
+   and logger providers.
+3. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://otel-collector:4318`) in
+   `compose.yaml`; `OTEL_RESOURCE_ATTRIBUTES` carries `deployment.environment` and
+   `service.namespace`.
+
+This example adds pgx query spans, slog logs exported over OTLP through the otelslog bridge, a
+custom `articles.created` counter, and trace propagation to a second `notify` service. The full
+guide is [Go stdlib OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go-stdlib-postgres/).
+
 ## Stack
 
 | Component | Version |
