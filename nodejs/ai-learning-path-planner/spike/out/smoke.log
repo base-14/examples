@@ -1,0 +1,52 @@
+
+=== RUN label=smoke catalogue=deferred lead=qwen3.5:9B sub=gemma4:e2b wall=29439ms
+
+--- SPAN TREE ---
+TRACE b4fdc53949b1b5cd427f155ded63a82a
+  - base14.plan.run  [29425ms] base14.agent.role=lead
+    - invoke_agent qwen3.5:9B  [29418ms] gen_ai.usage.input_tokens=1173 gen_ai.usage.output_tokens=140 gen_ai.operation.name=invoke_agent gen_ai.request.model=qwen3.5:9B base14.spike.span_type=operation
+      - step 1  [18249ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+        - chat qwen3.5:9B  [9588ms] gen_ai.usage.input_tokens=507 gen_ai.usage.output_tokens=38 gen_ai.operation.name=chat gen_ai.request.model=qwen3.5:9B base14.spike.span_type=languageModel
+        - execute_tool research_subtopic  [8656ms] gen_ai.operation.name=execute_tool base14.spike.span_type=tool
+          - invoke_agent gemma4:e2b  [6732ms] gen_ai.usage.input_tokens=327 gen_ai.usage.output_tokens=46 gen_ai.operation.name=invoke_agent gen_ai.request.model=gemma4:e2b base14.spike.span_type=operation
+            - step 1  [6727ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+              - chat gemma4:e2b  [6724ms] gen_ai.usage.input_tokens=327 gen_ai.usage.output_tokens=46 gen_ai.operation.name=chat gen_ai.request.model=gemma4:e2b base14.spike.span_type=languageModel
+          - invoke_agent gemma4:e2b  [7723ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=42 gen_ai.operation.name=invoke_agent gen_ai.request.model=gemma4:e2b base14.spike.span_type=operation
+            - step 1  [7720ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+              - chat gemma4:e2b  [7719ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=42 gen_ai.operation.name=chat gen_ai.request.model=gemma4:e2b base14.spike.span_type=languageModel
+          - invoke_agent gemma4:e2b  [8651ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=38 gen_ai.operation.name=invoke_agent gen_ai.request.model=gemma4:e2b base14.spike.span_type=operation
+            - step 1  [8647ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+              - chat gemma4:e2b  [8647ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=38 gen_ai.operation.name=chat gen_ai.request.model=gemma4:e2b base14.spike.span_type=languageModel
+      - step 2  [11162ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+        - chat qwen3.5:9B  [11162ms] gen_ai.usage.input_tokens=666 gen_ai.usage.output_tokens=102 gen_ai.operation.name=chat gen_ai.request.model=qwen3.5:9B base14.spike.span_type=languageModel
+TRACE COUNT: 1
+
+--- LEAD USAGE ---
+totalUsage: {"inputTokens":1173,"inputTokenDetails":{},"outputTokens":140,"outputTokenDetails":{},"totalTokens":1313}
+stepUsages: [{"inputTokens":507,"inputTokenDetails":{},"outputTokens":38,"outputTokenDetails":{},"totalTokens":545},{"inputTokens":666,"inputTokenDetails":{},"outputTokens":102,"outputTokenDetails":{},"totalTokens":768}]
+
+--- SUBAGENT RESULTS ---
+{"subtopic":"collector-config","structuredOk":true,"structuredError":null,"totalUsage":{"inputTokens":326,"inputTokenDetails":{},"outputTokens":38,"outputTokenDetails":{},"totalTokens":364},"stepUsages":[{"inputTokens":326,"inputTokenDetails":{},"outputTokens":38,"outputTokenDetails":{},"totalTokens":364}],"structured":{"subtopic":"collector-config","summary":"The collector configuration is used to define settings for data collection.","citations":["docs/collector-config.md"]}}
+{"subtopic":"django-tracing","structuredOk":true,"structuredError":null,"totalUsage":{"inputTokens":326,"inputTokenDetails":{},"outputTokens":42,"outputTokenDetails":{},"totalTokens":368},"stepUsages":[{"inputTokens":326,"inputTokenDetails":{},"outputTokens":42,"outputTokenDetails":{},"totalTokens":368}],"structured":{"subtopic":"django-tracing","summary":"django-tracing is a package that helps in tracing requests through a Django application.","citations":["django-tracing/installation.md"]}}
+{"subtopic":"scout-dashboards","structuredOk":true,"structuredError":null,"totalUsage":{"inputTokens":327,"inputTokenDetails":{},"outputTokens":46,"outputTokenDetails":{},"totalTokens":373},"stepUsages":[{"inputTokens":327,"inputTokenDetails":{},"outputTokens":46,"outputTokenDetails":{},"totalTokens":373}],"structured":{"subtopic":"scout-dashboards","summary":"Scout dashboards provide a centralized view of various data sources for monitoring and analysis.","citations":["docs/scout-dashboards.md"]}}
+
+--- ENRICHSPAN CALLS ---
+counts by spanType: {"operation":4,"step":5,"languageModel":5,"tool":1}
+arg keys: ["spanType","operationId","callId","runtimeContext"]
+sample: [{"spanType":"operation","operationId":"ai.streamText","callId":"call-LBMzItmAUpVzK1xlevTNPY5l","runtimeContext":{},"argKeys":["spanType","operationId","callId","runtimeContext"]},{"spanType":"step","operationId":"ai.streamText","callId":"call-LBMzItmAUpVzK1xlevTNPY5l","runtimeContext":{},"argKeys":["spanType","operationId","callId","runtimeContext"]},{"spanType":"languageModel","operationId":"ai.streamText","callId":"call-LBMzItmAUpVzK1xlevTNPY5l","runtimeContext":{},"argKeys":["spanType","operationId","callId","runtimeContext"]}]
+
+--- SPAN TOKEN ATTRIBUTES ---
+chat qwen3.5:9B {"gen_ai.usage.input_tokens":507,"gen_ai.usage.output_tokens":38}
+chat gemma4:e2b {"gen_ai.usage.input_tokens":327,"gen_ai.usage.output_tokens":46}
+invoke_agent gemma4:e2b {"gen_ai.usage.input_tokens":327,"gen_ai.usage.output_tokens":46}
+chat gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":42}
+invoke_agent gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":42}
+chat gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":38}
+invoke_agent gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":38}
+chat qwen3.5:9B {"gen_ai.usage.input_tokens":666,"gen_ai.usage.output_tokens":102}
+invoke_agent qwen3.5:9B {"gen_ai.usage.input_tokens":1173,"gen_ai.usage.output_tokens":140}
+
+--- ALL ATTRIBUTE KEYS SEEN ---
+["ai.response.providerMetadata","base14.agent.role","base14.spike.span_type","base14.tool.catalogue","gen_ai.agent.name","gen_ai.client.operation.duration","gen_ai.client.operation.time_per_output_chunk","gen_ai.client.operation.time_to_first_chunk","gen_ai.execute_tool.duration","gen_ai.input.messages","gen_ai.operation.name","gen_ai.output.messages","gen_ai.provider.name","gen_ai.request.model","gen_ai.response.finish_reasons","gen_ai.response.id","gen_ai.response.model","gen_ai.system_instructions","gen_ai.tool.call.arguments","gen_ai.tool.call.id","gen_ai.tool.call.result","gen_ai.tool.definitions","gen_ai.tool.name","gen_ai.tool.type","gen_ai.usage.input_tokens","gen_ai.usage.output_tokens"]
+
+WALL_MS=29439

@@ -1,0 +1,80 @@
+# The local half of the collector configuration. It stands alone: receive OTLP,
+# filter, batch, and print to the debug exporter. Nothing here needs a base14
+# tenant, so `docker compose up` and `make verify` work with no SCOUT_* set.
+#
+# When SCOUT_CLIENT_ID is set, compose.yaml passes a second --config pointing at
+# otel-collector-scout.yaml, which adds the oauth2client extension, the Scout
+# exporter, and the exporters list for each pipeline. The collector deep-merges
+# the two: maps are joined and lists are replaced, so the pipelines keep the
+# receivers and processors below and gain the second exporter.
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:SCOUT_ENVIRONMENT}
+        action: upsert
+      - key: environment
+        value: ${env:SCOUT_ENVIRONMENT}
+        action: upsert
+  # Matches the attribute, not the span name. The Hono server span is named for
+  # its method alone, `GET`, because the instrumentation has no route to work
+  # from, so a name pattern never matches and the healthcheck spans Compose
+  # produces every ten seconds are exported instead of dropped. Equality rather
+  # than IsMatch so a span with no url.path cannot raise an OTTL error.
+  filter/noisy:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["url.path"] == "/health"'
+        - 'attributes["url.path"] == "/alive"'
+  filter/logs:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'severity_number < SEVERITY_NUMBER_INFO'
+  transform/log_severity:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(severity_text, "INFO") where severity_number >= SEVERITY_NUMBER_INFO and severity_number < SEVERITY_NUMBER_WARN
+          - set(severity_text, "WARN") where severity_number >= SEVERITY_NUMBER_WARN and severity_number < SEVERITY_NUMBER_ERROR
+          - set(severity_text, "ERROR") where severity_number >= SEVERITY_NUMBER_ERROR
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/noisy, resource, batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/logs, transform/log_severity, resource, batch]
+      exporters: [debug]

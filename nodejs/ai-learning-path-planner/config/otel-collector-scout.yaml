@@ -1,0 +1,42 @@
+# The Scout half. Layered on top of otel-collector.yaml by a second --config
+# flag that compose.yaml adds only when SCOUT_CLIENT_ID is set, so a reader with
+# no base14 tenant never loads it and the collector starts without credentials.
+#
+# Only the keys that differ appear here. The collector joins the maps and
+# replaces the lists, so each pipeline below keeps the receivers and processors
+# the local file gives it and exports to Scout as well as to debug.
+extensions:
+  oauth2client:
+    client_id: ${env:SCOUT_CLIENT_ID}
+    client_secret: ${env:SCOUT_CLIENT_SECRET}
+    token_url: ${env:SCOUT_TOKEN_URL}
+    endpoint_params:
+      audience: b14collector
+    timeout: 10s
+    tls:
+      insecure_skip_verify: true
+
+exporters:
+  otlp_http/b14:
+    endpoint: ${env:SCOUT_ENDPOINT}
+    auth:
+      authenticator: oauth2client
+    tls:
+      insecure_skip_verify: true
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+service:
+  extensions: [oauth2client, health_check]
+  pipelines:
+    traces:
+      exporters: [otlp_http/b14, debug]
+    metrics:
+      exporters: [otlp_http/b14, debug]
+    logs:
+      exporters: [otlp_http/b14, debug]

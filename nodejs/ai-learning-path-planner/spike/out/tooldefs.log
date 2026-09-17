@@ -1,0 +1,5 @@
+(node:76312) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{"label":"deferred","toolDefinitionCount":4,"toolNames":["corpus_map","check_coverage","get_related","research_subtopic"],"toolDefinitionChars":1151,"spanInputTokens":474,"resultInputTokens":474}
+{"label":"full","toolDefinitionCount":9,"toolNames":["corpus_map","check_coverage","get_related","research_subtopic","search_docs","outline","fetch_section","list_examples","fetch_example_file"],"toolDefinitionChars":2661,"spanInputTokens":790,"resultInputTokens":790}
+INPUT_TOKEN_DELTA full-deferred = 316

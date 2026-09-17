@@ -17,6 +17,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **tRPC** | tRPC 11 + TypeScript 6 + Prisma 7 + PostgreSQL 18 | [trpc-postgres](./nodejs/trpc-postgres) | OTel Node SDK, distributed tracing, tRPC-to-REST bridge |
 | **Express (Legacy)** | Express + TypeScript + MongoDB | [express-typescript-mongodb](./nodejs/express-typescript-mongodb) | MongoDB integration, Redis |
 | **AI Contract Analyzer** | Bun + Hono + Vercel AI SDK | [ai-contract-analyzer](./nodejs/ai-contract-analyzer) | GenAI observability, OpenLLMetry, multi-provider |
+| **AI Learning Path Planner** | Node.js 26 + Hono 4 + Vercel AI SDK 7 + Ollama | [ai-learning-path-planner](./nodejs/ai-learning-path-planner) | Lead agent with researcher subagents, fan-out cost per run, deferred vs full tool catalogue |
 
 ### Python
 

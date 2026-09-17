@@ -1,0 +1,55 @@
+(node:64417) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+=== RUN label=run-1 catalogue=deferred lead=qwen3.5:9B sub=gemma4:e2b wall=21750ms
+
+--- SPAN TREE ---
+TRACE f33565b7b55c75c8a33f16c2b7e47264
+  - POST  [21742ms] 
+    - base14.plan.run  [21740ms] base14.agent.role=lead
+      - invoke_agent qwen3.5:9B  [21733ms] gen_ai.usage.input_tokens=1164 gen_ai.usage.output_tokens=144 gen_ai.operation.name=invoke_agent gen_ai.request.model=qwen3.5:9B base14.spike.span_type=operation
+        - step 1  [10606ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+          - chat qwen3.5:9B  [3269ms] gen_ai.usage.input_tokens=507 gen_ai.usage.output_tokens=37 gen_ai.operation.name=chat gen_ai.request.model=qwen3.5:9B base14.spike.span_type=languageModel
+          - execute_tool research_subtopic  [7335ms] gen_ai.operation.name=execute_tool base14.spike.span_type=tool
+            - invoke_agent gemma4:e2b  [5345ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=37 gen_ai.operation.name=invoke_agent gen_ai.request.model=gemma4:e2b base14.spike.span_type=operation
+              - step 1  [5343ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+                - chat gemma4:e2b  [5341ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=37 gen_ai.operation.name=chat gen_ai.request.model=gemma4:e2b base14.spike.span_type=languageModel
+            - invoke_agent gemma4:e2b  [6372ms] gen_ai.usage.input_tokens=327 gen_ai.usage.output_tokens=42 gen_ai.operation.name=invoke_agent gen_ai.request.model=gemma4:e2b base14.spike.span_type=operation
+              - step 1  [6370ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+                - chat gemma4:e2b  [6370ms] gen_ai.usage.input_tokens=327 gen_ai.usage.output_tokens=42 gen_ai.operation.name=chat gen_ai.request.model=gemma4:e2b base14.spike.span_type=languageModel
+            - invoke_agent gemma4:e2b  [7333ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=40 gen_ai.operation.name=invoke_agent gen_ai.request.model=gemma4:e2b base14.spike.span_type=operation
+              - step 1  [7331ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+                - chat gemma4:e2b  [7331ms] gen_ai.usage.input_tokens=326 gen_ai.usage.output_tokens=40 gen_ai.operation.name=chat gen_ai.request.model=gemma4:e2b base14.spike.span_type=languageModel
+        - step 2  [11118ms] gen_ai.operation.name=agent_step base14.spike.span_type=step
+          - chat qwen3.5:9B  [11117ms] gen_ai.usage.input_tokens=657 gen_ai.usage.output_tokens=107 gen_ai.operation.name=chat gen_ai.request.model=qwen3.5:9B base14.spike.span_type=languageModel
+TRACE COUNT: 1
+
+--- LEAD USAGE ---
+totalUsage: {"inputTokens":1164,"inputTokenDetails":{},"outputTokens":144,"outputTokenDetails":{},"totalTokens":1308}
+stepUsages: [{"inputTokens":507,"inputTokenDetails":{},"outputTokens":37,"outputTokenDetails":{},"totalTokens":544},{"inputTokens":657,"inputTokenDetails":{},"outputTokens":107,"outputTokenDetails":{},"totalTokens":764}]
+
+--- SUBAGENT RESULTS ---
+{"subtopic":"collector-config","structuredOk":true,"structuredError":null,"totalUsage":{"inputTokens":326,"inputTokenDetails":{},"outputTokens":37,"outputTokenDetails":{},"totalTokens":363},"stepUsages":[{"inputTokens":326,"inputTokenDetails":{},"outputTokens":37,"outputTokenDetails":{},"totalTokens":363}],"structured":{"subtopic":"collector-config","summary":"This section likely contains configuration settings for a data collector.","citations":["docs/collector-config.md"]}}
+{"subtopic":"django-tracing","structuredOk":true,"structuredError":null,"totalUsage":{"inputTokens":326,"inputTokenDetails":{},"outputTokens":40,"outputTokenDetails":{},"totalTokens":366},"stepUsages":[{"inputTokens":326,"inputTokenDetails":{},"outputTokens":40,"outputTokenDetails":{},"totalTokens":366}],"structured":{"subtopic":"django-tracing","summary":"django-tracing is a package that provides tracing capabilities for Django applications.","citations":["docs/django-tracing.md"]}}
+{"subtopic":"scout-dashboards","structuredOk":true,"structuredError":null,"totalUsage":{"inputTokens":327,"inputTokenDetails":{},"outputTokens":42,"outputTokenDetails":{},"totalTokens":369},"stepUsages":[{"inputTokens":327,"inputTokenDetails":{},"outputTokens":42,"outputTokenDetails":{},"totalTokens":369}],"structured":{"subtopic":"scout-dashboards","summary":"Scout dashboards are visual tools for monitoring and analyzing data.","citations":["docs/scout_dashboards.md"]}}
+
+--- ENRICHSPAN CALLS ---
+counts by spanType: {"operation":4,"step":5,"languageModel":5,"tool":1}
+arg keys: ["spanType","operationId","callId","runtimeContext"]
+sample: [{"spanType":"operation","operationId":"ai.streamText","callId":"call-fh9S6p2b3Y6SFdF8MvnN6LIm","runtimeContext":{},"argKeys":["spanType","operationId","callId","runtimeContext"]},{"spanType":"step","operationId":"ai.streamText","callId":"call-fh9S6p2b3Y6SFdF8MvnN6LIm","runtimeContext":{},"argKeys":["spanType","operationId","callId","runtimeContext"]},{"spanType":"languageModel","operationId":"ai.streamText","callId":"call-fh9S6p2b3Y6SFdF8MvnN6LIm","runtimeContext":{},"argKeys":["spanType","operationId","callId","runtimeContext"]}]
+
+--- SPAN TOKEN ATTRIBUTES ---
+chat qwen3.5:9B {"gen_ai.usage.input_tokens":507,"gen_ai.usage.output_tokens":37}
+chat gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":37}
+invoke_agent gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":37}
+chat gemma4:e2b {"gen_ai.usage.input_tokens":327,"gen_ai.usage.output_tokens":42}
+invoke_agent gemma4:e2b {"gen_ai.usage.input_tokens":327,"gen_ai.usage.output_tokens":42}
+chat gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":40}
+invoke_agent gemma4:e2b {"gen_ai.usage.input_tokens":326,"gen_ai.usage.output_tokens":40}
+chat qwen3.5:9B {"gen_ai.usage.input_tokens":657,"gen_ai.usage.output_tokens":107}
+invoke_agent qwen3.5:9B {"gen_ai.usage.input_tokens":1164,"gen_ai.usage.output_tokens":144}
+
+--- ALL ATTRIBUTE KEYS SEEN ---
+["ai.response.providerMetadata","base14.agent.role","base14.spike.span_type","base14.tool.catalogue","client.address","gen_ai.agent.name","gen_ai.client.operation.duration","gen_ai.client.operation.time_per_output_chunk","gen_ai.client.operation.time_to_first_chunk","gen_ai.execute_tool.duration","gen_ai.input.messages","gen_ai.operation.name","gen_ai.output.messages","gen_ai.provider.name","gen_ai.request.model","gen_ai.response.finish_reasons","gen_ai.response.id","gen_ai.response.model","gen_ai.system_instructions","gen_ai.tool.call.arguments","gen_ai.tool.call.id","gen_ai.tool.call.result","gen_ai.tool.definitions","gen_ai.tool.name","gen_ai.tool.type","gen_ai.usage.input_tokens","gen_ai.usage.output_tokens","http.request.method","http.response.status_code","network.peer.address","network.peer.port","network.protocol.version","server.address","server.port","url.path","url.scheme","user_agent.original"]
+
+WALL_MS=21750

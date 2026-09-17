@@ -1,0 +1,45 @@
+{
+  "name": "ai-learning-path-planner",
+  "version": "1.0.0",
+  "description": "Lead agent fans out to one subagent per subtopic over base14's docs and examples corpus, with OpenTelemetry showing the fan-out cost",
+  "type": "module",
+  "engines": {
+    "node": ">=26.8.2"
+  },
+  "scripts": {
+    "dev": "tsx watch --import ./src/telemetry.ts src/index.ts",
+    "start": "node --import ./dist/telemetry.js dist/index.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "lint": "biome check src tests scripts",
+    "format": "biome format --write src tests",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run build && npm run lint && npm run test",
+    "test:api": "bash scripts/test-api.sh",
+    "index": "tsx scripts/build-index.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/otel": "1.0.102",
+    "@hono/node-server": "2.1.1",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "0.80.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.222.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.222.0",
+    "@opentelemetry/resources": "2.11.0",
+    "@opentelemetry/sdk-node": "0.222.0",
+    "@opentelemetry/sdk-trace-base": "2.11.0",
+    "@opentelemetry/semantic-conventions": "1.39.0",
+    "ai": "7.0.102",
+    "hono": "4.13.8",
+    "ollama-ai-provider-v2": "4.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^26.6.1",
+    "tsx": "^4.23.13",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1",
+    "yaml": "2.8.3"
+  }
+}

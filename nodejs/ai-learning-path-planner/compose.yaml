@@ -1,0 +1,77 @@
+services:
+  app:
+    build:
+      context: .
+      # _shared/pricing.json sits at the repo root, outside this directory, so it cannot
+      # be COPYed from the build context. A named context carries just that directory in
+      # rather than moving the whole build up two levels and sending the entire examples
+      # repo to the daemon. `make docker-build` passes the same thing on the command line.
+      additional_contexts:
+        shared: ../../_shared
+    ports:
+      - "3000:3000"
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      # Ollama runs on the HOST, not in Compose, so the container reaches it
+      # through host.docker.internal.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/api}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-16384}
+      MODEL_SMALL: ${MODEL_SMALL:-gemma4:e2b}
+      MODEL_LARGE: ${MODEL_LARGE:-qwen3.5:9B}
+      PRICE_MODEL: ${PRICE_MODEL:-}
+      TOOL_CATALOGUE: ${TOOL_CATALOGUE:-deferred}
+      MAX_SUBTOPICS: ${MAX_SUBTOPICS:-8}
+      MAX_ESCALATIONS: ${MAX_ESCALATIONS:-2}
+      ALLOW_HOSTED_PROVIDER: ${ALLOW_HOSTED_PROVIDER:-}
+      OTEL_SERVICE_NAME: ai-learning-path-planner
+      # Fixed, not interpolated. Inside the network the collector is only reachable by
+      # service name, so a host-side value from .env or the shell would send every span
+      # nowhere. A host run needs http://localhost:4318 instead, which is the SDK's own
+      # default, so .env.example carries no line for this variable at all.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: ${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.158.0
+    # Two config files, and the second is added only when SCOUT_CLIENT_ID is set.
+    # `${VAR:+...}` expands to nothing when the variable is empty or unset, and a
+    # string command is split into arguments, so with no credentials the collector
+    # gets one --config and runs on the local half alone. The collector merges
+    # repeated --config providers, which keeps the span filter and the pipelines in
+    # one file rather than in two copies that can drift.
+    command: --config=/etc/otel-collector.yaml ${SCOUT_CLIENT_ID:+--config=/etc/otel-collector-scout.yaml}
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel-collector.yaml:ro
+      - ./config/otel-collector-scout.yaml:/etc/otel-collector-scout.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    # No env_file here on purpose: it would inject the whole of .env, including the
+    # application settings, into a process that reads none of them.
+    # The five SCOUT_* values below are interpolated from .env by Compose itself.
+    # The four credentials default to empty and go together: with SCOUT_CLIENT_ID
+    # empty the Scout config is never loaded and the other three are unread, and
+    # with it set an empty endpoint or token URL stops the collector rather than
+    # quietly exporting somewhere wrong.
+    environment:
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    healthcheck:
+      test: ["NONE"]
