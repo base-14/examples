@@ -31,8 +31,8 @@
 # writes the reply and its wording changes between runs. On failure the run's tool
 # log is printed.
 #
-# Measured on an M-series Mac, 12 cores, qwen3.5:9b on host Ollama, 2026-09-16, over
-# six runs: BK-1001 34-46s, BK-1002 27-32s. BK-1001 is the slower of the two because
+# On an M-series Mac, 12 cores, qwen3.5:9b on host Ollama: BK-1001 takes 34-46s and
+# BK-1002 27-32s. BK-1001 is the slower of the two because
 # it runs the whole loop to a final reply in one pass, while BK-1002 splits across the
 # approval. Budget more on a slower machine or a larger model.
 #

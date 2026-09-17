@@ -17,9 +17,8 @@
 # With those three unset the Scout section is skipped and the script still passes. A
 # missing credential is not a build failure.
 #
-# The span and metric names asserted below were read out of a real collector log on
-# 2026-09-16, not copied from the design. Three of them are the traps this example
-# exists to show:
+# The span and metric names asserted below come from a real collector log, not from
+# the design. Three of them are the traps this example exists to show:
 #   - there is no `execute_tool handoff_to_1` span, because the injected handoff tool
 #     is a declaration with no body, so nothing ever invokes it.
 #   - `tools/call` appears once per call, as a server span. The MCP client attributes

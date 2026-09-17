@@ -43,8 +43,8 @@
 # Assertions are on status codes, the event names and the plan's structure, never
 # on the plan's wording: the model writes that and it changes between runs.
 #
-# Measured on an M-series Mac, 12 cores, qwen3.5:9b on host Ollama, 2026-09-17: one
-# in-range plan takes 90 to 95 seconds. The declined and malformed paths never reach
+# On an M-series Mac, 12 cores, qwen3.5:9b on host Ollama, one in-range plan takes 90
+# to 95 seconds. The declined and malformed paths never reach
 # the model and answer immediately. Budget more on a slower machine.
 #
 # Usage:

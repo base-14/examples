@@ -27,8 +27,7 @@
 # `docker compose logs --since` reads it in the daemon's local zone, which silently
 # widens or narrows the window on any host that is not already on UTC.
 #
-# Span names come from a real collector log read on 2026-09-17, not from the design.
-# The AI SDK names its spans after the model, not the role: the lead's operation span
+# Span names come from a real collector log, not from the design. The AI SDK names its spans after the model, not the role: the lead's operation span
 # is `invoke_agent qwen3.5:9B`, and a researcher's would be
 # `invoke_agent gemma4:e2b`. The role is an attribute, base14.agent.role, so the role
 # checks below read the attribute rather than the name. The HTTP server span is named
