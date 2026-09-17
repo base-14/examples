@@ -1,0 +1,40 @@
+== run 8 at 2026-09-15T17:24:00.5865480+00:00 ==
+HandoffWorkflowBuilderCore.FunctionPrefix = handoff_to_
+minimal source set = False
+root span = 2532f7f7512bc097 trace = c338e840d4f0f9d7b011fe0b9b62e072
+MCP tools = rebook, lookup_booking
+-- watch loop 1, status = NotStarted
+EVENT WorkflowStartedEvent: WorkflowStartedEvent()
+EVENT SuperStepStartedEvent: SuperStepStartedEvent(Step = 0, Data: Microsoft.Agents.AI.Workflows.SuperStepStartInfo = Microsoft.Agents.AI.Workflows.SuperStepStartInfo)
+EVENT ExecutorInvokedEvent: ExecutorInvokedEvent(Executor = HandoffStart, Data: System.Collections.Generic.List`1[Microsoft.Extensions.AI.ChatMessage] = System.Collections.Generic.List`1[M...
+EVENT ExecutorCompletedEvent: ExecutorCompletedEvent(Executor = HandoffStart)
+EVENT ExecutorInvokedEvent: ExecutorInvokedEvent(Executor = HandoffStart, Data: Microsoft.Agents.AI.Workflows.TurnToken = Microsoft.Agents.AI.Workflows.TurnToken)
+EVENT ExecutorCompletedEvent: ExecutorCompletedEvent(Executor = HandoffStart)
+EVENT SuperStepCompletedEvent: SuperStepCompletedEvent(Step = 0, Data: Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo = Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo)
+EVENT SuperStepStartedEvent: SuperStepStartedEvent(Step = 1, Data: Microsoft.Agents.AI.Workflows.SuperStepStartInfo = Microsoft.Agents.AI.Workflows.SuperStepStartInfo)
+EVENT ExecutorInvokedEvent: ExecutorInvokedEvent(Executor = triage_triage, Data: Microsoft.Agents.AI.Workflows.Specialized.HandoffState = HandoffState { TurnToken = Microsoft.Agents.AI.Wor...
+EVENT AgentResponseEvent from triage_triage: text=
+    tool call handoff_to_1 args={"reasonForHandoff":"Flight BK-1001 to Berlin has been cancelled and passenger requests rebooking on the cheapest alternative flight"}
+EVENT ExecutorCompletedEvent: ExecutorCompletedEvent(Executor = triage_triage)
+EVENT SuperStepCompletedEvent: SuperStepCompletedEvent(Step = 1, Data: Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo = Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo)
+EVENT SuperStepStartedEvent: SuperStepStartedEvent(Step = 2, Data: Microsoft.Agents.AI.Workflows.SuperStepStartInfo = Microsoft.Agents.AI.Workflows.SuperStepStartInfo)
+EVENT ExecutorInvokedEvent: ExecutorInvokedEvent(Executor = rebooking_rebooking, Data: Microsoft.Agents.AI.Workflows.Specialized.HandoffState = HandoffState { TurnToken = Microsoft.Agents....
+  MCP server saw _meta on lookup_booking = {"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"Spike","version":"1.0.0.0"},"io.modelcontextprotocol/clientCapabilities":{},"traceparent":"00-c338e840d4f0f9d7b011fe0b9b62e072-8d20cf6facbf008a-01"}
+  MCP server Activity.Current = tools/call lookup_booking (source=Experimental.ModelContextProtocol, span=a29945853651946b, parent=8d20cf6facbf008a)
+EVENT AgentResponseEvent from rebooking_rebooking: text=I found your booking BK-1001 for the LHR-BER route on 2026-10-02. The available alternative flights are:
+- FL-201 at a price of 180
+- FL-202 at a price of 240
+
+...
+    tool call lookup_booking args={"booking_ref":"BK-1001"}
+EVENT ExecutorCompletedEvent: ExecutorCompletedEvent(Executor = rebooking_rebooking)
+EVENT SuperStepCompletedEvent: SuperStepCompletedEvent(Step = 2, Data: Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo = Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo)
+EVENT SuperStepStartedEvent: SuperStepStartedEvent(Step = 3, Data: Microsoft.Agents.AI.Workflows.SuperStepStartInfo = Microsoft.Agents.AI.Workflows.SuperStepStartInfo)
+EVENT ExecutorInvokedEvent: ExecutorInvokedEvent(Executor = HandoffEnd, Data: Microsoft.Agents.AI.Workflows.Specialized.HandoffState = HandoffState { TurnToken = Microsoft.Agents.AI.Workfl...
+EVENT WorkflowOutputEvent from HandoffEnd: System.Collections.Generic.List`1[Microsoft.Extensions.AI.ChatMessage]
+EVENT ExecutorCompletedEvent: ExecutorCompletedEvent(Executor = HandoffEnd)
+EVENT SuperStepCompletedEvent: SuperStepCompletedEvent(Step = 3, Data: Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo = Microsoft.Agents.AI.Workflows.SuperStepCompletionInfo)
+-- stream drained, status = Idle, sawAnything = True
+approvals handled = 0
+wall_clock_seconds = 19.1
+METERS = Experimental.Microsoft.Agents.AI:gen_ai.client.operation.duration, Experimental.Microsoft.Agents.AI:gen_ai.client.operation.time_per_output_chunk, Experimental.Microsoft.Agents.AI:gen_ai.client.operation.time_to_first_chunk, Experimental.Microsoft.Agents.AI:gen_ai.client.token.usage, Experimental.ModelContextProtocol:mcp.client.operation.duration, Experimental.ModelContextProtocol:mcp.client.session.duration, Experimental.ModelContextProtocol:mcp.server.operation.duration, Experimental.ModelContextProtocol:mcp.server.session.duration

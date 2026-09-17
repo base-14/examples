@@ -19,7 +19,7 @@
   },
   "expected_spans": [
     {
-      "name": "gen_ai.chat claude-sonnet-4-20250514",
+      "name": "chat claude-sonnet-4-20250514",
       "status": "ERROR",
       "attributes": {
         "gen_ai.provider.name": "anthropic",
@@ -28,7 +28,7 @@
       "note": "Primary span has ERROR status after exhausting retries"
     },
     {
-      "name": "gen_ai.chat gpt-4.1-mini",
+      "name": "chat gpt-4.1-mini",
       "status": "OK",
       "attributes": {
         "gen_ai.provider.name": "openai",
@@ -42,20 +42,20 @@
   ],
   "expected_metrics": [
     {
-      "name": "gen_ai.client.retry.count",
+      "name": "base14.gen_ai.retry.count",
       "value": 2,
       "note": "2 retries before exhausting attempts (3 total attempts = 2 retries)"
     },
     {
-      "name": "gen_ai.client.fallback.count",
+      "name": "base14.gen_ai.fallback.count",
       "value": 1,
       "attrs": {
         "gen_ai.provider.name": "anthropic",
-        "gen_ai.fallback.provider": "openai"
+        "base14.gen_ai.fallback.provider": "openai"
       }
     },
     {
-      "name": "gen_ai.client.error.count",
+      "name": "base14.gen_ai.error.count",
       "value": 1,
       "attrs": {
         "gen_ai.provider.name": "anthropic",
@@ -67,7 +67,7 @@
       "note": "Recorded for fallback (openai) response only"
     },
     {
-      "name": "gen_ai.client.cost",
+      "name": "base14.gen_ai.cost",
       "note": "Recorded for fallback (openai) response only"
     }
   ]

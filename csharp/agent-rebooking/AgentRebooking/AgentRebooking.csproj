@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.21.0" />
+    <!-- Carries AgentWorkflowBuilder and InProcessExecution, which the handoff workflow
+         and the run store are built on. -->
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.21.0" />
+    <!-- Prerelease, pinned exactly per the design. Referenceable and must compile,
+         but never exercised: no remote Anthropic call is made anywhere in this example. -->
+    <PackageReference Include="Microsoft.Agents.AI.Anthropic" Version="1.21.0-preview.260911.1" />
+    <PackageReference Include="OllamaSharp" Version="5.4.30" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Data\Schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data\Seed.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets the test project reference internal seams such as RunStore.PassHandover and
+         RunStore.PendingApprovalLogMessage without widening the public surface. -->
+    <InternalsVisibleTo Include="AgentRebooking.Tests" />
+  </ItemGroup>
+
+</Project>

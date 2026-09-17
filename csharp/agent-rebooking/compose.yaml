@@ -1,0 +1,87 @@
+services:
+  app:
+    build:
+      context: .
+      additional_contexts:
+        shared: ../../_shared
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-qwen3.5:9b}
+      LLM_FALLBACK_PROVIDER: ${LLM_FALLBACK_PROVIDER:-}
+      # Ollama runs on the HOST, not in Compose, so the container reaches it
+      # through host.docker.internal.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ALLOW_HOSTED_PROVIDER: ${ALLOW_HOSTED_PROVIDER:-false}
+      POSTGRES_CONNECTION_STRING: ${POSTGRES_CONNECTION_STRING:-Host=postgres;Port=5432;Database=agentrebooking;Username=postgres;Password=postgres}
+      APPROVAL_LIMIT: ${APPROVAL_LIMIT:-300}
+      APPROVAL_TIMEOUT_SECONDS: ${APPROVAL_TIMEOUT_SECONDS:-600}
+      RUN_TIMEOUT_SECONDS: ${RUN_TIMEOUT_SECONDS:-300}
+      RUN_TTL_SECONDS: ${RUN_TTL_SECONDS:-3600}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-agent-rebooking}
+      # Fixed, not interpolated. Inside the network the collector is only reachable by
+      # service name, so a host-side value from .env or the shell would send every span
+      # nowhere. .env.example says so and keeps its host-side line commented.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: ${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=examples,deployment.environment=${SCOUT_ENVIRONMENT:-development},environment=${SCOUT_ENVIRONMENT:-development}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: agentrebooking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentrebooking"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.158.0
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel-collector.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    # No env_file here on purpose: it would inject the whole of .env, including both
+    # provider keys and the Postgres password, into a process that reads none of them.
+    # The five SCOUT_* values below are interpolated from .env by Compose itself.
+    environment:
+      SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-http://localhost:4318}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-http://localhost/token}
+      SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
+    healthcheck:
+      test: ["NONE"]
+
+volumes:
+  pgdata:

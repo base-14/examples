@@ -18,7 +18,7 @@
     }
   },
   "expected_span": {
-    "name": "gen_ai.chat claude-sonnet-4-20250514",
+    "name": "chat claude-sonnet-4-20250514",
     "status": "OK",
     "attributes": {
       "gen_ai.provider.name": "anthropic",
@@ -32,12 +32,12 @@
   },
   "expected_metrics": [
     {
-      "name": "gen_ai.client.retry.count",
+      "name": "base14.gen_ai.retry.count",
       "value": 1,
       "attrs": {
         "gen_ai.provider.name": "anthropic",
         "error.type": "Exception",
-        "retry.attempt": 1
+        "base14.retry.attempt": 1
       },
       "note": "1 retry recorded (the first retry attempt)"
     },
@@ -50,7 +50,7 @@
     }
   ],
   "not_expected": [
-    {"metric": "gen_ai.client.fallback.count", "note": "Retry succeeded, no fallback needed"},
-    {"metric": "gen_ai.client.error.count", "note": "No unhandled error — retry succeeded"}
+    {"metric": "base14.gen_ai.fallback.count", "note": "Retry succeeded, no fallback needed"},
+    {"metric": "base14.gen_ai.error.count", "note": "No unhandled error - retry succeeded"}
   ]
 }

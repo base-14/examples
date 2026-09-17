@@ -17,7 +17,7 @@
     "finish_reason": "end_turn"
   },
   "expected_span": {
-    "name": "gen_ai.chat claude-sonnet-4-20250514",
+    "name": "chat claude-sonnet-4-20250514",
     "attributes": {
       "gen_ai.operation.name": "chat",
       "gen_ai.provider.name": "anthropic",
@@ -31,16 +31,12 @@
       "gen_ai.usage.output_tokens": 5,
       "server.address": "api.anthropic.com",
       "server.port": 443,
-      "gen_ai.usage.cost_usd_approx": 0.000111
+      "base14.gen_ai.cost_usd_approx": 0.000111
     },
     "events": [
       {
-        "name": "gen_ai.user.message",
-        "note": "Only present when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
-      },
-      {
-        "name": "gen_ai.assistant.message",
-        "note": "Only present when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
+        "name": "gen_ai.client.inference.operation.details",
+        "note": "Only present when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true. Replaces the removed gen_ai.user.message and gen_ai.assistant.message events."
       }
     ],
     "status": "OK"
@@ -74,13 +70,13 @@
       "note": "A positive duration value is recorded"
     },
     {
-      "name": "gen_ai.client.cost",
-      "note": "approx 0.000111 USD — 12 input * $3.0/M + 5 output * $15.0/M"
+      "name": "base14.gen_ai.cost",
+      "note": "approx 0.000111 USD - 12 input * $3.0/M + 5 output * $15.0/M"
     }
   ],
   "not_expected": [
-    {"metric": "gen_ai.client.retry.count", "note": "No retries on success"},
-    {"metric": "gen_ai.client.fallback.count", "note": "No fallback on success"},
-    {"metric": "gen_ai.client.error.count", "note": "No errors on success"}
+    {"metric": "base14.gen_ai.retry.count", "note": "No retries on success"},
+    {"metric": "base14.gen_ai.fallback.count", "note": "No fallback on success"},
+    {"metric": "base14.gen_ai.error.count", "note": "No errors on success"}
   ]
 }

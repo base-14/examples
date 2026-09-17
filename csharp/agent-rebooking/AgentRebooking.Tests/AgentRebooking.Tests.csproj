@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <!-- Hosts the minimal API endpoints in memory so endpoint tests need no port and no
+         Postgres. Pinned to the ASP.NET Core 10.0.11 runtime the SDK ships. -->
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.11" />
+    <!-- Spins up a real Postgres via Docker for BookingStore/RebookingTools tests. Those
+         tests probe for a reachable Docker daemon at runtime and skip cleanly, with a
+         reason, when there is none. See Support/DockerRequiredFactAttribute.cs. -->
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgentRebooking\AgentRebooking.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The repo copy of the pricing table, so Pricing.LoadFromFile has a real file to
+         read without needing PRICING_FILE or the container's /app/pricing.json. -->
+    <None Include="..\..\..\_shared\pricing.json" Link="pricing.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Same schema and seed the app applies at startup, so BookingStore tests exercise
+         the real files rather than a copy hand-maintained in the test project. -->
+    <None Include="..\AgentRebooking\Data\Schema.sql" Link="Data\Schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AgentRebooking\Data\Seed.sql" Link="Data\Seed.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

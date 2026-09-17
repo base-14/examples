@@ -8,7 +8,7 @@ Production-ready examples for integrating OpenTelemetry with
 ### Node.js
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Express 5** | Express 5 + TypeScript + PostgreSQL 18 | [express5-postgres](./nodejs/express5-postgres) | BullMQ jobs, WebSockets, auto-instrumentation |
 | **NestJS** | NestJS + TypeScript + PostgreSQL 18 | [nestjs-postgres](./nodejs/nestjs-postgres) | Enterprise architecture, BullMQ, WebSockets |
 | **Next.js** | Next.js 16 + TypeScript + MongoDB | [nextjs-api-mongodb](./nodejs/nextjs-api-mongodb) | BullMQ jobs, Mongoose, auto-instrumentation |
@@ -21,7 +21,7 @@ Production-ready examples for integrating OpenTelemetry with
 ### Python
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Django** | Django 5 LTS + PostgreSQL 18 | [django-postgres](./python/django-postgres) | Celery jobs, PII masking, auto-instrumentation |
 | **Flask** | Flask 3 + PostgreSQL 18 | [flask-postgres](./python/flask-postgres) | Celery jobs, SQLAlchemy, auto-instrumentation |
 | **FastAPI** | FastAPI + PostgreSQL | [fastapi-postgres](./python/fastapi-postgres) | JWT auth, auto-instrumentation |
@@ -34,7 +34,7 @@ Production-ready examples for integrating OpenTelemetry with
 ### Go
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Echo** | Echo 4 + GORM + PostgreSQL 18 | [echo-postgres](./go/echo-postgres) | Asynq jobs, GORM service pattern |
 | **Fiber** | Fiber 2 + sqlx + PostgreSQL 18 | [fiber-postgres](./go/fiber-postgres) | River jobs (PostgreSQL-native), repository pattern |
 | **Echo + Temporal** | Echo 4 + Temporal + PostgreSQL 18 | [go-temporal-postgres](./go/go-temporal-postgres) | Workflow orchestration, microservice workers, simulation framework |
@@ -46,7 +46,7 @@ Production-ready examples for integrating OpenTelemetry with
 ### Java
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Quarkus** | Quarkus 3 + Java 21 + PostgreSQL 18 | [quarkus-postgres](./java/quarkus-postgres) | Built-in OTEL, native compilation, JWT auth |
 | **Spring Boot** | Spring Boot 3 + Java 17 + MySQL | [spring-boot-java17-mysql](./java/spring-boot-java17-mysql) | Auto-instrumentation |
 | **Spring Boot** | Spring Boot 3 + Java 25 + PostgreSQL | [spring-boot-java25-postgresql](./java/spring-boot-java25-postgresql) | SDK Integration |
@@ -57,13 +57,13 @@ Production-ready examples for integrating OpenTelemetry with
 ### Kotlin
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Ktor** | Ktor 3.2 + Kotlin 2.2 + PostgreSQL 18 | [ktor-postgres](./kotlin/ktor-postgres) | OTel Java Agent, Exposed ORM, distributed tracing, notification microservice |
 
 ### Ruby
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Rails 8** | Rails 8 + SQLite | [rails8-sqlite](./ruby/rails8-sqlite) | OIDC auth, auto-instrumentation |
 | **Rails 6.1 (Legacy)** | Rails 6.1 + Ruby 3.0 + MySQL 8 | [ruby30-rails61-mysql](./ruby/ruby30-rails61-mysql) | Pinned OTel gems, custom spans, log correlation |
 | **Rails 5 (Legacy)** | Rails 5.2 + Ruby 2.7 + MySQL 8 | [ruby27-rails52-mysql8](./ruby/ruby27-rails52-mysql8) | Scout APM integration |
@@ -72,7 +72,7 @@ Production-ready examples for integrating OpenTelemetry with
 ### PHP
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Laravel 8 (Legacy)** | Laravel 8 + PHP 8 + SQLite | [php8-laravel8-sqlite](./php/php8-laravel8-sqlite) | JWT auth, auto-instrumentation |
 | **Laravel 13** | Laravel 13 + PHP 8.5 + PostgreSQL 18 | [php85-laravel13-postgres](./php/php85-laravel13-postgres) | JWT auth, auto-instrumentation |
 | **Slim 4** | Slim 4 + PHP 8.4 + MongoDB 8 | [php84-slim4-mongodb](./php/php84-slim4-mongodb) | Auto-slim HTTP spans, MongoDB, log correlation |
@@ -82,27 +82,28 @@ Production-ready examples for integrating OpenTelemetry with
 ### Elixir
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Phoenix** | Phoenix 1.8 + Ecto 3 + PostgreSQL 14+ | [phoenix18-ecto3-postgres](./elixir/phoenix18-ecto3-postgres) | LiveView, real-time chat, auto-instrumentation |
 
 ### Rust
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **Axum** | Axum + SQLx + PostgreSQL 18 | [axum-postgres](./rust/axum-postgres) | JWT auth, PostgreSQL-native job queue, custom spans |
 | **AI Report Generator** | Axum + async-openai + PostgreSQL | [ai-report-generator](./rust/ai-report-generator) | GenAI observability, economic report pipeline, multi-provider |
 
 ### C\#
 
 | Framework | Stack | Example | Features |
-| --------- | ----- | ------- | -------- |
+| --- | --- | --- | --- |
 | **ASP.NET Core** | .NET 9 + EF Core + Azure SQL Edge | [dotnet-sqlserver](./csharp/dotnet-sqlserver) | Minimal APIs, rate limiting, auto-instrumentation |
 | **.NET Aspire** | .NET Aspire 13.2 + ASP.NET Core 9 + EF Core 9 + PostgreSQL 18 | [aspire-postgres](./csharp/aspire-postgres) | ServiceDefaults pattern, custom ActivitySource and Meter, two-service distributed tracing, Aspire and Compose run modes |
+| **Approval-Gated Agent** | .NET 10 + Microsoft Agent Framework 1.21 + MCP 2.2 + PostgreSQL 18 | [agent-rebooking](./csharp/agent-rebooking) | Agent handoff, in-process MCP client and server, human approval as spans and a histogram, six-scenario error matrix |
 
 ### Infrastructure & Integrations
 
 | Component | Purpose | Example | Documentation |
-| --------- | ------- | ------- | ------------- |
+| --- | --- | --- | --- |
 | **Scout Collector** | OpenTelemetry Collector | [scout-collector](./scout-collector) | [Guide][doc-collector] |
 | **AWS CloudWatch** | CloudWatch log streaming | [aws-cloudwatch-stream](./aws-cloudwatch-stream) | - |
 | **Load Generator** | Load testing with OTEL | [loadgen](./loadgen) | [README](./loadgen/README.md) |
@@ -110,7 +111,7 @@ Production-ready examples for integrating OpenTelemetry with
 ### Mobile Applications
 
 | Platform | Example |
-| -------- | ------- |
+| --- | --- |
 | **Mobile Demo** | [astronomy_shop_mobile](./astronomy_shop_mobile) |
 
 ### IoT & Edge
@@ -120,7 +121,7 @@ Sparkplug B, ESP32). See [iot/](./iot) for the phase-by-phase
 progression.
 
 | Phase | Example | Status |
-| ----- | ------- | ------ |
+| --- | --- | --- |
 | **Track overview** | [iot](./iot) | Scaffolding |
 | **1 — MQTT trace propagation** | [iot/mqtt-trace-propagation](./iot/mqtt-trace-propagation) | Available |
 
@@ -207,12 +208,14 @@ Comprehensive auto-instrumentation showing distributed tracing across app and wo
 
 ### Go Echo (GORM Pattern)
 
-Demonstrates GORM ORM with service layer pattern, Asynq job queue, and type-safe database operations with auto-migrations.
+Demonstrates GORM ORM with service layer pattern, Asynq job queue, and type-safe database operations with
+auto-migrations.
 [View README →](./go/echo-postgres/README.md)
 
 ### Go Fiber (Repository Pattern)
 
-Shows repository pattern with raw SQL via sqlx, River PostgreSQL-native job queue (no Redis), and fine-grained SQL control for performance optimization.
+Shows repository pattern with raw SQL via sqlx, River PostgreSQL-native job queue (no Redis), and fine-grained SQL
+control for performance optimization.
 [View README →](./go/fiber-postgres/README.md)
 
 ### Go Temporal (Workflow Orchestration)
@@ -239,20 +242,23 @@ Distributed tracing across app and notification microservice with structured JSO
 ### tRPC
 
 Type-safe API layer with tRPC 11 procedures bridged to REST endpoints via `createCallerFactory`.
-Prisma 7 with adapter pattern for PostgreSQL, OTel Node SDK with auto-instrumentation for HTTP, Prisma, and Pino log bridging.
+Prisma 7 with adapter pattern for PostgreSQL, OTel Node SDK with auto-instrumentation for HTTP, Prisma, and Pino log
+bridging.
 
 [View README →](./nodejs/trpc-postgres/README.md)
 
 ### Ktor
 
-Kotlin-idiomatic web framework with Exposed ORM for DSL-style database access and OTel Java Agent for zero-code instrumentation.
+Kotlin-idiomatic web framework with Exposed ORM for DSL-style database access and OTel Java Agent for zero-code
+instrumentation.
 Distributed tracing across app and notification microservice with Flyway migrations and structured JSON logging.
 
 [View README →](./kotlin/ktor-postgres/README.md)
 
 ### Quarkus
 
-Supersonic startup times with native compilation support, built-in OpenTelemetry extension, and production-ready synchronous REST API pattern.
+Supersonic startup times with native compilation support, built-in OpenTelemetry extension, and production-ready
+synchronous REST API pattern.
 [View README →](./java/quarkus-postgres/README.md)
 
 ### Rust Axum
@@ -273,22 +279,35 @@ SQL Server-native job queue with `READPAST` pattern and comprehensive OpenTeleme
 
 .NET Aspire 13.2 AppHost orchestrating PostgreSQL 18, an OTel Collector container, and two ASP.NET Core 9 services
 (articles API and notify). ServiceDefaults wires OTel for every project; custom `ActivitySource` and `Meter`
-demonstrate business-level instrumentation. Ships parallel Aspire AppHost and Docker Compose run modes from the same code.
+demonstrate business-level instrumentation. Ships parallel Aspire AppHost and Docker Compose run modes from the same
+code.
 
 [View README →](./csharp/aspire-postgres/README.md)
+
+### Approval-Gated Rebooking Agent
+
+Travel disruption agent on .NET 10 and Microsoft Agent Framework 1.21. A triage agent hands off to a rebooking agent,
+tools come from an in-process MCP server, and a rebooking over a price limit waits for a human before it runs. One trace
+covers the handoff, the MCP client and server, the Postgres queries and the approval; the approval wait is two short
+linked spans plus a histogram. Ships a six-scenario error matrix with the measured status of every span in each.
+
+[View README →](./csharp/agent-rebooking/README.md)
 
 ### Go stdlib net/http
 
 Two-service Go example using only the standard library `net/http` plus pgx for PostgreSQL 18.
 `otelhttp` + `otelpgx` + the `otelslog` bridge produce HTTP server spans, DB query spans, and trace-correlated
-JSON logs without any framework dependencies. Cross-service distributed tracing from articles API to notify microservice.
+JSON logs without any framework dependencies. Cross-service distributed tracing from articles API to notify
+microservice.
 
 [View README →](./go/stdlib-postgres/README.md)
 
 ### Litestar
 
-Async Python web framework (Litestar 2.21 on Python 3.14, uv-managed) with SQLAlchemy + asyncpg and a notification microservice.
-Distributed tracing via the Litestar OTel plugin, trace-correlated JSON logs through `python-json-logger`, and custom metrics via OTel Meter API.
+Async Python web framework (Litestar 2.21 on Python 3.14, uv-managed) with SQLAlchemy + asyncpg and a notification
+microservice.
+Distributed tracing via the Litestar OTel plugin, trace-correlated JSON logs through `python-json-logger`, and custom
+metrics via OTel Meter API.
 
 [View README →](./python/litestar-postgres/README.md)
 

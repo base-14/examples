@@ -1,10 +1,22 @@
 version: "1.0"
-# OTel GenAI Semantic Conventions v1.29+
-# https://opentelemetry.io/docs/specs/semconv/gen-ai/
+# OTel GenAI Semantic Conventions
+# Source: open-telemetry/semantic-conventions-genai (repo, checked 2026-09-15).
+# The repo has no tagged release, so it is cited by repo and date, not by version.
+# https://github.com/open-telemetry/semantic-conventions-genai
 #
 # This file is the canonical specification for the LLM gateway contract
 # shared across all Base14 AI examples. Each language implements this
 # contract independently in idiomatic code.
+#
+# Naming rule: application-specific attributes and metrics must not sit under
+# an existing semconv namespace (gen_ai.*, mcp.*, and so on). Custom names use
+# a base14. prefix, per the naming guidance at
+# https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/naming.md
+#
+# Shipped examples keep their current attribute and metric names (the
+# gen_ai.usage.cost_usd, campaign_id, and gen_ai.client.* forms) until each
+# example is next touched. This file records the target shape for new and
+# updated examples.
 
 providers:
   anthropic:
@@ -27,7 +39,7 @@ providers:
 
 spans:
   chat_completion:
-    name_format: "gen_ai.chat {model}"
+    name_format: "chat {model}"
     attributes:
       required:
         - gen_ai.operation.name: "chat"
@@ -44,20 +56,23 @@ spans:
         - gen_ai.response.finish_reasons: ["{finish_reason}"]
         - gen_ai.usage.input_tokens: "{input_tokens}"
         - gen_ai.usage.output_tokens: "{output_tokens}"
-        - gen_ai.usage.cost_usd: "{calculated_cost}"
+        - base14.gen_ai.cost_usd: "{calculated_cost}"   # application-specific, base14. prefix per naming rule above
       custom:
         - gen_ai.agent.name: "{agent_name}"     # for per-agent cost attribution
-        - campaign_id: "{campaign_id}"           # for per-campaign cost attribution
+        - base14.campaign_id: "{campaign_id}"    # for per-campaign cost attribution, base14. prefix per naming rule above
     events:
-      - name: "gen_ai.user.message"
+      # gen_ai.user.message and gen_ai.assistant.message are removed from the
+      # semconv. gen_ai.client.inference.operation.details is their replacement:
+      # one event per call. Per gen-ai-events.md, gen_ai.input.messages,
+      # gen_ai.output.messages and gen_ai.system_instructions are Opt-In
+      # attributes on this event, not a separate body-field section.
+      - name: "gen_ai.client.inference.operation.details"
         condition: "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
         attributes:
-          - gen_ai.input.messages: "{scrubbed_prompt, max 1000 chars}"
-          - gen_ai.system_instructions: "{scrubbed_system, max 500 chars, omit if empty}"
-      - name: "gen_ai.assistant.message"
-        condition: "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true"
-        attributes:
-          - gen_ai.output.messages: "{scrubbed_completion, max 2000 chars}"
+          opt_in:
+            - gen_ai.input.messages: "{scrubbed_prompt, max 1000 chars}"
+            - gen_ai.output.messages: "{scrubbed_completion, max 2000 chars}"
+            - gen_ai.system_instructions: "{scrubbed_system, max 500 chars, omit if empty}"
     error_attributes:
       - error.type: "{exception class name}"
 
@@ -80,25 +95,28 @@ metrics:
       - gen_ai.operation.name
       - gen_ai.provider.name
 
-  - name: gen_ai.client.cost
+  # The four metrics below are application-specific, not part of the semconv.
+  # They use a base14. prefix rather than sitting under gen_ai.*, per the
+  # naming rule at the top of this file.
+  - name: base14.gen_ai.cost
     type: counter
     unit: usd
     description: "Cumulative cost of LLM calls in USD"
     optional_attrs:
       - gen_ai.agent.name
-      - campaign_id
+      - base14.campaign_id
 
-  - name: gen_ai.client.retry.count
+  - name: base14.gen_ai.retry.count
     type: counter
     unit: "{retry}"
     description: "Number of retry attempts (excludes initial attempt)"
 
-  - name: gen_ai.client.fallback.count
+  - name: base14.gen_ai.fallback.count
     type: counter
     unit: "{fallback}"
     description: "Number of times fallback provider was triggered"
 
-  - name: gen_ai.client.error.count
+  - name: base14.gen_ai.error.count
     type: counter
     unit: "{error}"
     description: "Number of LLM call errors by type"
@@ -117,7 +135,7 @@ error_resilience:
   fallback:
     enabled: true
     strategy: provider_switch
-    record_metric: gen_ai.client.fallback.count
+    record_metric: base14.gen_ai.fallback.count
 
 content_capture:
   env_var: OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
