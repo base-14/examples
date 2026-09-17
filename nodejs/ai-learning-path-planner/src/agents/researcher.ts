@@ -62,13 +62,9 @@ const FINDINGS_INSTRUCTIONS =
   "per corpus path that appears in the notes, with the heading it came from and a one " +
   "sentence note on what it shows. Report nothing that is not in the notes.";
 
-// TOOL_CATALOGUE=full puts research_subtopic's name, description and input schema in
-// front of a researcher too, so Task 9 can measure the same input-token difference on
-// both roles. A researcher's instructions never ask it to call this tool, and giving it a
-// real, working implementation here would mean this file builds a researcher agent that
-// itself builds researcher agents on demand, an unbounded recursion with no product
-// purpose. The placeholder keeps the token-relevant tool definition identical to the
-// lead's real one while declining to do any work if it is ever called.
+// TOOL_CATALOGUE=full puts research_subtopic's definition in front of a researcher too, so the
+// catalogue difference is measurable on both roles. A working implementation here would let a
+// researcher build researchers, so this placeholder keeps the definition and declines the call.
 function researchSubtopicPlaceholder() {
   return tool({
     description: RESEARCH_SUBTOPIC_DESCRIPTION,
@@ -80,9 +76,8 @@ function researchSubtopicPlaceholder() {
 }
 
 export function buildResearcherAgent(deps: ResearcherAgentDeps) {
-  // A researcher agent is built once per subtopic, so the subtopic can ride in the
-  // runtime context and reach every span of this agent's run. enrichSpan has no other
-  // way to see it: it is handed no tool name and no tool input.
+  // One researcher per subtopic, so the subtopic rides in the runtime context and reaches every
+  // span of its run. enrichSpan is handed no tool name and no input, so it has no other route.
   const runtimeContext: PlanRuntimeContext | undefined =
     deps.planId === undefined
       ? undefined
@@ -93,9 +88,7 @@ export function buildResearcherAgent(deps: ResearcherAgentDeps) {
           subtopic: deps.subtopic,
         };
 
-  // All nine tools are always built, on both agents; activeTools (via activeToolsFor) is
-  // what actually restricts what the model sees, per role and TOOL_CATALOGUE. That keeps
-  // this file's tool map identically shaped regardless of catalogue mode.
+  // Both agents always build all nine. activeToolsFor is what restricts what the model sees.
   const tools = {
     search_docs: searchDocsTool(deps.store),
     outline: outlineTool(deps.store),
@@ -116,11 +109,8 @@ export function buildResearcherAgent(deps: ResearcherAgentDeps) {
     recordOutputs: deps.config.captureMessageContent,
   };
 
-  // Split for the same reason the lead is (see agents/lead.ts): Output.object puts a json
-  // responseFormat on every call, ollama-ai-provider-v2 turns that into a `format`
-  // grammar, and `format` in front of tool definitions stops the model calling a tool.
-  // A researcher that calls no tool reads nothing, so its findings cite paths it never
-  // fetched and every one of them fails validateCitation.
+  // Split for the same reason the lead is: a response format in front of tool definitions stops
+  // this model calling a tool, and a researcher that reads nothing cites paths it never opened.
   const loop = new ToolLoopAgent({
     id: `researcher-${deps.subtopic}`,
     model,
@@ -145,9 +135,8 @@ export function buildResearcherAgent(deps: ResearcherAgentDeps) {
     telemetry: { functionId: "researcher-findings", ...telemetry, ...deps.telemetry },
   });
 
-  // generate() runs both halves, so research_subtopic still calls one thing and gets
-  // structured findings back (see tools/research-subtopic.ts's ResearcherHandle). tools is
-  // the loop's, which is what toolDefinitionTokens counts.
+  // generate() runs both halves, so research_subtopic still calls one thing. tools is the
+  // loop's, which is what toolDefinitionTokens counts.
   return {
     tools: loop.tools,
     loop,
@@ -166,11 +155,9 @@ interface DocumentRef {
   heading?: string;
 }
 
-// The loop writes prose, and prose does not reliably carry the paths it came from. Given
-// only the prose, the shaping call invents citations, every finding fails
-// validateCitation, the subtopic escalates and comes back as a gap - which is what live
-// runs produced. The paths are therefore read back off the tool calls the loop actually
-// made, which is a record of what it opened rather than a claim about it.
+// Prose does not reliably carry the paths it came from, and given only prose the shaping call
+// invents citations that all fail validateCitation. So the paths are read back off the tool
+// calls the loop made: a record of what it opened rather than a claim about it.
 function documentsOpened(toolCalls: { input: unknown }[]): DocumentRef[] {
   const refs = new Map<string, DocumentRef>();
 

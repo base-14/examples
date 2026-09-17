@@ -2,13 +2,9 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { CorpusStore } from "../corpus/store.ts";
 
-// list_examples matches on example metadata, so a broad topic matches a large part of the
-// corpus: list_examples("otel") returns 123 hits and 18,587 characters against the
-// shipped artifact, and "docker" returns 70. search_docs and get_related have always
-// capped at 20. This caps the same way, and it is a fixed cap rather than a limit
-// parameter so the model cannot opt out of it and the tool definition keeps its measured
-// size. A capped result says so in the result, so the model is not left believing it saw
-// everything.
+// A broad topic matches a large part of the corpus, so this caps at 20 the way search_docs and
+// get_related do. Fixed rather than a limit parameter, so the model cannot opt out, and a
+// capped result says so, rather than leaving the model to assume it saw everything.
 const MAX_HITS = 20;
 
 export function listExamplesTool(store: CorpusStore) {

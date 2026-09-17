@@ -4,10 +4,9 @@ using Microsoft.Extensions.AI;
 namespace AgentRebooking.Tests.Support;
 
 /// <summary>
-/// The four tool names the real MCP server exposes, as local functions that record what
-/// they were called with. Run store tests use these so the workflow, the approval pause and
-/// the resume are exercised without Postgres or a container. What crosses MCP is covered by
-/// <c>RebookingToolsTests</c>, and the telemetry of that hop by Task 7.
+/// The four tool names the real MCP server exposes, as local functions that record their
+/// arguments, so the run store tests exercise the workflow without Postgres or a container.
+/// <c>RebookingToolsTests</c> and <c>TelemetryTests</c> cover what crosses MCP.
 /// </summary>
 internal sealed class FakeRebookingTools
 {

@@ -21,10 +21,8 @@ const ATTR_CACHE_READ_TOKENS = "gen_ai.usage.cache_read.input_tokens";
 
 const AGENT_OPERATION = "invoke_agent";
 
-// Passed to every ToolLoopAgent as its runtimeContext, which is the only channel
-// enrichSpan can read from: it fires when a span is created and receives nothing about
-// the call itself. A researcher agent is built per subtopic, so subtopic can ride along
-// here and land on every span of that agent's run.
+// The only channel enrichSpan can read from: it fires at span creation and is told nothing
+// about the call. A researcher is built per subtopic, so the subtopic rides along here.
 export interface PlanRuntimeContext extends Record<string, unknown> {
   planId: string;
   agentRole: "lead" | "researcher";
@@ -32,9 +30,7 @@ export interface PlanRuntimeContext extends Record<string, unknown> {
   subtopic?: string;
 }
 
-// Runtime context reaches enrichSpan only for the keys named here: the AI SDK drops
-// every runtime context property from telemetry unless it is explicitly included. Passed
-// to both agents as telemetry.includeRuntimeContext.
+// The AI SDK drops every runtime context property from telemetry unless it is named here.
 export const PLAN_RUNTIME_CONTEXT_KEYS = {
   planId: true,
   agentRole: true,
@@ -60,23 +56,16 @@ export const enrichSpan: EnrichSpan = ({ runtimeContext }) => {
 
 const runCosts = new Map<string, number>();
 
-// takeRunCostUsd is the only delete site, and a late invoke_agent span can recreate an
-// entry for a plan id that has already been taken, in a process that runs for as long as
-// the service does. The cap bounds that.
+// A late invoke_agent span can recreate an entry for a plan id already taken, in a
+// long-running process. The cap bounds that.
 const MAX_TRACKED_RUNS = 1024;
 
-// One run's cost is the sum of its invoke_agent spans: the lead's own run plus one per
-// researcher. chat spans carry token counts too, but adding those as well would count
-// every model call twice.
+// A run's cost is the sum of its invoke_agent spans. chat spans carry token counts too, but
+// adding both would count every model call twice.
 //
-// Eviction is least-recently-updated, not insertion order, and the difference is not
-// cosmetic. A run contributes one span per researcher over the twenty-odd seconds it takes,
-// so under insertion order a busy service could evict a run's partial total while the run
-// was still going. Its remaining spans would then rebuild the entry from zero and the run
-// would report a cost that looks plausible and is too low - worse than a missing value,
-// which at least announces itself. Deleting before setting moves a run back to the newest
-// position on every span it contributes, so only runs that have gone genuinely quiet for
-// 1024 other runs are evicted.
+// Eviction is least-recently-updated rather than insertion order, which matters: a run
+// contributes spans over a minute or two, and evicting its partial total mid-run would let the
+// remaining spans rebuild it from zero and report a plausible cost that is too low.
 function addRunCost(planId: string, usd: number): void {
   const running = runCosts.get(planId);
   if (running === undefined && runCosts.size >= MAX_TRACKED_RUNS) {
@@ -120,10 +109,8 @@ function usageFrom(input: number, output: number, cacheRead: number): LanguageMo
   };
 }
 
-// Cost cannot come from enrichSpan: token counts do not exist when a span is created.
-// This processor reads them in onEnd instead and writes the cost into the span's
-// attributes. Register it ahead of the exporting processor so the exporter sees the span
-// after the attributes are on it.
+// Cost cannot come from enrichSpan: token counts do not exist at span creation. This reads them
+// in onEnd, and is registered ahead of the exporting processor so the exporter sees them.
 export class PlanCostSpanProcessor implements SpanProcessor {
   constructor(private readonly config: Config) {}
 
@@ -150,10 +137,8 @@ export class PlanCostSpanProcessor implements SpanProcessor {
       numberAttribute(attributes, ATTR_CACHE_READ_TOKENS) ?? 0,
     );
 
-    // A throw here would surface on the SDK's span-export path, with nothing to tie it
-    // back to the request that produced the span. The one reachable throw in costOf, an
-    // unknown PRICE_MODEL, is already ruled out at boot by assertPriceModelIsKnown; this
-    // keeps anything else from escaping into the exporter.
+    // A throw here lands on the SDK's export path with nothing tying it to a request.
+    // assertPriceModelIsKnown rules out the one reachable case at boot; this catches the rest.
     let cost: { usd: number; simulated: boolean };
     try {
       cost = costOf(usage, modelId, this.config);

@@ -35,11 +35,9 @@ function composeDefault(value: string): string {
   return match?.[1] ?? value;
 }
 
-// F2 and ruling 35. The provider appends its paths straight onto this value, so a base URL
-// without the /api suffix 404s every model call. The host that value names is not the same
-// from both sides: host.docker.internal does not resolve on the host, and localhost inside
-// a container is the container. The service defaults to the host form and compose.yaml
-// overrides it with the container form, so both work with no .env at all.
+// The provider appends its paths straight onto this value, so a base URL without the /api
+// suffix 404s every model call, and the host it names differs by side: the service defaults to
+// the host form and compose.yaml overrides it with the container form.
 describe("the Ollama base URL reaches Ollama from the host and from the container", () => {
   it("defaults to the host form in src/config.ts, with the /api suffix", () => {
     expect(loadConfig({}).ollamaBaseUrl).toBe("http://localhost:11434/api");
@@ -62,10 +60,9 @@ describe("the Ollama base URL reaches Ollama from the host and from the containe
   });
 });
 
-// F4. The runtime image was missing three things it needs to do anything useful: the
-// price table, the corpus artifact, and the --import that loads the telemetry SDK before
-// the app's first import. A container that silently emits no telemetry would make every
-// verification run against it meaningless.
+// The runtime image needs three things to do anything useful: the price table, the corpus
+// artifact, and the --import that loads the telemetry SDK before the app's first import. A
+// container silently emitting no telemetry makes every verification against it meaningless.
 describe("the runtime image carries what the service reads at runtime", () => {
   const dockerfile = read("Dockerfile");
 
@@ -163,9 +160,8 @@ describe("the collector starts without base14 credentials", () => {
   });
 });
 
-// F3. The Hono server span is named for its method alone, so a filter on the span name can
-// never match /health and the healthcheck spans Compose makes every ten seconds were
-// exported continuously. The filter matches url.path instead.
+// The Hono server span is named for its method alone, so a filter on the span name can never
+// match /health and Compose's healthcheck spans export continuously. This filters url.path.
 describe("the healthcheck spans the README says are filtered are filtered", () => {
   it("matches the request path attribute, not the span name", () => {
     const local = parse(read("config/otel-collector.yaml")) as {

@@ -89,10 +89,9 @@ app_control_init() {
     APP_BASELINE=(
         "OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-$default_base_url}"
         "TOOL_CATALOGUE=${TOOL_CATALOGUE:-deferred}"
-        # Left empty so the service applies its own default, which is a real row
-        # (gpt-5-nano) since F5. Naming a row here instead would measure a cost the
-        # shipped configuration never produces. Every cost computed from a borrowed
-        # rate carries base14.gen_ai.cost.simulated=true; it is a stand-in, not a bill.
+        # Left empty so the service applies its own default. Naming a row here would measure
+        # a cost the shipped configuration never produces. A borrowed rate carries
+        # base14.gen_ai.cost.simulated=true; it is a stand-in, not a bill.
         "PRICE_MODEL=${PRICE_MODEL:-}"
     )
     APP_BASELINE_SET=1

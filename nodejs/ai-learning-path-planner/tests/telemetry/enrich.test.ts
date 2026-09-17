@@ -603,8 +603,7 @@ describe("recordPlan", () => {
       outcome: "declined",
     });
     expect(histogram(cost)).toMatchObject({ count: 1, sum: 0 });
-    // Not the SDK defaults, which start [0, 5, 10, ...] and put every plan this service
-    // produces in one bucket. A measured plan costs 0.00034 USD.
+    // Not the SDK defaults, which start [0, 5, 10, ...] and put every plan in one bucket.
     expect(histogram(cost).buckets.boundaries).toEqual([
       0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1,
     ]);
@@ -617,8 +616,8 @@ describe("recordPlan", () => {
     const duration = pointsFor(exported, "base14.plan.duration")[0] as MetricPoint;
     expect(duration.attributes).toEqual({ outcome: "declined" });
     expect(histogram(duration)).toMatchObject({ count: 1, sum: 0.01 });
-    // A measured plan takes 72 to 153 seconds and a decline about 0.02, so the two are
-    // never in the same bucket. See tests/telemetry/metrics.test.ts.
+    // A plan takes a couple of minutes and a decline about 0.02 seconds, so the two are never
+    // in the same bucket. See tests/telemetry/metrics.test.ts.
     expect(histogram(duration).buckets.boundaries).toEqual([
       0.1, 1, 10, 30, 60, 90, 120, 150, 180, 240, 300,
     ]);
@@ -639,9 +638,8 @@ describe("recordPlan", () => {
     expect(tokens.map((point) => histogram(point).sum)).toEqual([290, 361]);
   });
 
-  // These are the numbers Task 10's README quotes, at four characters per token, and they
-  // exclude the $schema URL that z.toJSONSchema emits and no provider ever receives.
-  // Changing a tool description changes them, and that is the point of asserting them.
+  // The numbers the README quotes, at four characters per token, excluding the $schema URL no
+  // provider receives. Changing a tool description changes them, which is the point.
   it("estimates the tool definition size without the $schema URL", () => {
     const agent = buildLeadAgent({
       store: store(),

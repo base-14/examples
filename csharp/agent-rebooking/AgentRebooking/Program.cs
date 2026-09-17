@@ -21,16 +21,13 @@ builder.Services.AddSingleton(options);
 builder.Services.AddSingleton(sp =>
     BookingStore.Create(sp.GetRequiredService<AgentRebookingOptions>().PostgresConnectionString));
 
-// Named exactly Sources.AgentRebooking, which TelemetryRegistration registers -- AddMeter matches
-// by name, not by instance, but the two still have to agree or the four base14.gen_ai.*
-// counters the gateway emits and the two base14.agent.approval.* ones are silently dropped.
+// Named exactly Sources.AgentRebooking: AddMeter matches by name, and a mismatch drops every
+// base14.* measurement silently.
 builder.Services.AddSingleton(new Meter(Sources.AgentRebooking));
 builder.Services.AddSingleton(sp => new ApprovalTelemetry(sp.GetRequiredService<Meter>()));
 
-// Built once, eagerly, right after the app is built below: a hosted LLM_PROVIDER
-// without ALLOW_HOSTED_PROVIDER=true must fail startup, not wait for the first
-// request. Both agents take a dependency on this one client rather than building
-// their own.
+// Built once, eagerly, so a hosted LLM_PROVIDER without ALLOW_HOSTED_PROVIDER=true fails
+// startup rather than the first request.
 builder.Services.AddSingleton<IChatClient>(sp =>
 {
     var opts = sp.GetRequiredService<AgentRebookingOptions>();
@@ -84,21 +81,17 @@ builder.Services.AddOpenTelemetry()
             new KeyValuePair<string, object>("environment", environment),
             new KeyValuePair<string, object>("service.namespace", "examples"),
         }))
-    // Both delegate to TelemetryRegistration, which TelemetryTests calls too: one place
-    // wires Sources.TraceSourceNames and Sources.MeterNames into a provider, so a test can
-    // build a bare provider the same way and prove it actually listens.
+    // Both delegate to TelemetryRegistration, which TelemetryTests calls too.
     .WithMetrics(metrics => TelemetryRegistration.ConfigureMetrics(metrics))
     .WithTracing(tracing => TelemetryRegistration.ConfigureTracing(tracing));
 
-// Registered after AddOpenTelemetry on purpose. Hosted services start in registration
-// order, and the MCP session has to open after the tracer provider has registered its
-// listeners, or its startup spans and its trace context go missing. See AgentToolProvider.
+// After AddOpenTelemetry on purpose: hosted services start in registration order, and the MCP
+// session must open once the tracer provider's listeners exist. See AgentToolProvider.
 builder.Services.AddSingleton<AgentToolProvider>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AgentToolProvider>());
 
 builder.Services.AddSingleton(sp => new RunStore(
-    // A fresh workflow per run: the executors the handoff builder creates carry that run's
-    // state, so one shared instance would leak conversation between travellers.
+    // A fresh workflow per run: its executors carry that run's state.
     () => AgentSetup.BuildWorkflow(
         sp.GetRequiredService<IChatClient>(),
         sp.GetRequiredService<AgentToolProvider>().Tools,
@@ -128,8 +121,7 @@ if (useOtlpExporter)
 
 var app = builder.Build();
 
-// Forces the IChatClient factory above to run now instead of on the first run: a
-// misconfigured hosted provider throws here and the service never starts.
+// Runs the factory now, so a misconfigured hosted provider throws before the service starts.
 app.Services.GetRequiredService<IChatClient>();
 app.Logger.LogInformation("Active LLM provider: {Provider} ({Model})", options.LlmProvider, options.LlmModel);
 
@@ -142,8 +134,7 @@ app.MapRunEndpoints();
 app.Run();
 
 /// <summary>
-/// Configuration bound once at startup from the flat environment-variable names the
-/// design lists, so nothing downstream re-reads IConfiguration.
+/// Configuration bound once at startup, so nothing downstream re-reads IConfiguration.
 /// </summary>
 internal sealed record AgentRebookingOptions(
     string LlmProvider,
@@ -176,12 +167,11 @@ internal sealed record AgentRebookingOptions(
         RunTimeoutSeconds: int.Parse(configuration["RUN_TIMEOUT_SECONDS"] ?? "300"),
         RunTtlSeconds: int.Parse(configuration["RUN_TTL_SECONDS"] ?? "3600"),
         CaptureMessageContent: ParseBoolLenient(configuration["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"]),
-        // The service refuses to start a hosted provider (LLM_PROVIDER other than
-        // ollama) unless this is explicitly true. See Llm/ChatClientFactory.cs.
+        // A hosted provider will not start unless this is explicitly true.
         AllowHostedProvider: ParseBoolLenient(configuration["ALLOW_HOSTED_PROVIDER"]));
 
-    // bool.Parse throws on a set-but-empty value, "1" or "yes". Fail closed instead:
-    // anything that is not a case-insensitive "true" is false.
+    // Fail closed: anything that is not a case-insensitive "true" is false. bool.Parse would
+    // throw on "", "1" or "yes".
     private static bool ParseBoolLenient(string? value) =>
         string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 }

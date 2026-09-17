@@ -151,10 +151,9 @@ describe("buildResearcherAgent", () => {
   });
 });
 
-// F1 again, on the other half of the fan-out. A researcher runs the same Output.object
-// over a tool loop the lead did, so the same `format` grammar sat in front of its five
-// corpus tools and it read nothing before reporting findings. The verification asserts an
-// execute_tool search_docs span, which only exists if a researcher really calls a tool.
+// The same split, on the other half of the fan-out: a researcher runs Output.object over a
+// tool loop too, so the same `format` grammar would sit in front of its five corpus tools and
+// it would report findings having read nothing.
 describe("the researcher's tool loop and its findings schema are separate model calls", () => {
   const findings = {
     subtopic: "tracing",
@@ -198,9 +197,9 @@ describe("the researcher's tool loop and its findings schema are separate model 
     expect(result.output).toEqual(findings);
   });
 
-  // The loop's prose does not reliably name the paths it read, so a shaping call given
-  // only that prose invents citations: every finding then fails validateCitation, the
-  // subtopic escalates and comes back as a gap. Live runs produced exactly that.
+  // The loop's prose does not reliably name the paths it read, so a shaping call given only
+  // that prose invents citations, every finding fails validateCitation, and the subtopic
+  // escalates and comes back as a gap.
   it("names the documents the loop opened in the shaping call", async () => {
     let calls = 0;
     const model = new MockLanguageModelV4({

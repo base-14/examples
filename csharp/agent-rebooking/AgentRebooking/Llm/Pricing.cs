@@ -23,9 +23,8 @@ public sealed class Pricing
     }
 
     /// <summary>
-    /// The path <see cref="LoadFromFile"/> resolved and read from, or attempted to read
-    /// from. Exposed so tests can assert which path was chosen without needing a real
-    /// file at <c>/app/pricing.json</c>.
+    /// The path <see cref="LoadFromFile"/> resolved, read or not. Exposed so tests can assert
+    /// the choice without a real file at <c>/app/pricing.json</c>.
     /// </summary>
     public string ResolvedPath { get; }
 

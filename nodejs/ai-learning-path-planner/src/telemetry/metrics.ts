@@ -16,25 +16,14 @@ interface Instruments {
   toolDefinitionTokens: Histogram;
 }
 
-// The SDK's default boundaries start at 0 and jump to 5, which puts every measurement
-// this service produces into one bucket for cost and duration and makes a percentile on
-// either meaningless.
+// The SDK's defaults start at 0 and jump to 5, which puts every cost and duration this
+// service produces in one bucket. These are anchored on a planned run instead: a couple of
+// minutes and a few tenths of a cent, against a decline at about 0.02 seconds and nothing.
 //
-// Anchored on six consecutive live runs of one in-range topic, through the containerised
-// service on its shipped defaults: 72.7, 82.7, 89.9, 105.6, 131.7 and 152.3 seconds, at
-// 0.0016 to 0.0031 USD each, fanning out to two or three subtopics. A declined run takes
-// about 0.02 seconds and costs nothing, and a run that fails takes whatever it reached.
-// The numbers in SPIKE-FINDINGS.md section 5, 21.75 to 25.60 seconds, were measured before
-// the fan-out worked and are not what this service does.
-//
-// Cost climbs in half decades from a tenth of a measured run to a dollar, so a measured run
-// sits mid-scale and a ten-times regression moves three buckets. Duration is fine below a
-// second, so a decline is never in the same bucket as a plan, then thirty seconds wide
-// across the whole measured band, so a p95 over planned runs says something, with a tail
-// to five minutes. Fan-out is small integers and never exceeds MAX_SUBTOPICS, whose
-// default is 8, because tools/research-subtopic.ts counts a subtopic only once the cap has
-// let it through.
-// tests/telemetry/metrics.test.ts holds the boundaries to those measurements.
+// Cost climbs in half decades to a dollar, so a plan sits mid-scale and a ten-times regression
+// moves three buckets. Duration is fine below a second, so a decline is never in a plan's
+// bucket, then thirty seconds wide across the planned band, with a tail to five minutes.
+// Fan-out is small integers, capped by MAX_SUBTOPICS.
 export const COST_BOUNDARIES_USD = [0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1];
 export const DURATION_BOUNDARIES_SECONDS = [0.1, 1, 10, 30, 60, 90, 120, 150, 180, 240, 300];
 export const FANOUT_BOUNDARIES = [0, 1, 2, 3, 4, 5, 6, 8];
@@ -64,11 +53,8 @@ function build(meter: Meter): Instruments {
       unit: "{escalation}",
       description: "Escalations from the small tier to the large tier, by trigger.",
     }),
-    // Left on the SDK defaults on purpose. Each role and catalogue combination is its own
-    // series carrying one value, and the measured values, 290 for the deferred lead and
-    // 361 for the deferred researcher against 650 for either role on the full catalogue,
-    // fall either side of the default 500 boundary, so switching catalogue mode is visible
-    // without a custom scale.
+    // Left on the SDK defaults: each role and catalogue is its own series carrying one value,
+    // and deferred and full fall either side of the default 500 boundary.
     toolDefinitionTokens: meter.createHistogram("base14.gen_ai.tool_definition.tokens", {
       unit: "{token}",
       description: "Estimated tokens the active tool definitions add to each model call.",
@@ -76,10 +62,8 @@ function build(meter: Meter): Instruments {
   };
 }
 
-// The instruments are resolved lazily and rebuilt whenever the meter changes identity,
-// which happens exactly once in the service (the global meter provider is a no-op until
-// the SDK starts) and once per test that registers its own provider. Building them at
-// module load would pin them to whichever provider was in place at import time.
+// Resolved lazily and rebuilt whenever the meter changes identity. Building them at module
+// load would pin them to whichever provider existed at import time, which is the no-op one.
 let cached: { meter: Meter; instruments: Instruments } | undefined;
 
 function instruments(): Instruments {
@@ -90,9 +74,8 @@ function instruments(): Instruments {
   return cached.instruments;
 }
 
-// Shared by research_subtopic, which enforces MAX_SUBTOPICS and MAX_ESCALATIONS against
-// these same numbers, and by recordPlan, which reports them. One counter, two readers,
-// so the fan-out a run reports is the fan-out its caps were applied to.
+// One counter, two readers: research_subtopic enforces the caps against these numbers and
+// recordPlan reports them, so a run reports the fan-out its caps were applied to.
 export interface RunCounters {
   subtopics: number;
   escalations: number;
@@ -102,13 +85,9 @@ export function newRunCounters(): RunCounters {
   return { subtopics: 0, escalations: 0 };
 }
 
-// Gap reasons are free text, and two of them carry a cap or a citation path, so they
-// cannot be a tag value as they stand. Nothing is matched against a literal written in
-// another file: the fixed reasons come from SERVICE_GAP_REASONS and are compared whole,
-// and the two templated ones come from TEMPLATED_GAP_REASONS, which holds the writer and
-// the fixed part of what it writes side by side. Rewording any of them changes the text
-// and the match in one edit. A gap that matches none of them is one the lead model wrote
-// itself.
+// Gap reasons are free text and two of them interpolate a cap or a path, so they cannot be tag
+// values as they stand. SERVICE_GAP_REASONS and TEMPLATED_GAP_REASONS keep the writer and the
+// match side by side, so a reword is one edit. A gap matching neither came from the model.
 function gapReason(gap: PlanGap): string {
   const reason = gap.reason;
   for (const [tag, text] of Object.entries(SERVICE_GAP_REASONS)) {
@@ -127,12 +106,9 @@ function fanoutBucket(fanout: number): string {
   return "9+";
 }
 
-// No tokeniser is available for a local Ollama model, so this is a character estimate of
-// the JSON the provider receives for the active tools, at four characters per token. That
-// divisor is a stated convention, not a measurement: Task 1's measured 4.8 characters per
-// token came from prose, and JSON schema tokenizes differently enough that borrowing the
-// prose ratio would not obviously be closer. Anything quoting these numbers should quote
-// the divisor with them.
+// No tokeniser exists for a local Ollama model, so this is a character estimate of the JSON
+// the provider receives, at four characters per token. The divisor is a stated convention, not
+// a measurement: quote it whenever you quote the number.
 const CHARS_PER_TOKEN = 4;
 
 // z.toJSONSchema emits a $schema URL of about fifty characters that the provider never
@@ -182,20 +158,14 @@ export interface PlanRunResult {
   toolDefinitionTokens: { lead: number; researcher: number };
 }
 
-// Called once per run, from the route handler, on all three paths: planned, declined and
-// failed. A declined run never builds a researcher, so it reports a fan-out of zero and no
-// escalations, but it still reports on every instrument: a decline is an outcome of the
-// service, not an absence of one, and a histogram that only ever sees successful runs
-// hides the cheap half of the traffic. A failed run reports the fan-out it reached and the
-// time it took to fail, which is what makes an outage visible in metrics at all.
+// Once per run, on all three outcomes. A decline is an outcome, not an absence of one, and a
+// histogram that only sees successes hides both the cheap half of the traffic and an outage.
 export function recordPlan(result: PlanRunResult): void {
   const { planCost, planFanout, planDuration, planGapCount, planEscalationCount } = instruments();
   const fanout = result.counters.subtopics;
 
-  // outcome as well as catalogue and fanout_bucket, because recordPlan runs on all three
-  // outcomes: without it a declined run's zero and a failed run's partial cost sit in the
-  // same series as a finished plan's and there is no way to filter them apart. Fan-out and
-  // duration have always carried it.
+  // outcome as well as catalogue and fanout_bucket, or a declined run's zero and a failed
+  // run's partial cost share a series with a finished plan's.
   planCost.record(result.costUsd, {
     catalogue: result.catalogue,
     fanout_bucket: fanoutBucket(fanout),
@@ -208,10 +178,8 @@ export function recordPlan(result: PlanRunResult): void {
     planGapCount.add(1, { reason: gapReason(gap) });
   }
 
-  // Confidence below the threshold after the small tier is the only thing that escalates
-  // (see tools/research-subtopic.ts), so the trigger is constant today. Recorded even
-  // when the count is zero, so a run that escalated nothing is visible as a run rather
-  // than as a missing point.
+  // One trigger today: confidence below the threshold after the small tier. Recorded at zero
+  // too, so a run that escalated nothing is a run rather than a missing point.
   planEscalationCount.add(result.counters.escalations, { trigger: "low_confidence" });
 
   recordToolDefinitionTokens(result);

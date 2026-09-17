@@ -13,27 +13,22 @@ import { loadConfig } from "./config.js";
 import { assertPriceModelIsKnown } from "./llm/cost.js";
 import { enrichSpan, PlanCostSpanProcessor } from "./telemetry/enrich.js";
 
-// Loaded with `node --import ./dist/telemetry.js`, so this whole module runs before the
-// app's first import. The loader hook has to be registered here rather than left to the
-// SDK: under ESM on Node 26 the HTTP server span is missing entirely unless the hook is
-// in place before anything imports node:http, while the agent spans look correct either
-// way (SPIKE-FINDINGS.md section 6). Node 26 prints DEP0205 for module.register; the
-// otel hook is written for it and still works.
+// Loaded with `node --import`, so this runs before the app's first import. Under ESM the HTTP
+// server span is missing entirely unless the loader hook is registered before anything imports
+// node:http; the agent spans look correct either way. Node 26 prints DEP0205 for
+// module.register, which the otel hook is written for.
 register("@opentelemetry/instrumentation/hook.mjs", import.meta.url);
 
 const config = loadConfig();
 
-// Read rather than imported: package.json sits outside rootDir, so a static import would
-// not compile, and hardcoding the version means the next version bump ships the old one on
-// every span. dist/telemetry.js and src/telemetry.ts are both one directory below the
-// package root, so this resolves the same under tsc and under tsx.
+// Read, not imported: package.json sits outside rootDir. dist/telemetry.js and src/telemetry.ts
+// are the same depth below the package root, so the path resolves under tsc and tsx alike.
 const { version } = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 ) as { version: string };
 
-// costOf throws when PRICE_MODEL names a model the price table does not have, and
-// PlanCostSpanProcessor calls it in onEnd, on the SDK's span-export path. Checking the
-// same thing here turns that into a boot failure next to the variable that caused it.
+// costOf throws on an unknown PRICE_MODEL, and PlanCostSpanProcessor calls it on the export
+// path. Checking here turns that into a boot failure next to the variable that caused it.
 assertPriceModelIsKnown(config);
 
 const sdk = new NodeSDK({
@@ -60,10 +55,8 @@ registerTelemetry(
   }),
 );
 
-// Both signals, not just SIGTERM. Shutting down flushes the pending span batch and the
-// pending metric interval, and a service started in the foreground is stopped with Ctrl-C,
-// which is SIGINT. Without this, a measured run ended that way loses its last batch and up
-// to a whole metric interval of plan runs, silently.
+// Both signals: a foreground service is stopped with Ctrl-C, and without SIGINT the shutdown
+// flush never runs, losing the last span batch and up to a whole metric interval.
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, () => {
     void sdk.shutdown().finally(() => process.exit(0));

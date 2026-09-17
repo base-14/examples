@@ -1,6 +1,8 @@
 # Node.js Examples
 
-OpenTelemetry instrumentation examples for Node.js applications.
+OpenTelemetry instrumentation examples for Node.js applications. Part of base14's
+[OpenTelemetry examples](../README.md) repository; the docs live at
+[docs.base14.io](https://docs.base14.io/instrument/apps/auto-instrumentation/nodejs/).
 
 ## Projects
 
@@ -14,7 +16,7 @@ OpenTelemetry instrumentation examples for Node.js applications.
 | [fastify-postgres](./fastify-postgres) | Fastify 5 + TypeScript + PostgreSQL 18 + Drizzle ORM + BullMQ with Pino structured logging |
 | [trpc-postgres](./trpc-postgres) | tRPC 11 + TypeScript 6 + Prisma 7 + PostgreSQL 18 with OTel Node SDK and distributed tracing |
 | [express-typescript-mongodb](./express-typescript-mongodb) | Express + TypeScript + MongoDB with auto-instrumentation and Redis |
-| [ai-learning-path-planner](./ai-learning-path-planner) | Node.js 26 + Hono 4 + Vercel AI SDK 7 + local Ollama models, a lead agent fanning out to one researcher subagent per subtopic over base14's own docs and examples corpus, with per-run cost and tool-definition token metrics |
+| [ai-learning-path-planner](./ai-learning-path-planner) | Node.js 26 + Hono 4 + Vercel AI SDK 7 + local Ollama models, a lead agent fanning out to one researcher subagent per subtopic over base14's own docs and examples corpus, with per-run cost and tool-definition token metrics. Guide: [AI Agent Observability](https://docs.base14.io/guides/ai-observability/agent-observability/) |
 
 ## Contributing
 

@@ -23,8 +23,7 @@ public sealed record ChatClientFactoryOptions(
 /// Builds an <see cref="IChatClient"/> for the configured provider. Ollama runs on the
 /// host with no remote call; OpenAI and Anthropic are hosted providers, gated by
 /// <see cref="ChatClientFactoryOptions.AllowHostedProvider"/> so a stray exported API key
-/// plus a mistyped provider cannot produce a paid call. Logging the active provider is
-/// the caller's job, done once at startup rather than once per client this builds.
+/// plus a mistyped provider cannot produce a paid call.
 /// </summary>
 public static class ChatClientFactory
 {

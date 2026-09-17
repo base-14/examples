@@ -920,9 +920,8 @@ metric_point_sum "the declined run recorded a fan-out of zero" \
 echo "  $(dim "--- the bucket boundaries, which are not the SDK defaults ---")"
 metric_bounds "base14.plan.cost boundaries"     "base14.plan.cost"     "0.0001,0.0003,0.001,0.003,0.01,0.03,0.1,0.3,1"
 metric_bounds "base14.plan.fanout boundaries"   "base14.plan.fanout"   "0,1,2,3,4,5,6,8"
-# Re-anchored on six consecutive live runs (72.7 to 152.3 seconds) rather than on the
-# spike's 21.75 to 25.60 second band, which was measured before the fan-out worked. See
-# src/telemetry/metrics.ts and tests/telemetry/metrics.test.ts.
+# Anchored on the planned-run band, not the SDK defaults. See src/telemetry/metrics.ts and
+# tests/telemetry/metrics.test.ts.
 metric_bounds "base14.plan.duration boundaries" "base14.plan.duration" "0.1,1,10,30,60,90,120,150,180,240,300"
 
 # --- 5. Scout ---------------------------------------------------------------

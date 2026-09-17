@@ -9,12 +9,9 @@ namespace AgentRebooking.Agents;
 /// rebooking agent is built from. One session serves the process.
 /// </summary>
 /// <remarks>
-/// This is a hosted service, and registered after <c>AddOpenTelemetry</c>, so that the
-/// session opens after the tracer provider has registered its listeners. The MCP SDK gates
-/// its instrumentation on <c>ActivitySource.HasListeners()</c> for
-/// <c>Experimental.ModelContextProtocol</c> at the start of every request, so a session
-/// opened before the provider existed would silently lose the <c>server/discover</c> and
-/// <c>tools/list</c> spans and the trace context in <c>params._meta</c>.
+/// Registered after <c>AddOpenTelemetry</c> so the session opens once the tracer provider's
+/// listeners exist. The MCP SDK gates its instrumentation on
+/// <c>ActivitySource.HasListeners()</c>, so a session opened first loses its spans silently.
 /// </remarks>
 public sealed class AgentToolProvider(BookingStore store, ILogger<AgentToolProvider> logger)
     : IHostedService, IAsyncDisposable
@@ -23,10 +20,9 @@ public sealed class AgentToolProvider(BookingStore store, ILogger<AgentToolProvi
     private IReadOnlyList<AITool>? _tools;
 
     /// <summary>
-    /// The tool list, published only once the session is open and non-empty. Kestrel starts
-    /// accepting requests before this hosted service has finished, and a request landing in
-    /// that window would otherwise build a rebooking agent with no tools and produce a
-    /// plausible run that called nothing. Failing the run is the honest answer.
+    /// Published only once the session is open and non-empty. Kestrel accepts requests before
+    /// this hosted service finishes, and a run in that window would otherwise build an agent
+    /// with no tools and answer plausibly without calling anything.
     /// </summary>
     public IReadOnlyList<AITool> Tools => Volatile.Read(ref _tools)
         ?? throw new InvalidOperationException(
@@ -44,8 +40,6 @@ public sealed class AgentToolProvider(BookingStore store, ILogger<AgentToolProvi
                 "The MCP server exposed no tools, so the rebooking agent would have nothing to call.");
         }
 
-        // Written after the list is fully built, read through Volatile.Read on the run
-        // threads: the property is set here on the startup thread and read from others.
         Volatile.Write(ref _tools, tools);
 
         logger.LogInformation(

@@ -5,10 +5,8 @@ using Microsoft.Extensions.AI;
 namespace AgentRebooking.Runs;
 
 /// <summary>
-/// Prices one offer belonging to one booking. The gate is given this and nothing else, so
-/// the only way it can learn an amount is to ask for it by id: there is no method that
-/// takes a price, and therefore no path by which a number the model wrote into a tool call
-/// can become the amount the limit is checked against.
+/// Prices one offer belonging to one booking. No method here takes a price, so a number the
+/// model wrote into a tool call can never become the amount the limit is checked against.
 /// </summary>
 public interface IPriceLookup
 {
@@ -18,9 +16,8 @@ public interface IPriceLookup
 }
 
 /// <summary>
-/// The production lookup, straight onto the Postgres-backed <see cref="BookingStore"/>.
-/// Both store methods are scoped to the booking and return null for an id that does not
-/// belong to it.
+/// The production lookup, onto the Postgres-backed <see cref="BookingStore"/>. Both store
+/// methods are scoped to the booking and return null for an id outside it.
 /// </summary>
 public sealed class BookingStorePriceLookup(BookingStore store) : IPriceLookup
 {
@@ -46,16 +43,9 @@ public sealed record ApprovalDecision(
     string Reason);
 
 /// <summary>
-/// Decides whether a paused tool call can be answered by the app or has to wait for a
-/// human. Every call to <c>rebook</c> or <c>add_hotel</c> pauses the workflow, because
-/// <c>ApprovalRequiredAIFunction</c> has no predicate; this is where the under-limit
-/// shortcut lives.
+/// Decides whether a paused tool call can be answered by the app or has to wait for a human.
+/// Fails closed: anything the gate cannot price server-side goes to a human.
 /// </summary>
-/// <remarks>
-/// The decision is deliberately closed: anything the gate cannot price server-side goes to
-/// a human. An unknown tool, a missing argument, an id that belongs to another booking and
-/// an id that does not exist all land in the same place.
-/// </remarks>
 public sealed class ApprovalGate(IPriceLookup prices, int limit)
 {
     public const string RebookTool = "rebook";
@@ -101,8 +91,7 @@ public sealed class ApprovalGate(IPriceLookup prices, int limit)
         FunctionCallContent call, string? bookingRef, string? offerId, int? amount, string reason) =>
         new(false, call.Name, bookingRef, offerId, amount, limit, reason);
 
-    // Arguments reach us either as strings, when the app builds the call, or as JsonElement,
-    // when they came off the wire from a model.
+    // Strings when the app builds the call, JsonElement when it came off the wire.
     private static string? ReadArgument(FunctionCallContent call, string name)
     {
         if (call.Arguments is null || !call.Arguments.TryGetValue(name, out var value))

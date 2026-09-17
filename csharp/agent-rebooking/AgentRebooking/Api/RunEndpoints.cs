@@ -11,28 +11,21 @@ public sealed record StartRunResponse(string RunId, string State);
 public sealed record AnswerApprovalRequest(bool? Approved);
 
 /// <summary>
-/// What an accepted answer did. Deliberately not a run snapshot: answering restarts the
-/// workflow, so the run's state a moment later depends on how far the resume has got. Poll
-/// <c>GET /runs/{runId}</c> for that.
+/// What an accepted answer did. Not a run snapshot: answering restarts the workflow, so poll
+/// <c>GET /runs/{runId}</c> for the state.
 /// </summary>
 /// <param name="RunFailed">
-/// True on the rare path where the workflow did not hand its stream over in time and the
-/// run failed rather than taking this decision. The decision above is still the one that
-/// was made and is recorded against the approval; <c>GET /runs/{runId}</c> has the run's
-/// own error.
+/// True on the rare path where the workflow did not hand its stream over in time. The decision
+/// was still made and is recorded against the approval.
 /// </param>
 public sealed record AnswerApprovalResponse(string ApprovalId, string? RunId, bool Approved, string Outcome, bool RunFailed);
 
-/// <summary>
-/// The four run endpoints from the design. Health lives in Program.cs and is not mapped
-/// here.
-/// </summary>
+/// <summary>The four run endpoints. Health is mapped in Program.cs.</summary>
 public static class RunEndpoints
 {
     public static IEndpointRouteBuilder MapRunEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        // Accepted rather than Created: the run carries on in the background long after this
-        // response, and the caller polls GET /runs/{id} for its state.
+        // Accepted, not Created: the run carries on in the background.
         endpoints.MapPost("/runs", (StartRunRequest request, RunStore store) =>
         {
             if (string.IsNullOrWhiteSpace(request.Message))
@@ -60,8 +53,7 @@ public static class RunEndpoints
                     "An answer needs 'approved' to be true or false.", statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Read before answering: the answer clears the pending request, and the caller
-            // still needs the id of the run the decision applied to.
+            // Read before answering: the answer clears the pending request.
             var runId = store.FindRunIdForApproval(approvalId);
             var result = await store.AnswerAsync(approvalId, approved);
 
@@ -72,8 +64,7 @@ public static class RunEndpoints
                 AnswerResult.Conflict => Results.Problem(
                     $"Approval '{approvalId}' has already been answered or its run has finished.",
                     statusCode: StatusCodes.Status409Conflict),
-                // Read after answering, so the rare handover-bound failure is already
-                // reflected: the decision was still made, but the run behind it was not.
+                // Read after answering, so a handover-bound failure is already reflected.
                 _ => Results.Ok(new AnswerApprovalResponse(
                     approvalId,
                     runId,

@@ -6,9 +6,8 @@ using ModelContextProtocol.Server;
 namespace AgentRebooking.Mcp;
 
 /// <summary>
-/// The four tools the rebooking agent calls over MCP. Parameter names are snake_case on
-/// purpose -- they become the JSON argument names the model fills in, and the design
-/// fixes them as <c>booking_ref</c>, <c>flight_id</c> and <c>hotel_id</c>.
+/// The four tools the rebooking agent calls over MCP. Parameter names are snake_case because
+/// they become the JSON argument names the model fills in.
 /// </summary>
 [McpServerToolType]
 public sealed class RebookingTools(BookingStore store)
@@ -22,9 +21,8 @@ public sealed class RebookingTools(BookingStore store)
         var booking = await store.GetBookingAsync(booking_ref, cancellationToken);
         if (booking is null)
         {
-            // McpException, not a returned error object: the SDK turns it into a result
-            // with IsError set, so the model and the execute_tool span both see a failure
-            // instead of a successful call that happens to carry an error message.
+            // McpException, not a returned error object: the SDK sets IsError on the result,
+            // so the model and the execute_tool span both see a failure.
             throw new McpException($"No booking found for reference '{booking_ref}'.");
         }
 

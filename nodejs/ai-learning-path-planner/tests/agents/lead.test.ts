@@ -386,11 +386,9 @@ describe("runLeadPlan: invalid citation is dropped and recorded", () => {
   });
 });
 
-// F1. ollama-ai-provider-v2 4.0.1 puts `format` on the wire for every step whose call
-// options carry a json responseFormat, and `format` alongside tool definitions is what
-// stops qwen3.5 calling a tool at all. The loop and the schema therefore have to be two
-// calls: the loop runs with tools and no response format, and one structured call after
-// it shapes the plan.
+// The provider puts `format` on the wire for every step whose call options carry a json
+// responseFormat, and `format` alongside tool definitions stops this model calling a tool at
+// all. So the loop and the schema are two calls.
 describe("the tool loop and the plan schema are separate model calls", () => {
   const validPlan = {
     topic: "tracing",
@@ -472,9 +470,8 @@ describe("the tool loop and the plan schema are separate model calls", () => {
     const prompt = JSON.stringify(shaping[0]?.prompt);
     expect(prompt).toContain("docs/guides/tracing.md");
 
-    // Only the findings, not the tool-call envelope around them. A live run against
-    // qwen3.5 cited "call_obzm3sh9:tool-result:call_obzm3sh9:research_subtopic:output" as
-    // a corpus path, which is the toolCallId read as if it were data.
+    // Only the findings, not the tool-call envelope: handed the envelope, the model cites the
+    // toolCallId as if it were a corpus path.
     expect(prompt).not.toContain("call-1");
   });
 });
@@ -520,12 +517,9 @@ describe("the Ollama context window", () => {
   });
 });
 
-// Critical 1. With Output.object off the loop, nothing but the instructions told the lead
-// to call research_subtopic, and prose alone did not hold it to that: four live runs
-// fanned out 3, 3, 0 and 0 times, the zero runs calling corpus_map then check_coverage and
-// stopping. prepareStep requires a tool call on the early steps instead. It does not name
-// the tool: choosing between surveying the corpus and researching a subtopic is the
-// decision this example exists to show.
+// With no response format on the loop, prose alone did not hold the lead to researching
+// anything: it would call corpus_map, then check_coverage, then stop. prepareStep requires a
+// tool call on the early steps instead, without naming the tool.
 describe("the loop is held to calling a tool while nothing has been researched", () => {
   const validPlan = {
     topic: "tracing",
@@ -578,9 +572,8 @@ describe("the loop is held to calling a tool while nothing has been researched",
     );
   });
 
-  // toolChoice is the provider-agnostic half of ruling 36 and the SDK enforces it, but
-  // Ollama 0.32.15 accepts tool_choice on /api/chat and ignores it, so on the model this
-  // example actually runs the instruction override is what does the work.
+  // toolChoice is the provider-agnostic half and the SDK enforces it, but Ollama accepts
+  // tool_choice and ignores it, so the instruction override is what moves this model.
   it("tells the model in the step's instructions that it has researched nothing yet", async () => {
     const s = store();
     const model = leadModel(stopWithObject(validPlan));
@@ -631,10 +624,9 @@ describe("the loop is held to calling a tool while nothing has been researched",
   });
 });
 
-// Critical 2. A live run that researched nothing still came back "planned", with three
-// weeks of empty steps and gap reasons the shaping call invented. base14.plan.duration and
-// base14.plan.cost recorded those as successful plans, which pollutes the numbers the
-// example publishes. A plan with no steps in any week is not a plan.
+// A run that researched nothing can still come back "planned", with empty steps and gap
+// reasons the shaping call invented, and base14.plan.duration and base14.plan.cost then
+// record it as a success. A plan with no steps in any week is not a plan.
 describe("runLeadPlan: an empty plan is a failure, not a plan", () => {
   it("reports failed when no week has a single step", async () => {
     const s = store();
@@ -762,12 +754,10 @@ describe("runLeadPlan: an empty plan is a failure, not a plan", () => {
   });
 });
 
-// Ruling 38. Zero steps was the wrong thing to test on its own. The lead can spend every
-// nudged step on corpus_map and check_coverage, which is not a violation because it is
-// calling tools, then answer in prose once the nudge is withdrawn; the shaping call writes
-// steps citing paths it read out of that summary, validateCitation accepts them because
-// they are real corpus paths, and a run that researched nothing is recorded as a plan. The
-// outcome now depends on what the loop did, not only on what the shaper wrote.
+// Zero steps is not enough on its own. The lead can spend every nudged step on corpus_map and
+// check_coverage, which violates nothing because it is calling tools, then answer in prose
+// once the nudge is withdrawn; the shaping call writes steps citing real paths from that
+// summary. So the outcome depends on what the loop did, not only on what the shaper wrote.
 describe("runLeadPlan: a run that researched nothing is a failure", () => {
   const validPlan = {
     topic: "tracing",
@@ -885,11 +875,9 @@ describe("runLeadPlan: a run that researched nothing is a failure", () => {
   });
 });
 
-// Ruling 36 introduced the nudge window to fix a measured two-in-four fan-out failure, and
-// six is the width it was set to. The tests above pin only that the window is not zero, so
-// narrowing it to one step left the whole suite green while the lead was free to answer in
-// prose from its second step onwards. These pin both edges: the sixth step is still
-// required to call a tool, the seventh is not.
+// The tests above pin only that the window is not zero, so narrowing it to one step leaves the
+// suite green while the lead is free to answer in prose from its second step on. These pin
+// both edges: the sixth step is still required to call a tool, the seventh is not.
 describe("the nudge window is six steps wide", () => {
   const validPlan = {
     topic: "tracing",

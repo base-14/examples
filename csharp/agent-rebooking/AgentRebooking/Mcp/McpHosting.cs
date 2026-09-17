@@ -10,8 +10,7 @@ namespace AgentRebooking.Mcp;
 /// <summary>
 /// Hosts <see cref="RebookingTools"/> as an MCP server over two in-memory
 /// <see cref="Pipe"/> instances and exposes a single <see cref="McpClient"/> the app uses
-/// to reach it. No network port opens; server and client share the process, matching the
-/// design's in-process MCP transport and the spike that proved it out.
+/// to reach it. No network port opens; server and client share the process.
 /// </summary>
 public sealed class McpHosting : IAsyncDisposable
 {
@@ -36,8 +35,7 @@ public sealed class McpHosting : IAsyncDisposable
 
         var builder = Host.CreateApplicationBuilder();
         builder.Logging.ClearProviders();
-        // The store is owned by the caller, not by this host -- DisposeAsync below
-        // disposes the host and the client but never this instance.
+        // The store is owned by the caller: DisposeAsync below never touches it.
         builder.Services.AddSingleton(store);
         builder.Services
             .AddMcpServer(o => o.ServerInfo = new Implementation { Name = "rebooking-tools", Version = "0.1.0" })

@@ -34,8 +34,8 @@ import { researchSubtopicTool } from "../tools/research-subtopic.js";
 import { searchDocsTool } from "../tools/search-docs.js";
 import { buildResearcherAgent } from "./researcher.js";
 
-// Set by the route handler, which owns the plan id and the counters. Left undefined by
-// the unit tests, which build a lead agent with no run to attribute spans or metrics to.
+// Set by the route handler, which owns the plan id and the counters. Undefined in unit tests,
+// which have no run to attribute spans or metrics to.
 export interface LeadRun {
   planId: string;
   counters: RunCounters;
@@ -50,9 +50,8 @@ export interface LeadAgentDeps {
   run?: LeadRun;
 }
 
-// The loop gathers, the shaping call writes. Splitting the instructions the same way the
-// calls are split is what keeps the loop from trying to emit a plan on a step that has
-// tools in front of it.
+// The loop gathers, the shaping call writes. Splitting the instructions the same way keeps the
+// loop from trying to emit a plan on a step that still has tools in front of it.
 const LEAD_INSTRUCTIONS =
   "You research a topic against base14's documentation and examples corpus so a learning " +
   "plan can be written from what you find. Break the topic into a small number of focused " +
@@ -63,10 +62,8 @@ const LEAD_INSTRUCTIONS =
   "one line per subtopic, naming the corpus paths the research returned for it and any " +
   "subtopic that returned nothing. Do not write the plan itself.";
 
-// Added to the loop's instructions on any early step that has not researched anything yet,
-// and withdrawn once one has. See prepareStep below for why prose alone was not enough and
-// why this is not simply part of LEAD_INSTRUCTIONS: a directive that is true on step one
-// and false on step six does not belong in a system prompt that is sent on every step.
+// Added on any early step that has researched nothing, withdrawn once one has. A directive
+// true on step one and false on step six does not belong in the system prompt.
 const LEAD_NUDGE =
   "You have not researched any subtopic yet, so this step must be a tool call rather than " +
   "a written answer. Call corpus_map or check_coverage if you still have to decide which " +
@@ -79,19 +76,16 @@ const PLAN_INSTRUCTIONS =
   "and nothing else. Record a subtopic that has no findings as a gap rather than guessing " +
   "a citation.";
 
-// The loop is nudged for this many steps, which is long enough for the lead to survey the
-// corpus and check a subtopic's coverage before it has to start researching, and short
-// enough that it still ends the loop itself once the research is done.
+// Long enough for the lead to survey the corpus before it has to research, short enough that
+// it still ends the loop itself afterwards.
 const NUDGED_STEPS = 6;
 
 function hasResearched(steps: { toolCalls: { toolName: string }[] }[]): boolean {
   return steps.some((step) => step.toolCalls.some((call) => call.toolName === "research_subtopic"));
 }
 
-// Build a new lead agent for every request. The MAX_SUBTOPICS and MAX_ESCALATIONS
-// counters live in the research_subtopic tool's closure, which is created here, so they
-// reset when this function is called and at no other time. A lead agent reused across
-// requests carries its exhausted caps into the next one and refuses to research anything.
+// A new lead agent per request. The MAX_SUBTOPICS and MAX_ESCALATIONS counters live in the
+// research_subtopic closure created here, so a reused agent carries exhausted caps forward.
 export function buildLeadAgent(deps: LeadAgentDeps) {
   const runtimeContext: PlanRuntimeContext | undefined =
     deps.run === undefined
@@ -137,14 +131,11 @@ export function buildLeadAgent(deps: LeadAgentDeps) {
     recordOutputs: deps.config.captureMessageContent,
   };
 
-  // Two agents, not one, and the reason is the wire format rather than the design.
-  // Output.object puts a json responseFormat on every call the agent makes, which
-  // ollama-ai-provider-v2 turns into a `format` grammar on the request. `format` alongside
-  // tool definitions stops qwen3.5 calling a tool at all: measured three runs each,
-  // format plus think:false gave 0/3 tool calls, either one alone gave 3/3. The loop
-  // therefore runs with tools and no response format, and one structured call after it
-  // shapes the plan. prepareStep cannot do this - its return type covers toolChoice,
-  // activeTools, tools and model, but not responseFormat.
+  // Two agents, not one, because of the wire format. Output.object puts a json responseFormat
+  // on every call, which the provider turns into a `format` grammar, and `format` alongside
+  // tool definitions stops this model calling a tool at all. So the loop runs with tools and no
+  // response format, and a second structured call shapes the plan. prepareStep cannot do it:
+  // its return type covers toolChoice, activeTools, tools and model, but not responseFormat.
   const loop = new ToolLoopAgent({
     id: "lead",
     model,
@@ -152,23 +143,17 @@ export function buildLeadAgent(deps: LeadAgentDeps) {
     tools,
     activeTools: activeToolsFor("lead", deps.config) as ActiveTools<typeof tools>,
     stopWhen: isStepCount(16),
-    // Taking Output.object off the loop fixed the tool calls but left nothing except the
-    // instructions telling the lead to research anything, and prose did not hold it: four
-    // live runs fanned out 3, 3, 0 and 0 times, the zero runs calling corpus_map, then
-    // check_coverage, then answering in prose. This requires a tool call while nothing has
-    // been researched. It does not name the tool, because choosing between surveying the
-    // corpus and researching a subtopic is the decision this example exists to show.
+    // With no response format on the loop, prose alone did not hold the lead to researching
+    // anything, so a tool call is required while nothing has been researched. The tool is not
+    // named: choosing between surveying and researching is the decision this example shows.
     //
-    // toolChoice is the provider-agnostic half and is inert on Ollama: 0.32.15 accepts
-    // tool_choice on /api/chat and ignores it, measured against "required", a named
-    // function and the OpenAI-compatible endpoint. The instructions override is what
-    // actually moves this model, so both are sent.
+    // toolChoice is the provider-agnostic half and is inert on Ollama, which accepts
+    // tool_choice and ignores it. The instructions override is what moves this model, so both
+    // are sent, and the AI SDK enforces toolChoice client-side.
     prepareStep: ({ stepNumber, steps }) => {
-      // The instructions are put back explicitly rather than left to fall through.
-      // generate-text.ts carries a prepareStep instructions override forward into every
-      // later step (instructionsForNextStep, generate-text.ts:1466), so returning nothing
-      // here would leave "you have not researched anything yet" in front of the model for
-      // the rest of the run, including the steps after it plainly had.
+      // Put back explicitly: the SDK carries a prepareStep instructions override forward into
+      // every later step, so returning nothing would leave the nudge in front of the model for
+      // the rest of the run.
       if (stepNumber >= NUDGED_STEPS || hasResearched(steps)) {
         return { instructions: LEAD_INSTRUCTIONS };
       }
@@ -182,9 +167,8 @@ export function buildLeadAgent(deps: LeadAgentDeps) {
     telemetry: { functionId: "lead", ...telemetry, ...deps.telemetry },
   });
 
-  // Carries the same runtimeContext as the loop, so its spans land on the run:
-  // base14.plan.id is on them and PlanCostSpanProcessor adds this call's tokens to the
-  // run's total, which keeps base14.gen_ai.cost a sum over the whole run.
+  // The same runtimeContext as the loop, so its spans carry base14.plan.id and its tokens land
+  // in the run's cost total.
   const shaper = new ToolLoopAgent({
     id: "lead-plan",
     model,
@@ -211,18 +195,15 @@ export interface LeadOutcome {
   plan: Plan;
 }
 
-// Everything the shaping call is allowed to write a plan from: the loop's own summary
-// plus the findings each researcher returned, verbatim. The findings are passed as JSON
-// rather than folded into prose because they are the only source of a citation the plan
-// may use, and validateCitation checks every path in the result against the store
-// afterwards regardless.
+// Everything the shaping call may write a plan from: the loop's summary plus each researcher's
+// findings, verbatim, as JSON rather than prose because they are the only source of a citation
+// the plan may use. validateCitation checks the result against the store regardless.
 function researchNotes(loop: {
   text: string;
   toolResults: { toolName: string; output: unknown }[];
 }): string {
-  // The outputs only, never the tool-result envelope around them. A live run handed the
-  // whole envelope cited "call_obzm3sh9:tool-result:call_obzm3sh9:research_subtopic:output"
-  // as a corpus path: the model read toolCallId as if it were data.
+  // The outputs only, never the tool-result envelope: handed the envelope, the model cites the
+  // toolCallId as if it were a corpus path.
   const researched = loop.toolResults
     .filter((result) => result.toolName === "research_subtopic")
     .map((result) => result.output);
@@ -271,9 +252,8 @@ function retryPrompt(topic: string, research: string, invalid: InvalidStepRef[])
   );
 }
 
-// Runs after the model returns, never inside the prompt: the model's structured output is
-// only ever accepted step by step through validateCitation, the same function the corpus
-// module exposes for this and nothing else parses a citation path.
+// After the model returns, never inside the prompt: structured output is accepted step by step
+// through validateCitation, and nothing else parses a citation path.
 function reconcile(
   first: Plan,
   retry: Plan | undefined,
@@ -312,48 +292,26 @@ function reconcile(
   return { topic: first.topic, weeks, gaps };
 }
 
-// The line between declining the whole request and carrying on with a gap: this check
-// runs once, before the model is ever called, against the topic as a whole. If the corpus
-// has nothing on the topic at all - not even a heading-only near miss - there is nothing
-// for the lead to plan around, so the run declines without spending a token.
+// Declining the whole request, as against carrying on with a gap. Runs once against the whole
+// topic before any model call, so a topic the corpus does not mention at all costs nothing.
+// coverage.mentioned already covers near misses, which corpus/store.ts derives from the same
+// heading paths. Coverage of one subtopic mid-run is the model's own check_coverage call, which
+// records a gap and continues.
 //
-// coverage.mentioned already covers the near miss: corpus/store.ts sets it from
-// strongPaths or headingPaths being non-empty, and derives nearMisses from headingPaths,
-// so a topic with a near miss is a topic that is mentioned. The separate
-// nearMisses.length === 0 clause that used to be here could never change the result.
-// Coverage of
-// an individual subtopic the lead identifies mid-run is a narrower question the model
-// answers itself via the check_coverage tool, recording a gap and continuing rather than
-// aborting the whole plan.
-//
-// Exported so routes/plans.ts can decide the HTTP status (422 vs 200) before the streaming
-// response opens, using the exact same rule runLeadPlan uses to decide "declined" vs
-// "planned" - one predicate, called from both places, rather than the same expression
-// copied into two files where only one of them could be updated later.
+// Exported so routes/plans.ts can pick 422 against 200 before the stream opens, from the same
+// predicate runLeadPlan uses.
 export function isTopicOutOfRange(store: CorpusStore, topic: string): boolean {
   return !store.coverage(topic).mentioned;
 }
 
-// A run that produced no steps did not produce a plan, and neither did a run that produced
-// steps without researching anything. A live run returned "planned" in 21 seconds with
-// three weeks of empty steps and invented gap reasons after the loop researched nothing,
-// and base14.plan.duration and base14.plan.cost recorded it as a successful plan.
+// A run with no steps is not a plan, and neither is one that produced steps without
+// researching. Both halves are needed: a plan of nothing but gaps has zero steps, and a lead
+// that spends every nudged step on corpus_map and check_coverage violates no toolChoice, then
+// answers in prose, and the shaping call can still write steps whose citations validate from
+// real paths in that summary.
 //
-// Both halves are needed. Zero steps across all weeks catches the first: a week recorded as
-// a gap legitimately has no steps, so nothing is asserted about individual weeks, and a plan
-// of nothing but gaps is exactly the run this is here to catch. The research check catches
-// the case the step count cannot see: the lead can spend every nudged step on corpus_map
-// and check_coverage, which is not a toolChoice violation because it is calling tools, then
-// answer in prose once the nudge is withdrawn, and the shaping call can write steps whose
-// citations validate because it read real paths out of that summary. Fan-out 0, steps
-// non-zero, and without this it would be recorded as a plan.
-//
-// A run that failed for want of research says so in a gap, because failed otherwise covers
-// both an outage and a run that simply found nothing, and only the gap reason separates
-// them on base14.plan.gap.count.
-//
-// A topic the corpus does not cover is a different thing and still declines, above, before
-// a token is spent.
+// The failure carries a gap, because failed otherwise covers both an outage and a run that
+// found nothing, and only the reason separates them on base14.plan.gap.count.
 function outcomeFor(plan: Plan, researched: boolean): LeadOutcome {
   const steps = plan.weeks.reduce((total, week) => total + week.steps.length, 0);
 
@@ -391,13 +349,9 @@ export async function runLeadPlan(
     };
   }
 
-  // The SDK enforces toolChoice itself: a step that was required to call a tool and
-  // answered in prose throws rather than returning. That is the only way the requirement
-  // has teeth on Ollama, which accepts tool_choice and ignores it (measured on 0.32.15,
-  // see prepareStep in buildLeadAgent). Caught here rather than left to the route's error
-  // path: the throw can only happen while nothing has been researched, so there is nothing
-  // to shape a plan from, and a failed outcome carries the run's metrics and a gap that
-  // says why, where an unhandled throw carries neither.
+  // The SDK throws when a step required to call a tool answers in prose, which is the only way
+  // the requirement has teeth on Ollama. Caught here because the throw can only happen while
+  // nothing has been researched: a failed outcome carries metrics and a gap, a throw neither.
   let loop: Awaited<ReturnType<typeof agent.loop.generate>>;
   try {
     loop = await agent.loop.generate({ prompt: `Topic: ${request.topic}` });
@@ -421,9 +375,8 @@ export async function runLeadPlan(
   }
 
   const research = researchNotes(loop);
-  // Read off the loop's own steps rather than off the run counters, so this says what the
-  // lead did on this request and nothing else: the counters are optional (the unit tests
-  // build a lead with no run) and count researcher starts across the whole run.
+  // Off the loop's own steps, not the run counters, which are optional and count researcher
+  // starts across the whole run.
   const researched = hasResearched(loop.steps);
 
   const first = await agent.shaper.generate({ prompt: shapePrompt(request.topic, research) });
@@ -433,9 +386,8 @@ export async function runLeadPlan(
     return outcomeFor(first.output, researched);
   }
 
-  // Only the shaping call is repeated, not the loop. The research is already gathered and
-  // a wrong citation is a writing mistake, not a gap in what was read, so re-running
-  // sixteen steps of tool calls to correct one path would double the run for nothing.
+  // Only the shaping call is repeated: a wrong citation is a writing mistake, not a gap in what
+  // was read, so re-running the tool loop would double the run for nothing.
   const retry = await agent.shaper.generate({
     prompt: retryPrompt(request.topic, research, invalid),
   });

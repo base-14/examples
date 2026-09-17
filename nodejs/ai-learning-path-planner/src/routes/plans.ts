@@ -23,17 +23,13 @@ export interface PlansRouteDeps {
   store: CorpusStore;
   config: Config;
   plans: PlanStore;
-  // Only ever set by a test. Production leaves these undefined so buildLeadAgent falls
-  // back to selectModel(tier, config), which is what wires up the real Ollama provider.
+  // Tests only. Undefined in production, so buildLeadAgent falls back to selectModel.
   model?: LanguageModel;
   researcherModels?: { small?: LanguageModel; large?: LanguageModel };
 }
 
-// body is whatever c.req.json() parsed, which can be anything valid JSON allows -
-// including null, a number, a string or an array. Every one of those has to fall through
-// to undefined here rather than throw, since the only thing that separates "malformed
-// request" (400) from "well-formed but out of corpus range" (422) is that this function
-// returns cleanly either way.
+// c.req.json() can return null, a number, a string or an array. All of them fall through to
+// undefined rather than throw, because 400 and 422 are told apart by what this returns.
 function readTopic(body: unknown): string | undefined {
   if (typeof body !== "object" || body === null) return undefined;
   const topic = (body as { topic?: unknown }).topic;
@@ -42,19 +38,12 @@ function readTopic(body: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-// POST /plans streams newline-delimited JSON (NDJSON, one JSON object per line) rather
-// than plain JSON, because the design calls for one request that streams progress and
-// ends with the plan. There is no polling endpoint and no separate approval step, so this
-// is the only signal a caller gets before the plan is final. The first line is written as
-// soon as the request is accepted, before the (possibly slow) lead agent run starts; the
-// last line carries the outcome. A shell script can assert against this with `tail -n 1`
-// and `jq`, which is what scripts/test-api.sh (Task 9) does.
+// NDJSON, one object per line: the first is written as soon as the request is accepted, the
+// last carries the outcome, and there is no polling endpoint in between.
 //
-// The HTTP status is decided before the body starts streaming, since headers can only be
-// sent once: isTopicOutOfRange(topic) is checked here, synchronously, using the exact same
-// predicate runLeadPlan calls internally to decide "declined" vs "planned" (see
-// agents/lead.ts). Both calls run against the same immutable store and the same topic, so
-// they always agree - this is not a race, just the same pure check made twice.
+// The status is decided before the body streams, because headers are sent once.
+// isTopicOutOfRange is the same pure predicate runLeadPlan uses for declined against planned,
+// over the same immutable store, so the two always agree.
 export function plansRoutes(deps: PlansRouteDeps): Hono {
   const plans = new Hono();
 
@@ -68,31 +57,22 @@ export function plansRoutes(deps: PlansRouteDeps): Hono {
 
     const topic = readTopic(body);
     if (topic === undefined) {
-      // 400, not 422: 422 means "the topic is out of corpus range", a decision the lead
-      // agent's coverage check makes. A missing, non-string or empty topic never reaches
-      // that check - it is a malformed request, which is a different kind of problem and
-      // gets a different status so a caller (and Task 9's script) never has to guess which
-      // one a given 4xx means.
+      // 400, not 422: a missing or non-string topic never reaches the coverage check that
+      // 422 reports on.
       return c.json({ error: "topic is required and must be a non-empty string" }, 400);
     }
 
     const declined = isTopicOutOfRange(deps.store, topic);
 
-    // Minted here rather than inside the stream callback so the terminal error line can
-    // carry it too. A client that only ever sees {"event":"error"} otherwise has no way
-    // to find the run's trace by base14.plan.id, which every AI SDK span in the run
-    // carries. Nothing is reserved that was not already being reserved: every
-    // request that reaches this line opens a stream and takes an id, declined ones
-    // included, and the malformed-request cases returned 400 further up.
+    // Minted outside the stream callback so the terminal error line carries it too: it is a
+    // failed run's only route to its trace, through base14.plan.id.
     const id = deps.plans.create();
     const startedAt = performance.now();
     const counters = newRunCounters();
 
-    // A new lead agent for every request: buildLeadAgent closes over the MAX_SUBTOPICS and
-    // MAX_ESCALATIONS counters (see agents/lead.ts), and those only reset when
-    // buildLeadAgent runs. Built here rather than inside the stream callback so the run's
-    // counters and tool definitions are in scope for the failure path too, which is the
-    // one path that has no outcome to read them from.
+    // A new lead agent per request: it closes over the MAX_SUBTOPICS and MAX_ESCALATIONS
+    // counters, which reset nowhere else. Built outside the stream callback so the failure
+    // path, which has no outcome to read, still has the counters in scope.
     const agent = buildLeadAgent({
       store: deps.store,
       config: deps.config,
@@ -106,12 +86,9 @@ export function plansRoutes(deps: PlansRouteDeps): Hono {
       researcher: toolDefinitionTokens(agent.tools, "researcher", deps.config),
     };
 
-    // Recorded here, not inside runLeadPlan: this is the only place that holds the plan
-    // id, the clock that started when the request was accepted and the config the tags
-    // come from, and it is where all three outcomes - declined, planned and failed - come
-    // back together. runLeadPlan stays a function that plans, with a signature the agent
-    // tests can call without a meter in scope. takeRunCostUsd also clears the run's entry
-    // in the cost accumulator, on every path including the failing one.
+    // Here, not in runLeadPlan: this is where all three outcomes meet and the only place
+    // holding the id, the clock and the config the tags come from. takeRunCostUsd also clears
+    // the run's accumulator entry, on every path.
     const record = (status: PlanOutcome, gaps: PlanGap[]): void => {
       recordPlan({
         status,
@@ -141,23 +118,12 @@ export function plansRoutes(deps: PlansRouteDeps): Hono {
           JSON.stringify({ event: "plan", id, status: outcome.status, plan: outcome.plan }),
         );
       },
-      // The HTTP status (200 or 422) is already on the wire by the time this runs - there
-      // is no way to turn a mid-stream failure into a different status code. This
-      // terminal NDJSON line is the only signal a client has left: without it, a run that
-      // throws after "accepted" (an Ollama outage, for example) ends the response exactly
-      // the way a run that never got that far would, and a caller reading only the status
-      // code, or only checking that a body arrived, reads it as success.
+      // The status is already on the wire, so this terminal line is the only signal left. A
+      // run that throws after "accepted" otherwise ends the response like a successful one.
       async (err, s) => {
-        // A run that fails mid-stream is the case metrics exist for. Without this it is
-        // the one outcome that records nothing at all, so an outage reads as an absence of
-        // traffic rather than as failing traffic. The fan-out is whatever was reached
-        // before the failure and the duration is measured to the point of failure.
-        //
-        // It carries a gap, and it is stored. failed covers both an outage and a run that
-        // found nothing, and the README says the gap reason is what separates them: with
-        // an empty gap list an outage recorded no reason at all, so there was nothing to
-        // read. Storing the outcome is what keeps GET /plans/{id} answering for an id the
-        // client was already handed on the accepted line and again on the error line.
+        // Without this an outage reads as an absence of traffic rather than failing traffic.
+        // The gap is what separates an outage from a run that found nothing, and storing the
+        // outcome keeps GET /plans/{id} answering for the id the client already holds.
         const outcome: LeadOutcome = {
           status: "failed",
           plan: {

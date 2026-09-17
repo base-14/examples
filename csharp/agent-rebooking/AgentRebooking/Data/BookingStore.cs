@@ -21,9 +21,8 @@ public sealed record HotelOption(string HotelId, string City, int Price);
 public sealed record Alternatives(IReadOnlyList<FlightAlternative> Flights, HotelOption? Hotel);
 
 /// <summary>
-/// Reads and writes booking data on Postgres through Npgsql. Flight and hotel price
-/// lookups are their own methods because the approval gate Task 6 adds reads a price
-/// from here directly, server-side, rather than trusting a price the model supplies.
+/// Reads and writes booking data on Postgres through Npgsql. Price lookups are their own
+/// methods because the approval gate reads a price from here rather than trusting the model's.
 /// </summary>
 public sealed class BookingStore : IAsyncDisposable
 {
@@ -41,10 +40,9 @@ public sealed class BookingStore : IAsyncDisposable
     public static BookingStore Create(string connectionString) => new(NpgsqlDataSource.Create(connectionString));
 
     /// <summary>
-    /// Applies the schema then the seed rows. Both files are idempotent, so this is safe
-    /// to run on every startup against a volume that already has the tables and rows, and
-    /// it never resets a booking a previous run already rebooked. The flip side is that
-    /// editing a seed value has no effect until the volume is removed; see `make reset`.
+    /// Applies the schema then the seed rows. Both files are idempotent, so a startup never
+    /// resets a booking a previous run rebooked. The flip side: an edited seed value does
+    /// nothing until the volume is removed. See `make reset`.
     /// </summary>
     public async Task ApplySchemaAndSeedAsync(
         string? schemaPath = null, string? seedPath = null, CancellationToken cancellationToken = default)
@@ -117,10 +115,9 @@ public sealed class BookingStore : IAsyncDisposable
     }
 
     /// <summary>
-    /// The price of a flight offered for this booking, or null when the flight is not one
-    /// of that booking's alternatives. Scoped to the booking on purpose: the approval gate
-    /// compares this price against the limit, so an unscoped lookup would let a cheap
-    /// flight from a different booking clear the limit and skip the human.
+    /// The price of a flight offered for this booking, or null when it is not one of that
+    /// booking's alternatives. Scoped on purpose: unscoped, a cheap flight from another booking
+    /// would clear the limit and skip the human.
     /// </summary>
     public async Task<int?> GetFlightPriceAsync(
         string bookingRef, string flightId, CancellationToken cancellationToken = default)

@@ -1,8 +1,8 @@
 namespace AgentRebooking.Runs;
 
 /// <summary>
-/// The four run states the design's <c>GET /runs/{id}</c> returns. Strings rather than an
-/// enum so the wire shape and the code agree without a mapping layer.
+/// The four run states <c>GET /runs/{id}</c> returns. Strings rather than an enum so the wire
+/// shape and the code agree without a mapping layer.
 /// </summary>
 public static class RunStates
 {

@@ -6,13 +6,11 @@ import {
   FANOUT_BOUNDARIES,
 } from "../../src/telemetry/metrics.ts";
 
-// Six consecutive live runs of the same in-range topic against local Ollama, driven
-// through the containerised service on its shipped defaults. Recorded here because a
-// histogram boundary is only ever right or wrong about real measurements, and the ones
-// this service shipped were anchored on a spike that predates the fan-out working.
-const MEASURED_PLANNED_SECONDS = [72.7, 82.7, 89.9, 105.6, 131.7, 152.3];
-const MEASURED_DECLINED_SECONDS = 0.019;
-const MEASURED_COSTS_USD = [0.001599, 0.003011, 0.00214];
+// A histogram boundary is only ever right or wrong about real runs, so these are the durations
+// and costs observed from the containerised service on its shipped defaults.
+const PLANNED_SECONDS = [72.7, 82.7, 89.9, 105.6, 131.7, 152.3];
+const DECLINED_SECONDS = 0.019;
+const COSTS_USD = [0.001599, 0.003011, 0.00214];
 
 // The index of the bucket a value falls in, counting the overflow bucket above the last
 // boundary. OTel histogram buckets are (previous, boundary].
@@ -29,30 +27,30 @@ function bucketWidth(value: number, boundaries: number[]): number {
 }
 
 describe("base14.plan.duration boundaries", () => {
-  it("spreads the measured planned band across at least four buckets", () => {
-    const buckets = MEASURED_PLANNED_SECONDS.map((seconds) =>
+  it("spreads the planned band across at least four buckets", () => {
+    const buckets = PLANNED_SECONDS.map((seconds) =>
       bucketOf(seconds, DURATION_BOUNDARIES_SECONDS),
     );
 
     expect(new Set(buckets).size).toBeGreaterThanOrEqual(4);
   });
 
-  it("lands every measured run in a bucket no wider than thirty seconds", () => {
-    for (const seconds of MEASURED_PLANNED_SECONDS) {
+  it("lands every planned run in a bucket no wider than thirty seconds", () => {
+    for (const seconds of PLANNED_SECONDS) {
       expect(bucketWidth(seconds, DURATION_BOUNDARIES_SECONDS)).toBeLessThanOrEqual(30);
     }
   });
 
   it("separates a declined run from every planned one", () => {
-    const declined = bucketOf(MEASURED_DECLINED_SECONDS, DURATION_BOUNDARIES_SECONDS);
+    const declined = bucketOf(DECLINED_SECONDS, DURATION_BOUNDARIES_SECONDS);
 
-    for (const seconds of MEASURED_PLANNED_SECONDS) {
+    for (const seconds of PLANNED_SECONDS) {
       expect(bucketOf(seconds, DURATION_BOUNDARIES_SECONDS)).toBeGreaterThan(declined);
     }
   });
 
-  it("keeps the measured band off the overflow bucket, so a slow run is still visible", () => {
-    for (const seconds of MEASURED_PLANNED_SECONDS) {
+  it("keeps the planned band off the overflow bucket, so a slow run is still visible", () => {
+    for (const seconds of PLANNED_SECONDS) {
       expect(bucketOf(seconds, DURATION_BOUNDARIES_SECONDS)).toBeLessThan(
         DURATION_BOUNDARIES_SECONDS.length,
       );
@@ -61,8 +59,8 @@ describe("base14.plan.duration boundaries", () => {
 });
 
 describe("base14.plan.cost boundaries", () => {
-  it("prices a measured run mid-scale, so a regression has buckets to move through", () => {
-    for (const cost of MEASURED_COSTS_USD) {
+  it("prices a planned run mid-scale, so a regression has buckets to move through", () => {
+    for (const cost of COSTS_USD) {
       const bucket = bucketOf(cost, COST_BOUNDARIES_USD);
       expect(bucket).toBeGreaterThan(0);
       expect(bucket).toBeLessThan(COST_BOUNDARIES_USD.length - 1);

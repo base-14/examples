@@ -31,10 +31,8 @@ export interface CorpusStats {
 
 type FieldName = "title" | "keywords" | "description" | "headings";
 
-// Title and keywords carry the strongest identity signal for a document, so they win a
-// search outright. Description narrows a topic without naming it as directly. Headings
-// are the weakest field: a term buried under one heading is a much softer match than a
-// term the author chose to put in the title.
+// Title and keywords are the strongest identity signal, description narrows without naming,
+// and a term buried under one heading is the softest match of the three.
 const FIELD_WEIGHTS: Record<FieldName, number> = {
   title: 10,
   keywords: 8,
@@ -44,9 +42,8 @@ const FIELD_WEIGHTS: Record<FieldName, number> = {
 
 const FIELD_ORDER: FieldName[] = ["title", "keywords", "description", "headings"];
 
-// The standard Docker Compose discovery names. An override or variant file such as
-// compose.override.yaml or docker-compose.local.yml is not a standalone runnable entry
-// point, so it is deliberately excluded from this set.
+// The standard Compose discovery names only. An override or variant file is not a standalone
+// runnable entry point.
 const COMPOSE_FILE_NAMES = new Set([
   "compose.yaml",
   "compose.yml",
@@ -79,17 +76,14 @@ export class CorpusStore {
   private readonly catalogue: CatalogueEntry[];
   private readonly sections: SectionEntry[];
   private readonly catalogueByPath: Map<string, CatalogueEntry>;
-  // path -> heading -> every occurrence of that heading in document order. Nested
-  // instead of a joined string key, so no delimiter choice can ever collide with a real
-  // path or heading. An array, not a single section, because a document can carry the
-  // same heading twice (the artifact stays a faithful record of the source document, so
-  // this is not deduplicated at build time).
+  // path -> heading -> every occurrence in document order. Nested rather than a joined key, so
+  // no delimiter can collide with a real path. An array because a document can repeat a
+  // heading, and the artifact stays a faithful record of its source.
   private readonly sectionsByPath: Map<string, Map<string, SectionEntry[]>>;
   // token -> path -> which weighted fields of that path contained the token.
   private readonly index: Map<string, Map<string, Set<FieldName>>>;
-  // path -> every token drawn from title, keywords, description, headings and the path
-  // itself. Used only by listExamples, which treats the example's own directory name
-  // (postgres, mongodb, fastify, ...) as a legitimate topic signal alongside its metadata.
+  // path -> every token from title, keywords, description, headings and the path itself. Used
+  // by listExamples, which treats the directory name as a topic signal too.
   private readonly entryTokens: Map<string, Set<string>>;
   // The directory of every standard Docker Compose file in the corpus. A path is "under
   // a runnable example" only if it sits inside one of these directories.
@@ -206,18 +200,16 @@ export class CorpusStore {
 
   outline(path: string): string[] {
     const headings = this.catalogueByPath.get(path)?.headings ?? [];
-    // A document can carry the same heading twice (see sectionsByPath); outline()
-    // de-duplicates so every heading it lists is fetchable exactly once and agrees with
-    // what fetchSection returns.
+    // A document can repeat a heading, so outline() de-duplicates and every heading it lists
+    // is fetchable exactly once.
     return Array.from(new Set(headings));
   }
 
   fetchSection(path: string, heading: string): SectionEntry | undefined {
     const occurrences = this.sectionsByPath.get(path)?.get(heading);
     if (occurrences === undefined || occurrences.length === 0) return undefined;
-    // A single occurrence returns unchanged. Two or more occurrences of the same
-    // heading in one document are joined in document order by a blank line, so a
-    // fetch never silently drops the earlier occurrences the way a plain overwrite did.
+    // Repeats are joined in document order by a blank line, so a fetch never silently drops
+    // the earlier occurrences.
     return { path, heading, text: occurrences.map((section) => section.text).join("\n\n") };
   }
 
@@ -288,9 +280,8 @@ export class CorpusStore {
         sourceKeywords.has(keyword.toLowerCase()),
       ).length;
 
-      // Adjacency is only meaningful within the same area, because sidebarPosition
-      // orders siblings in one sidebar, not the whole corpus. A cross-area entry, or
-      // either side missing a position, sorts last on this key.
+      // sidebarPosition orders siblings in one sidebar, not the corpus, so adjacency only
+      // means anything within an area. Anything else sorts last on this key.
       let adjacency = Number.POSITIVE_INFINITY;
       if (
         entry.area === source.area &&
@@ -330,10 +321,8 @@ export class CorpusStore {
     };
   }
 
-  // Ground truth for whether a path exists in the loaded artifact at all. outline()
-  // cannot answer this on its own: a valid path with no headings and an invalid path
-  // both return an empty array. validateCitation needs the distinction, so citations.ts
-  // uses this rather than re-deriving it from outline().
+  // Whether a path exists at all. outline() cannot answer it: a valid path with no headings
+  // and an invalid path both return an empty array, and validateCitation needs them apart.
   getEntry(path: string): CatalogueEntry | undefined {
     return this.catalogueByPath.get(path);
   }

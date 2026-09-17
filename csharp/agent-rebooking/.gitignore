@@ -5,3 +5,5 @@ obj/
 *.user
 *.suo
 .env
+spike/
+SPIKE-FINDINGS.md

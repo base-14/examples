@@ -41,9 +41,7 @@ export interface BuildIndexOptions {
   examplesRepo: string;
 }
 
-// Directory names pruned at every level of the walk, not only at the root. A vendored
-// or generated directory can appear nested inside any example, so the check has to run
-// on every directory the walk visits.
+// Pruned at every level, not just the root: a vendored directory can sit inside any example.
 const EXCLUDED_DIR_NAMES = new Set([
   "node_modules",
   ".git",
@@ -355,11 +353,9 @@ export async function buildIndex(opts: BuildIndexOptions): Promise<CorpusArtifac
   return { catalogue, sections };
 }
 
-// The other half of corpus/store.ts's loadArtifact, and it lives here rather than in
-// scripts/build-index.ts so the compression the shipped artifact is written with is the
-// same code a test can run. data/corpus.json.gz is 873 documents of text: uncompressed it
-// is large enough to matter in a git repository and in an image layer. Returns the
-// compressed size so the script can report it.
+// The other half of corpus/store.ts's loadArtifact. Here rather than in the build script so a
+// test runs the same compression the shipped artifact is written with. Returns the compressed
+// size for the script to report.
 export async function writeArtifact(artifact: CorpusArtifact, outputPath: string): Promise<number> {
   await mkdir(dirname(outputPath), { recursive: true });
   const compressed = await gzipAsync(JSON.stringify(artifact));

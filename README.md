@@ -290,9 +290,20 @@ code.
 Travel disruption agent on .NET 10 and Microsoft Agent Framework 1.21. A triage agent hands off to a rebooking agent,
 tools come from an in-process MCP server, and a rebooking over a price limit waits for a human before it runs. One trace
 covers the handoff, the MCP client and server, the Postgres queries and the approval; the approval wait is two short
-linked spans plus a histogram. Ships a six-scenario error matrix with the measured status of every span in each.
+linked spans plus a histogram. Ships a six-scenario error matrix showing where each failure lands.
 
-[View README →](./csharp/agent-rebooking/README.md)
+[View README →](./csharp/agent-rebooking/README.md) ·
+[Guide](https://docs.base14.io/guides/ai-observability/agent-approval-gates/)
+
+### AI Learning Path Planner
+
+Node.js 26 and Vercel AI SDK 7 on local Ollama models. A lead agent breaks a topic into subtopics and calls one
+researcher subagent per subtopic over base14's own docs and examples corpus, and every step of the finished plan cites
+a corpus path. Records a cost per run under fan-out and the token cost of the tool definitions each agent carries, so
+the deferred and full tool catalogues can be compared on the same request.
+
+[View README →](./nodejs/ai-learning-path-planner/README.md) ·
+[Guide](https://docs.base14.io/guides/ai-observability/agent-observability/)
 
 ### Go stdlib net/http
 

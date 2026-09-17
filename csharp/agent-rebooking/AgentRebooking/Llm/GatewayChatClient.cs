@@ -24,10 +24,8 @@ public sealed record GatewayProvider(string Name, string Model);
 /// </summary>
 /// <remarks>
 /// Retry, fallback and cost are on <see cref="GetResponseAsync"/> only. The agent framework
-/// streams, so a live run reaches <see cref="GetStreamingResponseAsync"/> instead, which
-/// counts errors and nothing else; the reason is written out there. That means
-/// base14.gen_ai.cost, base14.gen_ai.retry.count and base14.gen_ai.fallback.count stay at
-/// zero in a live run of this example, and their tests are the only thing exercising them.
+/// streams, so a live run takes <see cref="GetStreamingResponseAsync"/> and those three stay at
+/// zero here; only the tests exercise them.
 /// </remarks>
 public sealed class GatewayChatClient : DelegatingChatClient
 {
@@ -82,10 +80,7 @@ public sealed class GatewayChatClient : DelegatingChatClient
         _errorCounter = meter.CreateCounter<long>("base14.gen_ai.error.count", unit: "{error}");
     }
 
-    /// <summary>
-    /// Exponential backoff from one to ten seconds: 2^(attempt-1) seconds, clamped to ten.
-    /// The first retry (attempt 1) waits one second, the second (attempt 2) waits two.
-    /// </summary>
+    /// <summary>Exponential backoff, 2^(attempt-1) seconds clamped to ten.</summary>
     public static TimeSpan ExponentialBackoff(int retryAttempt) =>
         TimeSpan.FromSeconds(Math.Min(10, Math.Pow(2, Math.Max(0, retryAttempt - 1))));
 
@@ -107,10 +102,8 @@ public sealed class GatewayChatClient : DelegatingChatClient
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                // The caller cancelled; this is not a provider failure. No retry, no error,
-                // no fallback, and the already-cancelled token must not reach another
-                // client. An inner client's own timeout (caller's token still live) falls
-                // through to the retryable branch below instead.
+                // The caller cancelled: not a provider failure, and the cancelled token must
+                // not reach another client. An inner client's own timeout falls through below.
                 throw;
             }
             catch (Exception ex)
@@ -136,9 +129,8 @@ public sealed class GatewayChatClient : DelegatingChatClient
             throw lastException!; // unreachable; Throw() above always throws
         }
 
-        // A primary failure that is not itself a cancellation can still race with the
-        // caller cancelling. Without this, a cancelled token reaches the fallback, which
-        // in a deployed configuration is the hosted provider.
+        // A primary failure can still race with the caller cancelling, and the fallback is the
+        // hosted provider in a deployed configuration.
         cancellationToken.ThrowIfCancellationRequested();
 
         RecordFallback(_primaryInfo, _fallbackInfo!);
@@ -164,29 +156,17 @@ public sealed class GatewayChatClient : DelegatingChatClient
     /// Counts a failed streaming call on <c>base14.gen_ai.error.count</c> and lets it through.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// This is the path the agent framework actually takes: <c>ChatClientAgent</c> streams, so
-    /// every model call in a live run arrives here and none of them arrive at
-    /// <see cref="GetResponseAsync"/>. Before this override a provider outage produced no
-    /// measurement of any kind from the gateway, which made the error counter look like a
-    /// healthy zero while every run was failing.
-    /// </para>
-    /// <para>
-    /// Counted, not retried. A retry means replaying the call, and by the time a stream faults
-    /// its updates may already have been yielded to the caller and turned into a tool call; a
-    /// second attempt would repeat that work. Retry and fallback stay on the non-streaming
-    /// path, where the response is a single value that either arrives whole or not at all.
-    /// </para>
+    /// This is the path a live run takes, so without the override a provider outage left the
+    /// error counter at a healthy-looking zero. Counted, not retried: a faulted stream may
+    /// already have yielded updates that became a tool call, so replaying it would repeat work.
     /// </remarks>
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // Opening the stream is counted too. On every client in this example the call is a
-        // compiler-generated iterator that does no work until the first MoveNextAsync, so
-        // this catch never fires today; an inner client that validated its arguments up
-        // front would throw here instead, and that is still a failed provider call.
+        // Never fires on a compiler-generated iterator, which does nothing until the first
+        // MoveNextAsync. An inner client that validated arguments up front would throw here.
         IAsyncEnumerator<ChatResponseUpdate> updates;
 
         try
@@ -208,9 +188,8 @@ public sealed class GatewayChatClient : DelegatingChatClient
             throw;
         }
 
-        // DisposeAsync is deliberately not counted. Closing a stream that already delivered
-        // its updates is not a failed provider call, and counting it would inflate the error
-        // rate on calls that succeeded.
+        // DisposeAsync is not counted: closing a stream that delivered its updates is not a
+        // failed provider call.
         await using var owned = updates.ConfigureAwait(false);
 
         while (true)
@@ -228,8 +207,7 @@ public sealed class GatewayChatClient : DelegatingChatClient
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                // The caller cancelled, the same exclusion GetResponseAsync makes. A run that
-                // was timed out or shut down is not a provider error.
+                // Same exclusion GetResponseAsync makes: a timed-out run is not a provider error.
                 throw;
             }
             catch (Exception ex)

@@ -285,9 +285,8 @@ poll_until_not() {
 
 # --- Case 1: BK-1001, under the limit -------------------------------------
 #
-# The spike measured the model reaching `rebook` in eight of nine runs, so a single
-# miss is the model wandering rather than the app breaking. The case gets one retry
-# before it is called a failure.
+# The model reaches `rebook` in roughly eight runs of nine, so a single miss is the model
+# wandering rather than the app breaking. One retry before this is called a failure.
 run_under_limit_case() {
     local attempt="$1"
     local run_id

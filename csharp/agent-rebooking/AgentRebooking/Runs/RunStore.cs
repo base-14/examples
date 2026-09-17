@@ -7,9 +7,8 @@ using Microsoft.Extensions.AI;
 namespace AgentRebooking.Runs;
 
 /// <summary>
-/// Holds every in-flight and recently finished run in memory, drives the handoff workflow,
-/// and answers or parks the approval requests the workflow raises. A restart drops
-/// everything; durable runs are a later example.
+/// Holds every in-flight and recently finished run in memory, drives the handoff workflow, and
+/// answers or parks the approval requests it raises. A restart drops everything.
 /// </summary>
 public sealed class RunStore(
     Func<Workflow> workflowFactory,
@@ -19,26 +18,21 @@ public sealed class RunStore(
     TimeProvider timeProvider,
     ILogger<RunStore> logger) : IAsyncDisposable
 {
-    // Each pass over the stream covers one batch of supersteps. A run needs two: one up to
-    // the approval, one after it. The cap stops a workflow that never settles from spinning.
+    // A run needs two passes: one up to the approval, one after it. The cap stops a workflow
+    // that never settles from spinning.
     private const int MaxStreamPasses = 24;
 
-    // Between passes, so a workflow that keeps yielding events without settling cannot burn
-    // a core running through the cap.
+    // Between passes, so a workflow that never settles cannot burn a core.
     private static readonly TimeSpan BetweenPasses = TimeSpan.FromMilliseconds(50);
 
-    // How long anything that has to take the stream over waits for the pass holding it. A
-    // pass at an approval unwinds in milliseconds; this only bounds a pass that will not.
-    // Running past it is not a warning to step over: the caller fails the run or leaves the
-    // record alone, because a second reader on the stream is the thing being prevented.
-    // Internal rather than private so a test can shrink it; the public default is unchanged.
+    // How long a caller taking the stream over waits for the pass holding it. Running past it
+    // fails the run: a second reader on one stream is the thing being prevented. Internal so a
+    // test can shrink it.
     internal TimeSpan PassHandover { get; init; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
-    /// Logged from inside the pass that parks a run on an approval, and the last thing that
-    /// pass does before leaving the stream. RunStoreTests holds a test double open on this
-    /// exact string to freeze a pass at that point; reword it there too, or the tests stop
-    /// holding anything.
+    /// The last thing the pass that parks a run does before leaving the stream. RunStoreTests
+    /// freezes a pass on this exact string, so reword it there too.
     /// </summary>
     internal const string PendingApprovalLogMessage = "Run {RunId} is waiting on approval {ApprovalId} for {Tool}: {Reason}";
 
@@ -46,9 +40,8 @@ public sealed class RunStore(
     private readonly Dictionary<string, RunRecord> _runs = [];
 
     /// <summary>
-    /// Starts a run and returns at once with its id. The workflow runs on a background task
-    /// because a single traveller message takes tens of seconds against a local model, and
-    /// because the approval that unblocks it arrives on a different HTTP request.
+    /// Starts a run and returns at once with its id. The workflow runs on a background task: a
+    /// message takes tens of seconds locally, and the approval arrives on another request.
     /// </summary>
     public string Start(string message)
     {
@@ -56,9 +49,8 @@ public sealed class RunStore(
         {
             Id = "run-" + Guid.NewGuid().ToString("N")[..12],
             Message = message,
-            // Captured here, restored around every later pass. The approval lands on
-            // another request, so without this the spans produced after it would join that
-            // request's trace instead of the traveller's.
+            // Restored around every later pass, or the post-approval spans would join the
+            // approver's trace instead of the traveller's.
             RootContext = Activity.Current?.Context ?? default,
             StartedAt = timeProvider.GetUtcNow(),
         };
@@ -130,8 +122,8 @@ public sealed class RunStore(
     }
 
     /// <summary>
-    /// Takes the pending request off the run, under one lock, so that two answers racing on
-    /// the same approval cannot both reach the workflow. The loser sees nothing to claim.
+    /// Takes the pending request off the run under one lock, so two racing answers cannot both
+    /// reach the workflow. The loser finds nothing to claim.
     /// </summary>
     private bool TryClaim(
         string approvalId, out RunRecord record, out PendingRequest pending, out TimeSpan waited)
@@ -159,18 +151,11 @@ public sealed class RunStore(
     /// and for an expiry alike. Called under the <c>_sync</c> lock.
     /// </summary>
     /// <remarks>
-    /// Two things happen here that the rest of the file depends on. The time the run spent
-    /// waiting is banked, so the run timeout never charges a run for the human's thinking:
-    /// with the shipped defaults, a 600 second approval timeout over a 300 second run
-    /// timeout, charging it would fail every approval this example exists to demonstrate.
-    /// And the generation moves on, which retires the pass that raised the request: it is
-    /// still unwinding on another thread, and it must not read the stream alongside the
-    /// resume that is about to start.
-    /// <para>
-    /// The pending clock stops here, at the claim, so the handover wait and the send that
-    /// follow are charged to the run timeout and not to the pending window. That is the
-    /// right side of the line: from the claim on, the time is the agent's own again.
-    /// </para>
+    /// Two things the rest of the file depends on. The waiting time is banked, so the 300 second
+    /// run timeout never charges a run for the human's thinking against a 600 second approval
+    /// timeout. And the generation moves on, retiring the pass that raised the request so it
+    /// cannot read the stream alongside the resume. The pending clock stops at the claim: from
+    /// there on the time is the agent's own again.
     /// </remarks>
     /// <returns>How long the run waited on the human, which is the histogram's measurement.</returns>
     private static TimeSpan ClaimPending(RunRecord record, DateTimeOffset now)
@@ -191,9 +176,9 @@ public sealed class RunStore(
     }
 
     /// <summary>
-    /// Expires stale approvals, fails runs past the run timeout and evicts settled runs past
-    /// the TTL. Driven by <see cref="RunSweeper"/> in the app and called directly by tests,
-    /// so the clock comes from <see cref="TimeProvider"/> rather than from a timer.
+    /// Expires stale approvals, fails runs past the run timeout and evicts settled runs past the
+    /// TTL. Driven by <see cref="RunSweeper"/>, and by tests, so the clock is a
+    /// <see cref="TimeProvider"/> rather than a timer.
     /// </summary>
     public async Task SweepAsync()
     {
@@ -212,8 +197,8 @@ public sealed class RunStore(
                         .First(approval => approval.ApprovalId == pending.ApprovalId).RequestedAt;
                     if (now - requestedAt >= TimeSpan.FromSeconds(options.ApprovalTimeoutSeconds))
                     {
-                        // Claimed here, under the same lock an answer would claim it in, so
-                        // an approval that lands while the sweep runs is not answered twice.
+                        // Under the same lock an answer claims in, so an approval landing mid
+                        // sweep is not answered twice.
                         expired.Add((record, pending, ClaimPending(record, now)));
                     }
                 }
@@ -233,8 +218,7 @@ public sealed class RunStore(
             }
         }
 
-        // Together, not one after another: each decision waits for its own run's pass, and
-        // one run that is slow to hand its stream over must not hold up the rest of the tick.
+        // Together, not in turn: one run slow to hand over its stream must not hold up the tick.
         await Task.WhenAll(expired.Select(async item =>
         {
             logger.LogInformation(
@@ -244,9 +228,8 @@ public sealed class RunStore(
 
         foreach (var record in timedOut)
         {
-            // Failed before the cancellation, not after. The pass handles cancellation by
-            // failing the run too, and the first failure wins, so the other order would let
-            // scheduling decide which of the two messages the traveller sees.
+            // Before the cancellation, not after: the pass also fails the run on cancellation
+            // and the first failure wins, so the other order makes the message a race.
             Fail(record, "the run exceeded RUN_TIMEOUT_SECONDS");
             await record.Cancellation.CancelAsync();
         }
@@ -309,8 +292,8 @@ public sealed class RunStore(
                 record.Run = run;
             }
 
-            // RunStreamingAsync leaves the run in NotStarted and the stream yields nothing
-            // until a turn token arrives. Not in the framework's documentation; measured.
+            // RunStreamingAsync leaves the run NotStarted and yields nothing until a turn
+            // token arrives. Undocumented at 1.21.0.
             await run.TrySendMessageAsync(new TurnToken(emitEvents: true));
 
             await DrainAsync(record, record.Cancellation.Token);
@@ -355,12 +338,9 @@ public sealed class RunStore(
         }
     }
 
-    // Both passes run on a background task, which inherits whichever activity was current on
-    // the request that started them. Clearing it first and parenting to the captured context
-    // keeps every span of a run in the traveller's trace.
-    //
-    // The activity is also published on the record, which is how Fail reaches it from the
-    // sweeper's thread and from the approver's request. See the rule written out at Fail.
+    // A background task inherits whichever activity was current on the request that started it.
+    // Clearing that and parenting to the captured context keeps every span in the traveller's
+    // trace. The activity is published on the record so Fail can reach it; see the rule there.
     private Activity? StartRunActivity(RunRecord record, string name)
     {
         Activity.Current = null;
@@ -375,10 +355,9 @@ public sealed class RunStore(
         return activity;
     }
 
-    // Unpublished before the using block stops it, so a failure recorded after this pass has
-    // unwound finds no span rather than writing a status onto one that has already been
-    // exported. Compared by reference: a resume that has already published its own activity
-    // owns the field, and the pass that is leaving must not clear it.
+    // Unpublished before the using block stops it, so a later failure finds no span rather than
+    // writing onto an exported one. Compared by reference: a resume that already published its
+    // own activity owns the field.
     private void ReleaseRunActivity(RunRecord record, Activity? activity)
     {
         lock (_sync)
@@ -428,8 +407,7 @@ public sealed class RunStore(
 
             lock (_sync)
             {
-                // A stale generation means an answer or an expiry has claimed this pass's
-                // approval and a resume owns the stream now. Leave without touching it.
+                // A stale generation means a resume owns the stream now. Leave it alone.
                 if (record.Generation != generation
                     || record.State is RunStates.PendingApproval
                     || IsSettled(record.State))
@@ -438,8 +416,7 @@ public sealed class RunStore(
                 }
             }
 
-            // A finished handoff workflow settles on Idle, not Ended. Treat Idle as terminal
-            // or the run never completes.
+            // A finished handoff workflow settles on Idle, not Ended.
             var status = await run.GetStatusAsync(cancellationToken);
             if (status is RunStatus.Idle or RunStatus.Ended)
             {
@@ -453,8 +430,7 @@ public sealed class RunStore(
                 return;
             }
 
-            // Real time, not the injected clock: this is about not burning a core, and the
-            // tests that move the clock by hand should not have to tick it to get here.
+            // Real time, not the injected clock: this is about not burning a core.
             await Task.Delay(BetweenPasses, cancellationToken);
         }
 
@@ -470,12 +446,9 @@ public sealed class RunStore(
     {
         lock (_sync)
         {
-            // AllowMultipleToolCalls is false on the rebooking agent, so a run has at most
-            // one approval outstanding. A second one means that no longer holds, and
-            // answering either of them would be guesswork. The generation covers the case
-            // where the first request was answered a moment ago and is no longer on the
-            // record: this pass is retired, and publishing a request nobody will look for
-            // would park the run for good.
+            // AllowMultipleToolCalls is false, so a run has at most one approval outstanding; a
+            // second means that no longer holds and answering either would be guesswork. A stale
+            // generation means this pass is retired, and publishing would park the run for good.
             if (record.Pending is not null || record.Generation != generation)
             {
                 Fail(record, "the workflow raised a second approval while one was outstanding");
@@ -489,9 +462,8 @@ public sealed class RunStore(
             return;
         }
 
-        // ToolApprovalRequestContent.ToolCall is declared as ToolCallContent, which carries
-        // only a call id. At runtime it is a FunctionCallContent, which is where the tool
-        // name and the arguments are.
+        // Declared as ToolCallContent, which carries only a call id. At runtime it is a
+        // FunctionCallContent, which is where the name and arguments are.
         if (content.ToolCall is not FunctionCallContent call)
         {
             Fail(record, "a tool approval request carried no function call");
@@ -528,9 +500,8 @@ public sealed class RunStore(
             return;
         }
 
-        // Opened and closed from inside the pass, so it lands in the traveller's trace. Its
-        // context rides on the pending request because the decided span is opened minutes
-        // later on a different request and links back to this one.
+        // Opened and closed inside the pass, so it lands in the traveller's trace. Its context
+        // rides on the pending request for the decided span to link back to.
         var requested = telemetry.Requested(entry);
 
         lock (_sync)
@@ -545,31 +516,23 @@ public sealed class RunStore(
     }
 
     /// <summary>
-    /// Sends one already-claimed decision into the workflow and starts the pass that runs
-    /// the rest of the turn. Shared by an answered approval and an expired one; an expiry is
-    /// a rejection the workflow cannot tell apart.
+    /// Sends one already-claimed decision into the workflow and starts the pass that runs the
+    /// rest of the turn. An expiry is a rejection the workflow cannot tell apart.
     /// </summary>
     private async Task DecideAsync(
         RunRecord record, PendingRequest pending, bool approved, string outcome, TimeSpan waited)
     {
-        // Emitted here, above everything below that can go wrong, because this is the one
-        // point both ways out of this method pass through. The stream handover can fail and
-        // take the run with it; the human's answer was still made, and a decision that lands
-        // on that branch has to be as visible as one that does not.
+        // Above everything that can go wrong, because both ways out pass through here. The
+        // handover can fail and take the run with it; the human's answer was still made.
         Decided(record, pending, outcome, waited);
 
-        // The pass that raised this request publishes it from inside its own enumeration of
-        // the stream, so it can still be unwinding while this answer arrives on another
-        // request. Only one pass may read a StreamingRun at a time, so the resume waits for
-        // it; claiming the request already retired it, so it leaves at its next checkpoint.
-        // A pass that will not leave within the bound ends the run: starting the resume
-        // beside it would put two readers on one stream, which is what the wait is for.
+        // The pass that raised the request can still be unwinding. Only one pass may read a
+        // StreamingRun, so the resume waits for it; claiming the request already retired it, so
+        // it leaves at its next checkpoint. A pass that overruns the bound ends the run.
         if (!await TryAwaitPassAsync(record))
         {
-            // The human's answer is real even though the workflow never hears it: record it
-            // on the approval entry so GET /runs/{id} does not go on showing "pending" for a
-            // request somebody actually answered. The run's own state is what carries the
-            // failure, not this entry's outcome.
+            // The workflow never hears it, but the answer was made: record it so GET /runs/{id}
+            // stops showing "pending". The run's own state carries the failure.
             RecordApprovalEntryOutcome(record, pending, outcome);
             Fail(
                 record,
@@ -583,20 +546,16 @@ public sealed class RunStore(
         {
             if (IsSettled(record.State))
             {
-                // The human's answer is still real: record it on the approval entry even
-                // though the run settled by some other path before this decision reached the
-                // workflow. Not record.Outcome -- that stays whatever the settling path wrote,
-                // because the workflow was never told this decision.
+                // As above. Not record.Outcome: that stays whatever the settling path wrote,
+                // because the workflow was never told.
                 RecordApprovalEntryOutcomeLocked(record, pending, outcome);
                 return;
             }
 
-            // Read after the wait, not before it: a shutdown racing this answer takes the
-            // run away once its pass has unwound.
+            // After the wait: a shutdown racing this answer takes the run once its pass unwinds.
             if (record.Run is not { } current)
             {
-                // Same reasoning as above: the answer happened, so the entry says so, even
-                // though the run itself was disposed before the workflow could hear it.
+                // As above: the answer happened, so the entry says so.
                 RecordApprovalEntryOutcomeLocked(record, pending, outcome);
                 Fail(record, "the run was disposed while its approval was being answered");
                 return;
@@ -604,8 +563,8 @@ public sealed class RunStore(
 
             run = current;
 
-            // Recorded below the wait too, so GET /runs/{id} cannot show a decided outcome
-            // on a run whose workflow has not been told yet.
+            // Below the wait too, so GET /runs/{id} cannot show a decided outcome before the
+            // workflow has been told.
             record.Outcome = outcome;
             RecordApprovalEntryOutcomeLocked(record, pending, outcome);
         }
@@ -665,10 +624,8 @@ public sealed class RunStore(
     }
 
     /// <summary>
-    /// Waits for the run's current pass over the stream to finish and reports whether it
-    /// did. Bounded, because a host shutdown or an approval must not hang on a pass that
-    /// ignores its cancellation; false means the stream still has a reader on it and the
-    /// caller must not become a second one.
+    /// Waits, bounded, for the run's current pass to finish. False means the stream still has a
+    /// reader and the caller must not become a second one.
     /// </summary>
     private async Task<bool> TryAwaitPassAsync(RunRecord record)
     {
@@ -711,8 +668,7 @@ public sealed class RunStore(
         {
             foreach (var call in response.Messages.SelectMany(message => message.Contents).OfType<FunctionCallContent>())
             {
-                // Each pass over the stream replays part of the agent's messages, so the same
-                // call can arrive twice.
+                // Each pass replays part of the agent's messages, so a call can arrive twice.
                 if (record.SeenCallIds.Add(call.CallId))
                 {
                     record.ToolCalls.Add(new ToolCallEntry(call.Name, SerialiseArguments(call.Arguments), now));
@@ -744,27 +700,12 @@ public sealed class RunStore(
     /// Settles a run as failed and marks the span that owns the failure.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The rule, decided once and applied to all fifteen call sites: <b>a failure belongs to
-    /// the span of the pass that was running when it was recorded</b>, which is
-    /// <c>base14.agent.run</c> or <c>base14.agent.resume</c>. The record publishes that
-    /// activity in <see cref="RunRecord.PassActivity"/> while the pass is inside it, so this
-    /// method reaches the right span on purpose.
-    /// </para>
-    /// <para>
-    /// Never <see cref="Activity.Current"/>. Fail is reached from the sweeper's timer thread,
-    /// where nothing is current, and from <c>DecideAsync</c> on the approver's
-    /// <c>POST /approvals/{id}</c> request, where what is current is the approver's own server
-    /// span. Setting status there would report the approver's request as failed and leave the
-    /// run that actually failed Unset, which is worse than marking nothing.
-    /// </para>
-    /// <para>
-    /// A run parked on an approval has no live pass: the pump span stops when the run parks
-    /// and the resume span does not start until the decision is sent. A failure recorded in
-    /// that window therefore marks no span, and the error log below is all a reader gets. That
-    /// is deliberate. The alternatives are writing onto a span that has already been exported,
-    /// or opening a zero-length span whose duration means nothing.
-    /// </para>
+    /// The rule, applied at every call site: a failure belongs to the span of the pass that was
+    /// running when it was recorded, published in <see cref="RunRecord.PassActivity"/>. Never
+    /// <see cref="Activity.Current"/>, which is nothing on the sweeper's thread and the
+    /// approver's own server span on <c>POST /approvals/{id}</c>. A run parked on an approval
+    /// has no live pass, so a failure there marks no span and the error log is all a reader
+    /// gets; the alternatives are writing onto an exported span or a meaningless zero-length one.
     /// </remarks>
     private void Fail(RunRecord record, string error)
     {
@@ -783,22 +724,20 @@ public sealed class RunStore(
             record.PassActivity?.SetStatus(ActivityStatusCode.Error, error);
         }
 
-        // The one log line every failed run has. The three catch sites that reach here also
-        // log their exception with its stack; the other twelve had nothing before this.
+        // The one log line every failed run has, whatever reached here.
         logger.LogError("Run {RunId} failed: {Error}", record.Id, error);
     }
 
     private async Task DisposeRecordAsync(RunRecord record)
     {
-        // Cancel, then wait for the pass to unwind, and only then take the run and the token
-        // source away from it. A pass still inside the stream would otherwise find a nulled
-        // run or a disposed token source.
+        // Cancel, wait for the pass to unwind, then take the run and the token source away. A
+        // pass still inside the stream would otherwise find them gone.
         await record.Cancellation.CancelAsync();
 
         if (!await TryAwaitPassAsync(record))
         {
-            // Still reading. Leaking the run and the token source costs this process, which
-            // is on its way out anyway; pulling them out from under a live pass does not.
+            // Still reading. Leaking costs a process that is on its way out; pulling them from
+            // under a live pass costs more.
             logger.LogWarning("Run {RunId} was left undisposed because its pass is still on the stream", record.Id);
             return;
         }
@@ -867,10 +806,9 @@ public sealed class RunStore(
         public HashSet<string> SeenCallIds { get; } = [];
 
         /// <summary>
-        /// The span of the pass currently reading this run's stream, or null between passes.
-        /// Written and read under <c>_sync</c>. It exists so <see cref="RunStore.Fail"/> can
-        /// mark the run's own span from a thread whose ambient activity belongs to somebody
-        /// else; the rule is written out there.
+        /// The span of the pass currently reading this run's stream, null between passes. Read
+        /// and written under <c>_sync</c>, so <see cref="RunStore.Fail"/> can mark the run's own
+        /// span from a thread whose ambient activity belongs to somebody else.
         /// </summary>
         public Activity? PassActivity { get; set; }
 

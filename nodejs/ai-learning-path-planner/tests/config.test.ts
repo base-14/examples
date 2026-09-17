@@ -59,12 +59,9 @@ describe("loadConfig", () => {
   });
 });
 
-// F2. ollama-ai-provider-v2 builds request URLs as `${baseURL}${path}`, and its own
-// default already ends in /api. A base URL without that suffix sends every model call to
-// /chat, which 404s.
-// Ruling 35. The default is the host form, not the container form: host.docker.internal
-// does not resolve on the host, while a container gets the value it needs from
-// compose.yaml. Both then work with no .env at all.
+// The provider builds request URLs as `${baseURL}${path}`, so a base URL without the /api
+// suffix sends every model call to /chat, which 404s. The default is the host form;
+// compose.yaml gives a container the value it needs.
 describe("loadConfig: the Ollama base URL", () => {
   it("defaults to a base URL the provider can append its paths to", () => {
     expect(loadConfig({}).ollamaBaseUrl).toBe("http://localhost:11434/api");
@@ -79,24 +76,16 @@ describe("loadConfig: the Ollama base URL", () => {
   });
 });
 
-// Ruling 39. The floor is fixed, and it is not a ratio against the largest prompt anyone
-// has happened to see. A sampled maximum is not a bound: it only ever grows, so a rule of
-// the form "num_ctx must exceed the peak by half again" is guaranteed to read as broken the
-// next time somebody measures, which is how this test got here. The observed peak is
-// recorded in src/config.ts as an observation with the runs behind it and asserted on by
-// nothing.
-//
-// 16384 is four times Ollama's own 4096 default, which was measurably too small, and it is
-// the largest window that keeps qwen3.5:9B inside a 16 GB machine (5.91 GB against 6.47 GB
-// at 32768). Lower it only if the VRAM budget changes, and raise it only on a measured
-// overrun, which Ollama reports as done_reason "length" and the service surfaces as "No
-// output generated" - not because a bigger number was observed in a sample.
+// A fixed floor, not a ratio against the largest prompt anyone has seen: a sampled maximum
+// only ever grows, so such a rule reads as broken the next time somebody measures. 16384 is
+// four times Ollama's own default, which is too small, and the largest window that keeps
+// qwen3.5:9B inside a 16 GB machine. Raise it on an overrun, not on a bigger sample.
 const CONTEXT_WINDOW_FLOOR_TOKENS = 16384;
 
 const OLLAMA_OWN_DEFAULT_NUM_CTX = 4096;
 
 describe("loadConfig: the Ollama context window", () => {
-  it("defaults to at least the floor a fan-out run was measured to need", () => {
+  it("defaults to at least the floor a fan-out run needs", () => {
     const numCtx = loadConfig({}).ollamaNumCtx;
 
     expect(numCtx).toBeGreaterThanOrEqual(CONTEXT_WINDOW_FLOOR_TOKENS);
@@ -108,9 +97,8 @@ describe("loadConfig: the Ollama context window", () => {
   });
 });
 
-// F3. Zod's .optional() treats an empty string as a present value, so PRICE_MODEL= (the
-// value compose.yaml and .env.example both ship) reached assertPriceModelIsKnown as the
-// literal empty string and threw at boot.
+// Zod's .optional() treats an empty string as present, so PRICE_MODEL= -- the value
+// compose.yaml and .env.example both ship -- reaches assertPriceModelIsKnown as "" and throws.
 describe("loadConfig: an empty variable is an unset variable", () => {
   it("does not read PRICE_MODEL= as a price model named the empty string", () => {
     expect(loadConfig({ PRICE_MODEL: "" }).priceModel).not.toBe("");
@@ -135,9 +123,8 @@ describe("loadConfig: an empty variable is an unset variable", () => {
   });
 });
 
-// F5. costOf returns zero with simulated: true when nothing names a price row, so the
-// shipped configuration reported a cost of zero on an example whose subject is cost per
-// completed task.
+// costOf returns zero with simulated: true when nothing names a price row, which would leave
+// the shipped configuration reporting no cost on an example about cost.
 describe("loadConfig: PRICE_MODEL on the Ollama path", () => {
   // The claim is that an unconfigured run reports a cost, not that some string is
   // present, so this prices a local model's token counts through the resolved default and

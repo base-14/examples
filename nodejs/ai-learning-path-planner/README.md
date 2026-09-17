@@ -1,11 +1,36 @@
 # AI Learning Path Planner
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/agent-observability/)
+
 A Node.js service that turns a topic into a multi-week learning plan over base14's own documentation and examples
 corpus. `POST /plans` runs a lead agent that breaks the topic into subtopics, calls one researcher subagent per
 subtopic, and shapes what comes back into a plan whose every step cites a corpus path. OpenTelemetry records the
 fan-out: one trace per request, a cost per run, and the token cost of the tool definitions each agent carries.
 
 **Stack**: Node.js 26 · Hono 4 · Vercel AI SDK 7 · Ollama (local models) · OpenTelemetry · base14 Scout
+
+One of the [Node.js examples](../README.md) in base14's [OpenTelemetry examples](../../README.md) repository. For a
+single-agent Vercel AI SDK pipeline without the fan-out, read [ai-contract-analyzer](../ai-contract-analyzer). The
+guides behind this example are
+[AI Agent Observability](https://docs.base14.io/guides/ai-observability/agent-observability/) and
+[Vercel AI SDK Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/vercel-ai-sdk/). Other
+links are under [References](#references).
+
+## How to instrument a Vercel AI SDK agent with OpenTelemetry
+
+1. Install `ai`, `@ai-sdk/otel` and a provider package (`ollama-ai-provider-v2` here), plus
+   `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node` and the OTLP trace and metric exporters.
+2. Load `src/telemetry.ts` with `node --import`, so the ESM loader hook is registered before anything imports
+   `node:http`. It starts a `NodeSDK` with `PlanCostSpanProcessor` ahead of the exporting processor, then calls
+   `registerTelemetry` from `ai` with the `OpenTelemetry` implementation from `@ai-sdk/otel` to pick up the AI
+   SDK's spans.
+3. Hand that registration an `enrichSpan` hook, and pass `includeRuntimeContext` to every agent, so each AI SDK
+   span carries the run's `base14.plan.id`, the agent's role and the active tool catalogue.
+4. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
+   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` as `.env.example` and `compose.yaml` ship them.
+
+The full guide is
+[Vercel AI SDK OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/vercel-ai-sdk/).
 
 ## Prerequisites
 
@@ -14,9 +39,8 @@ fan-out: one trace per request, a cost per run, and the token cost of the tool d
 - Ollama on the host, with both models pulled: `ollama pull qwen3.5:9B` and `ollama pull gemma4:e2b`.
 - base14 Scout credentials, optional. Without them the collector keeps everything local and the example still
   runs end to end, `make verify` included; see [Scout export](#scout-export).
-- Memory. The two models are about 13.5 GB together. At the shipped `OLLAMA_NUM_CTX` of 16384, `qwen3.5:9B` was
-  measured resident at 5.91 GB, against 5.50 GB at 4096 and 6.47 GB at 32768. Comfortable on 18 GB, tight on 16 GB,
-  unusable on 8 GB.
+- Memory. The two models are about 13.5 GB together, and at the shipped `OLLAMA_NUM_CTX` of 16384 `qwen3.5:9B` is
+  resident at roughly 5.9 GB. Comfortable on 18 GB, tight on 16 GB, unusable on 8 GB.
 
 No LLM provider key is needed. Ollama runs on the host and every model call goes to it.
 
@@ -33,9 +57,8 @@ ollama pull gemma4:e2b
 make docker-up
 ```
 
-Ask for a plan. Across fifteen consecutive runs a planned run took 72 s to 167 s, and fanned out to two to four
-subtopics. Two ranges over the same runs, recorded separately; nothing here pairs an end of one with an end of the
-other.
+Ask for a plan. A planned run takes a couple of minutes and fans out to two to four subtopics, depending on the
+topic and the machine.
 
 ```bash
 curl -sN -X POST http://localhost:3000/plans \
@@ -58,7 +81,7 @@ agent spans carry as `base14.plan.id`, so the trace is still findable:
 {"event":"error","id":"1c2d17e3-fd0c-465d-85f5-e60612553d4a","message":"..."}
 ```
 
-`GET /plans/{id}` returns the same outcome, as `{status, plan}`. This is a real run, trimmed to one week:
+`GET /plans/{id}` returns the same outcome, as `{status, plan}`, trimmed here to one week:
 
 ```json
 {
@@ -101,7 +124,7 @@ A run ends in one of three statuses.
 
 - `planned`. The lead researched at least one subtopic and the plan has at least one step.
 - `declined`. The corpus has no coverage of the topic at all, so nothing was researched and no model was called.
-  Answered 422. A declined run takes about 0.02 s and costs nothing.
+  Answered 422. A declined run takes a few hundredths of a second and costs nothing.
 - `failed`. Four different things, and the gap reason is what tells them apart. `service_error`: the run threw
   before the lead returned, usually because the model was unreachable. `no_tool_call`: the lead answered in prose
   and called no tool. `no_research`: the lead used its tools but researched no subtopic. No gap reason of any of
@@ -187,10 +210,9 @@ being left to assume it saw all of it.
 Two things about the loop are worth stating plainly, because both are easy to describe wrongly.
 
 - **The harness holds the agent to its contract, not the provider.** While the lead has researched nothing, the
-  step is required to call a tool. Ollama accepts `tool_choice` and ignores it, measured on 0.32.15 against three
-  request shapes: `"required"`, a named function, and the OpenAI-compatible endpoint. The requirement has teeth
-  only because the AI SDK enforces it client-side and throws `ToolChoiceViolationError`. The comment at
-  `src/agents/lead.ts:162-165` is the record of that probe.
+  step is required to call a tool. Ollama accepts `tool_choice` and ignores it, whatever request shape it arrives
+  in, so the requirement has teeth only because the AI SDK enforces it client-side and throws
+  `ToolChoiceViolationError`. `prepareStep` in `src/agents/lead.ts` sends both halves.
 - **The tool loop carries no response format.** A response format alongside tool definitions suppresses tool calls
   on this provider, so both the lead and the researchers run their loops unconstrained and shape their output in a
   separate call afterwards. That separate call is why there are two `invoke_agent` spans per agent.
@@ -290,20 +312,19 @@ A local model has no price row, so the service borrows one and says so. With `PR
 rows in `_shared/pricing.json`, and the closest stand-in that table has for a small local model.
 
 Which row is cheapest depends on the workload, so the weighting is worth stating. This one is heavily
-input-weighted: tool definitions and accumulated tool results are re-sent on every step, so the 27 `chat` spans of
-one measured planned run spent 41,947 input tokens against 2,436 output, about seventeen to one.
-`gemini-2.0-flash-lite` at 0.075 and 0.30 is cheaper on the sum of the two rates and cheaper on output, and it
-overtakes `gpt-5-nano` only below four input tokens to one output. At the ratio this service actually produces,
-`gpt-5-nano` is the cheapest of the 79 and prices those counts at 0.003072 USD against 0.003877. Every cost
-computed this way carries `base14.gen_ai.cost.simulated=true` on the span. These are not bills.
+input-weighted: tool definitions and accumulated tool results are re-sent on every step, so a planned run spends
+roughly seventeen input tokens for every output token. `gemini-2.0-flash-lite` at 0.075 and 0.30 is cheaper on the
+sum of the two rates, but overtakes `gpt-5-nano` only below four input tokens to one output, which is not the ratio
+this service produces. Every cost computed this way carries `base14.gen_ai.cost.simulated=true` on the span. These
+are not bills.
 
-Measured that way, a planned run cost 0.003978 USD and a declined run cost nothing.
+On those rates a planned run costs a few thousandths of a dollar and a declined run costs nothing.
 
 ### Context window
 
-`OLLAMA_NUM_CTX` is 16384. Across 601 model calls in 26 plan runs the largest single prompt observed was 10984
-tokens, with a 95th percentile of 3716. That peak is an observation over those runs, not a bound: a sample like it
-only ever grows.
+`OLLAMA_NUM_CTX` is 16384, four times Ollama's own default of 4096, which a lead run overruns partway through. It is
+the largest window that keeps `qwen3.5:9B` inside a 16 GB machine. Raise it if a run comes back "No output
+generated", at the cost of VRAM.
 
 ## Deferred against the full tool catalogue
 
@@ -315,7 +336,7 @@ the loop, so the difference is paid once per model call.
 make measure
 ```
 
-It runs the same request under each setting and prints the difference. Measured on the finished service:
+It runs the same request under each setting and prints the difference. A representative pair:
 
 |  | Deferred | Full | Difference |
 | --- | --- | --- | --- |
@@ -324,9 +345,8 @@ It runs the same request under each setting and prints the difference. Measured 
 | Tool definition estimate, researcher | 361 | 650 | +289 |
 | Run cost, USD | 0.00257010 | 0.00273470 | not attributable |
 
-The first-call figure is the one to quote. Whole-run totals move with the model's step count, which varies from run
-to run, so they are too noisy to attribute to the catalogue. The +375 difference on the first call reproduced across
-every measurement.
+The first-call figure is the one to quote, and it is stable. Whole-run totals move with the model's step count,
+which varies from run to run, so they are too noisy to attribute to the catalogue.
 
 ## Scout export
 
@@ -373,11 +393,9 @@ the script prints a checklist for verifying the hosted side by hand.
   returns 404 after the process restarts.
 - **Plans are thin.** One to five weeks and one to seven steps. Citations are real and gaps are recorded honestly,
   but `gemma4:e2b` returns few findings per subtopic.
-- **A lead that never calls a tool is reported `failed`.** About one run in ten ends this way, with a
+- **A lead that never calls a tool is reported `failed`.** Roughly one run in ten ends this way, with a
   `no_tool_call` gap. There is no third outcome inside the loop, so a run that researched nothing is a failure
   rather than an empty plan. `scripts/verify-scout.sh` retries it up to three times and prints the attempt count.
-  Across fifteen consecutive runs measured after the fix for this, the lead fanned out every time, to two
-  subtopics at the lowest.
 - **The cost accumulator is bounded.** It holds 1024 runs and evicts the least recently updated. A run that goes
   silent across a full cap of other runs would have its cost truncated.
 - **An empty `subtopic` is rejected after generation, not during it.** It surfaces as an `event: error` line and is
@@ -417,7 +435,19 @@ they need Ollama and the stack up, and they take several minutes.
 
 ## References
 
+- [AI Agent Observability](https://docs.base14.io/guides/ai-observability/agent-observability/), for agent
+  timelines, handoffs and tool calls.
+- [Vercel AI SDK Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/vercel-ai-sdk/), for
+  the SDK's own spans and metrics.
+- [LLM Observability](https://docs.base14.io/guides/ai-observability/llm-observability/), for token, cost and
+  latency signals.
+- [Node.js Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nodejs/), for the HTTP and
+  runtime spans under the agent ones.
+- [Collector Setup](https://docs.base14.io/category/opentelemetry-collector-setup), for pointing a collector at
+  your Scout tenant.
 - [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/).
 - [Vercel AI SDK, agents and tool loops](https://sdk.vercel.ai/docs).
-- [base14 Scout documentation](https://docs.base14.io/).
-- `SPIKE-FINDINGS.md` in this directory, for the span parentage and token accounting probes the design rests on.
+
+Other agent examples in this repository: [agent-rebooking](../../csharp/agent-rebooking) (C#, human approval gates
+and MCP) and [ai-runbook-assistant](../../python/ai-runbook-assistant) (Python, LangChain callback handler against
+zero-code auto-instrumentation).

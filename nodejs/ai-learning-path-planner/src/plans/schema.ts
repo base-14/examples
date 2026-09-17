@@ -15,11 +15,10 @@ export const PlanGapSchema = z.object({
   reason: z.string(),
 });
 
-// subtopic is constrained rather than left open because a live run produced a week of
-// {"subtopic":"","steps":[]}, which is not a week. The nested arrays are deliberately left
-// unconstrained: this schema is sent to the provider as a generation grammar, and a
-// minimum length on weeks or steps that the findings cannot satisfy fails the whole call,
-// which is a worse outcome than an empty array runLeadPlan can check for afterwards.
+// subtopic is constrained because a week with an empty one is not a week. The nested arrays
+// are not: this schema is sent to the provider as a generation grammar, and a minimum length
+// the findings cannot satisfy fails the whole call, which is worse than an empty array
+// runLeadPlan can check for afterwards.
 export const PlanWeekSchema = z.object({
   subtopic: z.string().min(1),
   steps: z.array(PlanStepSchema),
@@ -36,12 +35,10 @@ export type PlanWeek = z.infer<typeof PlanWeekSchema>;
 export type PlanGap = z.infer<typeof PlanGapSchema>;
 export type Plan = z.infer<typeof PlanSchema>;
 
-// The gap reasons the service writes itself, as opposed to the ones the lead model writes.
-// telemetry/metrics.ts turns a run's gaps into the reason tag on base14.plan.gap.count by
-// matching these, so the text is declared once and read from both ends. It used to be a
-// sentence in agents/lead.ts matched by a fragment of itself in telemetry/metrics.ts:
-// rewording either one left the whole suite green and silently retagged the metric as
-// model_reported, which is a metric quietly changing meaning rather than a test failing.
+// The gap reasons the service writes itself, as against the ones the lead model writes.
+// telemetry/metrics.ts matches these to tag base14.plan.gap.count, so the text is declared
+// once and read from both ends: otherwise a reword silently retags the metric as
+// model_reported with the suite still green.
 export const SERVICE_GAP_REASONS = {
   no_tool_call: "The lead agent answered without calling a tool, so nothing was researched.",
   no_research: "The lead agent finished without researching any subtopic.",
@@ -53,11 +50,9 @@ export const SERVICE_GAP_REASONS = {
 
 export type ServiceGapReason = keyof typeof SERVICE_GAP_REASONS;
 
-// Two of the service's own reasons name a cap or a citation path, so they cannot be
-// compared whole the way the fixed ones above are. Each is declared here as a writer and
-// the fixed part of what it writes, and the writer builds its sentence out of that same
-// fixed part, so there is still exactly one string and rewording it moves both the text
-// and the match together.
+// Two reasons interpolate a cap or a path, so they cannot be compared whole. Each is declared
+// as a writer plus the fixed part it builds from, so a reword moves the text and the match
+// together.
 const MAX_SUBTOPICS_TEXT = "was already reached; this subtopic was not researched.";
 const CITATION_INVALID_TEXT = "did not validate, even after one retry.";
 
@@ -75,9 +70,7 @@ export const TEMPLATED_GAP_REASONS = {
 
 export type TemplatedGapReason = keyof typeof TEMPLATED_GAP_REASONS;
 
-// Every tag base14.plan.gap.count can carry. The service's own reasons plus
-// model_reported, which is what a gap the lead model wrote itself is tagged.
-// tests/telemetry/enrich.test.ts asserts one run per entry.
+// Every tag base14.plan.gap.count can carry: the service's own reasons plus model_reported.
 export const GAP_REASON_TAGS = [
   ...(Object.keys(SERVICE_GAP_REASONS) as ServiceGapReason[]),
   ...(Object.keys(TEMPLATED_GAP_REASONS) as TemplatedGapReason[]),

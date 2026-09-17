@@ -10,8 +10,7 @@ import { listExamplesTool } from "../../src/tools/list-examples.ts";
 // a capped result says so.
 const BIG_FILE = "examples/nodejs/big/README.md";
 const HUGE_TEXT = "x".repeat(60_000);
-// A docs path, deliberately in no example directory, so nothing beside it makes it an
-// example. Ruling 50: fetch_example_file serves any corpus path, docs included.
+// A docs path, in no example directory: fetch_example_file serves any corpus path.
 const DOCS_FILE = "docs/instrument/apps/auto-instrumentation/nodejs.md";
 
 function artifactWith(exampleCount: number): CorpusArtifact {
@@ -179,11 +178,8 @@ describe("fetch_example_file caps its result", () => {
   });
 });
 
-// Ruling 50. The tool is named for examples and serves the whole corpus, because a
-// researcher reading one subtopic needs a docs page as readily as an example file. The
-// behaviour is the one to keep, so the description was widened to match it and these pin
-// the behaviour the description now promises. Narrowing execute to example directories
-// would fail both.
+// The tool is named for examples and serves the whole corpus, because a researcher needs a
+// docs page as readily as an example file. These pin what the description promises.
 describe("fetch_example_file serves any corpus path, not only example files", () => {
   it("returns a docs page that sits in no example directory", async () => {
     const store = new CorpusStore(artifactWith(1));

@@ -1,14 +1,24 @@
 # Approval-Gated Rebooking Agent (C#) - Microsoft Agent Framework + MCP + OpenTelemetry
 
+> [Full Documentation](https://docs.base14.io/guides/ai-observability/agent-approval-gates/)
+
 A travel disruption agent on .NET 10 and Microsoft Agent Framework 1.21. A triage agent hands off
 to a rebooking agent, the rebooking tools come from an in-process MCP server, and a rebooking over
 a price limit waits for a human before it runs. One trace covers the handoff, the MCP client and
 server, the database work and the approval.
 
+**Stack**: .NET 10 · ASP.NET Core · Microsoft Agent Framework 1.21 · Model Context Protocol 2.2 ·
+PostgreSQL 18 · Ollama (local model) · OpenTelemetry · base14 Scout
+
 The model runs on a local Ollama. Telemetry goes to an OpenTelemetry Collector, which forwards it
 to base14 Scout.
 
-> [Full documentation](https://docs.base14.io/guides/ai-observability/agent-approval-gates/)
+One of the [C# examples](../README.md) in base14's
+[OpenTelemetry examples](../../README.md) repository. For plain ASP.NET Core instrumentation with
+no agent in it, read [aspire-postgres](../aspire-postgres) instead. The guide behind this example
+is [Agent Approval Gates](https://docs.base14.io/guides/ai-observability/agent-approval-gates/),
+and [AI Agent Observability](https://docs.base14.io/guides/ai-observability/agent-observability/)
+covers agent traces in general. Other links are under [Resources](#resources).
 
 ## Prerequisites
 
@@ -248,9 +258,8 @@ needed after editing `Data/Seed.sql`; the seed only inserts rows that are not al
 
 ## The trace
 
-One trace per traveller message, rooted at the `POST /runs` request. This tree was read out of the
-collector log for trace `a27b0b78887278f1e45eae486ae8ca15`, a `BK-1002` run that parked on an
-approval and was approved:
+One trace per traveller message, rooted at the `POST /runs` request. This is a `BK-1002` run that
+parked on an approval and was approved, as the collector saw it:
 
 ```text
 POST /runs
@@ -309,9 +318,8 @@ It appears in `toolCalls` on `GET /runs/{runId}`.
 
 **There is no separate MCP client span for `tools/call`.** The C# SDK finds the outer `execute_tool`
 activity, puts the `mcp.*` attributes on it, and parents the server span to it. `server/discover`
-and `tools/list` do get their own client spans, because no outer tool span exists for them. Across
-the collector window used here, all 162 `tools/call` server spans were parented to an `execute_tool`
-span.
+and `tools/list` do get their own client spans, because no outer tool span exists for them.
+`AgentRebooking.Tests/TelemetryTests.cs` asserts that parentage.
 
 An `execute_tool` span therefore carries both attribute sets:
 
@@ -332,19 +340,18 @@ mcp.protocol.version: 2026-07-28
 
 `ModelContextProtocol.Core` 2.2.0 injects `traceparent` into `params._meta` on every request, and
 the server uses it as the parent of the server span. Nothing in this example writes that; it comes
-from the SDK. This `_meta` was printed on the server inside `lookup_booking` during the Task 2
-spike, recorded in `SPIKE-FINDINGS.md`:
+from the SDK. Printed on the server inside `lookup_booking`, `_meta` looks like this:
 
 ```json
 {
   "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-  "io.modelcontextprotocol/clientInfo": {"name": "Spike", "version": "1.0.0.0"},
+  "io.modelcontextprotocol/clientInfo": {"name": "AgentRebooking", "version": "1.0.0.0"},
   "io.modelcontextprotocol/clientCapabilities": {},
   "traceparent": "00-7019c0b8ac60c9ea8f26ecf0b55c8e17-456ad30fe6f2d933-01"
 }
 ```
 
-`456ad30fe6f2d933` is the span id of that run's `execute_tool lookup_booking` span, and the
+The span id in that `traceparent` is the run's `execute_tool lookup_booking` span, and the
 `tools/call lookup_booking` server span's parent is the same id. `tracestate` is absent because
 nothing set one.
 
@@ -372,11 +379,10 @@ The decided span carries an `ActivityLink` back to the requested span. A link ca
 id and a span id, which is why `base14.run.id` is on both spans: it is the only attribute on the
 decided span that says which run the decision belongs to.
 
-An approval measured on 2026-09-16, from the collector log:
+One approval, from the collector log:
 
 ```text
 Span   base14.approval.decided rebook
-Trace  82368594264c4662b62157c4be290a8a
   gen_ai.tool.name: rebook
   base14.run.id: run-e8e49764fd79
   base14.approval.limit: 300
@@ -384,7 +390,7 @@ Trace  82368594264c4662b62157c4be290a8a
   base14.approval.outcome: approved
   base14.approval.wait_seconds: 0.7895599
 Links:
-  Trace ID a27b0b78887278f1e45eae486ae8ca15, Span ID 4dec44def9472697
+  the base14.approval.requested rebook span, in the traveller's trace
 ```
 
 The histogram records the same wait. Bucket boundaries are set with a view in
@@ -452,7 +458,7 @@ is counted on the streaming path as well.
 `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` defaults to `false`. Prompts and replies carry
 traveller data, and a backend keeps whatever is exported.
 
-With it set to `true`, measured on a live `BK-1001` run on 2026-09-16:
+With it set to `true`, on a `BK-1001` run:
 
 | Span | `gen_ai.input.messages` | `gen_ai.output.messages` | `gen_ai.system_instructions` |
 | --- | --- | --- | --- |
@@ -463,9 +469,8 @@ With it set to `true`, measured on a live `BK-1001` run on 2026-09-16:
 | `tools/call {tool}` | no | no | no |
 
 The framework writes these as span attributes, not events, and the same messages appear twice: once
-on the agent span and once on the chat span below it. `gen_ai.system_instructions` was present on
-the triage agent span and absent from both rebooking agent spans, in this run and in the spike run
-that first recorded it. Why it differs by agent has not been tested.
+on the agent span and once on the chat span below it. `gen_ai.system_instructions` is present on the
+triage agent span and absent from both rebooking agent spans. Why it differs by agent is untested.
 
 ### Workflow spans
 
@@ -475,23 +480,22 @@ registering the source would add a name that can never produce a span.
 
 ## Error matrix
 
-Six failure scenarios, each driven against the live stack on 2026-09-16 with `qwen3.5:9b` on the
-host. Every trace id below is from that session. `scripts/verify-scout.sh` drives all six on each
-run and asserts the telemetry named here.
+Six failure scenarios. `scripts/verify-scout.sh` drives all six on each run and asserts the
+telemetry named here, so the shapes below are what you get back from your own run.
 
-| Scenario | Trigger | What carries the failure | Run state | Trace |
-| --- | --- | --- | --- | --- |
-| Run timeout | `RUN_TIMEOUT_SECONDS=5` | `base14.agent.run` Error, plus an ERROR log record | `failed` | `d6207cca60fefd2626958ce089026e5d` |
-| Model unreachable | `OLLAMA_BASE_URL` on a dead port | `chat {model}`, `invoke_agent triage(triage)` and `base14.agent.run` all Error; `base14.gen_ai.error.count` | `failed` | `d59718e2306d2579a0400c7ffe9356c2` |
-| Unknown booking | ask about `BK-9999` | `tools/call lookup_booking` and `execute_tool lookup_booking` Error; the run stays Unset | `completed` | `974a88eb44b741ff1186f64816476fb5` |
-| Database unreachable | `docker compose stop postgres` | Npgsql spans Error, `execute_tool` and `tools/call` Error; the run stays Unset | `completed` | `2e04ae20bb54da4c1506e42d19fc96c7` |
-| Approval rejected | answer `approved:false` | nothing. `base14.approval.outcome: rejected`, and no `execute_tool rebook` span | `completed` | `5d4a1e468131b30d460e6b3a97497f93` |
-| Approval expired | `APPROVAL_TIMEOUT_SECONDS=10` | nothing. `base14.approval.outcome: expired`, and no `execute_tool rebook` span | `completed` | `ba55dbc368251203e6a0f851a579b38f` |
+| Scenario | Trigger | What carries the failure | Run state |
+| --- | --- | --- | --- |
+| Run timeout | `RUN_TIMEOUT_SECONDS=5` | `base14.agent.run` Error, plus an ERROR log record | `failed` |
+| Model unreachable | `OLLAMA_BASE_URL` on a dead port | `chat {model}`, `invoke_agent triage(triage)` and `base14.agent.run` all Error; `base14.gen_ai.error.count` | `failed` |
+| Unknown booking | ask about `BK-9999` | `tools/call lookup_booking` and `execute_tool lookup_booking` Error; the run stays Unset | `completed` |
+| Database unreachable | `docker compose stop postgres` | Npgsql spans Error, `execute_tool` and `tools/call` Error; the run stays Unset | `completed` |
+| Approval rejected | answer `approved:false` | nothing. `base14.approval.outcome: rejected`, and no `execute_tool rebook` span | `completed` |
+| Approval expired | `APPROVAL_TIMEOUT_SECONDS=10` | nothing. `base14.approval.outcome: expired`, and no `execute_tool rebook` span | `completed` |
 
 ### Run timeout
 
-Trace `d6207cca60fefd2626958ce089026e5d`. The sweeper fails a run that outlives
-`RUN_TIMEOUT_SECONDS`. This is the one row where the app itself sets the status.
+The sweeper fails a run that outlives `RUN_TIMEOUT_SECONDS`. This is the one row where the app
+itself sets the status.
 
 ```text
 base14.agent.run       Error   the run exceeded RUN_TIMEOUT_SECONDS
@@ -501,10 +505,9 @@ invoke_agent triage    Unset
 ```
 
 The status message is a plain sentence, which is not true of the other rows. The spans below
-`base14.agent.run` are Unset and some of them end after it: in this trace the run span ends at
-04:44:07.476 and `execute_tool search_alternatives` ends at 04:44:17.918. Cancelling a run does not
-reach an in-flight model call or MCP call straight away, so do not read the run span's duration as
-the end of the run's work.
+`base14.agent.run` are Unset and some of them outlive it by ten seconds or more: cancelling a run
+does not reach an in-flight model call or MCP call straight away, so do not read the run span's
+duration as the end of the run's work.
 
 There is also an ERROR log record, `Run {RunId} failed: the run exceeded RUN_TIMEOUT_SECONDS`, with
 `RunId` and `Error` as attributes. Its trace id is empty, because the sweeper runs on a timer with
@@ -512,9 +515,8 @@ no ambient activity.
 
 ### Model unreachable
 
-Trace `d59718e2306d2579a0400c7ffe9356c2`. The app was started with `OLLAMA_BASE_URL` pointing at a
-port nothing listens on. Do not stop the host's Ollama to reproduce this: it is not part of the
-Compose stack.
+The app is started with `OLLAMA_BASE_URL` pointing at a port nothing listens on. Do not stop the
+host's Ollama to reproduce this: it is not part of the Compose stack.
 
 ```text
 base14.agent.run                Error   executor 'triage_triage' failed: System.Net.Http.HttpRequestException: ...
@@ -535,7 +537,7 @@ a provider that is down from one that is rejecting requests.
 
 ### Unknown booking
 
-Trace `974a88eb44b741ff1186f64816476fb5`. A failed tool call inside a run that succeeds.
+A failed tool call inside a run that succeeds.
 
 ```text
 tools/call lookup_booking      Error   [{"type":"text","text":"An error occurred invoking \u0027lookup_booking\u0027: No booking found for reference \u0027BK-9999\u0027."}]
@@ -557,7 +559,7 @@ not return this case; the two tool spans do carry it.
 
 ### Database unreachable
 
-Trace `2e04ae20bb54da4c1506e42d19fc96c7`. Postgres stopped under a running app.
+Postgres stopped under a running app.
 
 ```text
 postgresql                          Error   57P01
@@ -583,7 +585,7 @@ run.
 
 ### Approval rejected
 
-Trace `5d4a1e468131b30d460e6b3a97497f93`. A human answered `{"approved": false}`.
+A human answered `{"approved": false}`.
 
 Every span in the run trace is Unset. Two spans that an approved rebooking produces are not
 emitted at all:
@@ -603,9 +605,8 @@ and on every other span of the run.
 
 ### Approval expired
 
-Trace `ba55dbc368251203e6a0f851a579b38f`. The same shape with nobody answering.
-`base14.approval.outcome: expired`, everything Unset, no `execute_tool rebook` span, and the run
-completes with `outcome: expired`.
+The same shape with nobody answering. `base14.approval.outcome: expired`, everything Unset, no
+`execute_tool rebook` span, and the run completes with `outcome: expired`.
 
 One difference from the rejected row: the decided span is the root of its own trace with no parent,
 because the expiry comes from the sweeper rather than from a request.
@@ -630,10 +631,10 @@ Budget roughly five minutes for the failure section of `test-api.sh` and roughly
 `verify-scout.sh` end to end, both approximate. `SKIP_FAILURE_CASES=1` runs `test-api.sh` without the
 failure section.
 
-Restarting the app inside the SDK's batch export period loses whatever has not gone out yet. A
-run-timeout scenario whose app was restarted two seconds later kept its span and lost its ERROR log
-record. `verify-scout.sh` waits `EXPORT_SETTLE_SECONDS` before each restart for that reason;
-`test-api.sh` does not need to, because it asserts on the API rather than on telemetry.
+Restarting the app inside the SDK's batch export period loses whatever has not gone out yet: a
+run-timeout scenario restarted too soon keeps its span and loses its ERROR log record.
+`verify-scout.sh` waits `EXPORT_SETTLE_SECONDS` before each restart for that reason; `test-api.sh`
+does not need to, because it asserts on the API rather than on telemetry.
 
 ## Providers
 
@@ -745,7 +746,6 @@ csharp/agent-rebooking/
 |   +-- Telemetry/           Sources, TelemetryRegistration, ApprovalTelemetry
 |   +-- Program.cs           Providers, OTLP export, options binding
 +-- AgentRebooking.Tests/    Unit and telemetry tests, in-memory exporters
-+-- spike/                   Task 2 spike and its captured spans
 +-- config/
 |   +-- otel-collector.yaml  oauth2client + otlp_http/b14 + debug
 +-- scripts/
@@ -754,7 +754,6 @@ csharp/agent-rebooking/
 +-- Dockerfile               Built from the example root, not from AgentRebooking/
 +-- compose.yaml             app, postgres, otel-collector
 +-- Makefile                 check, build-lint, test, ci, up, down, reset, test-api, verify-scout
-+-- SPIKE-FINDINGS.md        What the Task 2 spike measured
 +-- .env.example
 ```
 
@@ -766,5 +765,15 @@ csharp/agent-rebooking/
   approval](https://learn.microsoft.com/en-us/agent-framework/agents/tools/tool-approval)
 - [Model Context Protocol C# SDK](https://github.com/modelcontextprotocol/csharp-sdk)
 - [OpenTelemetry GenAI semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai)
+- [Agent Approval Gates](https://docs.base14.io/guides/ai-observability/agent-approval-gates/), the
+  guide this example is written against
+- [AI Agent Observability](https://docs.base14.io/guides/ai-observability/agent-observability/),
+  for agent traces in general
+- [ASP.NET Core instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/dotnet/)
+- [Collector Setup](https://docs.base14.io/category/opentelemetry-collector-setup)
 - [base14 Scout](https://base14.io)
-- [base14 Scout documentation](https://docs.base14.io)
+
+Other agent examples in this repository:
+[ai-learning-path-planner](../../nodejs/ai-learning-path-planner) (Node.js, subagent fan-out and
+cost per run) and [ai-runbook-assistant](../../python/ai-runbook-assistant) (Python, LangChain
+callback handler against zero-code auto-instrumentation).

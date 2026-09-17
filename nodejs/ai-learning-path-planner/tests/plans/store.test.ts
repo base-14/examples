@@ -50,8 +50,7 @@ describe("PlanStore", () => {
     expect(store.get(metrics)).toEqual(outcome("metrics"));
   });
 
-  // Ruling 31 bounded the cost accumulator for this reason and the same reasoning applies
-  // here: a full plan per completed run, in a process meant to run indefinitely.
+  // A full plan per completed run, in a process meant to run indefinitely.
   it("evicts the least recently completed plan rather than growing without bound", () => {
     const store = new PlanStore();
     const ids: string[] = [];

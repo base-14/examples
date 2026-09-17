@@ -17,12 +17,9 @@ namespace AgentRebooking.Tests;
 /// produced by the MCP SDK and cannot be faked with a local function.
 /// </summary>
 /// <remarks>
-/// Every capture listens on <see cref="Sources.TraceSourceNames"/> rather than on names
-/// written out here. That is deliberate: it is what makes
-/// <see cref="Sources.ModelContextProtocol"/> load-bearing. Drop that name and the MCP SDK
-/// sees no listener, stops writing <c>mcp.*</c> attributes and stops propagating trace
-/// context, and the MCP test below fails instead of the app losing half its trace in
-/// silence.
+/// Every capture listens on <see cref="Sources.TraceSourceNames"/> rather than on names written
+/// out here, so dropping <see cref="Sources.ModelContextProtocol"/> fails the MCP test below
+/// instead of losing half the app's trace in silence.
 /// </remarks>
 public class TelemetryTests
 {
@@ -111,11 +108,7 @@ public class TelemetryTests
         Assert.Equal(300, Assert.IsType<int>(SpanAssert.TagValue(decided, "base14.approval.limit")));
     }
 
-    /// <summary>
-    /// The design names three outcomes for the decided span: approved, expired and rejected.
-    /// The other two tests pin themselves; this one is the cheapest real assertion for the
-    /// third, over the same shape as <see cref="AnsweringOpensADecidedSpanOnTheAnsweringRequestLinkedToTheRequestedOne"/>.
-    /// </summary>
+    /// <summary>The third decided-span outcome, over the same shape as the approved one.</summary>
     [Fact]
     public async Task RejectingOpensADecidedSpanAndCountsTheRejectedOutcome()
     {
@@ -143,9 +136,8 @@ public class TelemetryTests
     }
 
     /// <summary>
-    /// An expiry is a decision too. It reaches <c>DecideAsync</c> from the sweep rather than
-    /// from a request, so its span is a root of its own trace, and that is the honest shape:
-    /// nobody asked for it.
+    /// An expiry reaches <c>DecideAsync</c> from the sweep, not a request, so its span roots its
+    /// own trace.
     /// </summary>
     [Fact]
     public async Task AnExpiredApprovalStillGetsADecidedSpanAndACountedOutcome()
@@ -182,10 +174,8 @@ public class TelemetryTests
     }
 
     /// <summary>
-    /// An answer that lands on the handover-failure branch is still an answer. Approval
-    /// outcomes are written at two call sites, and wiring the decided span into only the
-    /// success path would leave this branch recording the outcome on the entry while emitting
-    /// no span and no histogram point at all.
+    /// An answer on the handover-failure branch is still an answer. Outcomes are written at two
+    /// call sites, and only one of them opening a decided span would lose this one.
     /// </summary>
     [Fact]
     public async Task ADecisionThatFailsTheRunOnTheStreamHandoverIsStillMeasured()
@@ -233,19 +223,16 @@ public class TelemetryTests
     // --- error status, the rule written out at RunStore.Fail ------------------
 
     /// <summary>
-    /// The run timeout is recorded from the sweeper's thread, where nothing is current, so
-    /// the only way the run's own span can carry the failure is the record's published
-    /// activity. Assert the status and the message, because a reader filtering
-    /// <c>status = Error</c> is the person this exists for.
+    /// Recorded from the sweeper's thread, where nothing is current, so the record's published
+    /// activity is the only way the run's span can carry the failure.
     /// </summary>
     [Fact]
     public async Task ARunTimeoutMarksTheRunSpanErrorFromTheSweepersThread()
     {
         using var spans = new SpanCapture(Listened);
 
-        // Held on its first turn rather than blocked outright, so the sweep below lands while
-        // the pass is genuinely inside base14.agent.run rather than racing the task that
-        // starts it.
+        // Held on its first turn, so the sweep lands with the pass genuinely inside
+        // base14.agent.run rather than racing the task that starts it.
         var paused = new PausingChatClient(
             new ScriptedAgentChatClient(Script(UnderLimitBooking, UnderLimitFlight)), pauseOnTurn: 1);
         var options = Defaults with { RunTimeoutSeconds = 30 };
@@ -272,11 +259,8 @@ public class TelemetryTests
     }
 
     /// <summary>
-    /// A failure recorded on the approver's request must land on the run's span, not on the
-    /// approver's. This drives the handover-past-the-bound branch, which calls <c>Fail</c>
-    /// from inside <c>POST /approvals/{id}</c> while the run's pass is still stuck in its
-    /// stream, and checks both halves: the run span carries the error and every span of the
-    /// approver's trace stays Unset.
+    /// A failure recorded on the approver's request lands on the run's span, not the approver's.
+    /// Drives the handover-past-the-bound branch and asserts both halves.
     /// </summary>
     [Fact]
     public async Task AFailureOnTheApproversRequestMarksTheRunSpanAndNotTheApproversOwn()
@@ -319,9 +303,8 @@ public class TelemetryTests
     }
 
     /// <summary>
-    /// A human declining is the gate working, not an incident. The outcome attribute carries
-    /// the distinction and every span stays Unset, so a reader filtering on error status sees
-    /// nothing here.
+    /// A human declining is the gate working, not an incident: the outcome attribute carries it
+    /// and every span stays Unset.
     /// </summary>
     [Fact]
     public async Task ARejectedApprovalLeavesEverySpanOfTheRunUnset()
@@ -414,10 +397,8 @@ public class TelemetryTests
     }
 
     /// <summary>
-    /// OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT puts the traveller's own words on
-    /// exported spans, which is why it defaults to off. <see cref="RunHarness.For"/> only
-    /// threads it through when a test asks; every other test in this file runs with it off and
-    /// never notices, which is exactly the point.
+    /// OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT puts the traveller's words on exported
+    /// spans, so it defaults to off and only this test turns it on.
     /// </summary>
     [Fact]
     public async Task CaptureMessageContentControlsWhetherTheChatSpanCarriesTheTravellersWords()
@@ -450,21 +431,17 @@ public class TelemetryTests
     }
 
     /// <summary>
-    /// The single most load-bearing test in this file. There is no MCP client span for a tool
-    /// call: the SDK finds the outer <c>execute_tool</c> activity, hangs the <c>mcp.*</c>
-    /// attributes on it and parents the server span straight to it. A request with no outer
-    /// tool span, such as <c>tools/list</c>, does get its own client span, which is the
-    /// contrast asserted at the end.
+    /// There is no MCP client span for a tool call: the SDK hangs the <c>mcp.*</c> attributes on
+    /// the outer <c>execute_tool</c> activity and parents the server span to it. A request with
+    /// no outer tool span, such as <c>tools/list</c>, does get one, asserted at the end.
     /// </summary>
     [Fact]
     public async Task AToolCallPutsTheMcpAttributesOnExecuteToolAndParentsTheServerSpanToIt()
     {
         using var spans = new SpanCapture(Listened);
 
-        // The app opens its MCP session once at startup, in a trace of its own, before any
-        // traveller request exists. Starting the session ahead of "POST /runs" here, rather
-        // than inside it, keeps the test's span tree the shape the app actually produces:
-        // server/discover and tools/list belong to the startup trace, not the run's.
+        // The app opens its session at startup, in a trace of its own. Opening it ahead of
+        // "POST /runs" here keeps the span tree the shape the app produces.
         ActivityContext startup;
         StubMcpSession mcp;
         using (var startupActivity = TestSource.StartActivity("mcp session start")!)
@@ -479,9 +456,8 @@ public class TelemetryTests
         await using var harness = RunHarness.For(
             UnderLimitBooking, UnderLimitFlight, agentTools: mcp.Tools);
 
-        // This harness never wired FakeRebookingTools -- it was built over the MCP session
-        // above -- so asking for Tools has to say that rather than quietly read as "not
-        // invoked".
+        // Built over the MCP session above, never over FakeRebookingTools, so asking for Tools
+        // has to say so rather than read as "not invoked".
         Assert.Throws<InvalidOperationException>(() => harness.Tools);
 
         var runId = harness.Store.Start("My booking is BK-1001 and my flight was cancelled.");
@@ -496,11 +472,9 @@ public class TelemetryTests
         Assert.NotNull(SpanAssert.TagValue(executeTool, "mcp.session.id"));
         Assert.Equal("pipe", SpanAssert.TagValue(executeTool, "network.transport"));
 
-        // The merged span carries gen_ai.tool.name and gen_ai.operation.name twice: the agent
-        // framework sets them, then the MCP SDK appends its own with AddTag rather than
-        // SetTag. Same values both times, so nothing is lost, but a backend that renders
-        // attributes as a list shows each of these two keys twice. The Task 2 spike left this
-        // open because its recorder collapsed duplicate keys into a JSON object; measured here.
+        // The merged span carries these twice: the agent framework sets them, then the MCP SDK
+        // appends its own with AddTag rather than SetTag. Same values, but a backend that renders
+        // attributes as a list shows each key twice.
         Assert.Equal(2, SpanAssert.TagValues(executeTool, "gen_ai.tool.name").Count);
         Assert.Equal(2, SpanAssert.TagValues(executeTool, "gen_ai.operation.name").Count);
         Assert.Single(SpanAssert.TagValues(executeTool, "mcp.method.name"));
@@ -511,8 +485,7 @@ public class TelemetryTests
         Assert.Equal(executeTool.SpanId, serverSpan.ParentSpanId);
         Assert.Equal(executeTool.TraceId, serverSpan.TraceId);
 
-        // The session's own tools/list, from opening it above, not from anything the run did:
-        // the client-and-server pair belongs to the startup trace, not the traveller's.
+        // The session's own tools/list, from opening it above, not from the run.
         var toolsList = spans.InTraceOf(startup).Where(span => span.OperationName == "tools/list").ToList();
         Assert.Equal(2, toolsList.Count);
         Assert.Contains(toolsList, span => span.Kind == ActivityKind.Client);
@@ -534,17 +507,13 @@ public class TelemetryTests
 
         Assert.Equal(Sources.TraceSourceNames, Sources.MeterNames);
 
-        // Its spans are gated behind a builder method the handoff builder does not expose at
-        // 1.21.0, so it can never produce one. The README says so too.
+        // Gated behind a builder method the handoff builder does not expose at 1.21.0.
         Assert.DoesNotContain("Microsoft.Agents.AI.Workflows", Sources.TraceSourceNames);
     }
 
     /// <summary>
-    /// The test above pins the array's contents; this one proves the array actually reaches a
-    /// provider. It builds a bare <c>TracerProvider</c> through
-    /// <see cref="TelemetryRegistration.ConfigureTracing"/>, the same method Program.cs calls,
-    /// so a hand-written replacement for <c>AddSource(Sources.TraceSourceNames)</c> there would
-    /// fail this rather than go unnoticed.
+    /// The test above pins the array's contents; this one proves it reaches a provider, through
+    /// the same <see cref="TelemetryRegistration"/> method Program.cs calls.
     /// </summary>
     [Fact]
     public void TheAppsTracerProviderActuallyListensOnEveryRegisteredSource()
@@ -565,9 +534,8 @@ public class TelemetryTests
             }
         }
 
-        // This provider also carries the AspNetCore and HttpClient instrumentation Program.cs
-        // registers, and test classes run in parallel, so a request from another class lands in
-        // the recorder too. Match on the probe name to compare only what this test produced.
+        // Test classes run in parallel and this provider carries the AspNetCore instrumentation
+        // too, so match on the probe name.
         var heard = recorder.Ended
             .Where(activity => activity.OperationName == ProbeActivityName)
             .Select(activity => activity.Source.Name)
@@ -576,10 +544,8 @@ public class TelemetryTests
     }
 
     /// <summary>
-    /// The SDK's default histogram boundaries stop being useful past 750 seconds, and
-    /// APPROVAL_TIMEOUT_SECONDS defaults to 600: without an explicit view, this example's own
-    /// documentation would ship a bucket layout that teaches nothing about it. Built the same
-    /// way Program.cs builds its meter provider, through <see cref="TelemetryRegistration"/>.
+    /// The SDK's default boundaries stop being useful past 750 seconds and
+    /// APPROVAL_TIMEOUT_SECONDS defaults to 600, so the view is not optional.
     /// </summary>
     [Fact]
     public void TheApprovalWaitHistogramIsViewedWithHumanScaleBucketBoundaries()
@@ -603,15 +569,12 @@ public class TelemetryTests
 
             reader.Collect();
 
-            // Read the batch before the provider disposes: shutdown forces one more collect
-            // of its own, which would otherwise hand back this histogram a second time.
+            // Before the provider disposes: shutdown forces one more collect of its own.
             exported = exporter.Exported;
         }
 
-        // AddMeter matches by name, so this provider also hears every other Meter("AgentRebooking")
-        // the parallel test classes create. Their decisions arrive as extra points, and a collect
-        // racing them exports the instrument more than once. The view under test applies to every
-        // one of them, so assert the boundaries everywhere rather than demanding a single point.
+        // AddMeter matches by name, so parallel test classes add points and the instrument can
+        // be exported more than once. Assert the boundaries everywhere, not on a single point.
         var points = 0;
         foreach (var histogram in exported.Where(
             metric => metric.Name == ApprovalTelemetry.WaitDurationInstrument))

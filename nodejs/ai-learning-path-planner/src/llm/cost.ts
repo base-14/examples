@@ -15,9 +15,7 @@ interface PricingFile {
   models: Record<string, PriceRow>;
 }
 
-// _shared/pricing.json sits at the examples repo root, four levels up from this package:
-// src/llm/cost.ts -> src -> ai-learning-path-planner -> nodejs -> repo root. Follows the
-// same relative-path load and failure style as nodejs/ai-contract-analyzer's providers.ts.
+// _shared/pricing.json sits four levels up, at the examples repo root.
 function loadPricing(): PricingFile {
   try {
     const raw = readFileSync(new URL("../../../../_shared/pricing.json", import.meta.url), "utf8");
@@ -47,21 +45,15 @@ function computeUsd(usage: LanguageModelUsage, price: PriceRow): number {
   return usd;
 }
 
-// Local models (the default on this branch) have no price row of their own in
-// _shared/pricing.json. costOf resolves cost in three steps:
+// Local models have no price row, so cost resolves three ways:
 //
-// 1. modelId names a real row (a hosted model, or a local id someone added with
-//    input/output 0 per the pricing file's ollama_note) -- that row's real rate applies,
-//    simulated: false.
-// 2. modelId has no row and PRICE_MODEL is unset -- an unconfigured run stays usable:
-//    zero cost, simulated: true, no throw. The figure is not a real per-model price, it
-//    is a stand-in, so it carries the same simulated flag as case 3, just at zero.
-// 3. modelId has no row and PRICE_MODEL names a row -- that row's rates are applied to
-//    the local token counts as a stand-in, simulated: true.
+// 1. modelId names a row -- that row's real rate, simulated: false.
+// 2. no row and PRICE_MODEL unset -- zero, simulated: true. A stand-in at zero, not a price.
+// 3. no row and PRICE_MODEL names a row -- that row's rates over the local token counts,
+//    simulated: true.
 //
-// PRICE_MODEL naming an id that is not in the table at all is a misconfiguration, not an
-// absent configuration, and is handled separately below: it throws rather than silently
-// behaving like case 2.
+// PRICE_MODEL naming an id the table does not have is a misconfiguration, not an absent one,
+// and throws rather than behaving like case 2.
 function unknownPriceModelError(priceModel: string): Error {
   return new Error(
     `PRICE_MODEL is '${priceModel}', which is not a model in _shared/pricing.json. ` +
@@ -69,10 +61,8 @@ function unknownPriceModelError(priceModel: string): Error {
   );
 }
 
-// costOf's throw is reachable on every call, including calls made from a span
-// processor's onEnd, where a throw lands on the SDK's export path rather than on the
-// request that caused it. src/telemetry.ts calls this at boot so the misconfiguration
-// fails there instead.
+// costOf can throw from a span processor's onEnd, where the failure lands on the export path.
+// src/telemetry.ts calls this at boot so it fails there instead.
 export function assertPriceModelIsKnown(config: Config): void {
   if (config.priceModel === undefined) {
     return;

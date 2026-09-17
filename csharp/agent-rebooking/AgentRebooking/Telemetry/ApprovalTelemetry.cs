@@ -6,16 +6,11 @@ namespace AgentRebooking.Telemetry;
 
 /// <summary>
 /// The spans and instruments for the approval gate. An approval is two short spans and a
-/// histogram point rather than one span held open across the human's thinking time: the
-/// answer arrives on a different HTTP request, minutes later, and a span that outlives its
-/// request makes batch export and tail sampling behave badly.
+/// histogram point, not one span held open across the human's thinking time: the answer arrives
+/// on a different request minutes later, and a span that outlives its request breaks batch
+/// export and tail sampling. Names this example owns carry a <c>base14.</c> prefix;
+/// <see cref="ToolAttribute"/> is semconv's, used with semconv's meaning.
 /// </summary>
-/// <remarks>
-/// Names the example owns carry a <c>base14.</c> prefix. They never sit bare and never sit
-/// under <c>gen_ai.</c> or <c>mcp.</c>, which belong to the semantic conventions.
-/// <see cref="ToolAttribute"/> is the exception that proves it: that one is semconv, and it
-/// is used here with semconv's meaning.
-/// </remarks>
 public sealed class ApprovalTelemetry
 {
     public const string RequestedSpanName = "base14.approval.requested";
@@ -31,11 +26,8 @@ public sealed class ApprovalTelemetry
     public const string WaitSecondsAttribute = "base14.approval.wait_seconds";
     public const string RunIdAttribute = "base14.run.id";
 
-    // A few seconds apart while an answer is still likely, minutes apart once it is not, and
-    // one point past APPROVAL_TIMEOUT_SECONDS' default of 600 to separate a slow answer from
-    // an expiry. Registered against the instrument by TelemetryRegistration.ConfigureMetrics;
-    // the SDK's default boundaries stop being useful past 750 and teach nothing about this
-    // example's own timeout.
+    // Human-scale, with one point past APPROVAL_TIMEOUT_SECONDS' default of 600 so a slow
+    // answer reads differently from an expiry. Registered by TelemetryRegistration.
     public static readonly double[] WaitDurationBucketBoundaries =
         [1, 5, 15, 30, 60, 120, 300, 600, 900];
 
@@ -56,9 +48,8 @@ public sealed class ApprovalTelemetry
     }
 
     /// <summary>
-    /// Opens and closes the requested span where the handler decides a call needs a human,
-    /// and hands back its context. The decided span happens on another request and links to
-    /// that context, which is the only thread between the two.
+    /// Opens and closes the requested span, and hands back its context. The decided span
+    /// happens on another request and links to it, which is the only thread between the two.
     /// </summary>
     public ActivityContext Requested(ApprovalEntry entry)
     {
@@ -68,9 +59,8 @@ public sealed class ApprovalTelemetry
     }
 
     /// <summary>
-    /// The decision, wherever it came from: a human answering, or the sweep expiring the
-    /// request. Parented to whatever is current, which is the answering request's span for an
-    /// answer and nothing at all for an expiry.
+    /// The decision, from a human answering or from the sweep expiring the request. Parented to
+    /// whatever is current: the answering request's span, or nothing at all on an expiry.
     /// </summary>
     public void Decided(ApprovalEntry entry, ActivityContext requested, string outcome, TimeSpan waited)
     {
@@ -89,9 +79,8 @@ public sealed class ApprovalTelemetry
     }
 
     /// <summary>
-    /// An under-limit call the app answered itself. Counted so the auto share of the spend is
-    /// visible, and given no span: nobody waited, and a zero-length pair of spans per tool
-    /// call would bury the ones a human was actually involved in.
+    /// An under-limit call the app answered itself. Counted, not spanned: nobody waited, and a
+    /// zero-length pair per tool call would bury the ones a human was involved in.
     /// </summary>
     public void AutoApproved(ApprovalEntry entry) =>
         _count.Add(1, Tags(entry.Tool, ApprovalOutcomes.Auto));
@@ -107,8 +96,8 @@ public sealed class ApprovalTelemetry
         activity.SetTag(RunIdAttribute, entry.RunId);
         activity.SetTag(LimitAttribute, entry.Limit);
 
-        // Null whenever the gate could not price the call server-side, which is itself a
-        // reason a human was asked. Left off the span rather than written as an empty string.
+        // Null when the gate could not price the call, which is itself a reason a human was
+        // asked. Left off the span rather than written empty.
         if (entry.Amount is { } amount)
         {
             activity.SetTag(AmountAttribute, amount);

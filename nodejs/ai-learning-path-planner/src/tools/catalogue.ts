@@ -1,11 +1,8 @@
 import type { Config } from "../config.ts";
 
-// The lead and researcher tool sets are disjoint by design: four tools that only ever
-// touch the whole-corpus view and the fan-out, five that only ever read one document or
-// example at a time. Both agents always build all nine tool definitions (see lead.ts and
-// researcher.ts); activeToolsFor is the only thing that decides which of the nine a given
-// role's model actually sees, so TOOL_CATALOGUE=full can hand every agent all nine without
-// either agent's tool map changing shape.
+// The two tool sets are disjoint: four over the whole-corpus view and the fan-out, five that
+// read one document at a time. Both agents build all nine; activeToolsFor decides which of
+// them a role's model sees, so TOOL_CATALOGUE=full changes neither agent's tool map.
 export const LEAD_TOOL_NAMES = [
   "corpus_map",
   "check_coverage",

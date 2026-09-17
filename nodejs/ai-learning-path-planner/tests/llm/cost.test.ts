@@ -114,9 +114,8 @@ describe("costOf", () => {
   });
 });
 
-// F3 and F5, from the configuration the repo actually ships rather than from a literal.
-// PRICE_MODEL= empty threw at boot, and with nothing naming a price row every run
-// reported a cost of zero on an example whose subject is cost per completed task.
+// Over the configuration the repo ships rather than a literal: an empty PRICE_MODEL must not
+// throw at boot, and must not leave every run reporting a cost of zero.
 describe("the shipped configuration", () => {
   it("prices a local model's tokens above zero, and says the price is simulated", () => {
     const result = costOf(

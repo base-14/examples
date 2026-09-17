@@ -5,3 +5,5 @@ dist/
 !.env.example
 *.log
 coverage/
+spike/
+SPIKE-FINDINGS.md

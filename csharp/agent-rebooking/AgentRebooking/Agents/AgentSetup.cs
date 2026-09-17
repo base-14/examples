@@ -15,11 +15,9 @@ public static class AgentSetup
     public const string RebookingAgentId = "rebooking";
 
     /// <summary>
-    /// The name of the tool the handoff builder injects into the triage agent. The prefix
-    /// is <c>handoff_to_</c> and the suffix is a 1-based counter over that agent's handoff
-    /// targets, so triage's single target is 1. The framework's own XML documentation and
-    /// its default handoff instructions both claim <c>handoff_to_{agent_id}</c>; both are
-    /// wrong at 1.21.0. Observed in ten of ten spike runs, see SPIKE-FINDINGS.md.
+    /// The tool the handoff builder injects into triage. The suffix is a 1-based counter over
+    /// the agent's handoff targets, not the target's id: the framework's own documentation
+    /// says <c>handoff_to_{agent_id}</c>, which 1.21.0 does not emit.
     /// </summary>
     public const string HandoffToolName = "handoff_to_1";
 
@@ -35,16 +33,10 @@ public static class AgentSetup
         "If a rebooking was not approved, tell the traveller the rebooking was not made.";
 
     /// <summary>
-    /// Every call to these pauses the workflow, because
-    /// <see cref="ApprovalRequiredAIFunction"/> carries no predicate. Whether a paused call
-    /// needs a human is decided afterwards by <see cref="ApprovalGate"/>, against a price
-    /// read from Postgres.
+    /// Every call to these pauses the workflow, because <see cref="ApprovalRequiredAIFunction"/>
+    /// carries no predicate. <see cref="ApprovalGate"/> then decides, against a price read from
+    /// Postgres. Taken from the gate so the set that pauses and the set it can price cannot drift.
     /// </summary>
-    /// <remarks>
-    /// Taken from the gate rather than written out again. The tools that pause are exactly
-    /// the tools the gate can price, so a name added to one and not the other would either
-    /// hang a call nothing can decide or let a spend through with no gate at all.
-    /// </remarks>
     public static readonly string[] ApprovalRequiredTools = [ApprovalGate.RebookTool, ApprovalGate.AddHotelTool];
 
     /// <summary>
@@ -52,11 +44,9 @@ public static class AgentSetup
     /// fresh one for each traveller message rather than sharing one across runs.
     /// </summary>
     /// <param name="captureMessageContent">
-    /// OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT. True puts the traveller's messages,
-    /// the model's replies and the tool arguments on the chat and agent spans as attributes,
-    /// where a backend will keep them. Off by default. The framework reads the same variable
-    /// itself; it is passed explicitly so the app's one options object stays the only place
-    /// the setting is read from.
+    /// OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT. True puts traveller messages, model
+    /// replies and tool arguments on the chat and agent spans. Passed explicitly, though the
+    /// framework reads the variable itself, so the app's options object stays the single reader.
     /// </param>
     public static Workflow BuildWorkflow(
         IChatClient chatClient, IEnumerable<AITool> tools, bool captureMessageContent = false)
@@ -84,9 +74,8 @@ public static class AgentSetup
                     {
                         Instructions = RebookingInstructions,
                         Tools = [.. tools.Select(WrapIfApprovalRequired)],
-                        // One tool call per turn, so a run has at most one approval
-                        // outstanding at a time. The handoff builder already forces this on
-                        // triage; rebooking has no handoff targets, so it is set here.
+                        // One tool call per turn, so a run has at most one approval outstanding.
+                        // The handoff builder already forces this on triage.
                         AllowMultipleToolCalls = false,
                     },
                 })
