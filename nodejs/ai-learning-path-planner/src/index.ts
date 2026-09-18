@@ -7,6 +7,7 @@ import { PlanStore } from "./plans/store.js";
 import { corpusRoutes } from "./routes/corpus.js";
 import { health } from "./routes/health.js";
 import { plansRoutes } from "./routes/plans.js";
+import { uiRoutes } from "./routes/ui.js";
 
 const config = loadConfig();
 
@@ -25,6 +26,7 @@ const app = new Hono();
 app.route("/", health);
 app.route("/", plansRoutes({ store: corpusStore, config, plans: planStore }));
 app.route("/", corpusRoutes({ store: corpusStore }));
+app.route("/", uiRoutes());
 
 app.notFound((c) => c.json({ error: "not found" }, 404));
 app.onError((err, c) => {

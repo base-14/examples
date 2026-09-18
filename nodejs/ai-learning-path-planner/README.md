@@ -58,7 +58,8 @@ make docker-up
 ```
 
 Ask for a plan. A planned run takes a couple of minutes and fans out to two to four subtopics, depending on the
-topic and the machine.
+topic and the machine. Open <http://localhost:3000> for a page that takes a topic and renders the plan, or call
+the API directly.
 
 ```bash
 curl -sN -X POST http://localhost:3000/plans \
@@ -115,6 +116,7 @@ A host run needs no OTLP configuration: the SDK's default endpoint is `http://lo
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
+| `GET` | `/` | A page that posts a topic to `/plans` and renders the streamed plan. |
 | `POST` | `/plans` | Streams NDJSON and ends with the plan. 200 when the topic is in range, 422 when it is out of range, 400 when the body has no usable `topic`. |
 | `GET` | `/plans/{id}` | `{status, plan}` for a completed run. 404 for an unknown id, and for every id after a restart. |
 | `GET` | `/corpus/stats` | Document, section and heading counts, plus a document count per area. |
