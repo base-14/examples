@@ -1,7 +1,7 @@
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
-github.com/XSAM/otelsql v0.43.0 h1:ZIhXqRoMhILXQwBQoq/Dl6Taap/KEFQXZrWjYV1L8X8=
-github.com/XSAM/otelsql v0.43.0/go.mod h1:DJBGBvbtwf1OCBYRTjpRFxOqi6ONpdfb+htr4ncRWuw=
+github.com/XSAM/otelsql v0.44.0 h1:KxCiv26Fh4okTPlgROE2BWk+lgi20pdgMGxuSwgbRls=
+github.com/XSAM/otelsql v0.44.0/go.mod h1:FySZIr4R4WWMqvIjf2Iah7C0LAlpKvs9XRkaX7rE608=
 github.com/andybalholm/brotli v1.2.3 h1:8H1qwOkl2LPfjf3YezB90JnCliZb6SInJ/OJkEbA5NQ=
 github.com/andybalholm/brotli v1.2.3/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=

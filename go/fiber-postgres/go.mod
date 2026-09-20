@@ -3,7 +3,7 @@ module go-fiber-postgres
 go 1.27.1
 
 require (
-	github.com/XSAM/otelsql v0.43.0
+	github.com/XSAM/otelsql v0.44.0
 	github.com/gofiber/contrib/otelfiber/v2 v2.2.3
 	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/golang-jwt/jwt/v5 v5.3.1
