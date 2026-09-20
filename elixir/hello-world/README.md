@@ -23,7 +23,7 @@ Click a span to see its events, attributes, and (for `parse-config`) the recorde
 
 ## Prerequisites
 
-- Elixir 1.13+ / Erlang OTP 23+
+- Elixir 1.20+ / Erlang OTP 29+
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup docs](../../scout-collector/README.md))
 
 ## Run It

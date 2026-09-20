@@ -23,7 +23,7 @@ Click a span to see its events, attributes, and (for `parse-config`) the recorde
 
 ## Prerequisites
 
-- Ruby 3.1+
+- Ruby 4.0+
 - Bundler
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup docs](../../scout-collector/README.md))
 
