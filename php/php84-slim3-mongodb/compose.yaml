@@ -67,7 +67,7 @@ services:
       - slim-network
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.29-alpine
     container_name: slim-nginx
     ports:
       - "8080:80"

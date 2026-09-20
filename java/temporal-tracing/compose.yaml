@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres:18-alpine
     container_name: temporal-postgres
     environment:
       POSTGRES_USER: temporal
@@ -34,7 +34,7 @@ services:
       start_period: 30s
 
   temporal-ui:
-    image: temporalio/ui:latest
+    image: temporalio/ui:2.33.0
     container_name: temporal-ui
     depends_on:
       temporal:

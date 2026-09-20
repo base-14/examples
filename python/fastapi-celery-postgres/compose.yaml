@@ -117,7 +117,7 @@ services:
       start_period: 10s
 
   redis:
-    image: redis:8.0-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"

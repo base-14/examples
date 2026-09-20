@@ -33,7 +33,7 @@ services:
       - symfony-network
 
   db:
-    image: mysql:8.4
+    image: mysql:9
     container_name: symfony-mysql
     environment:
       MYSQL_DATABASE: symfony

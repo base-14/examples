@@ -6,7 +6,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
+FROM nginx:1.29-alpine
 # The @angular/build:application builder emits the browser bundle under
 # dist/frontend/browser.
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html

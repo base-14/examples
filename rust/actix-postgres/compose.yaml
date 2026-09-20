@@ -44,7 +44,7 @@ services:
         condition: service_started
 
   postgres:
-    image: postgres:18.2-alpine3.23
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
