@@ -1,4 +1,4 @@
-.PHONY: install dev build check lint format typecheck test clean run docker-build docker-up docker-down test-api verify-scout audit outdated eval eval-view
+.PHONY: install dev build check lint format typecheck test clean run docker-build docker-up docker-down test-api verify-scout audit outdated eval eval-validate eval-view
 
 install:
 	uv sync
@@ -58,8 +58,16 @@ test-api:
 verify-scout:
 	./scripts/verify-scout.sh
 
-eval:
-	npx promptfoo@latest eval --no-cache
+PROMPTFOO_VERSION := 0.123.1
+EVAL_CONFIGS := evals/review.yaml evals/improve.yaml evals/score.yaml
+
+eval-validate:
+	npx promptfoo@$(PROMPTFOO_VERSION) validate config -c $(EVAL_CONFIGS)
+
+eval: eval-validate
+	@for config in $(EVAL_CONFIGS); do \
+		npx promptfoo@$(PROMPTFOO_VERSION) eval --no-cache -c $$config || exit 1; \
+	done
 
 eval-view:
-	npx promptfoo@latest view
+	npx promptfoo@$(PROMPTFOO_VERSION) view

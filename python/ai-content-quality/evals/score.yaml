@@ -1,0 +1,79 @@
+description: AI Content Quality Agent - score prompt
+
+providers:
+  - id: openai:gpt-4o-mini
+    config:
+      temperature: 0.3
+      response_format:
+        type: json_object
+
+defaultTest:
+  vars:
+    dataset: score
+    content: file://datasets/case.js
+  options:
+    provider: openai:gpt-4o-mini
+
+prompts:
+  - file://../prompts/score_v1.yaml
+
+tests:
+  - description: "score: high quality content scores well"
+    vars:
+      case: high_quality
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/score.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.score >= 70;
+
+  - description: "score: low quality content scores poorly"
+    vars:
+      case: low_quality
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/score.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.score < 60;
+
+  - description: "score: medium quality in mid range"
+    vars:
+      case: medium_quality
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/score.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.score >= 40 && r.score <= 85;
+
+  - description: "score: technical precise content"
+    vars:
+      case: technical_precise
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/score.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.breakdown && r.breakdown.accuracy >= 70;
+
+  - description: "score: poorly structured scores low"
+    vars:
+      case: poorly_structured
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/score.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.score < 65;

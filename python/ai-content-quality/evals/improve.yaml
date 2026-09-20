@@ -1,0 +1,73 @@
+description: AI Content Quality Agent - improve prompt
+
+providers:
+  - id: openai:gpt-4o-mini
+    config:
+      temperature: 0.3
+      response_format:
+        type: json_object
+
+defaultTest:
+  vars:
+    dataset: improve
+    content: file://datasets/case.js
+  options:
+    provider: openai:gpt-4o-mini
+
+prompts:
+  - file://../prompts/improve_v1.yaml
+
+tests:
+  - description: "improve: vague content gets suggestions"
+    vars:
+      case: needs_improvement
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/improve.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.suggestions && r.suggestions.length >= 1;
+
+  - description: "improve: well-written gets fewer suggestions"
+    vars:
+      case: well_written
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/improve.js
+
+  - description: "improve: marketing draft improved"
+    vars:
+      case: marketing_draft
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/improve.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.suggestions && r.suggestions.length >= 1;
+      - type: llm-rubric
+        value: "Suggestions should address the excessive exclamation marks, hyperbolic language like 'blow your mind' and 'best thing since sliced bread', and overly aggressive sales tone."
+
+  - description: "improve: blog with grammar issues"
+    vars:
+      case: blog_with_issues
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/improve.js
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return r.suggestions && r.suggestions.length >= 2;
+
+  - description: "improve: jargon-heavy content"
+    vars:
+      case: content_with_jargon
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://assertions/improve.js

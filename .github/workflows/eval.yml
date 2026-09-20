@@ -2,21 +2,27 @@ name: Promptfoo Eval
 
 on:
   push:
+    branches: [main]
     paths:
       - "python/ai-content-quality/prompts/**"
       - "python/ai-content-quality/evals/**"
       - "python/ai-content-quality/src/content_quality/services/analyzer.py"
-      - "python/ai-content-quality/promptfooconfig.yaml"
+      - ".github/workflows/eval.yml"
   pull_request:
     paths:
       - "python/ai-content-quality/prompts/**"
       - "python/ai-content-quality/evals/**"
       - "python/ai-content-quality/src/content_quality/services/analyzer.py"
-      - "python/ai-content-quality/promptfooconfig.yaml"
+      - ".github/workflows/eval.yml"
+  workflow_dispatch:
 
 concurrency:
   group: eval-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  PROMPTFOO_VERSION: 0.123.1
+  EVAL_CONFIGS: evals/review.yaml evals/improve.yaml evals/score.yaml
 
 jobs:
   eval:
@@ -35,26 +41,44 @@ jobs:
           node-version: "26"
 
       - name: Install promptfoo
-        run: npm install -g promptfoo@latest
+        run: npm install -g "promptfoo@${PROMPTFOO_VERSION}"
+
+      - name: Validate eval configs
+        run: |
+          # shellcheck disable=SC2086
+          promptfoo validate config -c $EVAL_CONFIGS
+
+      - name: Skip eval without an API key
+        if: env.OPENAI_API_KEY == ''
+        run: echo "::notice::OPENAI_API_KEY is not set, so the eval did not run. Run 'make eval' locally before shipping prompt changes."
 
       - name: Run eval
-        run: promptfoo eval --no-cache -o eval-results.json
+        if: env.OPENAI_API_KEY != ''
+        run: |
+          mkdir -p eval-results
+          for config in $EVAL_CONFIGS; do
+            name=$(basename "$config" .yaml)
+            promptfoo eval --no-cache -c "$config" -o "eval-results/${name}.json" || [ $? -eq 100 ]
+          done
 
       - name: Check pass rate
+        if: env.OPENAI_API_KEY != ''
         run: |
-          TOTAL=$(jq '.results.stats.totalAssertions' eval-results.json)
-          PASSED=$(jq '.results.stats.totalPassedAssertions' eval-results.json)
-          RATE=$(echo "scale=2; $PASSED * 100 / $TOTAL" | bc)
-          echo "Pass rate: ${RATE}% (${PASSED}/${TOTAL})"
-          PASS=$(echo "$RATE >= 95" | bc)
-          if [ "$PASS" -ne 1 ]; then
-            echo "::error::Pass rate ${RATE}% is below 95% threshold"
+          read -r PASSED TOTAL RATE < <(jq -s -r '
+            [.[].results.stats]
+            | (map(.successes) | add) as $passed
+            | (map(.successes + .failures + .errors) | add) as $total
+            | "\($passed) \($total) \($passed * 100 / $total | floor)"
+          ' eval-results/*.json)
+          echo "Pass rate: ${RATE}% (${PASSED}/${TOTAL} test cases)"
+          if [ "$RATE" -lt 95 ]; then
+            echo "::error::Pass rate ${RATE}% is below the 95% threshold"
             exit 1
           fi
 
       - name: Upload eval results
-        if: always()
+        if: always() && env.OPENAI_API_KEY != ''
         uses: actions/upload-artifact@v4
         with:
           name: eval-results
-          path: python/ai-content-quality/eval-results.json
+          path: python/ai-content-quality/eval-results/

@@ -54,13 +54,14 @@ make check
 ## API Endpoints
 
 | Endpoint | Method | Description |
-|-----------|--------|-------------|
+| --- | --- | --- |
 | `/health` | GET | Health check with component status |
 | `/review` | POST | Review content for quality issues (hyperbole, bias, unsourced claims) |
 | `/improve` | POST | Suggest specific text improvements with before/after |
 | `/score` | POST | Score content 0-100 with clarity/accuracy/engagement/originality breakdown |
 
-All analysis endpoints accept a JSON body with `content` (string, max 10,000 chars) and optional `content_type` (one of `general`, `marketing`, `technical`, `blog`).
+All analysis endpoints accept a JSON body with `content` (string, max 10,000 chars) and optional `content_type` (one of
+`general`, `marketing`, `technical`, `blog`).
 
 ```bash
 # Health check
@@ -86,25 +87,41 @@ curl -X POST http://localhost:8000/score \
 
 Prompts are evaluated offline using [Promptfoo](https://promptfoo.dev) before they reach production.
 The pipeline includes 22 test cases across marketing, technical, and blog content, plus adversarial
-inputs (prompt injection, whitespace, non-English, mixed HTML/markdown).
+inputs (prompt injection, whitespace, non-English, mixed HTML/markdown). Each prompt family has its
+own config under `evals/` so tests only run against the prompt they were written for:
+
+| Config | Prompts | Test cases |
+| --- | --- | --- |
+| `evals/review.yaml` | `review_v1`, `review_v2` | 8 review + 4 adversarial |
+| `evals/improve.yaml` | `improve_v1` | 5 |
+| `evals/score.yaml` | `score_v1` | 5 |
+
+Running the eval needs `OPENAI_API_KEY` in the environment. It calls `gpt-4o-mini` for the
+prompts under test and for the `llm-rubric` grader.
 
 ```bash
-# Run full eval suite (no cache, forces fresh LLM calls)
+# Check the configs, prompt paths, datasets and assertion files without calling a model
+make eval-validate
+
+# Run all three configs (no cache, forces fresh LLM calls)
 make eval
 
 # View results in browser with side-by-side comparison
 make eval-view
 ```
 
-**CI gate**: The GitHub Actions workflow (`.github/workflows/eval.yml`) runs `promptfoo eval
---no-cache` on every PR and blocks merge if the pass rate drops below 95%. Concurrency controls
-prevent parallel PRs from racing on the LLM API.
+**CI**: The GitHub Actions workflow (`.github/workflows/eval.yml`) runs `promptfoo validate config`
+on every push to `main` and every PR that touches the prompts, evals or analyzer. That step needs
+no API key. The full `promptfoo eval` runs only when the workflow is started manually or when an
+`OPENAI_API_KEY` repository secret is present, and it fails if the pass rate across the three
+configs drops below 95%. Run `make eval` locally before shipping a prompt change.
 
 **Side-by-side comparison**: Multiple prompt versions (e.g., `review_v1` vs `review_v2`) run
 against the same test cases, letting you compare output quality before switching production
 prompts.
 
-Prompt files live in `prompts/` as YAML with separate `system` and `user` templates. Test datasets and custom assertion functions live in `evals/`.
+Prompt files live in `prompts/` as YAML with separate `system` and `user` templates. Test datasets and custom assertion
+functions live in `evals/`.
 
 ## Observability
 
@@ -120,7 +137,7 @@ example instruments the LLM calls by hand.
 ### What's Instrumented
 
 | Layer | Instrumentation | Type | What You Get |
-|-------|----------------|------|-------------|
+| --- | --- | --- | --- |
 | HTTP server | `FastAPIInstrumentor` | Auto | Request spans with method, path, status, duration (excludes `/health`, suppresses ASGI sub-spans) |
 | HTTP server | `MetricsMiddleware` | Custom | `http.server.request.count`, `http.server.request.duration`, `http.server.active_requests` (excludes `/health`) |
 | Logging | `LoggingInstrumentor` | Auto | Trace-correlated log records with `trace_id` and `span_id` |
@@ -136,7 +153,7 @@ example instruments the LLM calls by hand.
 Each `chat {model}` span carries these attributes:
 
 | Attribute | Source | Example |
-|-----------|--------|---------|
+| --- | --- | --- |
 | `gen_ai.operation.name` | Custom | `chat` |
 | `gen_ai.request.model` | Custom | `claude-haiku-4.5` |
 | `gen_ai.response.model` | Custom | `claude-haiku-4.5` |
@@ -159,7 +176,7 @@ Each `chat {model}` span carries these attributes:
 Token usage and cost are extracted from each LLM response across all supported providers:
 
 | Provider | Token Source | Pricing |
-|----------|-------------|---------|
+| --- | --- | --- |
 | OpenAI | `additional_kwargs["prompt_tokens"]` / `["completion_tokens"]` | `_shared/pricing.json` |
 | Google Gemini | `additional_kwargs["prompt_tokens"]` / `["completion_tokens"]` | `_shared/pricing.json` |
 | Anthropic | `raw["usage"]["input_tokens"]` / `["output_tokens"]` | `_shared/pricing.json` |
@@ -187,7 +204,7 @@ Unhandled route errors are recorded on the active span by `unhandled_exception_h
 Copy `.env.example` to `.env` and configure:
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| --- | --- | --- |
 | `LLM_PROVIDER` | `ollama` | LLM provider (`ollama`, `openai`, `google`, `anthropic`) |
 | `LLM_MODEL` | `qwen3.5:9B` | Model name for the selected provider |
 | `LLM_TEMPERATURE` | `0.3` | LLM temperature |
@@ -249,7 +266,7 @@ Three Base14 Scout dashboards provide production visibility:
 Tracks content analysis quality and evaluation scores.
 
 | Panel | Metric / Query | Description |
-|-------|---------------|-------------|
+| --- | --- | --- |
 | Avg Quality Score | `avg(base14.gen_ai.evaluation.score)` | 24h average with day-over-day comparison |
 | Score Distribution | `histogram(base14.gen_ai.evaluation.score)` | Bucketed distribution (90-100, 80-89, etc.) |
 | Quality Over Time | `base14.gen_ai.evaluation.score` time series | Weekly trend with pass threshold line at 60 |
@@ -261,7 +278,7 @@ Tracks content analysis quality and evaluation scores.
 Tracks Promptfoo eval results and prompt version performance.
 
 | Panel | Metric / Query | Description |
-|-------|---------------|-------------|
+| --- | --- | --- |
 | Current Pass Rate | CI eval pass/total ratio | Current rate with delta vs last run |
 | CI Gate Threshold | Static: `95.0%` | Visual threshold indicator |
 | Pass Rate by Prompt Version | Pass rate per `prompt.version` | Side-by-side: `review_v1` vs `review_v2`, `improve_v1`, `score_v1` |
@@ -272,7 +289,7 @@ Tracks Promptfoo eval results and prompt version performance.
 Tracks LLM costs and token usage.
 
 | Panel | Metric / Query | Description |
-|-------|---------------|-------------|
+| --- | --- | --- |
 | Total Cost (24h) | `sum(base14.gen_ai.cost)` | Daily total with day-over-day delta |
 | Cost per Request | `avg(base14.gen_ai.cost)` | Average cost per LLM call |
 | Token Usage Over Time | `gen_ai.client.token.usage` time series | Input vs output token trend |
@@ -284,7 +301,7 @@ Tracks LLM costs and token usage.
 Recommended alert rules for production monitoring:
 
 | Alert | Condition | Severity | Action |
-|-------|-----------|----------|--------|
+| --- | --- | --- | --- |
 | Quality Drop | `avg(base14.gen_ai.evaluation.score) < 70` | Warning | Review prompts, run eval suite |
 | Eval Pass Rate Drop | CI pass rate < 90% | Critical | Block deploy, investigate failures |
 | High Latency | `p95(gen_ai.client.operation.duration) > 5s` | Warning | Check provider status, consider model |
@@ -318,6 +335,9 @@ ai-content-quality/
 │   ├── improve_v1.yaml
 │   └── score_v1.yaml
 ├── evals/                       # Promptfoo eval pipeline
+│   ├── review.yaml              # Eval config for the review prompts
+│   ├── improve.yaml             # Eval config for the improve prompt
+│   ├── score.yaml               # Eval config for the score prompt
 │   ├── assertions/              # Custom JS assertion functions
 │   │   ├── review.js
 │   │   ├── improve.js
@@ -339,7 +359,6 @@ ai-content-quality/
 ├── scripts/
 │   ├── test-api.sh              # API smoke test script
 │   └── verify-scout.sh          # Telemetry verification script
-├── promptfooconfig.yaml         # Eval pipeline configuration
 ├── compose.yaml                  # Docker Compose (app + OTel Collector)
 ├── otel-collector-config.yaml   # Collector pipeline config
 ├── Dockerfile
