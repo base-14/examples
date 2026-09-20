@@ -2,7 +2,7 @@
 name = "mqtt-trace-consumer"
 version = "0.1.0"
 description = "Subscribes to MQTT readings, continues the producer's trace, and calls a downstream HTTP service"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "paho-mqtt==2.1.0",
     "requests==2.34.2",

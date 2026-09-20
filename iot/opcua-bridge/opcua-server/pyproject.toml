@@ -2,9 +2,9 @@
 name = "opcua-factory-server"
 version = "0.1.0"
 description = "asyncua OPC-UA server simulating factory equipment (pump, conveyor, oven, line)"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
-    "asyncua==1.1.8",
+    "asyncua==2.0.1",
 ]
 
 [tool.uv]

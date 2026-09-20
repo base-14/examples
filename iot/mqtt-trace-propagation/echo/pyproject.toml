@@ -2,7 +2,7 @@
 name = "mqtt-trace-echo"
 version = "0.1.0"
 description = "Downstream HTTP service proving trace context continues past the MQTT hop"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "fastapi==0.136.1",
     "uvicorn[standard]==0.47.0",

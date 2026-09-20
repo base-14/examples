@@ -8,7 +8,7 @@ OpenTelemetry instrumentation examples for Python applications.
 | ------- | ----------- |
 | [django-postgres](./django-postgres) | Django 5.2 LTS + PostgreSQL 18 + Celery with auto-instrumentation, background jobs, and PII masking |
 | [flask-postgres](./flask-postgres) | Flask 3.1 + PostgreSQL 18 + Celery with auto-instrumentation, SQLAlchemy, and background jobs |
-| [fastapi-postgres](./fastapi-postgres) | Python 3.13 + FastAPI 0.128 with auto-instrumentation, PostgreSQL, and JWT authentication (PyJWT) |
+| [fastapi-postgres](./fastapi-postgres) | Python 3.14 + FastAPI 0.128 with auto-instrumentation, PostgreSQL, and JWT authentication (PyJWT) |
 | [fastapi-celery-postgres](./fastapi-celery-postgres) | FastAPI + Celery + PostgreSQL with distributed tracing across async task boundaries |
 | [litestar-postgres](./litestar-postgres) | Litestar 2.21 + PostgreSQL 18 (uv-managed) — two-service distributed tracing, async SQLAlchemy + asyncpg, trace-correlated JSON logs, custom metrics |
 | [ai-sales-intelligence](./ai-sales-intelligence) | FastAPI + LangChain + OpenAI with AI sales agent, unified GenAI observability, and OTel GenAI semantic conventions |

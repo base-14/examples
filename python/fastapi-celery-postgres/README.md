@@ -35,7 +35,7 @@ the worker, and SQL comments on queries through the SQLAlchemy instrumentor's
 
 | Component | Version | Status |
 | --------- | ------- | ------ |
-| **Python** | 3.13 | Active |
+| **Python** | 3.14 | Active |
 | **FastAPI** | 0.124+ | Stable |
 | **Celery** | 5.6+ | Stable |
 | **PostgreSQL** | 18 | Active |

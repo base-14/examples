@@ -22,7 +22,7 @@ Click a log entry in LogX → **Trace Info** tab → **Open trace details** to s
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.14+
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup docs](../../scout-collector/README.md))
 
 ## Run It

@@ -2,7 +2,7 @@
 name = "sme-bridge"
 version = "0.1.0"
 description = "Scout MCU Envelope (SME-v1) to OTLP bridge"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "paho-mqtt>=2.1",
     "opentelemetry-api==1.42.1",

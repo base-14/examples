@@ -30,7 +30,7 @@ tracing. The full guide is
 
 | Component | Version | EOL Status | Current Version |
 | --------- | ------- | ---------- | --------------- |
-| **Python** | 3.13 | Active | 3.13.9 |
+| **Python** | 3.14 | Active | 3.14.7 |
 | **FastAPI** | 0.128.0 | Stable | 0.128.0 |
 | **PostgreSQL** | 18 | Active | 18.1 |
 | **OpenTelemetry** | 1.39.1 | N/A | 1.39.1 |
@@ -65,7 +65,7 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 
 | Component | Package | Version |
 | --------- | ------- | ------- |
-| Python | python | 3.13 |
+| Python | python | 3.14 |
 | FastAPI | fastapi[all] | 0.128.0 |
 | PostgreSQL Driver | psycopg2-binary | 2.9.10 |
 | SQLAlchemy | SQLAlchemy | 2.0.45 |
@@ -80,7 +80,7 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Python 3.13+** (for local development)
+3. **Python 3.14+** (for local development)
 
 ## Quick Start
 

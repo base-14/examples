@@ -1,7 +1,7 @@
 .PHONY: test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout lint format typecheck check
 
 test:
-	pytest
+	.venv/bin/pytest
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov __pycache__

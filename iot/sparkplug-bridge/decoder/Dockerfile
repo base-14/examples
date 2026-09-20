@@ -1,6 +1,6 @@
 # Build context is the example root so the shared proto/ is reachable.
 # Build stage - resolve deps and generate the protobuf bindings.
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.6.12 /uv /usr/local/bin/uv
 
@@ -18,7 +18,7 @@ COPY proto/sparkplug_b.proto ./proto/
 RUN /app/.venv/bin/python -m grpc_tools.protoc -Iproto --python_out=. proto/sparkplug_b.proto
 
 # Runtime stage.
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 RUN adduser --disabled-password --gecos '' --uid 1000 appuser

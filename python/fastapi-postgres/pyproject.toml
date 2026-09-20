@@ -3,7 +3,7 @@ name = "fastapi-postgres-otel"
 version = "1.0.0"
 description = "FastAPI REST API with PostgreSQL and OpenTelemetry instrumentation"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "base14", email = "hello@base14.io" }]
 
@@ -72,7 +72,7 @@ known-first-party = ["app"]
 
 # MyPy - type checking (non-strict: SQLAlchemy legacy Column style lacks stubs)
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 warn_unused_configs = true
 warn_redundant_casts = true
 check_untyped_defs = true
