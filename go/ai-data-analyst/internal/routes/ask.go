@@ -1,10 +1,14 @@
 package routes
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
 
 	"ai-data-analyst/internal/pipeline"
+	"ai-data-analyst/internal/telemetry"
 )
 
 type AskRequest struct {
@@ -15,36 +19,39 @@ func AskHandler(p *pipeline.Pipeline) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req AskRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid request body")
+			writeError(r.Context(), w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
 		if req.Question == "" {
-			writeError(w, http.StatusBadRequest, "question is required")
+			writeError(r.Context(), w, http.StatusBadRequest, "question is required")
 			return
 		}
 
 		result, err := p.Ask(r.Context(), req.Question)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(r.Context(), w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		// If validation failed
 		if result.Explanation != nil && result.SQL != "" && result.RowCount == 0 && result.Confidence < 0.3 {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(result)
+			_ = json.NewEncoder(w).Encode(result)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
+		_ = json.NewEncoder(w).Encode(result)
 	}
 }
 
-func writeError(w http.ResponseWriter, code int, message string) {
+// writeError returns the error response and records it on the active span, so
+// a failure handled inside a route is still visible on the trace.
+func writeError(ctx context.Context, w http.ResponseWriter, code int, message string) {
+	telemetry.RecordErrorOnActiveSpan(ctx, errors.New(message), strconv.Itoa(code))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }

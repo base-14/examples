@@ -33,9 +33,3 @@ func TestCalculateCostDatedSnapshot(t *testing.T) {
 	assert.Greater(t, anthropic, 0.0, "dated Anthropic snapshot must resolve a non-zero cost")
 	assert.InDelta(t, CalculateCost("claude-haiku-4.5", 1000, 500), anthropic, 0.0001)
 }
-
-func TestProviderPorts(t *testing.T) {
-	assert.Equal(t, 443, ProviderPorts["openai"])
-	assert.Equal(t, 443, ProviderPorts["anthropic"])
-	assert.Equal(t, 11434, ProviderPorts["ollama"])
-}

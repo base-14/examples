@@ -20,13 +20,14 @@ def test_settings_defaults():
     assert settings.app_name == "ai-sales-intelligence"
     assert settings.debug is False
     assert settings.log_level == "INFO"
-    assert settings.llm_provider == "google"
-    assert settings.llm_model_capable == "gemini-2.5-pro"
-    assert settings.llm_model_fast == "gemini-2.5-flash"
-    assert settings.fallback_provider == "anthropic"
-    assert settings.fallback_model == "claude-haiku-4-5-20251001"
+    assert settings.llm_provider == "ollama"
+    assert settings.llm_model_capable == "qwen3.5:9B"
+    assert settings.llm_model_fast == "qwen3.5:9B"
+    assert settings.fallback_provider == "ollama"
+    assert settings.fallback_model == "qwen3.5:9B"
     assert settings.ollama_base_url == "http://localhost:11434"
     assert settings.otel_service_name == "ai-sales-intelligence"
+    assert settings.otel_instrumentation_genai_capture_message_content is False
 
 
 def test_settings_from_env():
@@ -60,16 +61,28 @@ def test_get_settings_cached():
     assert settings1 is settings2
 
 
-def test_ollama_is_valid_provider():
-    """ollama is accepted as a valid LLM_PROVIDER value."""
-    os.environ["LLM_PROVIDER"] = "ollama"
+def test_gemini_provider_is_selected_by_its_contract_key():
+    """LLM_PROVIDER uses the gateway contract key, google, not the semconv name."""
+    os.environ["LLM_PROVIDER"] = "google"
     try:
         from sales_intelligence.config import Settings
 
         settings = Settings()
-        assert settings.llm_provider == "ollama"
+        assert settings.llm_provider == "google"
     finally:
         os.environ.pop("LLM_PROVIDER", None)
+
+
+def test_content_capture_from_env():
+    """OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT switches content capture on."""
+    os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "true"
+    try:
+        from sales_intelligence.config import Settings
+
+        settings = Settings()
+        assert settings.otel_instrumentation_genai_capture_message_content is True
+    finally:
+        os.environ.pop("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", None)
 
 
 def test_ollama_base_url_from_env():

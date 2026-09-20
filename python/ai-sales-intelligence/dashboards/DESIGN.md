@@ -139,14 +139,14 @@ This document describes the conceptual design for observability dashboards. Thes
 
 | Panel | Type | Data Source | Purpose |
 |-------|------|-------------|---------|
-| Total Cost | Stat/KPI | `gen_ai.client.cost` sum | Period spend |
+| Total Cost | Stat/KPI | `base14.gen_ai.cost` sum | Period spend |
 | Avg Cost/Request | Stat/KPI | cost / request_count | Unit economics |
 | Daily Run Rate | Stat/KPI | rate * 86400 | Projection |
 | Cost per 1K Tokens | Stat/KPI | cost / tokens * 1000 | Efficiency |
 | Cost by Model | Donut | Group by `gen_ai.request.model` | Model spend |
 | Cost by Agent | Donut | Group by `gen_ai.agent.name` | Agent spend |
 | Cost by Provider | Donut | Group by `gen_ai.provider.name` | Provider spend |
-| Cost by Campaign | Bar | Group by `campaign_id` | Campaign ROI |
+| Cost by Campaign | Bar | Group by `base14.campaign_id` | Campaign ROI |
 | Cost by Campaign & Agent | Stacked Bar | Group by campaign + agent | Detailed attribution |
 | Cumulative Cost | Time Series | Running total | Budget tracking |
 | Cost Rate by Model | Stacked Area | Rate per model | Trend analysis |
@@ -368,7 +368,7 @@ This document describes the conceptual design for observability dashboards. Thes
 |-----------|------|---------|
 | `gen_ai.operation.name` | string | "invoke_agent" |
 | `gen_ai.agent.name` | string | Agent identifier |
-| `campaign_id` | string | Campaign attribution |
+| `base14.campaign_id` | string | Campaign attribution |
 | Span duration | float | Execution time |
 | Span status | enum | OK/ERROR |
 | `error.type` | string | Error classification |
@@ -463,14 +463,14 @@ This document describes the conceptual design for observability dashboards. Thes
 |-------------|------|----------------|
 | `gen_ai.client.token.usage` | Histogram | model, provider, agent, token.type |
 | `gen_ai.client.operation.duration` | Histogram | model, provider, agent |
-| `gen_ai.client.cost` | Counter | model, provider, agent, campaign_id |
+| `base14.gen_ai.cost` | Counter | model, provider, agent, base14.campaign_id |
 
 ### Spans
 
 | Span Name Pattern | Key Attributes |
 |-------------------|----------------|
-| `gen_ai.chat {model}` | model, provider, tokens, cost, agent, campaign |
-| `invoke_agent {name}` | agent.name, campaign_id, status |
+| `chat {model}` | model, provider, tokens, cost, agent, campaign |
+| `invoke_agent {name}` | agent.name, base14.campaign_id, status |
 
 ### Events
 
@@ -507,26 +507,26 @@ While dashboards provide aggregate views of system health, **Base14 Scout** offe
 │    ┌──────────────────────────────────────────────────────────────────┐    │
 │    │ POST /campaigns/{id}/run                                         │    │
 │    │ └─ invoke_agent research         [2.1s]  ████████                │    │
-│    │    └─ gen_ai.chat claude-sonnet  [1.8s]  ███████                 │    │
+│    │    └─ chat claude-sonnet  [1.8s]  ███████                 │    │
 │    │       └─ HTTP POST api.anthropic.com                             │    │
 │    │ └─ invoke_agent personalize      [1.5s]  ██████                  │    │
-│    │    └─ gen_ai.chat claude-sonnet  [1.2s]  █████                   │    │
+│    │    └─ chat claude-sonnet  [1.2s]  █████                   │    │
 │    │ └─ invoke_agent generate         [3.2s]  █████████████           │    │
-│    │    └─ gen_ai.chat claude-sonnet  [2.9s]  ████████████            │    │
+│    │    └─ chat claude-sonnet  [2.9s]  ████████████            │    │
 │    │ └─ invoke_agent evaluate         [0.8s]  ███                     │    │
 │    └──────────────────────────────────────────────────────────────────┘    │
 │                                                                             │
 │  • Inspect GenAI span attributes                                            │
 │    - gen_ai.usage.input_tokens: 1,234                                       │
 │    - gen_ai.usage.output_tokens: 456                                        │
-│    - gen_ai.usage.cost_usd: 0.0089                                          │
+│    - base14.gen_ai.cost_usd: 0.0089                                          │
 │    - gen_ai.agent.name: "generate"                                          │
-│    - campaign_id: "camp-001"                                                │
+│    - base14.campaign_id: "camp-001"                                                │
 │                                                                             │
 │  • Filter traces by:                                                        │
 │    - gen_ai.agent.name = "generate" (find slow generators)                  │
 │    - gen_ai.provider.name = "anthropic" (provider-specific issues)          │
-│    - campaign_id = "camp-xyz" (campaign debugging)                          │
+│    - base14.campaign_id = "camp-xyz" (campaign debugging)                          │
 │    - error.type exists (find all errors)                                    │
 │                                                                             │
 │  • Compare traces side-by-side                                              │
@@ -597,7 +597,7 @@ While dashboards provide aggregate views of system health, **Base14 Scout** offe
 | Production error | Search error logs, jump to trace for context |
 | Intermittent failures | Find patterns in error timing/frequency |
 | Debug specific request | Filter by trace_id to see all related logs |
-| Audit trail | Search by campaign_id for compliance review |
+| Audit trail | Search by base14.campaign_id for compliance review |
 
 **Log Correlation Attributes** (auto-injected by OTel LoggingInstrumentor):
 
@@ -1172,7 +1172,7 @@ Every dashboard should include **clickable deep links** to Scout explorers:
 │    Click "Investigate" → Opens traceX/logX with same time range            │
 │                                                                             │
 │ 3. TABLE ROW → Contextual Explorer                                         │
-│    Click campaign row → traceX with campaign_id filter                     │
+│    Click campaign row → traceX with base14.campaign_id filter                     │
 │    Click slow query → pgX with query filter                                │
 │    Click error type → logX with error filter                               │
 │                                                                             │
@@ -1191,9 +1191,9 @@ Pre-built queries to embed in dashboard links:
 |-------------------|--------------|------------|-----------|
 | Error investigation | `status=ERROR AND gen_ai.agent.name={agent}` | `level:ERROR AND agent:{agent}` | - |
 | Slow requests | `duration>5s AND gen_ai.operation.name=chat` | - | `duration>100ms` |
-| Campaign debug | `campaign_id={id}` | `campaign_id:{id}` | - |
+| Campaign debug | `base14.campaign_id={id}` | `base14.campaign_id:{id}` | - |
 | Quality failures | `gen_ai.evaluation.score.label=failed` | `"evaluation failed"` | - |
-| Cost anomaly | `gen_ai.usage.cost_usd>0.05` | - | - |
+| Cost anomaly | `base14.gen_ai.cost_usd>0.05` | - | - |
 | DB bottleneck | `db.system=postgresql AND duration>50ms` | - | `avg_time>50ms` |
 
 ---

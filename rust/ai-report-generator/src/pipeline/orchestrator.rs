@@ -23,9 +23,9 @@ pub struct ReportRequest {
     name = "pipeline report",
     skip(pool, llm_client),
     fields(
-        report.id,
-        report.indicators_count,
-        report.duration_ms,
+        base14.report.id,
+        base14.report.indicators_count,
+        base14.report.duration_ms,
     )
 )]
 pub async fn generate_report(
@@ -99,9 +99,9 @@ pub async fn generate_report(
     REPORT_DATA_POINTS.record(report.total_data_points as f64, &[]);
     REPORT_SECTIONS.record(report.sections.len() as f64, &[]);
 
-    span.record("report.id", report.id.to_string());
-    span.record("report.indicators_count", report.indicators_used.len());
-    span.record("report.duration_ms", report.generation_duration_ms);
+    span.record("base14.report.id", report.id.to_string());
+    span.record("base14.report.indicators_count", report.indicators_used.len());
+    span.record("base14.report.duration_ms", report.generation_duration_ms);
 
     Ok(report)
 }

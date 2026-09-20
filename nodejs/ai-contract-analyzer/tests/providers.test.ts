@@ -1,35 +1,6 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
-
-// Mock config to avoid Bun.env dependency — providers.ts imports config at module level
-vi.mock("../src/config.ts", () => ({
-  config: {
-    llmProvider: "anthropic",
-    embeddingProvider: "openai",
-    ollamaBaseUrl: "http://localhost:11434",
-    llmModelCapable: undefined,
-    llmModelFast: undefined,
-    embeddingModel: undefined,
-  },
-}));
-
-// Also mock the AI SDK providers to avoid network/key requirements
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => ({})) }));
-vi.mock("@ai-sdk/google", () => ({
-  google: vi.fn(() => ({})),
-  createGoogleGenerativeAI: vi.fn(() => vi.fn(() => ({}))),
-}));
-vi.mock("@ai-sdk/openai", () => ({
-  openai: { embedding: vi.fn(() => ({})) },
-  createOpenAI: vi.fn(() => ({ embedding: vi.fn(() => ({})) })),
-}));
-vi.mock("ollama-ai-provider", () => ({ createOllama: vi.fn(() => () => ({})) }));
-vi.mock("ai", () => ({
-  wrapEmbeddingModel: vi.fn((x) => x.model),
-  defaultEmbeddingSettingsMiddleware: vi.fn(() => ({})),
-}));
-
-import { MODEL_PRICING } from "../src/providers.ts";
+import { describe, expect, it } from "vitest";
+import { MODEL_PRICING, modelPricing } from "../src/llm/pricing.ts";
 
 describe("MODEL_PRICING", () => {
   it("is loaded from _shared/pricing.json, not an inline dict", () => {
@@ -46,5 +17,21 @@ describe("MODEL_PRICING", () => {
     for (const modelId of Object.keys(shared.models)) {
       expect(MODEL_PRICING[modelId]).toBeDefined();
     }
+  });
+});
+
+describe("modelPricing", () => {
+  it("normalises a dated model id to its pricing.json key", () => {
+    expect(modelPricing("claude-sonnet-4-20250514")).toEqual({
+      inputCostPerMToken: 3,
+      outputCostPerMToken: 15,
+    });
+  });
+
+  it("prices an unknown model at zero", () => {
+    expect(modelPricing("qwen3.5:9B")).toEqual({
+      inputCostPerMToken: 0,
+      outputCostPerMToken: 0,
+    });
   });
 });

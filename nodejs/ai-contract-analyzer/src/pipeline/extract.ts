@@ -1,28 +1,37 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getCapableModel, getFastModel } from "../providers.ts";
-import { CLAUSES_BY_TYPE, ClauseSchema, CUAD_CLAUSE_TYPES } from "../types/clauses.ts";
+import {
+  CLAUSES_BY_TYPE,
+  CUAD_CLAUSE_TYPES,
+  type CUADClauseType,
+  clauseSchemaFor,
+} from "../types/clauses.ts";
 import type { ExtractionResult } from "../types/pipeline.ts";
 
-const ExtractionSchema = z.object({
-  clauses: z
-    .array(ClauseSchema)
-    .describe(
-      "One entry per clause type listed. Set present=false for clauses not found in the contract.",
+function buildExtractionSchema(clauseTypes: readonly CUADClauseType[]) {
+  return z.object({
+    clauses: z
+      .array(clauseSchemaFor(clauseTypes))
+      .describe(
+        "One entry per clause type listed. Set present=false for clauses not found in the contract.",
+      ),
+    parties: z.array(
+      z.object({
+        name: z.string(),
+        role: z.enum(["party_a", "party_b", "third_party"]),
+      }),
     ),
-  parties: z.array(
-    z.object({
-      name: z.string(),
-      role: z.enum(["party_a", "party_b", "third_party"]),
-    }),
-  ),
-  effective_date: z.string().nullable(),
-  expiration_date: z.string().nullable(),
-  governing_law: z.string().nullable(),
-  contract_type: z
-    .string()
-    .describe("e.g. service_agreement, nda, license, employment, lease, partnership"),
-});
+    effective_date: z.string().nullable(),
+    expiration_date: z.string().nullable(),
+    governing_law: z.string().nullable(),
+    contract_type: z
+      .string()
+      .describe("e.g. service_agreement, nda, license, employment, lease, partnership"),
+  });
+}
+
+type Extraction = z.infer<ReturnType<typeof buildExtractionSchema>>;
 
 const EvaluationSchema = z.object({
   passed: z.boolean(),
@@ -41,7 +50,7 @@ For each clause type listed below, determine:
 - confidence: 0.0-1.0 reflecting how clearly the text matches the clause definition
 - notes: any qualifications, unusual terms, or ambiguity
 
-Be conservative — only mark a clause as present if specific language clearly matches. A confidence below 0.7 means the match is uncertain.
+Be conservative - only mark a clause as present if specific language clearly matches. A confidence below 0.7 means the match is uncertain.
 
 Clause types to check (${clauseTypes.length}): ${clauseTypes.join(", ")}`;
 }
@@ -66,13 +75,14 @@ export async function extractClauses(
     : (CLAUSES_BY_TYPE[documentType ?? ""] ?? CUAD_CLAUSE_TYPES);
 
   const systemPrompt = buildSystemPrompt(clauseTypes);
-  // Contract preview used by the evaluator — first 2000 chars is enough to spot hallucinated excerpts
+  const extractionSchema = buildExtractionSchema(clauseTypes);
+  // Contract preview used by the evaluator - first 2000 chars is enough to spot hallucinated excerpts
   const contractPreview = fullText.slice(0, 2000);
 
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCostUsd = 0;
-  let lastExtraction: z.infer<typeof ExtractionSchema> | null = null;
+  let lastExtraction: Extraction | null = null;
   let feedback: string[] = [];
   let evalIterationsCompleted = 0;
 
@@ -81,13 +91,13 @@ export async function extractClauses(
     // ── Generator ──────────────────────────────────────────────────────────
     const generatorPrompt =
       feedback.length > 0
-        ? `${fullText}\n\nPrevious extraction had these issues — please fix them:\n${feedback.map((f) => `- ${f}`).join("\n")}`
+        ? `${fullText}\n\nPrevious extraction had these issues - please fix them:\n${feedback.map((f) => `- ${f}`).join("\n")}`
         : fullText;
 
     const capableDescriptor = getCapableModel();
     const { output: extraction, usage: genUsage } = await generateText({
       model: capableDescriptor.model,
-      output: Output.object({ schema: ExtractionSchema }),
+      output: Output.object({ schema: extractionSchema }),
       maxOutputTokens: 8_000,
       system: systemPrompt,
       prompt: generatorPrompt,
@@ -103,7 +113,7 @@ export async function extractClauses(
       1_000_000;
     lastExtraction = extraction;
 
-    // ── Evaluator (different model — catches different failure modes) ───────
+    // ── Evaluator (different model - catches different failure modes) ───────
     const presentWithEmptyExcerpt = extraction.clauses
       .filter((c) => c.present && c.text_excerpt.trim() === "")
       .map((c) => c.clause_type);
@@ -124,7 +134,7 @@ Extracted data:
 
 Check for:
 1. Clauses marked present=true with an empty text_excerpt (excerpt is required when present)
-2. Clauses marked present=false with confidence above 0.5 (suggests uncertain absence — should re-check)
+2. Clauses marked present=false with confidence above 0.5 (suggests uncertain absence - should re-check)
 3. contract_type missing or implausible
 4. parties array empty when parties are visible in the excerpt`;
 

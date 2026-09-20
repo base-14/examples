@@ -141,12 +141,13 @@ async def test_review_emits_evaluation_event(
     mock_span.add_event.assert_called_once()
     event_name, event_attrs = mock_span.add_event.call_args.args
     assert event_name == "gen_ai.evaluation.result"
+    assert event_attrs["gen_ai.evaluation.name"] == "content_review"
     # high=30, low=10 -> 100-40=60
     assert event_attrs["gen_ai.evaluation.score.value"] == 60
     assert event_attrs["gen_ai.evaluation.score.label"] == "passed"
 
     mock_eval_score.record.assert_called_once_with(
-        60, {"gen_ai.evaluation.name": "content_review", "content.type": "general"}
+        60, {"gen_ai.evaluation.name": "content_review", "base14.content.type": "general"}
     )
 
 
@@ -170,9 +171,10 @@ async def test_score_emits_evaluation_event(
 
     event_name, event_attrs = mock_span.add_event.call_args.args
     assert event_name == "gen_ai.evaluation.result"
+    assert event_attrs["gen_ai.evaluation.name"] == "content_quality"
     assert event_attrs["gen_ai.evaluation.score.value"] == 45
     assert event_attrs["gen_ai.evaluation.score.label"] == "failed"
 
     mock_eval_score.record.assert_called_once_with(
-        45, {"gen_ai.evaluation.name": "content_quality", "content.type": "blog"}
+        45, {"gen_ai.evaluation.name": "content_quality", "base14.content.type": "blog"}
     )

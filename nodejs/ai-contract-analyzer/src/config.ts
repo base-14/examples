@@ -15,8 +15,8 @@ const ConfigSchema = z
       .transform((v) => v === "true"),
     nodeEnv: z.enum(["development", "production", "test"]).default("development"),
     googleApiKey: z.string().optional(),
-    llmProvider: z.enum(["anthropic", "google", "ollama"]).default("anthropic"),
-    embeddingProvider: z.enum(["openai", "ollama", "google"]).default("openai"),
+    llmProvider: z.enum(["anthropic", "google", "ollama"]).default("ollama"),
+    embeddingProvider: z.enum(["openai", "ollama", "google"]).default("ollama"),
     ollamaBaseUrl: z.string().default("http://localhost:11434"),
     llmModelCapable: z.string().optional(),
     llmModelFast: z.string().optional(),
@@ -55,29 +55,33 @@ const ConfigSchema = z
     }
   });
 
+// compose forwards an unset optional variable as "" (`${VAR:-}`), which an enum
+// rejects and a default does not replace. Treat blank as absent.
+const env = (value: string | undefined): string | undefined => value || undefined;
+
 const parsed = ConfigSchema.safeParse({
-  port: Bun.env.PORT,
+  port: env(Bun.env.PORT),
   databaseUrl: Bun.env.DATABASE_URL,
-  anthropicApiKey: Bun.env.ANTHROPIC_API_KEY,
-  openaiApiKey: Bun.env.OPENAI_API_KEY,
-  googleApiKey: Bun.env.GOOGLE_GENERATIVE_AI_API_KEY,
-  otelServiceName: Bun.env.OTEL_SERVICE_NAME,
-  otelExporterEndpoint: Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  otelEnabled: Bun.env.OTEL_ENABLED,
-  nodeEnv: Bun.env.NODE_ENV,
-  llmProvider: Bun.env.LLM_PROVIDER,
-  embeddingProvider: Bun.env.EMBEDDING_PROVIDER,
-  ollamaBaseUrl: Bun.env.OLLAMA_BASE_URL,
-  llmModelCapable: Bun.env.LLM_MODEL_CAPABLE,
-  llmModelFast: Bun.env.LLM_MODEL_FAST,
-  llmProviderFallback: Bun.env.LLM_PROVIDER_FALLBACK,
-  llmModelFallback: Bun.env.LLM_MODEL_FALLBACK,
-  embeddingModel: Bun.env.EMBEDDING_MODEL,
+  anthropicApiKey: env(Bun.env.ANTHROPIC_API_KEY),
+  openaiApiKey: env(Bun.env.OPENAI_API_KEY),
+  googleApiKey: env(Bun.env.GOOGLE_GENERATIVE_AI_API_KEY),
+  otelServiceName: env(Bun.env.OTEL_SERVICE_NAME),
+  otelExporterEndpoint: env(Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT),
+  otelEnabled: env(Bun.env.OTEL_ENABLED),
+  nodeEnv: env(Bun.env.NODE_ENV),
+  llmProvider: env(Bun.env.LLM_PROVIDER),
+  embeddingProvider: env(Bun.env.EMBEDDING_PROVIDER),
+  ollamaBaseUrl: env(Bun.env.OLLAMA_BASE_URL),
+  llmModelCapable: env(Bun.env.LLM_MODEL_CAPABLE),
+  llmModelFast: env(Bun.env.LLM_MODEL_FAST),
+  llmProviderFallback: env(Bun.env.FALLBACK_PROVIDER),
+  llmModelFallback: env(Bun.env.FALLBACK_MODEL),
+  embeddingModel: env(Bun.env.EMBEDDING_MODEL),
 });
 
 if (!parsed.success) {
   console.error("Configuration error:", flattenError(parsed.error).fieldErrors);
-  throw new Error("Invalid configuration — check environment variables");
+  throw new Error("Invalid configuration - check environment variables");
 }
 
 export const config = parsed.data;

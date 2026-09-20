@@ -30,7 +30,7 @@ check_log() {
     echo "  $(green "PASS") ${label}"
     PASS=$((PASS + 1))
   else
-    echo "  $(red "FAIL") ${label} — pattern not found: ${pattern}"
+    echo "  $(red "FAIL") ${label} - pattern not found: ${pattern}"
     FAIL=$((FAIL + 1))
   fi
 }
@@ -41,14 +41,14 @@ warn_log() {
     echo "  $(green "PASS") ${label}"
     PASS=$((PASS + 1))
   else
-    echo "  $(yellow "WARN") ${label} — pattern not found: ${pattern}"
+    echo "  $(yellow "WARN") ${label} - pattern not found: ${pattern}"
     WARN=$((WARN + 1))
   fi
 }
 
 echo ""
 echo "$(cyan "=============================================")"
-echo "$(cyan "  Telemetry Verification — Base14 Scout")"
+echo "$(cyan "  Telemetry Verification - Base14 Scout")"
 echo "$(cyan "  AI Data Analyst")"
 echo "$(cyan "=============================================")"
 
@@ -57,30 +57,35 @@ echo ""
 echo "$(cyan "=== 1. Prerequisites ===")"
 echo ""
 
-echo "  $(dim "Checking app health...")"
-APP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/health" 2>/dev/null || echo "000")
-check "App is healthy (${BASE_URL}/api/health)" "200" "$APP_STATUS"
-
-if [ "$APP_STATUS" != "200" ]; then
-  echo ""
-  echo "  $(red "App is not running. Start it with: docker compose up -d")"
-  exit 1
-fi
-
-echo "  $(dim "Checking OTel Collector health...")"
-COLLECTOR_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${COLLECTOR_HEALTH}" 2>/dev/null || echo "000")
-check "Collector is healthy (${COLLECTOR_HEALTH})" "200" "$COLLECTOR_STATUS"
-
-if [ "$COLLECTOR_STATUS" != "200" ]; then
-  echo ""
-  echo "  $(yellow "WARN: Collector not reachable — telemetry log verification will be skipped")"
-  SKIP_LOG_CHECK=1
-else
+if [ -n "${COLLECTOR_LOG:-}" ]; then
+  echo "  $(dim "Reading a saved log, skipping the live health checks")"
   SKIP_LOG_CHECK=0
+else
+  echo "  $(dim "Checking app health...")"
+  APP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/health" 2>/dev/null || echo "000")
+  check "App is healthy (${BASE_URL}/api/health)" "200" "$APP_STATUS"
+
+  if [ "$APP_STATUS" != "200" ]; then
+    echo ""
+    echo "  $(red "App is not running. Start it with: docker compose up -d")"
+    exit 1
+  fi
+
+  echo "  $(dim "Checking OTel Collector health...")"
+  COLLECTOR_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${COLLECTOR_HEALTH}" 2>/dev/null || echo "000")
+  check "Collector is healthy (${COLLECTOR_HEALTH})" "200" "$COLLECTOR_STATUS"
+
+  if [ "$COLLECTOR_STATUS" != "200" ]; then
+    echo ""
+    echo "  $(yellow "WARN: Collector not reachable - telemetry log verification will be skipped")"
+    SKIP_LOG_CHECK=1
+  else
+    SKIP_LOG_CHECK=0
+  fi
 fi
 
 # Generate telemetry
-if [ "${SKIP_REQUESTS:-}" != "1" ]; then
+if [ "${SKIP_REQUESTS:-}" != "1" ] && [ -z "${COLLECTOR_LOG:-}" ]; then
   echo ""
   echo "$(cyan "=== 2. Running Data Analyst Pipeline ===")"
   echo ""
@@ -136,12 +141,17 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
   echo "$(dim "    Checking last 15 minutes of collector logs")"
   echo ""
 
-  LOGS_FILE=$(mktemp /tmp/otel-logs-XXXXXX.txt)
-  docker compose logs otel-collector --since=15m --no-log-prefix >"$LOGS_FILE" 2>/dev/null || true
+  LOGS_FILE="${COLLECTOR_LOG:-}"
+  CLEANUP_LOGS=0
+  if [ -z "$LOGS_FILE" ]; then
+    LOGS_FILE=$(mktemp /tmp/otel-logs-XXXXXX.txt)
+    CLEANUP_LOGS=1
+    docker compose logs otel-collector --since=15m --no-log-prefix >"$LOGS_FILE" 2>/dev/null || true
+  fi
 
   if [ ! -s "$LOGS_FILE" ]; then
     echo "  $(yellow "WARN: Could not read collector logs")"
-    rm -f "$LOGS_FILE"
+    [ "$CLEANUP_LOGS" = "1" ] && rm -f "$LOGS_FILE"
   else
     # HTTP Spans
     echo "  $(dim "--- HTTP Spans ---")"
@@ -169,7 +179,9 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
 
     # GenAI Spans
     echo "  $(dim "--- GenAI Spans ---")"
-    check_log "Span: gen_ai.chat (semconv name)"    "gen_ai.chat"             "$LOGS_FILE"
+    check_log "Span: chat {model}"                  "Name *: chat "           "$LOGS_FILE"
+    check_log "Span kind: Client on chat spans"     "Kind *: Client"          "$LOGS_FILE"
+    check_log "Span: output_guardrails"             "Name *: output_guardrails" "$LOGS_FILE"
 
     # Required GenAI Span Attributes
     echo "  $(dim "--- Required GenAI Span Attributes ---")"
@@ -186,7 +198,8 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Attr: gen_ai.response.model"         "gen_ai.response.model"   "$LOGS_FILE"
     warn_log  "Attr: gen_ai.usage.input_tokens"     "gen_ai.usage.input_tokens"  "$LOGS_FILE"
     warn_log  "Attr: gen_ai.usage.output_tokens"    "gen_ai.usage.output_tokens" "$LOGS_FILE"
-    warn_log  "Attr: gen_ai.usage.cost_usd"         "gen_ai.usage.cost_usd"   "$LOGS_FILE"
+    warn_log  "Attr: gen_ai.response.finish_reasons" "gen_ai.response.finish_reasons" "$LOGS_FILE"
+    warn_log  "Attr: base14.gen_ai.cost_usd"        "base14.gen_ai.cost_usd"  "$LOGS_FILE"
 
     # Pipeline stage spans
     echo "  $(dim "--- Pipeline Stage Spans ---")"
@@ -197,37 +210,53 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Stage span: execute"                 "Str(execute)"            "$LOGS_FILE"
 
     # Span Events
+    # The inference event only appears when content capture is switched on, so
+    # its absence is expected here. The two removed message events must be gone.
     echo "  $(dim "--- Span Events ---")"
-    warn_log  "Event: gen_ai.user.message"          "gen_ai.user.message"     "$LOGS_FILE"
-    warn_log  "Event: gen_ai.assistant.message"     "gen_ai.assistant.message" "$LOGS_FILE"
+    EVENTS_CLEAN=1
+    for role in user assistant; do
+      if grep -q "gen_ai.${role}.message" "$LOGS_FILE" 2>/dev/null; then
+        echo "  $(red "FAIL") Removed per-message event still emitted for role: ${role}"
+        FAIL=$((FAIL + 1))
+        EVENTS_CLEAN=0
+      fi
+    done
+    if [ "$EVENTS_CLEAN" = "1" ]; then
+      echo "  $(green "PASS") The removed per-message events are absent"
+      PASS=$((PASS + 1))
+    fi
+    check_log "Event: gen_ai.evaluation.result"     "gen_ai.evaluation.result" "$LOGS_FILE"
+    warn_log  "Attr: gen_ai.evaluation.name"        "gen_ai.evaluation.name"  "$LOGS_FILE"
+    warn_log  "Attr: gen_ai.evaluation.score.label" "gen_ai.evaluation.score.label" "$LOGS_FILE"
 
     # Error telemetry
     echo "  $(dim "--- Error Telemetry ---")"
-    warn_log  "Attr: error.type (on error spans)"   "error.type"              "$LOGS_FILE"
+    check_log "Attr: error.type (on error spans)"   "error.type"              "$LOGS_FILE"
+    check_log "Status: ERROR on 4xx HTTP spans"     "Status code *: Error"    "$LOGS_FILE"
 
     # Metrics
     echo "  $(dim "--- Metrics ---")"
     warn_log  "Metric: gen_ai.client.token.usage"        "gen_ai.client.token.usage"        "$LOGS_FILE"
     warn_log  "Metric: gen_ai.client.operation.duration" "gen_ai.client.operation.duration"  "$LOGS_FILE"
-    warn_log  "Metric: gen_ai.client.cost"               "gen_ai.client.cost"               "$LOGS_FILE"
-    warn_log  "Metric: gen_ai.client.retry.count"        "gen_ai.client.retry.count"        "$LOGS_FILE"
-    warn_log  "Metric: gen_ai.client.fallback.count"     "gen_ai.client.fallback.count"     "$LOGS_FILE"
-    warn_log  "Metric: gen_ai.client.error.count"        "gen_ai.client.error.count"        "$LOGS_FILE"
+    warn_log  "Metric: base14.gen_ai.cost"               "Name: base14.gen_ai.cost"         "$LOGS_FILE"
+    warn_log  "Metric: base14.gen_ai.retry.count"        "base14.gen_ai.retry.count"        "$LOGS_FILE"
+    warn_log  "Metric: base14.gen_ai.fallback.count"     "base14.gen_ai.fallback.count"     "$LOGS_FILE"
+    warn_log  "Metric: base14.gen_ai.error.count"        "base14.gen_ai.error.count"        "$LOGS_FILE"
 
     # Domain Metrics
     echo "  $(dim "--- Domain Metrics ---")"
-    warn_log  "Metric: nlsql.question.duration"         "nlsql.question.duration"         "$LOGS_FILE"
-    warn_log  "Metric: nlsql.sql.valid"                 "nlsql.sql.valid"                 "$LOGS_FILE"
-    warn_log  "Metric: nlsql.query.rows"                "nlsql.query.rows"                "$LOGS_FILE"
-    warn_log  "Metric: nlsql.query.execution_time"      "nlsql.query.execution_time"      "$LOGS_FILE"
-    warn_log  "Metric: nlsql.confidence"                "nlsql.confidence"                "$LOGS_FILE"
+    warn_log  "Metric: base14.nlsql.question.duration"  "base14.nlsql.question.duration"  "$LOGS_FILE"
+    warn_log  "Metric: base14.nlsql.sql.valid"          "base14.nlsql.sql.valid"          "$LOGS_FILE"
+    warn_log  "Metric: base14.nlsql.query.rows"         "base14.nlsql.query.rows"         "$LOGS_FILE"
+    warn_log  "Metric: base14.nlsql.query.execution_time" "base14.nlsql.query.execution_time" "$LOGS_FILE"
+    warn_log  "Metric: base14.nlsql.confidence"         "base14.nlsql.confidence"         "$LOGS_FILE"
 
     # Resource Attributes
     echo "  $(dim "--- Resource Attributes ---")"
     warn_log  "Resource: service.name"              "service.name"            "$LOGS_FILE"
     warn_log  "Resource: deployment.environment"    "deployment.environment"  "$LOGS_FILE"
 
-    rm -f "$LOGS_FILE"
+    [ "$CLEANUP_LOGS" = "1" ] && rm -f "$LOGS_FILE"
   fi
 fi
 
@@ -238,13 +267,14 @@ echo "$(dim "    Open Base14 Scout and verify these manually:")"
 echo ""
 echo "  $(cyan "Trace Explorer:")"
 echo "    [ ] Root HTTP span (POST /api/ask) parents the full pipeline"
-echo "    [ ] Pipeline traces show nested spans: parse → generate → validate → execute → explain"
-echo "    [ ] Each gen_ai.chat span has nlsql.stage attribute (generate / explain)"
+echo "    [ ] Pipeline traces show nested spans: parse → generate → output_guardrails → execute → explain"
+echo "    [ ] Each chat span has a base14.nlsql.stage attribute (generate / explain)"
 echo "    [ ] Database spans (data_analyst SELECT/SET/INSERT) nested under execute stage"
-echo "    [ ] generate spans use capable model (gpt-5.5 or configured)"
-echo "    [ ] explain spans use fast model (gpt-5.4-mini or configured)"
-echo "    [ ] gen_ai.user.message / gen_ai.assistant.message events on chat spans"
-echo "    [ ] gen_ai.usage.input_tokens, output_tokens, cost_usd on each span"
+echo "    [ ] generate spans use the capable model (LLM_MODEL_CAPABLE)"
+echo "    [ ] explain spans use the fast model (LLM_MODEL_FAST)"
+echo "    [ ] output_guardrails span carries one gen_ai.evaluation.result event per check"
+echo "    [ ] gen_ai.usage.input_tokens, output_tokens and base14.gen_ai.cost_usd on each chat span"
+echo "    [ ] 400 responses show an ERROR status on the HTTP span"
 echo ""
 echo "  $(cyan "HTTP Dashboard:")"
 echo "    [ ] http.server.request.duration shows p50/p99 latency"
@@ -257,14 +287,14 @@ echo "    [ ] Query execution time visible"
 echo "    [ ] pool.acquire spans show connection pool behavior"
 echo ""
 echo "  $(cyan "Cost & Token Dashboard:")"
-echo "    [ ] Total Cost shows non-zero value"
+echo "    [ ] Total Cost is non-zero for priced models and 0 for local Ollama models"
 echo "    [ ] Token Usage shows input vs output breakdown by model"
-echo "    [ ] Cost broken down by nlsql.stage (generate / explain)"
+echo "    [ ] Cost broken down by base14.nlsql.stage (generate / explain)"
 echo ""
 echo "  $(cyan "Query Health Dashboard:")"
-echo "    [ ] nlsql.confidence visible"
-echo "    [ ] nlsql.query.rows visible"
-echo "    [ ] nlsql.query.execution_time visible"
+echo "    [ ] base14.nlsql.confidence visible"
+echo "    [ ] base14.nlsql.query.rows visible"
+echo "    [ ] base14.nlsql.query.execution_time visible"
 echo "    [ ] Pipeline stage durations visible"
 echo ""
 

@@ -86,11 +86,11 @@ function chunkText(text: string, pageCount: number, disableChunkingFallback = fa
     flushChunk(current);
   }
 
-  // Warn when document is very large — chunked extraction degrades accuracy
+  // Warn when document is very large - chunked extraction degrades accuracy
   if (!disableChunkingFallback && text.length > 600_000) {
     console.warn(
       `[ingest] Document is ${text.length} chars (>${Math.round(text.length / 4)} tokens). ` +
-        "Exceeds Claude 200K context — extraction will use chunked mode with reduced accuracy.",
+        "Exceeds Claude 200K context - extraction will use chunked mode with reduced accuracy.",
     );
   }
 

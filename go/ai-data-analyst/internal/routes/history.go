@@ -18,11 +18,11 @@ func HistoryHandler(q db.Querier) http.HandlerFunc {
 
 		history, err := db.ListHistory(r.Context(), q, limit, offset)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(r.Context(), w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(history)
+		_ = json.NewEncoder(w).Encode(history)
 	}
 }

@@ -81,17 +81,3 @@ func CalculateCost(model string, inputTokens, outputTokens int) float64 {
 	return (float64(inputTokens) * entry.Input / 1_000_000) +
 		(float64(outputTokens) * entry.Output / 1_000_000)
 }
-
-var ProviderServers = map[string]string{
-	"openai":    "api.openai.com",
-	"anthropic": "api.anthropic.com",
-	"google":    "generativelanguage.googleapis.com",
-	"ollama":    "localhost",
-}
-
-var ProviderPorts = map[string]int{
-	"openai":    443,
-	"anthropic": 443,
-	"google":    443,
-	"ollama":    11434,
-}

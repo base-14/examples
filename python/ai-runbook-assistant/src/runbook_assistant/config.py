@@ -28,13 +28,15 @@ class Settings(BaseSettings):
 
     llm_provider: LLMProvider = "ollama"
     llm_model: str = "qwen3.5:9B"
+    fallback_provider: LLMProvider = "ollama"
+    fallback_model: str = "qwen3.5:9B"
     ollama_base_url: str = "http://localhost:11434"
     ollama_reasoning: bool = False
     anthropic_api_key: str = Field(default="")
     openai_api_key: str = Field(default="")
     google_api_key: str = Field(default="")
     default_temperature: float = 0.0
-    default_max_tokens: int = 1024
+    default_max_tokens: int = 4096
 
     embedding_model: str = "embeddinggemma"
     data_source_id: str = "runbooks"

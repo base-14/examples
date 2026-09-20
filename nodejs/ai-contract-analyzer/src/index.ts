@@ -1,7 +1,9 @@
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { Hono } from "hono";
 import { config } from "./config.ts";
 import { logger } from "./logger.ts";
 import { requestMetrics } from "./middleware/metrics.ts";
+import { httpTracing } from "./middleware/tracing.ts";
 import { contracts } from "./routes/contracts.ts";
 import { health } from "./routes/health.ts";
 import { query } from "./routes/query.ts";
@@ -9,6 +11,7 @@ import { search } from "./routes/search.ts";
 
 const app = new Hono();
 
+app.use("*", httpTracing);
 app.use("*", requestMetrics);
 
 app.route("/", health);
@@ -18,6 +21,12 @@ app.route("/api", search);
 
 app.notFound((c) => c.json({ error: "not found" }, 404));
 app.onError((err, c) => {
+  const span = trace.getActiveSpan();
+  if (span) {
+    span.recordException(err);
+    span.setAttribute("error.type", err.constructor.name);
+    span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+  }
   logger.error("Unhandled error", { error: String(err) });
   return c.json({ error: "internal server error" }, 500);
 });

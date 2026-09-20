@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnClause
@@ -20,6 +21,9 @@ from sales_intelligence.state import AgentState, ProspectData
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+# Stable id for the prospect store the retrieval span reads from.
+DATA_SOURCE_ID = "prospects_fts"
 
 # Raw SQL expression matching the GIN index definition in models.py exactly,
 # so PostgreSQL uses the index instead of a sequential scan.
@@ -34,7 +38,7 @@ def _build_websearch(keywords: list[str], titles: list[str]) -> str:
     """Build a websearch_to_tsquery input string from keywords and titles.
 
     Uses quoted phrases for multi-word terms and OR between all terms.
-    websearch_to_tsquery handles sanitization — no raw tsquery operators.
+    websearch_to_tsquery handles sanitization - no raw tsquery operators.
     """
     terms = []
     for term in keywords + titles:
@@ -55,9 +59,9 @@ async def research_agent(state: AgentState, session: AsyncSession) -> AgentState
         Updated state with prospects list
     """
     with tracer.start_as_current_span("agent.research") as span:
-        span.set_attribute("campaign_id", state.campaign_id)
-        span.set_attribute("target_keywords", state.target_keywords)
-        span.set_attribute("target_titles", state.target_titles)
+        span.set_attribute("base14.campaign_id", state.campaign_id)
+        span.set_attribute("base14.target_keywords", state.target_keywords)
+        span.set_attribute("base14.target_titles", state.target_titles)
 
         campaign_id = state.campaign_id
 
@@ -70,7 +74,7 @@ async def research_agent(state: AgentState, session: AsyncSession) -> AgentState
             logger.warning("No valid search terms after filtering")
             return state.model_copy(update={"current_step": "enrich"})
 
-        span.set_attribute("fts.query", websearch_str)
+        span.set_attribute("base14.fts.query", websearch_str)
 
         tsquery = func.websearch_to_tsquery("english", websearch_str)
 
@@ -81,8 +85,19 @@ async def research_agent(state: AgentState, session: AsyncSession) -> AgentState
             .order_by(func.ts_rank(_TSVECTOR_EXPR, tsquery).desc())
             .limit(50)
         )
-        result = await session.execute(query)
-        connections = result.scalars().all()
+
+        # The SQLAlchemy instrumentation's Postgres span is a child of this one.
+        with tracer.start_as_current_span(
+            f"retrieval {DATA_SOURCE_ID}",
+            kind=SpanKind.CLIENT,
+            attributes={
+                "gen_ai.operation.name": "retrieval",
+                "gen_ai.data_source.id": DATA_SOURCE_ID,
+            },
+        ) as retrieval_span:
+            result = await session.execute(query)
+            connections = result.scalars().all()
+            retrieval_span.set_attribute("app.retrieval.chunk_count", len(connections))
 
         prospects = [
             ProspectData(
@@ -96,7 +111,7 @@ async def research_agent(state: AgentState, session: AsyncSession) -> AgentState
             for c in connections
         ]
 
-        span.set_attribute("prospects_found", len(prospects))
+        span.set_attribute("base14.prospects_found", len(prospects))
         logger.info("Found %d prospects", len(prospects))
 
         return state.model_copy(

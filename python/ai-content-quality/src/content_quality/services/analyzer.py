@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 evaluation_score = metrics.get_meter("gen_ai.client").create_histogram(
-    name="gen_ai.evaluation.score",
+    name="base14.gen_ai.evaluation.score",
     description="Content quality evaluation score",
     unit="1",
 )
@@ -59,7 +59,7 @@ class ContentAnalyzer:
             issue_score,
             {
                 "gen_ai.evaluation.name": "content_review",
-                "content.type": content_type,
+                "base14.content.type": content_type,
             },
         )
 
@@ -105,7 +105,7 @@ class ContentAnalyzer:
             result.score,
             {
                 "gen_ai.evaluation.name": "content_quality",
-                "content.type": content_type,
+                "base14.content.type": content_type,
             },
         )
 

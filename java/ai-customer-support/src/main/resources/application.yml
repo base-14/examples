@@ -13,6 +13,8 @@ spring:
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
   ai:
+    retry:
+      max-attempts: 0
     openai:
       api-key: ${OPENAI_API_KEY:}
       chat:
@@ -30,8 +32,11 @@ spring:
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       chat:
+        # Reasoning models otherwise spend the whole token budget on thinking and
+        # return empty content.
+        think: ${OLLAMA_THINK:false}
         options:
-          model: ${LLM_MODEL_CAPABLE:llama3.1:8b}
+          model: ${LLM_MODEL_CAPABLE:qwen3.5:9B}
       embedding:
         options:
           model: ${EMBEDDING_MODEL:embeddinggemma}
@@ -39,7 +44,7 @@ spring:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
-        dimensions: ${EMBEDDING_DIMENSIONS:1536}
+        dimensions: ${EMBEDDING_DIMENSIONS:768}
         initialize-schema: false
     chat:
       observations:
@@ -51,22 +56,13 @@ management:
     web:
       exposure:
         include: health,info,metrics
-  otlp:
-    tracing:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
-    metrics:
-      export:
-        url: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
-  tracing:
-    sampling:
-      probability: 1.0
 
 app:
   llm:
-    provider: ${LLM_PROVIDER:openai}
-    model-capable: ${LLM_MODEL_CAPABLE:gpt-4.1}
-    model-fast: ${LLM_MODEL_FAST:gpt-4.1-mini}
-    fallback-provider: ${FALLBACK_PROVIDER:anthropic}
-    fallback-model: ${FALLBACK_MODEL:claude-haiku-4-5-20251001}
+    provider: ${LLM_PROVIDER:ollama}
+    model-capable: ${LLM_MODEL_CAPABLE:qwen3.5:9B}
+    model-fast: ${LLM_MODEL_FAST:qwen3.5:9B}
+    fallback-provider: ${FALLBACK_PROVIDER:ollama}
+    fallback-model: ${FALLBACK_MODEL:qwen3.5:9B}
     max-tokens: ${DEFAULT_MAX_TOKENS:1024}
     temperature: ${DEFAULT_TEMPERATURE:0.3}

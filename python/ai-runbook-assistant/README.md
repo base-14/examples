@@ -27,9 +27,9 @@ the two ways to do it.
    `compose.yaml`.
 
 This example adds a hand-written callback handler emitting OTel GenAI semantic convention
-spans, `gen_ai.client.token.usage`, `gen_ai.client.operation.duration` and `gen_ai.client.cost`
-metrics, OTLP logs correlated with the active trace, and PII scrubbing of captured prompt
-content. The full guide is
+spans, the `gen_ai.client.token.usage` and `gen_ai.client.operation.duration` histograms, the
+`base14.gen_ai.cost`, `.retry.count`, `.fallback.count` and `.error.count` counters, OTLP logs
+correlated with the active trace, and PII scrubbing of captured prompt content. The full guide is
 [LangChain OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/langchain/).
 
 ## What you will learn
@@ -59,6 +59,7 @@ how they hook in.
 - PostgreSQL 18 + pgvector for the runbook vector store.
 - Ollama (`qwen3.5:9B` chat, `embeddinggemma` embeddings) by default, so no API key and
   no per-run cost. Anthropic, OpenAI, and Google are drop-in alternatives.
+- Tenacity retries and a configurable fallback provider around every model call.
 - OpenTelemetry SDK over OTLP/HTTP to an OpenTelemetry Collector, then to Scout.
 
 ## Prerequisites
@@ -73,22 +74,24 @@ how they hook in.
   ```
 
   Ollama stays on the host rather than in Compose to keep the image small and reuse your
-  model cache. The container reaches it through `host.docker.internal`.
+  model cache. The container reaches it through `host.docker.internal`. If you would rather
+  run it in Compose, start the bundled service with `docker compose --profile ollama up -d`
+  and pull the two models inside that container.
 
 ## Quick start
 
-### Local, no Scout credentials
-
-The Scout-bound collector needs OAuth credentials, so for local inspection use the
-debug override, which prints every span, metric, and log record to the collector log:
-
 ```bash
 cp .env.example .env
-docker compose -f compose.yaml -f compose.local.yaml up -d --build
+docker compose up -d --build
 # wait for http://localhost:8000/healthz to return 200, then:
 ./scripts/test-api.sh
-INSTRUMENTATION_MODE=callback ./scripts/verify-scout.sh
+./scripts/verify-scout.sh
 ```
+
+The collector exports to both Scout and a debug exporter. With the `SCOUT_*` values blank
+the Scout export fails and is dropped, and everything still prints to the collector log, so
+this works without credentials. Fill in `SCOUT_CLIENT_ID`, `SCOUT_CLIENT_SECRET`,
+`SCOUT_TOKEN_URL` and `SCOUT_ENDPOINT` in `.env` to export for real.
 
 `verify-scout.sh` drives a diagnosis and asserts against the collector output: span tree
 shape, GenAI attributes, token and cost values, the in-trace database span, and the
@@ -97,18 +100,8 @@ resource attributes. Use it to confirm a change has not dropped a signal.
 Switch modes and recreate to see the contrast:
 
 ```bash
-INSTRUMENTATION_MODE=auto docker compose -f compose.yaml -f compose.local.yaml up -d
+INSTRUMENTATION_MODE=auto docker compose up -d --build
 INSTRUMENTATION_MODE=auto ./scripts/verify-scout.sh
-```
-
-### Export to Scout
-
-Set `SCOUT_CLIENT_ID`, `SCOUT_CLIENT_SECRET`, `SCOUT_TOKEN_URL`, and `SCOUT_ENDPOINT` in
-`.env`, then run without the local override:
-
-```bash
-docker compose up -d --build
-./scripts/verify-scout.sh
 ```
 
 ## What gets instrumented
@@ -121,7 +114,8 @@ POST /api/v1/diagnose                 (FastAPI HTTP span)
 └─ invoke_agent runbook_assistant     (agent root)
    ├─ chat qwen3.5:9B                 (LLM: decide which tool to call)
    ├─ execute_tool search_runbooks
-   │  └─ retrieval runbooks           (pgvector + Ollama embeddings)
+   │  └─ retrieval runbooks           (pgvector)
+   │     └─ embeddings embeddinggemma (Ollama embedding call)
    ├─ execute_tool query_metrics
    ├─ execute_tool search_logs
    ├─ chat qwen3.5:9B                 (LLM: synthesize the diagnosis)
@@ -134,7 +128,7 @@ The example emits all three signals:
 | Signal | Source | What you get |
 |---|---|---|
 | Traces | `OTelCallbackHandler` + FastAPI, SQLAlchemy, HTTPX instrumentation | The tree above, with tokens and cost on every `chat` span |
-| Metrics | `telemetry/metrics.py` | `gen_ai.client.token.usage`, `.operation.duration`, `.cost`, `.error.count` |
+| Metrics | `telemetry/metrics.py` | `gen_ai.client.token.usage`, `gen_ai.client.operation.duration`, `base14.gen_ai.cost`, `.retry.count`, `.fallback.count`, `.error.count` |
 | Logs | `LoggerProvider` + `LoggingHandler` in `telemetry/setup.py` | OTLP log records carrying `trace_id` and `span_id`, so logs correlate with their trace |
 
 The persisted `diagnoses` row also stores the `trace_id`, so a saved diagnosis links back
@@ -151,11 +145,14 @@ See `src/runbook_assistant/telemetry/callback.py`:
 | LangChain hook | Span | Kind | Key attributes |
 |---|---|---|---|
 | `on_chain_start` (outermost only) | `invoke_agent {agent}` | `INTERNAL` | `gen_ai.operation.name`, `gen_ai.agent.name`, `gen_ai.conversation.id` |
-| `on_chat_model_start` / `on_llm_start` | `chat {model}` | `CLIENT` | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model` (both read from LangChain's `ls_*` metadata) |
-| `on_llm_end` | closes `chat` | | `gen_ai.usage.input_tokens`, `output_tokens`, `gen_ai.usage.cost_usd`, `gen_ai.response.model`, `gen_ai.response.finish_reasons` |
-| `on_tool_start` / `on_tool_end` | `execute_tool {name}` | `INTERNAL` | `gen_ai.tool.name`, `gen_ai.tool.type` |
-| `on_retriever_start` / `on_retriever_end` | `retrieval {source}` | `CLIENT` | `gen_ai.data_source.id`, retrieved chunk count |
-| `on_*_error` | marks span `ERROR` | | Records the exception on every span. `on_llm_error` also increments `gen_ai.client.error.count` with `error.type`; `on_tool_error` adds a `tool_execution_failed` event to the parent span |
+| `on_chat_model_start` / `on_llm_start` | `chat {model}` | `CLIENT` | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.request.temperature`, `gen_ai.request.max_tokens` (all from LangChain's `ls_*` metadata), `server.address`, `server.port` |
+| `on_llm_end` | closes `chat` | | `gen_ai.usage.input_tokens`, `output_tokens`, `base14.gen_ai.cost_usd`, `gen_ai.response.model`, `gen_ai.response.id`, `gen_ai.response.finish_reasons`, and one `gen_ai.client.inference.operation.details` event when capture is on |
+| `on_tool_start` / `on_tool_end` | `execute_tool {name}` | `INTERNAL` | `gen_ai.tool.name`, `gen_ai.tool.type`, `gen_ai.tool.call.id` |
+| `on_retriever_start` / `on_retriever_end` | `retrieval {source}` | `CLIENT` | `gen_ai.data_source.id`, `server.address`, `server.port`, retrieved chunk count |
+| `on_*_error` | marks span `ERROR` | | Records the exception, sets `error.type`, sets status `ERROR`. `on_llm_error` also increments `base14.gen_ai.error.count`; `on_tool_error` adds a `tool_execution_failed` event to the parent span |
+
+Embeddings have no LangChain callback, so `src/runbook_assistant/embeddings.py` wraps the
+vector store's embedding client directly and emits the `embeddings {model}` span itself.
 
 Three details that are easy to get wrong:
 
@@ -170,6 +167,28 @@ Three details that are easy to get wrong:
 
 The handler is registered per request in `main.py` and passed through
 `config={"callbacks": [...]}`, so it carries no cross-request state.
+
+## Retry, fallback and errors
+
+`src/runbook_assistant/llm.py` wraps the primary and fallback chat models in a
+`ResilientChatModel`. A call retries three times with exponential backoff from 1 s to 10 s,
+then switches to `FALLBACK_PROVIDER` / `FALLBACK_MODEL`. The trace holds one `chat` span
+per provider attempt:
+
+- A retry is invisible in the span tree. It increments `base14.gen_ai.retry.count` with
+  `gen_ai.provider.name`, `error.type` and the attempt number.
+- A provider switch closes the primary's span as `ERROR`, with the exception recorded and
+  `error.type` set, and opens a second `chat` span beside it for the provider that
+  answered, which carries that call's tokens and cost. The parent span gets a
+  `provider_fallback` event and `gen_ai.fallback.triggered=true`, and
+  `base14.gen_ai.fallback.count` and `base14.gen_ai.error.count` both increment. The
+  parent span is not marked failed, because the request succeeded.
+- A call that fails outright marks its span `ERROR` with the exception recorded and
+  `error.type` set, and increments `base14.gen_ai.error.count`.
+
+On the HTTP edge, `src/runbook_assistant/errors.py` registers an exception handler that
+records an unhandled error on the active span and returns a 500, and a middleware that
+marks the server span `ERROR` for any response of 400 or above.
 
 ## Instrumentation modes
 
@@ -228,13 +247,17 @@ paths that feed alerts.
 ## GenAI semantic conventions
 
 - Spans are named `{operation} {target}`: `invoke_agent`, `chat`, `execute_tool`,
-  `retrieval`. No `gen_ai.` prefix on the operation inside the span name.
-- Metrics: `gen_ai.client.token.usage` (histogram, split by `gen_ai.token.type`),
-  `gen_ai.client.operation.duration` (histogram, seconds), `gen_ai.client.cost`
-  (counter, USD), `gen_ai.client.error.count` (counter).
-- Cost is computed locally in `src/runbook_assistant/cost.py` from a per-1M-token
-  pricing table and attached as `gen_ai.usage.cost_usd`. Re-verify those rates against
-  your provider's current pricing before relying on the number. Unknown models cost 0.
+  `retrieval`, `embeddings`. No `gen_ai.` prefix on the operation inside the span name.
+- Metrics: `gen_ai.client.token.usage` (histogram, split by `gen_ai.token.type`) and
+  `gen_ai.client.operation.duration` (histogram, seconds) keep their semconv names.
+  Everything the conventions do not define carries a `base14.` prefix:
+  `base14.gen_ai.cost` (counter, USD), `base14.gen_ai.retry.count`,
+  `base14.gen_ai.fallback.count` and `base14.gen_ai.error.count`.
+- Cost is computed locally in `src/runbook_assistant/cost.py` from `_shared/pricing.json`
+  and attached as `base14.gen_ai.cost_usd`. Compose mounts `_shared/` read-only into the
+  container. Unknown models, Ollama included, cost 0.
+- `LLM_PROVIDER=google` selects Gemini, matching the gateway contract's provider key. The
+  emitted `gen_ai.provider.name` is `gcp.gemini`, which is the semantic convention value.
 - Resource carries the dual-key environment: `deployment.environment.name` plus
   lowercase `environment`, which is what Scout filters on. Set on the resource and
   upserted by the collector.
@@ -250,10 +273,11 @@ Content capture is **off by default** in `callback` mode. Prompts and completion
 carry incident detail, hostnames, and customer identifiers, and once exported they follow
 your telemetry backend's retention and access rules.
 
-Enable with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`. Prompts then land
-on `gen_ai.input.messages` and completions on `gen_ai.output.messages`, both as
-attributes of the `gen_ai.client.inference.operation.details` span event, PII-scrubbed by
-`src/runbook_assistant/pii.py` (emails, IPv4, bearer tokens, API keys, with a length cap).
+Enable with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`. One
+`gen_ai.client.inference.operation.details` event is then added per call, carrying
+`gen_ai.input.messages` (1000 chars), `gen_ai.output.messages` (2000) and
+`gen_ai.system_instructions` (500, omitted when the system prompt is empty). All three are
+PII-scrubbed by `src/runbook_assistant/pii.py` (emails, IPv4, bearer tokens, API keys).
 Tool-call turns with no text emit no output message.
 
 In `auto` mode content is on by default. Disable it with `TRACELOOP_TRACE_CONTENT=false`.
@@ -268,14 +292,16 @@ before enabling capture in production.
 | `INSTRUMENTATION_MODE` | `callback` | `callback`, `auto`, or `off` |
 | `LLM_PROVIDER` | `ollama` | `ollama`, `anthropic`, `openai`, `google` |
 | `LLM_MODEL` | `qwen3.5:9B` | Must be tool-capable |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | `http://host.docker.internal:11434` from a container |
+| `FALLBACK_PROVIDER` | `ollama` | Used after the primary exhausts its retries |
+| `FALLBACK_MODEL` | `qwen3.5:9B` | Model for the fallback provider |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | `http://localhost:11434` when running the app directly on the host |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` | empty | Required only for that provider |
 | `EMBEDDING_MODEL` | `embeddinggemma` | Vector store embeddings, 768-dim |
 | `DATABASE_URL` | local Postgres | pgvector-enabled PostgreSQL |
 | `OTEL_ENABLED` | `true` | Set `false` to disable telemetry entirely |
 | `OTEL_SERVICE_NAME` | `ai-runbook-assistant` | Becomes `service.name` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP/HTTP collector endpoint |
-| `SCOUT_ENVIRONMENT` | `development` | Written to both environment resource keys |
+| `SCOUT_ENVIRONMENT` | empty | Written to both environment resource keys |
 | `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `false` | Prompt and completion capture |
 | `SCOUT_CLIENT_ID` / `SCOUT_CLIENT_SECRET` / `SCOUT_TOKEN_URL` / `SCOUT_ENDPOINT` | empty | Collector to Scout OAuth, leave blank for local runs |
 
@@ -299,15 +325,17 @@ Health endpoints are excluded from HTTP tracing, so probe traffic produces no sp
 
 With `SCOUT_*` set, open Scout and look at:
 
-- A diagnosis trace: `invoke_agent` to `chat`, `execute_tool`, and `retrieval`, with the
-  `diagnoses` INSERT span in the same trace.
-- Tokens and cost per `chat` span, and `gen_ai.client.*` metrics over time.
+- A diagnosis trace: `invoke_agent` to `chat`, `execute_tool`, `retrieval` and
+  `embeddings`, with the `diagnoses` INSERT span in the same trace.
+- Tokens and cost per `chat` span, and the `gen_ai.client.*` and `base14.gen_ai.*` metrics
+  over time.
 - Logs filtered by `trace_id` to sit alongside the request that emitted them.
 
 Two dashboards ship under `dashboards/`, with the panel-by-panel rationale in
 `dashboards/DESIGN.md`:
 
-- `operational.json` - token throughput, cost rate, tool and retrieval activity, errors.
+- `operational.json` - token throughput, cost rate, tool and retrieval activity, errors,
+  retries and fallbacks.
 - `strategic.json` - cost and usage trends by model and provider.
 
 ## Project layout
@@ -320,10 +348,14 @@ src/runbook_assistant/
 │   ├── auto.py          # OpenLLMetry one-liner
 │   └── metrics.py       # gen_ai.client.* instruments
 ├── agent.py             # create_agent, system prompt, invocation
+├── llm.py               # chat model factory, retry and provider fallback
+├── providers.py         # provider semconv names and server endpoints
+├── embeddings.py        # instrumented embedding client
 ├── tools.py             # search_runbooks, query_metrics, search_logs, get_service_status
 ├── retriever.py         # pgvector store + runbook seeding
-├── cost.py              # token -> USD
+├── cost.py              # token -> USD from _shared/pricing.json
 ├── pii.py               # scrubbing for opt-in content capture
+├── errors.py            # exception handler + HTTP span status
 ├── db.py                # async SQLAlchemy, diagnoses table
 └── main.py              # FastAPI app, per-request handler wiring
 ```
@@ -365,8 +397,8 @@ such as `qwen3.5:9B`.
 `OLLAMA_BASE_URL=http://host.docker.internal:11434`. Inside the container, `localhost` is
 the container itself.
 
-**Cost is always 0.** The model is not in the pricing table in `cost.py`, which is
-expected for Ollama. Local inference has no per-token price.
+**Cost is always 0.** The model is not a key in `_shared/pricing.json`, which is expected
+for Ollama. Local inference has no per-token price.
 
 **Collector cannot authenticate to Scout.** All four `SCOUT_*` values must be set for the
 OAuth extension in `otel-collector-config.yaml`. The collector log names the missing or

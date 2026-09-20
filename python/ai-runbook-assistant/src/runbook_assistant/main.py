@@ -17,11 +17,13 @@ from pydantic import BaseModel
 from runbook_assistant.agent import build_agent, run_diagnosis
 from runbook_assistant.config import get_settings
 from runbook_assistant.db import (
+    database_endpoint,
     init_db,
     make_engine,
     make_session_factory,
     save_diagnosis,
 )
+from runbook_assistant.errors import SpanStatusMiddleware, unhandled_exception_handler
 from runbook_assistant.telemetry.callback import OTelCallbackHandler
 from runbook_assistant.telemetry.setup import instrument_fastapi, setup_telemetry
 from runbook_assistant.tools import _services
@@ -61,11 +63,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.agent = build_agent(retriever)
 
     if s.instrumentation_mode == "callback":
+        address, port = database_endpoint(s.database_url)
         app.state.handler_factory = lambda conversation_id: [
             OTelCallbackHandler(
                 agent_name="runbook_assistant",
                 data_source_id=s.data_source_id,
                 conversation_id=conversation_id,
+                data_source_address=address,
+                data_source_port=port,
             )
         ]
     else:
@@ -76,6 +81,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="AI Runbook Assistant", lifespan=lifespan)
+    app.add_middleware(SpanStatusMiddleware)
+    app.add_exception_handler(Exception, unhandled_exception_handler)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:

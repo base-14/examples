@@ -6,6 +6,9 @@ def test_defaults():
     assert s.instrumentation_mode == "callback"
     assert s.llm_provider == "ollama"
     assert s.llm_model == "qwen3.5:9B"
+    assert s.fallback_provider == "ollama"
+    assert s.fallback_model == "qwen3.5:9B"
+    assert s.default_max_tokens == 4096
     assert s.ollama_base_url == "http://localhost:11434"
     assert s.ollama_reasoning is False
     assert s.capture_content is False

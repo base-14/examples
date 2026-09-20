@@ -11,7 +11,7 @@ from typing import Any
 from llama_index.core import PromptTemplate
 from llama_index.core.llms import LLM, ChatMessage
 from opentelemetry import metrics, trace
-from opentelemetry.trace import StatusCode
+from opentelemetry.trace import SpanKind, StatusCode
 from pydantic import BaseModel, ValidationError
 from tenacity import (
     RetryCallState,
@@ -26,6 +26,10 @@ from content_quality.pii import scrub_pii
 logger = logging.getLogger(__name__)
 
 MAX_PARSE_RETRIES = 2
+
+PROMPT_MAX_CHARS = 1000
+SYSTEM_MAX_CHARS = 500
+COMPLETION_MAX_CHARS = 2000
 
 _MARKDOWN_JSON_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?\s*```$", re.DOTALL)
 
@@ -53,27 +57,27 @@ operation_duration = meter.create_histogram(
 )
 
 cost_counter = meter.create_counter(
-    name="gen_ai.client.cost",
+    name="base14.gen_ai.cost",
     description="Cost of GenAI operations",
     unit="usd",
 )
 
 error_counter = meter.create_counter(
-    name="gen_ai.client.error.count",
+    name="base14.gen_ai.error.count",
     description="GenAI operation errors",
-    unit="1",
+    unit="{error}",
 )
 
 retry_counter = meter.create_counter(
-    name="gen_ai.client.retry.count",
-    description="GenAI operation retries",
-    unit="1",
+    name="base14.gen_ai.retry.count",
+    description="GenAI operation retries, excluding the initial attempt",
+    unit="{retry}",
 )
 
 fallback_counter = meter.create_counter(
-    name="gen_ai.client.fallback.count",
+    name="base14.gen_ai.fallback.count",
     description="GenAI provider fallback count",
-    unit="1",
+    unit="{fallback}",
 )
 
 PROVIDER_SEMCONV_NAMES: dict[str, str] = {
@@ -126,12 +130,14 @@ PRICING: dict[str, dict[str, float]] = _load_pricing()
 
 
 def create_llm(
-    provider: str = "openai",
-    model: str = "gpt-4.1-nano",
+    provider: str = "ollama",
+    model: str = "qwen3.5:9B",
     temperature: float = 0.3,
     api_key: str = "",
     timeout: float = 30.0,
     ollama_base_url: str = "http://localhost:11434",
+    ollama_context_window: int = 32768,
+    ollama_reasoning: bool = False,
 ) -> LLM:
     if provider == "openai":
         from llama_index.llms.openai import OpenAI
@@ -154,6 +160,8 @@ def create_llm(
         return Ollama(  # type: ignore[no-any-return]
             model=model,
             base_url=ollama_base_url,
+            context_window=ollama_context_window,
+            thinking=ollama_reasoning,
             temperature=temperature,
             request_timeout=timeout,
         )
@@ -164,9 +172,9 @@ def create_llm(
 
 
 def _on_retry(retry_state: RetryCallState) -> None:
-    client = retry_state.args[0] if retry_state.args else None
-    model = getattr(client, "model", "unknown") if client else "unknown"
-    provider = getattr(client, "provider", "unknown") if client else "unknown"
+    kwargs = retry_state.kwargs or {}
+    model = kwargs.get("model_name", "unknown")
+    provider = kwargs.get("provider", "unknown")
     attrs: dict[str, str | int] = {
         "gen_ai.request.model": model,
         "gen_ai.provider.name": provider,
@@ -174,7 +182,7 @@ def _on_retry(retry_state: RetryCallState) -> None:
     exc = retry_state.outcome.exception() if retry_state.outcome else None
     if exc is not None:
         attrs["error.type"] = type(exc).__name__
-    attrs["retry.attempt"] = retry_state.attempt_number
+    attrs["base14.retry.attempt"] = retry_state.attempt_number
     retry_counter.add(1, attrs)
 
 
@@ -198,9 +206,123 @@ def _set_initial_span_attrs(
     temperature = getattr(llm, "temperature", None)
     if temperature is not None:
         span.set_attribute("gen_ai.request.temperature", float(temperature))
-    span.set_attribute("content.type", content_type)
-    span.set_attribute("content.length", len(content))
-    span.set_attribute("endpoint", endpoint)
+    span.set_attribute("base14.content.type", content_type)
+    span.set_attribute("base14.content.length", len(content))
+    span.set_attribute("base14.endpoint", endpoint)
+
+
+def _emit_content_event(
+    span: trace.Span,
+    prompt: str,
+    system_prompt: str,
+    output_content: str | None,
+) -> None:
+    """Emit the inference content event when content capture is switched on.
+
+    Content is PII-scrubbed and truncated. The system prompt goes on
+    gen_ai.system_instructions, not into the input messages.
+    """
+    if not _is_content_capture_enabled():
+        return
+
+    attributes: dict[str, str] = {
+        "gen_ai.input.messages": scrub_pii(prompt)[:PROMPT_MAX_CHARS],
+    }
+    if system_prompt:
+        attributes["gen_ai.system_instructions"] = scrub_pii(system_prompt)[:SYSTEM_MAX_CHARS]
+    if output_content is not None:
+        attributes["gen_ai.output.messages"] = scrub_pii(output_content)[:COMPLETION_MAX_CHARS]
+
+    span.add_event("gen_ai.client.inference.operation.details", attributes)
+
+
+async def _chat_and_parse(
+    llm: LLM,
+    messages: list[ChatMessage],
+    achat_kwargs: dict[str, Any],
+    output_cls: type[BaseModel],
+    span: trace.Span,
+    model_name: str,
+    server_address: str,
+    provider: str,
+    content_type: str,
+    endpoint: str,
+) -> tuple[BaseModel, str]:
+    """Call the LLM and parse structured JSON, retrying on schema mismatch.
+
+    Returns the parsed result and the last raw response content, for the
+    inference content event.
+    """
+    chat_response = await llm.achat(messages, **achat_kwargs)
+    output_content = str(chat_response.message.content)
+
+    response_model, _ = _set_response_attrs(chat_response, span, model_name)
+    common_attrs = _build_common_attrs(model_name, response_model, server_address, provider)
+    _record_token_metrics(chat_response, common_attrs, model_name, content_type, endpoint, span)
+
+    raw_content = _strip_markdown_json(output_content)
+    for parse_attempt in range(MAX_PARSE_RETRIES + 1):
+        try:
+            return output_cls.model_validate_json(raw_content), output_content
+        except ValidationError as ve:
+            if parse_attempt >= MAX_PARSE_RETRIES:
+                raise
+            logger.warning("Structured output parse failed (attempt %d): %s", parse_attempt + 1, ve)
+            messages.append(ChatMessage(role="assistant", content=raw_content))
+            messages.append(
+                ChatMessage(
+                    role="user",
+                    content=(
+                        f"Your response did not match the required schema. "
+                        f"Error: {ve}\n"
+                        "Please try again with valid JSON matching the schema."
+                    ),
+                )
+            )
+            correction_response = await llm.achat(messages, **achat_kwargs)
+            output_content = str(correction_response.message.content)
+            raw_content = _strip_markdown_json(output_content)
+
+    raise RuntimeError("Unreachable: parse loop exhausted")  # pragma: no cover
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    before_sleep=_on_retry,
+    reraise=True,
+)
+async def _chat_and_parse_with_retry(
+    *,
+    llm: LLM,
+    base_messages: list[ChatMessage],
+    achat_kwargs: dict[str, Any],
+    output_cls: type[BaseModel],
+    span: trace.Span,
+    model_name: str,
+    server_address: str,
+    provider: str,
+    content_type: str,
+    endpoint: str,
+) -> tuple[BaseModel, str]:
+    """Retry the LLM call transparently within the caller's span.
+
+    Each retry attempt gets a fresh copy of base_messages, so a schema
+    correction appended during a failed attempt's parse-retry loop does not
+    leak into the next network-level retry attempt.
+    """
+    return await _chat_and_parse(
+        llm,
+        list(base_messages),
+        achat_kwargs,
+        output_cls,
+        span,
+        model_name,
+        server_address,
+        provider,
+        content_type,
+        endpoint,
+    )
 
 
 class LLMClient:
@@ -237,33 +359,37 @@ class LLMClient:
             return await self._generate_with_retry(
                 prompt_template, output_cls, content, content_type, endpoint, system_prompt
             )
-        except Exception:
-            if self.fallback_llm is not None:
-                fallback_counter.add(
-                    1,
-                    {
-                        "gen_ai.provider.name": self.provider,
-                        "gen_ai.fallback.provider": self.fallback_provider,
-                    },
-                )
-                return await self._generate_with_retry(
-                    prompt_template,
-                    output_cls,
-                    content,
-                    content_type,
-                    endpoint,
-                    system_prompt,
-                    _override_llm=self.fallback_llm,
-                    _override_provider=self.fallback_provider,
-                )
-            raise
+        except Exception as exc:
+            if self.fallback_llm is None:
+                raise
+            self._record_fallback(exc)
+            return await self._generate_with_retry(
+                prompt_template,
+                output_cls,
+                content,
+                content_type,
+                endpoint,
+                system_prompt,
+                _override_llm=self.fallback_llm,
+                _override_provider=self.fallback_provider,
+            )
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        before_sleep=_on_retry,
-        reraise=True,
-    )
+    def _record_fallback(self, exc: Exception) -> None:
+        """Record the provider switch on the calling span without failing it."""
+        error_type = type(exc).__qualname__
+        attrs = {
+            "gen_ai.provider.name": self.provider,
+            "base14.gen_ai.fallback.provider": self.fallback_provider,
+            "error.type": error_type,
+        }
+
+        span = trace.get_current_span()
+        span.record_exception(exc)
+        span.add_event("provider_fallback", attributes=attrs)
+        span.set_attribute("gen_ai.fallback.triggered", True)
+
+        fallback_counter.add(1, attrs)
+
     async def _generate_with_retry(
         self,
         prompt_template: PromptTemplate,
@@ -281,7 +407,7 @@ class LLMClient:
         model_name = llm.metadata.model_name
         server_address = PROVIDER_SERVERS.get(provider, "")
 
-        with tracer.start_as_current_span(f"gen_ai.chat {model_name}") as span:
+        with tracer.start_as_current_span(f"chat {model_name}", kind=SpanKind.CLIENT) as span:
             _set_initial_span_attrs(
                 span,
                 llm,
@@ -294,6 +420,9 @@ class LLMClient:
             )
 
             start = time.perf_counter()
+            error_type: str | None = None
+            formatted_prompt = ""
+            output_content: str | None = None
 
             try:
                 formatted_prompt = prompt_template.format(content=content)
@@ -316,81 +445,47 @@ class LLMClient:
                         "response_mime_type": "application/json",
                         "response_schema": output_cls,
                     }
-                chat_response = await llm.achat(messages, **achat_kwargs)
 
-                duration = time.perf_counter() - start
-
-                response_model, _ = _set_response_attrs(chat_response, span, model_name)
-
-                common_attrs = _build_common_attrs(
-                    model_name, response_model, server_address, provider
+                result, output_content = await _chat_and_parse_with_retry(
+                    llm=llm,
+                    base_messages=messages,
+                    achat_kwargs=achat_kwargs,
+                    output_cls=output_cls,
+                    span=span,
+                    model_name=model_name,
+                    server_address=server_address,
+                    provider=provider,
+                    content_type=content_type,
+                    endpoint=endpoint,
                 )
-                span.set_attribute("gen_ai.client.operation.duration", duration)
-
-                operation_duration.record(duration, common_attrs)
-                _record_token_metrics(
-                    chat_response, common_attrs, model_name, content_type, endpoint, span
-                )
-                if _is_content_capture_enabled():
-                    user_event: dict[str, str] = {
-                        "gen_ai.input.messages": scrub_pii(formatted_prompt)[:1000],
-                    }
-                    if system_prompt:
-                        user_event["gen_ai.system_instructions"] = scrub_pii(system_prompt)[:500]
-                    span.add_event("gen_ai.user.message", user_event)
-                    span.add_event(
-                        "gen_ai.assistant.message",
-                        {
-                            "gen_ai.output.messages": scrub_pii(str(chat_response.message.content))[
-                                :2000
-                            ]
-                        },
-                    )
-
-                raw_content = _strip_markdown_json(str(chat_response.message.content))
-                for parse_attempt in range(MAX_PARSE_RETRIES + 1):
-                    try:
-                        return output_cls.model_validate_json(raw_content)
-                    except ValidationError as ve:
-                        if parse_attempt < MAX_PARSE_RETRIES:
-                            logger.warning(
-                                "Structured output parse failed (attempt %d): %s",
-                                parse_attempt + 1,
-                                ve,
-                            )
-                            messages.append(ChatMessage(role="assistant", content=raw_content))
-                            messages.append(
-                                ChatMessage(
-                                    role="user",
-                                    content=(
-                                        f"Your response did not match the required schema. "
-                                        f"Error: {ve}\n"
-                                        "Please try again with valid JSON matching the schema."
-                                    ),
-                                )
-                            )
-                            correction_response = await llm.achat(messages, **achat_kwargs)
-                            raw_content = _strip_markdown_json(
-                                str(correction_response.message.content)
-                            )
-                            continue
-                        raise
-
-                raise RuntimeError("Unreachable: parse loop exhausted")  # pragma: no cover
+                return result
 
             except Exception as e:
+                error_type = type(e).__name__
                 span.record_exception(e)
+                span.set_attribute("error.type", error_type)
                 span.set_status(StatusCode.ERROR, str(e))
-                span.set_attribute("error.type", type(e).__name__)
                 error_counter.add(
                     1,
                     {
-                        "gen_ai.request.model": llm.metadata.model_name,
+                        "gen_ai.request.model": model_name,
                         "gen_ai.provider.name": provider,
-                        "error.type": type(e).__name__,
+                        "error.type": error_type,
                     },
                 )
                 raise
+
+            finally:
+                duration = time.perf_counter() - start
+                duration_attrs: dict[str, str | int] = {
+                    "gen_ai.operation.name": "chat",
+                    "gen_ai.provider.name": provider,
+                    "gen_ai.request.model": model_name,
+                }
+                if error_type:
+                    duration_attrs["error.type"] = error_type
+                operation_duration.record(duration, duration_attrs)
+                _emit_content_event(span, formatted_prompt, system_prompt, output_content)
 
 
 def _raw_get(raw: object) -> Callable[[str], Any]:
@@ -401,24 +496,24 @@ def _raw_get(raw: object) -> Callable[[str], Any]:
 
 
 def _extract_raw_usage(raw: object) -> dict[str, Any]:
-    """Extract usage dict from raw response (dict or object)."""
-    if isinstance(raw, dict):
-        usage = raw.get("usage")
-        if isinstance(usage, dict):
-            return usage
-        if usage is not None:
-            return {
-                "input_tokens": getattr(usage, "input_tokens", None),
-                "output_tokens": getattr(usage, "output_tokens", None),
-            }
-    elif raw is not None:
-        usage = getattr(raw, "usage", None)
-        if usage is not None:
-            return {
-                "input_tokens": getattr(usage, "input_tokens", None),
-                "output_tokens": getattr(usage, "output_tokens", None),
-            }
-    return {}
+    """Extract a normalized {input_tokens, output_tokens} dict from a raw response.
+
+    Providers name usage fields differently: Ollama and OpenAI-style raw dicts use
+    prompt_tokens/completion_tokens, Anthropic's usage object uses
+    input_tokens/output_tokens. Both are normalized to the same two keys here.
+    """
+    usage = raw.get("usage") if isinstance(raw, dict) else getattr(raw, "usage", None)
+    if usage is None:
+        return {}
+    if isinstance(usage, dict):
+        return {
+            "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens")),
+            "output_tokens": usage.get("output_tokens", usage.get("completion_tokens")),
+        }
+    return {
+        "input_tokens": getattr(usage, "input_tokens", None),
+        "output_tokens": getattr(usage, "output_tokens", None),
+    }
 
 
 def _extract_token_counts(additional: dict[str, Any], raw: object) -> tuple[int | None, int | None]:
@@ -499,20 +594,25 @@ def _record_token_metrics(
     raw = getattr(chat_response, "raw", None)
     input_tokens, output_tokens = _extract_token_counts(additional, raw)
 
-    if input_tokens is not None and output_tokens is not None:
-        span.set_attribute("gen_ai.usage.input_tokens", int(input_tokens))
-        span.set_attribute("gen_ai.usage.output_tokens", int(output_tokens))
-
-        token_usage.record(input_tokens, {**common_attrs, "gen_ai.token.type": "input"})
-        token_usage.record(output_tokens, {**common_attrs, "gen_ai.token.type": "output"})
-        cost = _calculate_cost(model_name, int(input_tokens), int(output_tokens))
-        cost_counter.add(cost, {**common_attrs, "content.type": content_type, "endpoint": endpoint})
-        span.set_attribute("gen_ai.usage.cost_usd", cost)
-    else:
+    if input_tokens is None and output_tokens is None:
         logger.warning(
             "Token usage unavailable from additional_kwargs -- "
             "token and cost metrics will not be recorded for this call"
         )
+        return
+
+    if input_tokens is not None:
+        span.set_attribute("gen_ai.usage.input_tokens", int(input_tokens))
+        token_usage.record(input_tokens, {**common_attrs, "gen_ai.token.type": "input"})
+    if output_tokens is not None:
+        span.set_attribute("gen_ai.usage.output_tokens", int(output_tokens))
+        token_usage.record(output_tokens, {**common_attrs, "gen_ai.token.type": "output"})
+
+    cost = _calculate_cost(model_name, int(input_tokens or 0), int(output_tokens or 0))
+    cost_counter.add(
+        cost, {**common_attrs, "base14.content.type": content_type, "base14.endpoint": endpoint}
+    )
+    span.set_attribute("base14.gen_ai.cost_usd", cost)
 
 
 _MODEL_DATE_SUFFIX = re.compile(r"-\d{8}$")
@@ -553,6 +653,8 @@ def get_llm_client() -> LLMClient:
         api_key=api_keys.get(settings.llm_provider, ""),
         timeout=settings.llm_timeout,
         ollama_base_url=settings.ollama_base_url,
+        ollama_context_window=settings.ollama_context_window,
+        ollama_reasoning=settings.ollama_reasoning,
     )
     fallback_llm: LLM | None = None
     if settings.fallback_provider and settings.fallback_provider != settings.llm_provider:
@@ -563,6 +665,8 @@ def get_llm_client() -> LLMClient:
             api_key=api_keys.get(settings.fallback_provider, ""),
             timeout=settings.llm_timeout,
             ollama_base_url=settings.ollama_base_url,
+            ollama_context_window=settings.ollama_context_window,
+            ollama_reasoning=settings.ollama_reasoning,
         )
     return LLMClient(
         provider=settings.llm_provider,

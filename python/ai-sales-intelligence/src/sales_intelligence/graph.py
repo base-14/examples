@@ -60,7 +60,7 @@ def create_pipeline(session: AsyncSession) -> Any:
                 span.set_attribute("gen_ai.agent.name", name)
 
                 # === CUSTOM business context ===
-                span.set_attribute("campaign_id", state.campaign_id)
+                span.set_attribute("base14.campaign_id", state.campaign_id)
 
                 if needs_session:
                     result = await agent_fn(state, session)
@@ -68,7 +68,7 @@ def create_pipeline(session: AsyncSession) -> Any:
                     result = await agent_fn(state)
 
                 # Record outcome for debugging
-                span.set_attribute("errors_count", len(result.errors))
+                span.set_attribute("base14.errors_count", len(result.errors))
                 return result
 
         return wrapped
@@ -113,9 +113,9 @@ async def run_pipeline(
         Final pipeline state with all results
     """
     with tracer.start_as_current_span("pipeline.run") as span:
-        span.set_attribute("campaign_id", campaign_id)
-        span.set_attribute("target_keywords", target_keywords)
-        span.set_attribute("target_titles", target_titles)
+        span.set_attribute("base14.campaign_id", campaign_id)
+        span.set_attribute("base14.target_keywords", target_keywords)
+        span.set_attribute("base14.target_titles", target_titles)
 
         initial_state = AgentState(
             campaign_id=campaign_id,
@@ -130,12 +130,12 @@ async def run_pipeline(
 
         final_state = AgentState(**result) if isinstance(result, dict) else result
 
-        span.set_attribute("prospects_found", len(final_state.prospects))
-        span.set_attribute("drafts_generated", len(final_state.drafts))
+        span.set_attribute("base14.prospects_found", len(final_state.prospects))
+        span.set_attribute("base14.drafts_generated", len(final_state.drafts))
         span.set_attribute(
-            "evaluations_passed", sum(1 for e in final_state.evaluations if e.passed)
+            "base14.evaluations_passed", sum(1 for e in final_state.evaluations if e.passed)
         )
-        span.set_attribute("errors_count", len(final_state.errors))
+        span.set_attribute("base14.errors_count", len(final_state.errors))
 
         logger.info(
             "Pipeline completed: %d prospects, %d drafts, %d passed evaluation",

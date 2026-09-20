@@ -7,6 +7,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-ollama}
       SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/support
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/support
       DB_HOST: postgres
@@ -14,37 +15,38 @@ services:
       DB_NAME: support
       DB_USER: postgres
       DB_PASSWORD: postgres
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-      LLM_MODEL_CAPABLE: ${LLM_MODEL_CAPABLE:-gpt-4.1}
-      LLM_MODEL_FAST: ${LLM_MODEL_FAST:-gpt-4.1-mini}
-      FALLBACK_PROVIDER: ${FALLBACK_PROVIDER:-anthropic}
-      FALLBACK_MODEL: ${FALLBACK_MODEL:-claude-haiku-4-5-20251001}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_MODEL_CAPABLE: ${LLM_MODEL_CAPABLE:-qwen3.5:9B}
+      LLM_MODEL_FAST: ${LLM_MODEL_FAST:-qwen3.5:9B}
+      FALLBACK_PROVIDER: ${FALLBACK_PROVIDER:-ollama}
+      FALLBACK_MODEL: ${FALLBACK_MODEL:-qwen3.5:9B}
+      # Defaults to the host's Ollama; use http://ollama:11434 with the ollama compose profile.
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_THINK: ${OLLAMA_THINK:-false}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       DEFAULT_TEMPERATURE: ${DEFAULT_TEMPERATURE:-0.3}
       DEFAULT_MAX_TOKENS: ${DEFAULT_MAX_TOKENS:-1024}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
-      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
-      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
-      PRICING_FILE: /app/pricing.json
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-embeddinggemma}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
       OTEL_SERVICE_NAME: ai-customer-support
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
       OTEL_LOGS_EXPORTER: otlp
+      OTEL_SEMCONV_STABILITY_OPT_IN: gen_ai_latest_experimental
       OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED: "true"
       OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: ${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
       otel-collector:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -78,13 +80,22 @@ services:
     volumes:
       - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     environment:
-      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-}
-      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-}
+      SCOUT_CLIENT_ID: ${SCOUT_CLIENT_ID:-unset}
+      SCOUT_CLIENT_SECRET: ${SCOUT_CLIENT_SECRET:-unset}
       SCOUT_TOKEN_URL: ${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
       SCOUT_ENDPOINT: ${SCOUT_ENDPOINT:-https://collector.base14.io}
       SCOUT_ENVIRONMENT: ${SCOUT_ENVIRONMENT:-development}
     healthcheck:
       test: ["NONE"]
 
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ollama]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   pgdata:
+  ollama_data:

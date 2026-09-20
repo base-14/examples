@@ -5,6 +5,7 @@ use axum::Router;
 use axum::http::{Request, Response, StatusCode};
 use axum::routing::{get, post};
 use opentelemetry::KeyValue;
+use opentelemetry::trace::Status;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tokio::signal;
@@ -14,6 +15,7 @@ use tower_http::{
     trace::{MakeSpan, OnResponse, TraceLayer},
 };
 use tracing::Span;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 mod config;
 mod db;
@@ -46,6 +48,7 @@ impl<B> MakeSpan<B> for HttpMakeSpan {
         tracing::info_span!(
             "HTTP request",
             otel.name = %format!("{} {}", method, path),
+            otel.kind = "server",
             http.method = %method,
             http.route = %path,
             http.target = %request.uri(),
@@ -56,7 +59,6 @@ impl<B> MakeSpan<B> for HttpMakeSpan {
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or(""),
             http.response.status_code = tracing::field::Empty,
-            otel.status_code = tracing::field::Empty,
         )
     }
 }
@@ -68,32 +70,22 @@ impl<B> OnResponse<B> for HttpOnResponse {
     fn on_response(self, response: &Response<B>, latency: Duration, span: &Span) {
         let status = response.status().as_u16();
 
-        span.record("http.response.status_code", status as i64);
+        span.record("http.response.status_code", i64::from(status));
 
-        if status >= 500 {
-            span.record("otel.status_code", "ERROR");
+        if status >= 400 {
+            span.set_status(Status::error(format!("HTTP {status}")));
         } else {
-            span.record("otel.status_code", "OK");
+            span.set_status(Status::Ok);
         }
 
         let latency_ms = latency.as_secs_f64() * 1000.0;
-        let status_class = format!("{}xx", status / 100);
+        let attrs = [
+            KeyValue::new("http.response.status_code", i64::from(status)),
+            KeyValue::new("base14.http.status_class", format!("{}xx", status / 100)),
+        ];
 
-        HTTP_REQUESTS_TOTAL.add(
-            1,
-            &[
-                KeyValue::new("http.status_code", status.to_string()),
-                KeyValue::new("http.status_class", status_class.clone()),
-            ],
-        );
-
-        HTTP_REQUEST_DURATION.record(
-            latency_ms,
-            &[
-                KeyValue::new("http.status_code", status.to_string()),
-                KeyValue::new("http.status_class", status_class),
-            ],
-        );
+        HTTP_REQUESTS_TOTAL.add(1, &attrs);
+        HTTP_REQUEST_DURATION.record(latency_ms, &attrs);
 
         tracing::info!(
             http.response.status_code = status,
@@ -160,6 +152,8 @@ async fn main() -> anyhow::Result<()> {
         primary_provider: config.llm_provider.clone(),
         fallback_provider: config.fallback_provider.clone(),
         fallback_model: config.fallback_model.clone(),
+        ollama_base_url: config.ollama_base_url.clone(),
+        capture_content: config.capture_message_content,
     });
 
     let state = AppState {

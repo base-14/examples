@@ -1,13 +1,12 @@
 """Zero-code LangChain instrumentation via OpenLLMetry (Traceloop).
 
-`opentelemetry-instrumentation-langchain` monkeypatches
-langchain_core.callbacks.BaseCallbackManager.__init__ to auto-inject a callback
-handler — i.e. the same mechanism the custom handler uses, done for you.
+`opentelemetry-instrumentation-langchain` patches
+langchain_core.callbacks.BaseCallbackManager.__init__ to inject its own callback
+handler, the same mechanism the custom handler uses.
 
-NOTE (build-time): the PyPI name `opentelemetry-instrumentation-langchain` is
-Traceloop's package. It ships `opentelemetry-semantic-conventions-ai`, so the
-exact attribute names overlap but are NOT identical to OTel GenAI v1.40.0 —
-verify against captured spans.
+The package ships `opentelemetry-semantic-conventions-ai`, whose attribute names
+overlap with but are not identical to the OTel GenAI conventions. Check the
+captured spans before relying on a name.
 """
 
 import logging

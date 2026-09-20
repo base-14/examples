@@ -7,14 +7,21 @@ import (
 
 	"ai-data-analyst/internal/telemetry"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type mockProvider struct {
 	name      string
+	address   string
+	port      int
 	calls     int
 	failN     int
 	resp      *GenerateResponse
@@ -23,6 +30,10 @@ type mockProvider struct {
 }
 
 func (m *mockProvider) Name() string { return m.name }
+
+func (m *mockProvider) ServerAddress() string { return m.address }
+
+func (m *mockProvider) ServerPort() int { return m.port }
 
 func (m *mockProvider) Generate(_ context.Context, req GenerateRequest) (*GenerateResponse, error) {
 	m.calls++
@@ -33,40 +44,70 @@ func (m *mockProvider) Generate(_ context.Context, req GenerateRequest) (*Genera
 	return m.resp, nil
 }
 
-func newTestClient(t *testing.T, primary, fallback Provider) (*Client, *tracetest.InMemoryExporter) {
+type recorded struct {
+	spans   *tracetest.InMemoryExporter
+	metrics *sdkmetric.ManualReader
+}
+
+// newTestClient wires a client to in-memory span and metric readers, with the
+// retry wait removed so the suite does not sleep.
+func newTestClient(t *testing.T, primary, fallback Provider) (*Client, *recorded) {
 	t.Helper()
+
 	exporter := tracetest.NewInMemoryExporter()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
-	tracer := tp.Tracer("test")
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
 
-	p, err := telemetry.Init(context.Background(), "test", "http://localhost:4318", "test")
-	require.NoError(t, err)
-	metrics, err := telemetry.NewGenAIMetrics(p.Meter)
-	require.NoError(t, err)
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
 
-	primaryName := "openai"
-	fallbackName := ""
-	if primary != nil {
-		primaryName = primary.Name()
-	}
-	if fallback != nil {
-		fallbackName = fallback.Name()
-	}
+	metrics, err := telemetry.NewGenAIMetrics(mp.Meter("test"))
+	require.NoError(t, err)
 
 	fallbackModel := ""
 	if fallback != nil {
 		fallbackModel = "claude-haiku-4-5-20251001"
 	}
 
-	return &Client{
-		Primary:              primary,
-		Fallback:             fallback,
-		Tracer:               tracer,
-		Metrics:              metrics,
-		PrimaryProvider:      primaryName,
-		FallbackProviderName: fallbackName,
-		FallbackModel:        fallbackModel,
-	}, exporter
+	client := &Client{
+		Primary:       primary,
+		Fallback:      fallback,
+		FallbackModel: fallbackModel,
+		Tracer:        tp.Tracer("test"),
+		Metrics:       metrics,
+		Backoff:       &backoff.ZeroBackOff{},
+	}
+	return client, &recorded{spans: exporter, metrics: reader}
+}
+
+func (r *recorded) span(t *testing.T, name string) tracetest.SpanStub {
+	t.Helper()
+	var names []string
+	for _, s := range r.spans.GetSpans() {
+		if s.Name == name {
+			return s
+		}
+		names = append(names, s.Name)
+	}
+	t.Fatalf("span %q not found in %v", name, names)
+	return tracetest.SpanStub{}
+}
+
+func spanAttr(s tracetest.SpanStub, key string) (attribute.Value, bool) {
+	for _, kv := range s.Attributes {
+		if string(kv.Key) == key {
+			return kv.Value, true
+		}
+	}
+	return attribute.Value{}, false
+}
+
+func requireAttr(t *testing.T, s tracetest.SpanStub, key string) attribute.Value {
+	t.Helper()
+	v, ok := spanAttr(s, key)
+	require.True(t, ok, "span %q is missing attribute %q", s.Name, key)
+	return v
 }
 
 func testReq() GenerateRequest {
@@ -80,88 +121,169 @@ func testReq() GenerateRequest {
 	}
 }
 
-func TestGenerateOnceSuccess(t *testing.T) {
-	primary := &mockProvider{
-		name: "openai",
+func openAIMock() *mockProvider {
+	return &mockProvider{
+		name:    "openai",
+		address: "api.openai.com",
+		port:    443,
 		resp: &GenerateResponse{
 			Content:      "Hello!",
 			Model:        "gpt-4.1",
+			ResponseID:   "chatcmpl_test",
 			InputTokens:  10,
 			OutputTokens: 5,
+			FinishReason: "stop",
 		},
 	}
-	client, exporter := newTestClient(t, primary, nil)
-	req := testReq()
+}
 
-	resp, err := client.GenerateOnce(context.Background(), primary, "openai", req)
+func TestChatSpanCarriesGenAIAttributes(t *testing.T) {
+	primary := openAIMock()
+	client, rec := newTestClient(t, primary, nil)
+
+	resp, err := client.Generate(context.Background(), testReq())
 	require.NoError(t, err)
 	assert.Equal(t, "Hello!", resp.Content)
-	assert.Equal(t, "gpt-4.1", resp.Model)
 	assert.Greater(t, resp.CostUSD, 0.0)
 	assert.Equal(t, 1, primary.calls)
 
-	spans := exporter.GetSpans()
-	assert.Len(t, spans, 1)
-	assert.Equal(t, "gen_ai.chat gpt-4.1", spans[0].Name)
+	span := rec.span(t, "chat gpt-4.1")
+	assert.Equal(t, trace.SpanKindClient, span.SpanKind)
+	assert.Equal(t, "chat", requireAttr(t, span, "gen_ai.operation.name").AsString())
+	assert.Equal(t, "openai", requireAttr(t, span, "gen_ai.provider.name").AsString())
+	assert.Equal(t, "gpt-4.1", requireAttr(t, span, "gen_ai.request.model").AsString())
+	assert.Equal(t, "api.openai.com", requireAttr(t, span, "server.address").AsString())
+	assert.Equal(t, int64(443), requireAttr(t, span, "server.port").AsInt64())
+	assert.Equal(t, "gpt-4.1", requireAttr(t, span, "gen_ai.response.model").AsString())
+	assert.Equal(t, "chatcmpl_test", requireAttr(t, span, "gen_ai.response.id").AsString())
+	assert.Equal(t, []string{"stop"}, requireAttr(t, span, "gen_ai.response.finish_reasons").AsStringSlice())
+	assert.Equal(t, int64(10), requireAttr(t, span, "gen_ai.usage.input_tokens").AsInt64())
+	assert.Equal(t, int64(5), requireAttr(t, span, "gen_ai.usage.output_tokens").AsInt64())
+	assert.Equal(t, resp.CostUSD, requireAttr(t, span, "base14.gen_ai.cost_usd").AsFloat64())
+	assert.Equal(t, "generate", requireAttr(t, span, "base14.nlsql.stage").AsString())
 }
 
-func TestGenerateOnceContentCaptureGate(t *testing.T) {
-	run := func(capture bool) *tracetest.InMemoryExporter {
-		primary := &mockProvider{
-			name: "openai",
-			resp: &GenerateResponse{Content: "Hello!", Model: "gpt-4.1", InputTokens: 10, OutputTokens: 5},
-		}
-		client, exporter := newTestClient(t, primary, nil)
+func TestChatSpanUsesGeminiProviderName(t *testing.T) {
+	primary := &mockProvider{
+		name:    "google",
+		address: "generativelanguage.googleapis.com",
+		port:    443,
+		resp:    &GenerateResponse{Content: "Hi", Model: "gemini-2.5-flash-lite"},
+	}
+	client, rec := newTestClient(t, primary, nil)
+
+	req := testReq()
+	req.Model = "gemini-2.5-flash-lite"
+	_, err := client.Generate(context.Background(), req)
+	require.NoError(t, err)
+
+	span := rec.span(t, "chat gemini-2.5-flash-lite")
+	assert.Equal(t, "gcp.gemini", requireAttr(t, span, "gen_ai.provider.name").AsString())
+}
+
+func TestContentCaptureGate(t *testing.T) {
+	run := func(capture bool) *recorded {
+		client, rec := newTestClient(t, openAIMock(), nil)
 		client.CaptureContent = capture
-		_, err := client.GenerateOnce(context.Background(), primary, "openai", testReq())
+		_, err := client.Generate(context.Background(), testReq())
 		require.NoError(t, err)
-		return exporter
+		return rec
 	}
 
-	hasContent := func(exporter *tracetest.InMemoryExporter) bool {
-		for _, span := range exporter.GetSpans() {
-			for _, ev := range span.Events {
-				for _, kv := range ev.Attributes {
-					switch string(kv.Key) {
-					case "gen_ai.input.messages", "gen_ai.output.messages", "gen_ai.system_instructions":
-						return true
-					}
-				}
-			}
-		}
-		return false
-	}
-
-	t.Run("off omits prompt and completion content", func(t *testing.T) {
-		assert.False(t, hasContent(run(false)), "content must not be recorded when capture is off")
+	t.Run("off omits the inference event", func(t *testing.T) {
+		span := run(false).span(t, "chat gpt-4.1")
+		assert.Empty(t, span.Events, "no event is recorded when capture is off")
 	})
 
-	t.Run("on records prompt and completion content", func(t *testing.T) {
-		assert.True(t, hasContent(run(true)), "content must be recorded when capture is on")
+	t.Run("on records one inference event", func(t *testing.T) {
+		span := run(true).span(t, "chat gpt-4.1")
+		require.Len(t, span.Events, 1)
+		event := span.Events[0]
+		assert.Equal(t, "gen_ai.client.inference.operation.details", event.Name)
+
+		attrs := map[string]string{}
+		for _, kv := range event.Attributes {
+			attrs[string(kv.Key)] = kv.Value.AsString()
+		}
+		assert.Equal(t, "Say hello", attrs["gen_ai.input.messages"])
+		assert.Equal(t, "You are a test assistant.", attrs["gen_ai.system_instructions"])
+		assert.Equal(t, "Hello!", attrs["gen_ai.output.messages"])
 	})
 }
 
-func TestGenerateWithRetrySuccess(t *testing.T) {
+func TestContentEventOmitsEmptySystemInstructions(t *testing.T) {
+	client, rec := newTestClient(t, openAIMock(), nil)
+	client.CaptureContent = true
+
+	req := testReq()
+	req.System = ""
+	_, err := client.Generate(context.Background(), req)
+	require.NoError(t, err)
+
+	span := rec.span(t, "chat gpt-4.1")
+	require.Len(t, span.Events, 1)
+	for _, kv := range span.Events[0].Attributes {
+		assert.NotEqual(t, "gen_ai.system_instructions", string(kv.Key))
+	}
+}
+
+func TestContentEventScrubsPII(t *testing.T) {
+	primary := openAIMock()
+	primary.resp.Content = "Contact ops@example.com or call 415-555-0100"
+	client, rec := newTestClient(t, primary, nil)
+	client.CaptureContent = true
+
+	req := testReq()
+	req.Prompt = "My card is 4111 1111 1111 1111"
+	_, err := client.Generate(context.Background(), req)
+	require.NoError(t, err)
+
+	span := rec.span(t, "chat gpt-4.1")
+	require.Len(t, span.Events, 1)
+	attrs := map[string]string{}
+	for _, kv := range span.Events[0].Attributes {
+		attrs[string(kv.Key)] = kv.Value.AsString()
+	}
+	assert.Equal(t, "My card is [CARD]", attrs["gen_ai.input.messages"])
+	assert.Equal(t, "Contact [EMAIL] or call [PHONE]", attrs["gen_ai.output.messages"])
+}
+
+func TestFailedChatRecordsErrorOnSpan(t *testing.T) {
 	primary := &mockProvider{
 		name:    "openai",
-		failN:   2,
-		failErr: errors.New("rate limit"),
-		resp: &GenerateResponse{
-			Content:      "Hello!",
-			Model:        "gpt-4.1",
-			InputTokens:  10,
-			OutputTokens: 5,
-		},
+		address: "api.openai.com",
+		port:    443,
+		failN:   10,
+		failErr: errors.New("503 service unavailable"),
 	}
-	client, _ := newTestClient(t, primary, nil)
+	client, rec := newTestClient(t, primary, nil)
 
-	resp, err := client.GenerateWithRetry(context.Background(), primary, "openai", testReq())
+	_, err := client.Generate(context.Background(), testReq())
+	require.Error(t, err)
+
+	span := rec.span(t, "chat gpt-4.1")
+	assert.Equal(t, codes.Error, span.Status.Code)
+	assert.Equal(t, "server_error", requireAttr(t, span, "error.type").AsString())
+	require.Len(t, span.Events, 1)
+	assert.Equal(t, "exception", span.Events[0].Name)
+}
+
+func TestRetrySucceedsWithinOneSpan(t *testing.T) {
+	primary := openAIMock()
+	primary.failN = 2
+	primary.failErr = errors.New("rate limit")
+	client, rec := newTestClient(t, primary, nil)
+
+	resp, err := client.Generate(context.Background(), testReq())
 	require.NoError(t, err)
 	assert.Equal(t, "Hello!", resp.Content)
 	assert.Equal(t, 3, primary.calls)
+
+	span := rec.span(t, "chat gpt-4.1")
+	assert.NotEqual(t, codes.Error, span.Status.Code, "a retried call that succeeds is not an error")
 }
 
-func TestGenerateWithRetryAllFail(t *testing.T) {
+func TestRetryStopsAfterThreeAttempts(t *testing.T) {
 	primary := &mockProvider{
 		name:    "openai",
 		failN:   10,
@@ -169,19 +291,21 @@ func TestGenerateWithRetryAllFail(t *testing.T) {
 	}
 	client, _ := newTestClient(t, primary, nil)
 
-	_, err := client.GenerateWithRetry(context.Background(), primary, "openai", testReq())
+	_, err := client.Generate(context.Background(), testReq())
 	assert.Error(t, err)
 	assert.Equal(t, 3, primary.calls)
 }
 
-func TestGenerateWithFallback(t *testing.T) {
+func TestFallbackSwitchesProviderAndModel(t *testing.T) {
 	primary := &mockProvider{
 		name:    "openai",
 		failN:   10,
 		failErr: errors.New("primary down"),
 	}
 	fallback := &mockProvider{
-		name: "anthropic",
+		name:    "anthropic",
+		address: "api.anthropic.com",
+		port:    443,
 		resp: &GenerateResponse{
 			Content:      "Fallback response",
 			Model:        "claude-haiku-4-5-20251001",
@@ -196,7 +320,26 @@ func TestGenerateWithFallback(t *testing.T) {
 	assert.Equal(t, "Fallback response", resp.Content)
 	assert.Equal(t, 3, primary.calls)
 	assert.Equal(t, 1, fallback.calls)
-	assert.Equal(t, "claude-haiku-4-5-20251001", fallback.lastModel, "fallback should use FallbackModel, not the primary model")
+	assert.Equal(t, "claude-haiku-4-5-20251001", fallback.lastModel)
+}
+
+func TestFallbackToTheSameProviderIsSkipped(t *testing.T) {
+	primary := &mockProvider{name: "ollama", failN: 10, failErr: errors.New("primary down")}
+	fallback := &mockProvider{name: "ollama", resp: &GenerateResponse{Content: "never used"}}
+	client, _ := newTestClient(t, primary, fallback)
+
+	_, err := client.Generate(context.Background(), testReq())
+	require.Error(t, err)
+	assert.Equal(t, 0, fallback.calls, "switching to the same provider is not a fallback")
+}
+
+func TestGenerateWithoutFallbackReturnsError(t *testing.T) {
+	primary := &mockProvider{name: "openai", failN: 10, failErr: errors.New("always fails")}
+	client, _ := newTestClient(t, primary, nil)
+
+	_, err := client.Generate(context.Background(), testReq())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed after 3 attempts")
 }
 
 func TestClassifyError(t *testing.T) {
@@ -222,6 +365,7 @@ func TestClassifyError(t *testing.T) {
 		{"connection refused", errors.New("dial tcp: connect refused"), "network_error"},
 		{"dns failure", errors.New("dns resolution failed"), "network_error"},
 		{"connection reset", errors.New("connection reset by peer"), "network_error"},
+		{"context canceled", errors.New("provider ollama failed after 3 attempts: context canceled"), "canceled"},
 		{"unknown error", errors.New("something unexpected"), "unknown_error"},
 		{"nil error", nil, "unknown_error"},
 	}
@@ -231,17 +375,4 @@ func TestClassifyError(t *testing.T) {
 			assert.Equal(t, tt.expected, classifyError(tt.err))
 		})
 	}
-}
-
-func TestGenerateNoFallbackReturnsError(t *testing.T) {
-	primary := &mockProvider{
-		name:    "openai",
-		failN:   10,
-		failErr: errors.New("always fails"),
-	}
-	client, _ := newTestClient(t, primary, nil)
-
-	_, err := client.Generate(context.Background(), testReq())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "primary provider")
 }

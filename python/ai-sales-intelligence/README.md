@@ -21,17 +21,20 @@ AI-powered sales intelligence agent demonstrating **unified observability** for 
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and `OTEL_ENABLED=true` as in
    `compose.yaml` (`.env.example` uses `http://localhost:4318` for local runs).
 
-This example adds `gen_ai.chat {model}` spans with GenAI semantic convention attributes,
-token usage, duration, cost, retry and fallback metrics from `src/sales_intelligence/llm.py`, PII-scrubbed prompt and
-completion events, and custom HTTP request metrics from `src/sales_intelligence/middleware/metrics.py`. The full
-guide is
+This example adds `chat {model}` CLIENT spans with GenAI semantic convention attributes,
+token usage, duration, cost, retry and fallback metrics from `src/sales_intelligence/llm.py`, a
+`retrieval prospects_fts` span around the Postgres full-text search in
+`src/sales_intelligence/agents/research.py`, and custom HTTP request metrics from
+`src/sales_intelligence/middleware/metrics.py`. Prompt and completion content is recorded on a
+`gen_ai.client.inference.operation.details` event only when
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`. The full guide is
 [LangGraph OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/langgraph/).
 
 ## Why Unified Observability?
 
 Modern AI applications combine traditional infrastructure (HTTP, databases) with AI/LLM operations. Most teams use **fragmented tools**:
 
-```
+```text
 Fragmented Observability (The Problem)
 ┌─────────────────────────────────────────────────────────────────┐
 │  Datadog/New Relic     LangSmith/W&B        Custom Dashboards   │
@@ -50,22 +53,23 @@ Fragmented Observability (The Problem)
 
 This project demonstrates **unified observability** where a single trace spans the entire request:
 
-```
+```text
 Unified Observability (The Solution)
 ┌─────────────────────────────────────────────────────────────────┐
 │  POST /campaigns/{id}/run                              8.42s    │
 │  │                                                              │
 │  ├─● db.query SELECT connections                       12ms     │
 │  ├─▼ invoke_agent research                             0.18s    │
-│  │  └─● db.query SELECT (FTS)                          15ms     │
+│  │  └─▼ retrieval prospects_fts                        16ms     │
+│  │     └─● db.query SELECT (FTS)                       15ms     │
 │  ├─▼ invoke_agent enrich                               2.14s    │
-│  │  └─● gen_ai.chat claude-sonnet-4 (1240 tokens)      0.89s    │
+│  │  └─● chat qwen3.5:9B (1240 tokens)                 0.89s    │
 │  ├─▼ invoke_agent score                                1.82s    │
-│  │  └─● gen_ai.chat claude-opus-4 (2550 tokens)        1.82s    │
+│  │  └─● chat qwen3.5:9B (2550 tokens)                 1.82s    │
 │  ├─▼ invoke_agent draft                                3.21s    │
-│  │  └─● gen_ai.chat claude-sonnet-4 (5390 tokens)      3.21s    │
+│  │  └─● chat qwen3.5:9B (5390 tokens)                 3.21s    │
 │  ├─▼ invoke_agent evaluate                             1.07s    │
-│  │  ├─● gen_ai.chat claude-sonnet-4 (1200 tokens)      0.98s    │
+│  │  ├─● chat qwen3.5:9B (1200 tokens)                 0.98s    │
 │  │  └─◆ gen_ai.evaluation.result: score=87, passed              │
 │  └─● db.query INSERT prospects                         8ms      │
 │                                                                  │
@@ -80,11 +84,11 @@ Unified Observability (The Solution)
 | Component | Technology | Version |
 |-----------|------------|---------|
 | Runtime | Python | 3.14 |
-| Web Framework | FastAPI | 0.128+ |
-| Agent Framework | LangGraph | 1.0.6+ |
-| LLM Providers | Anthropic, Google, OpenAI | Latest |
+| Web Framework | FastAPI | 0.141.1 |
+| Agent Framework | LangGraph | 1.2.11 |
+| LLM Providers | Ollama, Anthropic, Gemini, OpenAI | Latest |
 | Database | PostgreSQL | 18 |
-| Observability | OpenTelemetry SDK | 1.39+ |
+| Observability | OpenTelemetry SDK | 1.44.0 |
 | Observability Backend | Base14 Scout | - |
 
 ## What's Instrumented
@@ -102,23 +106,26 @@ Unified Observability (The Solution)
 ### Auto vs Custom Instrumentation
 
 **Auto-instrumentation** (zero code changes):
-- Handled by OpenTelemetry instrumentors
-- Captures HTTP, DB, external calls automatically
-- Great for infrastructure visibility
+
+- Handled by OpenTelemetry instrumentors.
+- Captures HTTP, DB, external calls automatically.
+- Provides infrastructure visibility.
 
 **Custom instrumentation** (in this project):
-- Required because auto-instrumentation doesn't understand LLM semantics
-- Adds GenAI-specific attributes (model, tokens, cost, provider)
-- Enables business context (agent name, campaign ID for attribution)
-- Records GenAI metrics for dashboards and alerts
+
+- Required because auto-instrumentation doesn't understand LLM semantics.
+- Adds GenAI-specific attributes (model, tokens, cost, provider).
+- Enables business context (`gen_ai.agent.name`, `base14.campaign_id` for attribution).
+- Records GenAI metrics for dashboards and alerts.
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.14+
-- Docker & Docker Compose
-- API keys for at least one LLM provider
+- Python 3.14+.
+- Docker & Docker Compose.
+- Ollama running locally, or an API key for one of the hosted providers.
+- A `--profile ollama` Compose service is also available; set `OLLAMA_BASE_URL=http://ollama:11434` in `.env` to use it instead of the host install.
 
 ### Setup
 
@@ -131,7 +138,7 @@ make dev
 
 # Copy and configure environment
 cp .env.example .env
-# Edit .env with your API keys
+# The defaults run against a local Ollama, so no API key is needed
 
 # Start PostgreSQL and OTel Collector
 docker compose up -d
@@ -171,33 +178,41 @@ curl -X POST http://localhost:8000/campaigns/{id}/run \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LLM_PROVIDER` | Primary LLM provider (`anthropic`, `google`, `openai`, `ollama`) | `google` |
-| `LLM_MODEL_CAPABLE` | Model for enrich + draft (complex tasks) | `gemini-2.5-pro` |
-| `LLM_MODEL_FAST` | Model for score + evaluate (simple tasks) | `gemini-2.5-flash` |
-| `FALLBACK_PROVIDER` | Fallback provider on errors | `anthropic` |
-| `FALLBACK_MODEL` | Fallback model name | `claude-haiku-4-5-20251001` |
-| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
+| `LLM_PROVIDER` | Primary LLM provider (`ollama`, `anthropic`, `google`, `openai`) | `ollama` |
+| `LLM_MODEL_CAPABLE` | Model for enrich + draft (complex tasks) | `qwen3.5:9B` |
+| `LLM_MODEL_FAST` | Model for score + evaluate (simple tasks) | `qwen3.5:9B` |
+| `FALLBACK_PROVIDER` | Fallback provider on errors | `ollama` |
+| `FALLBACK_MODEL` | Fallback model name | `qwen3.5:9B` |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://host.docker.internal:11434` |
 | `ANTHROPIC_API_KEY` | Anthropic API key | - |
-| `GOOGLE_API_KEY` | Google AI API key | - |
+| `GOOGLE_API_KEY` | Gemini API key, used when `LLM_PROVIDER=google` | - |
 | `OPENAI_API_KEY` | OpenAI API key | - |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://...` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTel Collector endpoint | `http://localhost:4318` |
 | `OTEL_SERVICE_NAME` | Service name in traces | `ai-sales-intelligence` |
 | `SCOUT_ENVIRONMENT` | Deployment environment tag | `development` |
 | `OTEL_ENABLED` | Enable/disable telemetry | `true` |
+| `OTEL_SEMCONV_STABILITY_OPT_IN` | Opt in to the latest GenAI attribute names | `gen_ai_latest_experimental` |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Record prompt and completion content on the inference event | `false` |
 | `PROMPTS_CONFIG_PATH` | Custom path to prompts.yaml | `config/prompts.yaml` |
+
+The provider value `google` selects Gemini. Telemetry reports it as `gcp.gemini`, the semantic convention name.
 
 ### Supported Models
 
 | Provider | Models | Pricing (per 1M tokens) |
 |----------|--------|-------------------------|
-| Anthropic | `claude-opus-4-20250514`, `claude-sonnet-4-20250514` | $15/$75, $3/$15 |
-| Google | `gemini-3-flash`, `gemini-3-pro-preview` | $0.50/$3, $2/$12 |
-| OpenAI | `gpt-4o`, `gpt-4o-mini`, `o1` | $2.50/$10, $0.15/$0.60, $15/$60 |
+| Ollama | `qwen3.5:9B` | local, no cost |
+| Anthropic | `claude-sonnet-4.6`, `claude-sonnet-4.5` | $3/$15, $3/$15 |
+| Gemini | `gemini-3.7-flash`, `gemini-3.1-pro-preview` | $0.75/$3.75, $2/$12 |
+| OpenAI | `gpt-4.1`, `gpt-4.1-mini` | $2/$8, $0.40/$1.60 |
+
+Prices come from `_shared/pricing.json`, which the client loads at startup. A model that is
+not in that file costs $0.00 rather than raising an error.
 
 ## Project Structure
 
-```
+```text
 ├── config/
 │   └── prompts.yaml     # Externalized prompts & company context
 ├── src/sales_intelligence/
@@ -208,8 +223,10 @@ curl -X POST http://localhost:8000/campaigns/{id}/run \
 │   │   ├── draft.py     # Email generation
 │   │   └── evaluate.py  # Quality evaluation ⭐
 │   ├── middleware/
-│   │   └── metrics.py   # HTTP request metrics ⭐
+│   │   ├── metrics.py   # HTTP request metrics ⭐
+│   │   └── span_status.py  # ERROR status on 4xx and 5xx server spans ⭐
 │   ├── config.py        # Pydantic settings
+│   ├── errors.py        # Unhandled exception handler ⭐
 │   ├── database.py      # Async SQLAlchemy
 │   ├── models.py        # ORM models
 │   ├── state.py         # Pydantic agent state
@@ -241,10 +258,11 @@ company:
 ```
 
 These values are automatically interpolated into email drafts:
-- `{company_name}` → Your Company
-- `{product_name}` → Your Product
-- `{value_proposition}` → your unique value proposition
-- `{sender_name}` → Jane Smith
+
+- `{company_name}` → Your Company.
+- `{product_name}` → Your Product.
+- `{value_proposition}` → your unique value proposition.
+- `{sender_name}` → Jane Smith.
 
 ### Prompt Templates
 
@@ -293,7 +311,7 @@ span.set_attribute("gen_ai.operation.name", "chat")
 span.set_attribute("gen_ai.provider.name", "anthropic")
 
 # Recommended
-span.set_attribute("gen_ai.request.model", "claude-sonnet-4-20250514")
+span.set_attribute("gen_ai.request.model", "claude-sonnet-4-6")
 span.set_attribute("gen_ai.usage.input_tokens", 1240)
 span.set_attribute("gen_ai.usage.output_tokens", 320)
 span.set_attribute("server.address", "api.anthropic.com")
@@ -305,12 +323,28 @@ span.set_attribute("server.address", "api.anthropic.com")
 |--------|------|-------------|
 | `gen_ai.client.token.usage` | Histogram | Tokens per call (input/output) |
 | `gen_ai.client.operation.duration` | Histogram | LLM call duration |
-| `gen_ai.client.cost` | Counter | Cost in USD |
-| `gen_ai.evaluation.score` | Histogram | Quality scores (0-1) |
+| `base14.gen_ai.cost` | Counter | Cost in USD |
+| `base14.gen_ai.retry.count` | Counter | Retry attempts, excluding the initial attempt |
+| `base14.gen_ai.fallback.count` | Counter | Provider switches |
+| `base14.gen_ai.error.count` | Counter | Errors by provider and type |
+| `base14.gen_ai.evaluation.score` | Histogram | Quality scores (0-1) |
 
 ### Events
 
+One `gen_ai.client.inference.operation.details` event per LLM call carries the prompt and
+completion. It replaces the two per-message events the semconv removed, and it is emitted
+only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`.
+Content is PII-scrubbed and truncated: 1000 characters for the input, 500 for the system
+instructions, 2000 for the output.
+
 ```python
+# Inference content, gated on the capture env var
+span.add_event("gen_ai.client.inference.operation.details", {
+    "gen_ai.input.messages": scrubbed_prompt,
+    "gen_ai.system_instructions": scrubbed_system,
+    "gen_ai.output.messages": scrubbed_completion,
+})
+
 # Evaluation results
 span.add_event("gen_ai.evaluation.result", {
     "gen_ai.evaluation.name": "email_quality",
@@ -318,6 +352,14 @@ span.add_event("gen_ai.evaluation.result", {
     "gen_ai.evaluation.score.label": "passed",
 })
 ```
+
+### Error Handling
+
+A failed chat span records the exception, sets `error.type` and sets status ERROR. When the
+primary provider fails after its retries, the calling span gets a `provider_fallback` event and
+`gen_ai.fallback.triggered=true`, and is not marked ERROR if the fallback succeeds. Unhandled
+route errors are recorded on the active span by `src/sales_intelligence/errors.py`, and HTTP
+server spans are marked ERROR from status 400 up.
 
 ## Development
 
@@ -343,33 +385,36 @@ make audit
 ### No traces appearing in Scout
 
 1. **Check OTel Collector is running:**
+
    ```bash
    docker compose ps
    curl http://localhost:4318/v1/traces  # Should return 405
    ```
 
 2. **Check zpages for debugging:**
+
    ```bash
    # Open http://localhost:55679/debug/tracez
    ```
 
 3. **Verify OTEL_ENABLED is not false:**
+
    ```bash
    echo $OTEL_ENABLED  # Should be "true" or unset
    ```
 
 ### LLM calls failing
 
-1. **Check API key is set:**
+1. **Check Ollama is reachable:**
+
    ```bash
-   echo $ANTHROPIC_API_KEY  # Should not be empty
+   curl http://localhost:11434/api/tags
    ```
 
-2. **Try fallback provider:**
-   ```python
-   # Set in .env
-   LLM_PROVIDER=google
-   LLM_MODEL=gemini-3-flash
+2. **Check the API key when using a hosted provider:**
+
+   ```bash
+   echo $ANTHROPIC_API_KEY  # Should not be empty
    ```
 
 3. **Check rate limits:** The client has automatic retry with exponential backoff (3 attempts).
@@ -377,12 +422,14 @@ make audit
 ### Database connection issues
 
 1. **Check PostgreSQL is running:**
+
    ```bash
    docker compose ps
    docker compose logs postgres
    ```
 
 2. **Check database connectivity:**
+
    ```bash
    docker compose exec postgres psql -U postgres -c "SELECT 1;"
    ```
@@ -390,16 +437,19 @@ make audit
 ### High token costs
 
 1. **Check cost metrics in Scout:**
-   ```
-   sum(gen_ai.client.cost) by (gen_ai.agent.name)
+
+   ```text
+   sum(base14.gen_ai.cost) by (gen_ai.agent.name)
    ```
 
 2. **Review which agent is expensive:** Usually `draft` or `score` agents use the most tokens.
 
 3. **Consider using cheaper models:**
+
    ```bash
-   # Use Gemini Flash for drafting
-   LLM_MODEL=gemini-3-flash
+   # Run everything on the local Ollama
+   LLM_PROVIDER=ollama
+   LLM_MODEL_CAPABLE=qwen3.5:9B
    ```
 
 ## References

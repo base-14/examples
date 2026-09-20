@@ -3,5 +3,7 @@ ai-data-analyst
 *.test
 *.out
 .env
+.env.*
+!.env.example
 vendor/
 tmp/

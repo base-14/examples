@@ -1,28 +1,42 @@
-"""Token → USD cost calculation with a small pricing table.
+"""Token to USD cost, priced from the shared pricing table.
 
-Pricing is USD per 1M tokens. Re-verify rates at build time. Unknown models
-return 0.0 (cost is best-effort; never raises).
+Rates in `_shared/pricing.json` are USD per 1M tokens. Providers return dated
+snapshot ids and dash-minor ids; both normalise to the file's keys. Unknown
+models cost 0.0, so cost is always a number and never raises.
 """
 
+import json
 import re
+from pathlib import Path
 
 
-PRICING: dict[str, tuple[float, float]] = {
-    "claude-sonnet-4-6": (3.0, 15.0),
-    "claude-opus-4-8": (5.0, 25.0),
-    "claude-haiku-4-5": (1.0, 5.0),
-    "gpt-4o": (2.5, 10.0),
-    "gpt-4o-mini": (0.15, 0.6),
-    "gemini-2.5-pro": (1.25, 10.0),
-    "gemini-2.5-flash": (0.30, 2.5),
-}
+def _load_pricing() -> dict[str, tuple[float, float]]:
+    this_file = Path(__file__)
+    for depth in (4, 2):
+        if depth < len(this_file.parents):
+            candidate = this_file.parents[depth] / "_shared" / "pricing.json"
+            if candidate.exists():
+                with candidate.open() as f:
+                    data = json.load(f)
+                return {
+                    model: (float(info["input"]), float(info["output"]))
+                    for model, info in data["models"].items()
+                }
+    raise FileNotFoundError(
+        "pricing.json not found. Ensure _shared/pricing.json exists at the repo root "
+        "and _shared/ is mounted into the container."
+    )
 
-_DATE_SUFFIX = re.compile(r"-\d{8}$")
+
+PRICING: dict[str, tuple[float, float]] = _load_pricing()
+
+_DATE_SUFFIX = re.compile(r"-\d{4}-\d{2}-\d{2}$|-\d{8}$")
+_MINOR_VERSION = re.compile(r"-(\d+)-(\d+)$")
 
 
 def _normalize(model: str) -> str:
-    """Strip a trailing dated suffix (claude-sonnet-4-6-20260101)."""
-    return _DATE_SUFFIX.sub("", model)
+    """Map a dated or dash-minor model id onto its pricing key."""
+    return _MINOR_VERSION.sub(r"-\1.\2", _DATE_SUFFIX.sub("", model))
 
 
 def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:

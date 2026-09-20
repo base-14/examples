@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"ai-data-analyst/internal/db"
+	"ai-data-analyst/internal/telemetry"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -23,32 +23,27 @@ func Execute(ctx context.Context, tracer trace.Tracer, q db.Querier, sql string)
 	ctx, span := tracer.Start(ctx, "pipeline_stage execute")
 	defer span.End()
 
-	span.SetAttributes(
-		attribute.String("nlsql.stage", "execute"),
-		attribute.String("db.system", "postgresql"),
-		attribute.String("db.statement", sql),
-		attribute.String("db.operation", "SELECT"),
-	)
+	// The otelpgx span this stage wraps owns the database attributes.
+	span.SetAttributes(attribute.String("base14.nlsql.stage", "execute"))
 
 	start := time.Now()
 
 	// Set read-only transaction and statement timeout
 	_, err := q.Exec(ctx, "SET TRANSACTION READ ONLY")
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, fmt.Sprintf("%T", err))
 		return nil, fmt.Errorf("failed to set read-only transaction: %w", err)
 	}
 
 	_, err = q.Exec(ctx, "SET LOCAL statement_timeout = '10s'")
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, fmt.Sprintf("%T", err))
 		return nil, fmt.Errorf("failed to set statement timeout: %w", err)
 	}
 
 	rows, err := q.Query(ctx, sql)
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
-		span.SetAttributes(attribute.String("error.type", fmt.Sprintf("%T", err)))
+		telemetry.RecordError(span, err, fmt.Sprintf("%T", err))
 		return nil, fmt.Errorf("query execution failed: %w", err)
 	}
 	defer rows.Close()
@@ -65,7 +60,7 @@ func Execute(ctx context.Context, tracer trace.Tracer, q db.Querier, sql string)
 	for rows.Next() {
 		values, err := rows.Values()
 		if err != nil {
-			span.SetStatus(codes.Error, err.Error())
+			telemetry.RecordError(span, err, fmt.Sprintf("%T", err))
 			return nil, fmt.Errorf("row scan failed: %w", err)
 		}
 
@@ -78,7 +73,7 @@ func Execute(ctx context.Context, tracer trace.Tracer, q db.Querier, sql string)
 	}
 
 	if err := rows.Err(); err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, fmt.Sprintf("%T", err))
 		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 
@@ -91,9 +86,9 @@ func Execute(ctx context.Context, tracer trace.Tracer, q db.Querier, sql string)
 	}
 
 	span.SetAttributes(
-		attribute.Int("nlsql.row_count", result.RowCount),
-		attribute.Int("nlsql.column_count", len(columns)),
-		attribute.Int("nlsql.execution_ms", int(duration.Milliseconds())),
+		attribute.Int("base14.nlsql.row_count", result.RowCount),
+		attribute.Int("base14.nlsql.column_count", len(columns)),
+		attribute.Int("base14.nlsql.execution_ms", int(duration.Milliseconds())),
 	)
 
 	return result, nil

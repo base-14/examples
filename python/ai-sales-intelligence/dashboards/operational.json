@@ -116,7 +116,7 @@
         "overrides": []
       },
       "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) $conditionalTest(AND Attributes['gen_ai.provider.name'] IN (${provider:singlequote}), $provider)", "refId": "A", "format": "time_series"}]
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.cost' $conditionalTest(AND Attributes['gen_ai.request.model'] IN (${model:singlequote}), $model) $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent) $conditionalTest(AND Attributes['gen_ai.provider.name'] IN (${provider:singlequote}), $provider)", "refId": "A", "format": "time_series"}]
     },
     {
       "id": 11,
@@ -128,7 +128,7 @@
         "overrides": []
       },
       "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "SELECT (argMax(c.Value, c.TimeUnix) - argMin(c.Value, c.TimeUnix)) / nullIf(argMax(r.Value, r.TimeUnix) - argMin(r.Value, r.TimeUnix), 0) as avg_cost FROM infraspec.otel_metrics_sum c INNER JOIN infraspec.otel_metrics_sum r ON c.ServiceName = r.ServiceName WHERE c.TimeUnix >= $from AND c.TimeUnix <= $to AND c.ServiceName LIKE 'ai%' AND c.MetricName = 'gen_ai.client.cost' AND r.TimeUnix >= $from AND r.TimeUnix <= $to AND r.ServiceName LIKE 'ai%' AND r.MetricName = 'gen_ai.client.operation.duration'", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT (argMax(c.Value, c.TimeUnix) - argMin(c.Value, c.TimeUnix)) / nullIf(argMax(r.Value, r.TimeUnix) - argMin(r.Value, r.TimeUnix), 0) as avg_cost FROM infraspec.otel_metrics_sum c INNER JOIN infraspec.otel_metrics_sum r ON c.ServiceName = r.ServiceName WHERE c.TimeUnix >= $from AND c.TimeUnix <= $to AND c.ServiceName LIKE 'ai%' AND c.MetricName = 'base14.gen_ai.cost' AND r.TimeUnix >= $from AND r.TimeUnix <= $to AND r.ServiceName LIKE 'ai%' AND r.MetricName = 'gen_ai.client.operation.duration'", "refId": "A", "format": "table"}]
     },
     {
       "id": 12,
@@ -140,7 +140,7 @@
         "overrides": []
       },
       "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "SELECT (argMax(Value, TimeUnix) - argMin(Value, TimeUnix)) / nullIf(toFloat64(max(TimeUnix) - min(TimeUnix)), 0) * 86400 as daily_rate FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost'", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT (argMax(Value, TimeUnix) - argMin(Value, TimeUnix)) / nullIf(toFloat64(max(TimeUnix) - min(TimeUnix)), 0) * 86400 as daily_rate FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.cost'", "refId": "A", "format": "table"}]
     },
     {
       "id": 13,
@@ -152,7 +152,7 @@
         "overrides": []
       },
       "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(t.total_tokens, 0) * 1000 as cost_per_1k FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost') c, (SELECT sum(Sum) as total_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage') t", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(t.total_tokens, 0) * 1000 as cost_per_1k FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.cost') c, (SELECT sum(Sum) as total_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.token.usage') t", "refId": "A", "format": "table"}]
     },
     {
       "id": 14,
@@ -161,7 +161,7 @@
       "gridPos": {"h": 8, "w": 8, "x": 0, "y": 18},
       "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []},
       "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "donut", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
-      "targets": [{"rawSql": "SELECT Attributes['gen_ai.request.model'] as model, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' GROUP BY model ORDER BY cost DESC", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.request.model'] as model, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.cost' GROUP BY model ORDER BY cost DESC", "refId": "A", "format": "table"}]
     },
     {
       "id": 15,
@@ -170,7 +170,7 @@
       "gridPos": {"h": 8, "w": 8, "x": 8, "y": 18},
       "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []},
       "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "pieType": "donut", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "tooltip": {"mode": "single"}},
-      "targets": [{"rawSql": "SELECT Attributes['gen_ai.agent.name'] as agent, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' GROUP BY agent ORDER BY cost DESC", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.agent.name'] as agent, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.cost' GROUP BY agent ORDER BY cost DESC", "refId": "A", "format": "table"}]
     },
     {
       "id": 16,
@@ -179,11 +179,11 @@
       "gridPos": {"h": 8, "w": 8, "x": 16, "y": 18},
       "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 30, "lineWidth": 2, "stacking": {"mode": "normal"}}, "unit": "currencyUSD"}, "overrides": [
         {"matcher": {"id": "byName", "options": "anthropic"}, "properties": [{"id": "color", "value": {"fixedColor": "#D97706", "mode": "fixed"}}]},
-        {"matcher": {"id": "byName", "options": "google"}, "properties": [{"id": "color", "value": {"fixedColor": "#4285F4", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "gcp.gemini"}, "properties": [{"id": "color", "value": {"fixedColor": "#4285F4", "mode": "fixed"}}]},
         {"matcher": {"id": "byName", "options": "openai"}, "properties": [{"id": "color", "value": {"fixedColor": "#10A37F", "mode": "fixed"}}]}
       ]},
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
-      "targets": [{"rawSql": "$increaseColumns(Attributes['gen_ai.provider.name'] as provider, Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.cost' $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent)", "refId": "A", "format": "time_series"}]
+      "targets": [{"rawSql": "$increaseColumns(Attributes['gen_ai.provider.name'] as provider, Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.cost' $conditionalTest(AND Attributes['gen_ai.agent.name'] IN (${agent:singlequote}), $agent)", "refId": "A", "format": "time_series"}]
     },
     {
       "collapsed": false,
@@ -364,7 +364,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 0, "y": 62},
       "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "red"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.error.count'", "refId": "A", "format": "time_series"}]
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.error.count'", "refId": "A", "format": "time_series"}]
     },
     {
       "id": 35,
@@ -373,7 +373,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 6, "y": 62},
       "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "yellow"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.retry.count'", "refId": "A", "format": "time_series"}]
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.retry.count'", "refId": "A", "format": "time_series"}]
     },
     {
       "id": 36,
@@ -382,7 +382,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 12, "y": 62},
       "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "orange"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.fallback.count'", "refId": "A", "format": "time_series"}]
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.fallback.count'", "refId": "A", "format": "time_series"}]
     },
     {
       "id": 37,
@@ -391,7 +391,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 18, "y": 62},
       "fieldConfig": {"defaults": {"unit": "short", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "SELECT r.retries / nullIf(d.ops, 0) as avg_retries FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as retries FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'gen_ai.client.retry.count') r, (SELECT count() as ops FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'gen_ai.chat%') d", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT r.retries / nullIf(d.ops, 0) as avg_retries FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as retries FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName LIKE 'ai%' AND MetricName = 'base14.gen_ai.retry.count') r, (SELECT count() as ops FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName LIKE 'ai%' AND SpanName LIKE 'chat %') d", "refId": "A", "format": "table"}]
     },
     {
       "id": 38,
@@ -409,7 +409,7 @@
       "gridPos": {"h": 8, "w": 8, "x": 8, "y": 66},
       "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}}, "overrides": [
         {"matcher": {"id": "byName", "options": "anthropic"}, "properties": [{"id": "color", "value": {"fixedColor": "#D97706", "mode": "fixed"}}]},
-        {"matcher": {"id": "byName", "options": "google"}, "properties": [{"id": "color", "value": {"fixedColor": "#4285F4", "mode": "fixed"}}]},
+        {"matcher": {"id": "byName", "options": "gcp.gemini"}, "properties": [{"id": "color", "value": {"fixedColor": "#4285F4", "mode": "fixed"}}]},
         {"matcher": {"id": "byName", "options": "openai"}, "properties": [{"id": "color", "value": {"fixedColor": "#10A37F", "mode": "fixed"}}]}
       ]},
       "options": {"orientation": "horizontal", "showValue": "always", "barWidth": 0.7},

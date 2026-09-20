@@ -1,4 +1,9 @@
-"""GenAI metric instruments (OTel semconv v1.40.0)."""
+"""GenAI metric instruments.
+
+The two histograms are semantic convention metrics. The four counters are
+application-specific and carry the `base14.` prefix, per the naming rule in
+`_shared/llm-gateway-contract.yaml`.
+"""
 
 from typing import Any
 
@@ -19,12 +24,22 @@ class GenAIMetrics:
             description="Duration of GenAI operations",
         )
         self._cost = meter.create_counter(
-            "gen_ai.client.cost",
+            "base14.gen_ai.cost",
             unit="usd",
             description="Cost of GenAI operations in USD",
         )
+        self._retries = meter.create_counter(
+            "base14.gen_ai.retry.count",
+            unit="{retry}",
+            description="Retry attempts, excluding the initial attempt",
+        )
+        self._fallbacks = meter.create_counter(
+            "base14.gen_ai.fallback.count",
+            unit="{fallback}",
+            description="Fallback provider switches",
+        )
         self._errors = meter.create_counter(
-            "gen_ai.client.error.count",
+            "base14.gen_ai.error.count",
             unit="{error}",
             description="GenAI errors by type",
         )
@@ -38,6 +53,12 @@ class GenAIMetrics:
 
     def add_cost(self, attrs: dict[str, Any], usd: float) -> None:
         self._cost.add(usd, attrs)
+
+    def add_retry(self, attrs: dict[str, Any]) -> None:
+        self._retries.add(1, attrs)
+
+    def add_fallback(self, attrs: dict[str, Any]) -> None:
+        self._fallbacks.add(1, attrs)
 
     def add_error(self, attrs: dict[str, Any]) -> None:
         self._errors.add(1, attrs)

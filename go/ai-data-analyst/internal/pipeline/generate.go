@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"ai-data-analyst/internal/llm"
+	"ai-data-analyst/internal/telemetry"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -61,7 +61,7 @@ func Generate(ctx context.Context, tracer trace.Tracer, client *llm.Client, ques
 	ctx, span := tracer.Start(ctx, "pipeline_stage generate")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("nlsql.stage", "generate"))
+	span.SetAttributes(attribute.String("base14.nlsql.stage", "generate"))
 
 	prompt := buildGeneratePrompt(question, parsed)
 
@@ -74,7 +74,7 @@ func Generate(ctx context.Context, tracer trace.Tracer, client *llm.Client, ques
 		Stage:       "generate",
 	})
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, "generate_failed")
 		return nil, fmt.Errorf("SQL generation failed: %w", err)
 	}
 
@@ -84,8 +84,8 @@ func Generate(ctx context.Context, tracer trace.Tracer, client *llm.Client, ques
 	result.CostUSD = resp.CostUSD
 
 	span.SetAttributes(
-		attribute.Float64("nlsql.confidence", result.Confidence),
-		attribute.Int("nlsql.sql_length", len(result.SQL)),
+		attribute.Float64("base14.nlsql.confidence", result.Confidence),
+		attribute.Int("base14.nlsql.sql_length", len(result.SQL)),
 	)
 
 	return result, nil

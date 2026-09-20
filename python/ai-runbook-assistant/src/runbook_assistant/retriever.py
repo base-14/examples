@@ -13,9 +13,15 @@ def build_retriever(connection_string: str) -> tuple[Any, Any]:
     from langchain_postgres import PGVector
 
     from runbook_assistant.config import get_settings
+    from runbook_assistant.embeddings import InstrumentedEmbeddings
 
     s = get_settings()
-    embeddings = OllamaEmbeddings(model=s.embedding_model, base_url=s.ollama_base_url)
+    embeddings = InstrumentedEmbeddings(
+        inner=OllamaEmbeddings(model=s.embedding_model, base_url=s.ollama_base_url),
+        model=s.embedding_model,
+        provider="ollama",
+        base_url=s.ollama_base_url,
+    )
     store = PGVector(
         embeddings=embeddings,
         collection_name="runbooks",

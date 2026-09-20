@@ -32,7 +32,7 @@ docker-down:
 	docker compose down -v
 
 seed:
-	go run scripts/seed-data.go
+	go run scripts/gen-seed.go
 
 test-api:
 	./scripts/test-api.sh

@@ -3,6 +3,10 @@ import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 
 const otelLogger = logs.getLogger("ai-contract-analyzer");
 
+// Logs go to the collector over OTLP. The stdout mirror is for local dev, and
+// would otherwise bury the test runner's output.
+const mirrorToStdout = process.env.NODE_ENV !== "test";
+
 type LogAttrs = Record<string, string | number | boolean | undefined>;
 
 function emit(
@@ -29,7 +33,8 @@ function emit(
     },
   });
 
-  // Mirror to stdout so local dev sees logs without needing a backend
+  if (!mirrorToStdout) return;
+
   const record: Record<string, unknown> = {
     ts: new Date().toISOString(),
     level: severityText,

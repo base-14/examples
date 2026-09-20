@@ -39,7 +39,7 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 		return nil, err
 	}
 
-	cost, err := m.Float64Counter("gen_ai.client.cost",
+	cost, err := m.Float64Counter("base14.gen_ai.cost",
 		metric.WithUnit("usd"),
 		metric.WithDescription("Cumulative cost of LLM calls in USD"),
 	)
@@ -47,15 +47,15 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 		return nil, err
 	}
 
-	retryCount, err := m.Int64Counter("gen_ai.client.retry.count",
+	retryCount, err := m.Int64Counter("base14.gen_ai.retry.count",
 		metric.WithUnit("{retry}"),
-		metric.WithDescription("Number of retry attempts"),
+		metric.WithDescription("Number of retry attempts, excluding the initial attempt"),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	fallbackCount, err := m.Int64Counter("gen_ai.client.fallback.count",
+	fallbackCount, err := m.Int64Counter("base14.gen_ai.fallback.count",
 		metric.WithUnit("{fallback}"),
 		metric.WithDescription("Number of fallback provider triggers"),
 	)
@@ -63,15 +63,15 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 		return nil, err
 	}
 
-	errorCount, err := m.Int64Counter("gen_ai.client.error.count",
+	errorCount, err := m.Int64Counter("base14.gen_ai.error.count",
 		metric.WithUnit("{error}"),
-		metric.WithDescription("Number of LLM call errors"),
+		metric.WithDescription("Number of LLM call errors by provider and type"),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	questionDuration, err := m.Float64Histogram("nlsql.question.duration",
+	questionDuration, err := m.Float64Histogram("base14.nlsql.question.duration",
 		metric.WithUnit("s"),
 		metric.WithDescription("Total question-to-answer duration"),
 	)
@@ -79,7 +79,7 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 		return nil, err
 	}
 
-	sqlValid, err := m.Int64Counter("nlsql.sql.valid",
+	sqlValid, err := m.Int64Counter("base14.nlsql.sql.valid",
 		metric.WithUnit("1"),
 		metric.WithDescription("SQL validation outcomes"),
 	)
@@ -87,7 +87,7 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 		return nil, err
 	}
 
-	queryRows, err := m.Float64Histogram("nlsql.query.rows",
+	queryRows, err := m.Float64Histogram("base14.nlsql.query.rows",
 		metric.WithUnit("{row}"),
 		metric.WithDescription("Number of rows returned per query"),
 	)
@@ -95,7 +95,7 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 		return nil, err
 	}
 
-	queryExecutionTime, err := m.Float64Histogram("nlsql.query.execution_time",
+	queryExecutionTime, err := m.Float64Histogram("base14.nlsql.query.execution_time",
 		metric.WithUnit("ms"),
 		metric.WithDescription("SQL query execution time in milliseconds"),
 	)
@@ -103,7 +103,7 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 		return nil, err
 	}
 
-	confidence, err := m.Float64Histogram("nlsql.confidence",
+	confidence, err := m.Float64Histogram("base14.nlsql.confidence",
 		metric.WithUnit("1"),
 		metric.WithDescription("LLM confidence score for SQL generation"),
 	)
@@ -126,50 +126,77 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 	}, nil
 }
 
-type RecordParams struct {
-	Provider     string
-	Model        string
-	Stage        string
-	InputTokens  int
-	OutputTokens int
-	DurationSec  float64
-	CostUSD      float64
+// CallAttrs identifies one LLM call on every metric it produces.
+type CallAttrs struct {
+	Provider string
+	Model    string
+	Stage    string
 }
 
-func (g *GenAIMetrics) RecordGenAIMetrics(ctx context.Context, p RecordParams) {
-	baseAttrs := []attribute.KeyValue{
+func (a CallAttrs) keyValues() []attribute.KeyValue {
+	kv := []attribute.KeyValue{
 		attribute.String("gen_ai.operation.name", "chat"),
-		attribute.String("gen_ai.provider.name", p.Provider),
-		attribute.String("gen_ai.request.model", p.Model),
+		attribute.String("gen_ai.provider.name", a.Provider),
+		attribute.String("gen_ai.request.model", a.Model),
 	}
-	if p.Stage != "" {
-		baseAttrs = append(baseAttrs, attribute.String("nlsql.stage", p.Stage))
+	if a.Stage != "" {
+		kv = append(kv, attribute.String("base14.nlsql.stage", a.Stage))
 	}
-	attrs := metric.WithAttributes(baseAttrs...)
+	return kv
+}
 
-	g.TokenUsage.Record(ctx, float64(p.InputTokens),
-		attrs,
+func (g *GenAIMetrics) RecordUsage(ctx context.Context, a CallAttrs, inputTokens, outputTokens int, costUSD float64) {
+	base := a.keyValues()
+
+	g.TokenUsage.Record(ctx, float64(inputTokens),
+		metric.WithAttributes(base...),
 		metric.WithAttributes(attribute.String("gen_ai.token.type", "input")),
 	)
-	g.TokenUsage.Record(ctx, float64(p.OutputTokens),
-		attrs,
+	g.TokenUsage.Record(ctx, float64(outputTokens),
+		metric.WithAttributes(base...),
 		metric.WithAttributes(attribute.String("gen_ai.token.type", "output")),
 	)
-	g.OperationDuration.Record(ctx, p.DurationSec, attrs)
-	g.Cost.Add(ctx, p.CostUSD, attrs)
+	g.Cost.Add(ctx, costUSD, metric.WithAttributes(base...))
 }
 
-func WithProviderModel(provider, model string) metric.MeasurementOption {
-	return metric.WithAttributes(
-		attribute.String("gen_ai.provider.name", provider),
-		attribute.String("gen_ai.request.model", model),
-	)
+// RecordDuration records the call duration on success and on failure. Pass an
+// empty errorType for a successful call.
+func (g *GenAIMetrics) RecordDuration(ctx context.Context, a CallAttrs, seconds float64, errorType string) {
+	attrs := a.keyValues()
+	if errorType != "" {
+		attrs = append(attrs, attribute.String("error.type", errorType))
+	}
+	g.OperationDuration.Record(ctx, seconds, metric.WithAttributes(attrs...))
 }
 
-func WithBoolAttr(key string, val bool) metric.MeasurementOption {
-	return metric.WithAttributes(attribute.Bool(key, val))
+func (g *GenAIMetrics) RecordError(ctx context.Context, a CallAttrs, errorType string) {
+	g.ErrorCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("gen_ai.provider.name", a.Provider),
+		attribute.String("gen_ai.request.model", a.Model),
+		attribute.String("error.type", errorType),
+	))
 }
 
-func WithQuestionType(qt string) metric.MeasurementOption {
-	return metric.WithAttributes(attribute.String("nlsql.question_type", qt))
+func (g *GenAIMetrics) RecordRetry(ctx context.Context, a CallAttrs, errorType string, attempt int) {
+	g.RetryCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("gen_ai.provider.name", a.Provider),
+		attribute.String("error.type", errorType),
+		attribute.Int("base14.retry.attempt", attempt),
+	))
+}
+
+func (g *GenAIMetrics) RecordFallback(ctx context.Context, from, to, errorType string) {
+	g.FallbackCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("gen_ai.provider.name", from),
+		attribute.String("base14.gen_ai.fallback.provider", to),
+		attribute.String("error.type", errorType),
+	))
+}
+
+func WithSQLValid(valid bool) metric.MeasurementOption {
+	return metric.WithAttributes(attribute.Bool("base14.nlsql.valid", valid))
+}
+
+func WithQuestionType(questionType string) metric.MeasurementOption {
+	return metric.WithAttributes(attribute.String("base14.nlsql.question_type", questionType))
 }

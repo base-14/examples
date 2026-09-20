@@ -10,6 +10,7 @@ from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
 from content_quality.config import get_settings
+from content_quality.errors import unhandled_exception_handler
 from content_quality.middleware import MetricsMiddleware
 from content_quality.models.requests import ContentRequest  # noqa: TC001
 from content_quality.models.responses import ImproveResult, ReviewResult, ScoreResult  # noqa: TC001
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-# Initialize OTel SDK + OpenInference BEFORE app creation
+# Initialize OTel SDK before app creation
 setup_telemetry(
     service_name=settings.service_name,
     otlp_endpoint=settings.otlp_endpoint,
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(title="AI Content Quality Agent", lifespan=lifespan)
 app.add_middleware(MetricsMiddleware)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 instrument_fastapi(app)
 
 

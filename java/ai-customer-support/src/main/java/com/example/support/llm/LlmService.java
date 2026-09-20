@@ -1,23 +1,18 @@
 package com.example.support.llm;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.metrics.DoubleCounter;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.LongCounter;
-import io.opentelemetry.api.metrics.Meter;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Scope;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -25,17 +20,29 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 
 import com.example.support.config.AppConfig;
-import com.example.support.filter.PiiFilter;
+import com.example.support.telemetry.ConversationScope;
+import com.example.support.telemetry.GenAi;
+import com.example.support.telemetry.Telemetry;
 
+/**
+ * Calls the chat model with retry and provider fallback. Spring AI's chat observation
+ * produces the {@code chat {model}} span; this class adds the operation duration,
+ * retry, fallback and error metrics that sit outside a single model call.
+ */
 @Service
 public class LlmService {
 
     private static final Logger log = LoggerFactory.getLogger(LlmService.class);
-    private static final int MAX_RETRIES = 3;
+    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_TOOL_ROUNDS = 8;
+    private static final String DEGRADED_ANSWER =
+        "I could not finish that request. Please try again, or ask for a human agent.";
     private static final long MIN_BACKOFF_MS = 1000;
     private static final long MAX_BACKOFF_MS = 10000;
 
@@ -43,12 +50,9 @@ public class LlmService {
     private final ChatModel fallbackModel;
     private final AppConfig config;
     private final Pricing pricing;
-    private final PiiFilter piiFilter;
-    private final boolean captureContent;
-    private final Tracer tracer;
-    private final DoubleHistogram tokenUsage;
+    private final ConversationScope conversations;
+    private final ToolCallingManager toolCallingManager;
     private final DoubleHistogram operationDuration;
-    private final DoubleCounter costCounter;
     private final LongCounter retryCounter;
     private final LongCounter fallbackCounter;
     private final LongCounter errorCounter;
@@ -57,249 +61,255 @@ public class LlmService {
         Map<String, ChatModel> chatModels,
         AppConfig config,
         Pricing pricing,
-        PiiFilter piiFilter
+        ConversationScope conversations,
+        ToolCallingManager toolCallingManager,
+        Telemetry telemetry
     ) {
-        this.primaryModel = LlmConfig.resolveChatModel(config.provider(), chatModels);
-        this.fallbackModel = LlmConfig.resolveChatModel(config.fallbackProvider(), chatModels);
+        this.primaryModel = Providers.chatModel(config.provider(), chatModels);
+        this.fallbackModel = Providers.chatModel(config.fallbackProvider(), chatModels);
         this.config = config;
         this.pricing = pricing;
-        this.piiFilter = piiFilter;
-        this.captureContent = "true".equalsIgnoreCase(
-            System.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"));
+        this.conversations = conversations;
+        this.toolCallingManager = toolCallingManager;
         log.info("Primary LLM: {} (capable={}, fast={}), Fallback: {} (model={})",
             config.provider(), config.modelCapable(), config.modelFast(),
             config.fallbackProvider(), config.fallbackModel());
 
-        this.tracer = GlobalOpenTelemetry.getTracer("ai-customer-support");
-        Meter meter = GlobalOpenTelemetry.getMeter("ai-customer-support");
-
-        this.tokenUsage = meter.histogramBuilder("gen_ai.client.token.usage")
-            .setUnit("{token}").build();
-        this.operationDuration = meter.histogramBuilder("gen_ai.client.operation.duration")
-            .setUnit("s").build();
-        this.costCounter = meter.counterBuilder("gen_ai.client.cost")
-            .ofDoubles().setUnit("usd").build();
-        this.retryCounter = meter.counterBuilder("gen_ai.client.retry.count")
+        var meter = telemetry.meter();
+        this.operationDuration = meter.histogramBuilder(GenAi.OPERATION_DURATION_METRIC)
+            .setUnit("s")
+            .setDescription("Duration of GenAI operations")
             .build();
-        this.fallbackCounter = meter.counterBuilder("gen_ai.client.fallback.count")
+        this.retryCounter = meter.counterBuilder(GenAi.RETRY_METRIC)
+            .setUnit("{retry}")
+            .setDescription("Retry attempts, excluding the initial attempt")
             .build();
-        this.errorCounter = meter.counterBuilder("gen_ai.client.error.count")
+        this.fallbackCounter = meter.counterBuilder(GenAi.FALLBACK_METRIC)
+            .setUnit("{fallback}")
+            .setDescription("Number of fallback triggers")
+            .build();
+        this.errorCounter = meter.counterBuilder(GenAi.ERROR_METRIC)
+            .setUnit("{error}")
+            .setDescription("Number of LLM call errors by type")
             .build();
     }
 
-    public LlmResponse generate(String systemPrompt, String userPrompt, String model, String stage) {
-        return generate(systemPrompt, userPrompt, model, stage, List.of());
+    public LlmResponse generate(String systemPrompt, String userPrompt, String model) {
+        return generate(systemPrompt, userPrompt, model, List.of());
     }
 
-    public LlmResponse generate(String systemPrompt, String userPrompt, String model, String stage,
-                                 List<ToolCallback> toolCallbacks) {
-        var resp = generateWithRetry(primaryModel, config.provider(), model, systemPrompt, userPrompt, stage, toolCallbacks);
-        if (resp != null) {
-            return resp;
+    public LlmResponse generate(String systemPrompt, String userPrompt, String model,
+                                List<ToolCallback> toolCallbacks) {
+        try {
+            return generateWithRetry(
+                primaryModel, config.provider(), model, systemPrompt, userPrompt, toolCallbacks);
+        } catch (RuntimeException primaryFailure) {
+            if (fallbackRepeatsPrimary(model)) {
+                throw primaryFailure;
+            }
+
+            log.warn("Primary provider {} failed, falling back to {}", config.provider(), config.fallbackProvider());
+            fallbackCounter.add(1, Attributes.of(
+                AttributeKey.stringKey(GenAi.PROVIDER_NAME), config.provider(),
+                AttributeKey.stringKey(GenAi.FALLBACK_PROVIDER), config.fallbackProvider()));
+            conversations.recordOnConversation(GenAi.FALLBACK_EVENT, Attributes.builder()
+                .put(GenAi.FALLBACK_TRIGGERED, true)
+                .put(GenAi.PROVIDER_NAME, config.provider())
+                .put(GenAi.FALLBACK_PROVIDER, config.fallbackProvider())
+                .build());
+
+            try {
+                return generateWithRetry(fallbackModel, config.fallbackProvider(), config.fallbackModel(),
+                    systemPrompt, userPrompt, toolCallbacks);
+            } catch (RuntimeException fallbackFailure) {
+                throw new IllegalStateException("All LLM providers failed after retries", fallbackFailure);
+            }
         }
-
-        log.warn("Primary provider {} failed, falling back to {}", config.provider(), config.fallbackProvider());
-        fallbackCounter.add(1);
-
-        resp = generateWithRetry(fallbackModel, config.fallbackProvider(), config.fallbackModel(),
-            systemPrompt, userPrompt, stage, toolCallbacks);
-        if (resp != null) {
-            return resp;
-        }
-
-        throw new RuntimeException("All LLM providers failed after retries");
     }
 
-    public LlmResponse generateCapable(String systemPrompt, String userPrompt, String stage) {
-        return generate(systemPrompt, userPrompt, config.modelCapable(), stage);
+    /** A fallback onto the same provider and model would repeat the primary's attempts. */
+    private boolean fallbackRepeatsPrimary(String model) {
+        return config.fallbackProvider().equals(config.provider())
+            && config.fallbackModel().equals(model);
     }
 
-    public LlmResponse generateCapable(String systemPrompt, String userPrompt, String stage,
-                                         List<ToolCallback> toolCallbacks) {
-        return generate(systemPrompt, userPrompt, config.modelCapable(), stage, toolCallbacks);
+    public LlmResponse generateCapable(String systemPrompt, String userPrompt) {
+        return generate(systemPrompt, userPrompt, config.modelCapable());
     }
 
-    public LlmResponse generateFast(String systemPrompt, String userPrompt, String stage) {
-        return generate(systemPrompt, userPrompt, config.modelFast(), stage);
+    public LlmResponse generateCapable(String systemPrompt, String userPrompt, List<ToolCallback> toolCallbacks) {
+        return generate(systemPrompt, userPrompt, config.modelCapable(), toolCallbacks);
+    }
+
+    public LlmResponse generateFast(String systemPrompt, String userPrompt) {
+        return generate(systemPrompt, userPrompt, config.modelFast());
     }
 
     private LlmResponse generateWithRetry(
-        ChatModel chatModel, String providerName, String model,
-        String systemPrompt, String userPrompt, String stage, List<ToolCallback> toolCallbacks
+        ChatModel chatModel, String provider, String model,
+        String systemPrompt, String userPrompt, List<ToolCallback> toolCallbacks
     ) {
         Exception lastError = null;
-        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             try {
-                return generateOnce(chatModel, providerName, model, systemPrompt, userPrompt, stage, toolCallbacks);
+                return generateOnce(chatModel, provider, model, systemPrompt, userPrompt, toolCallbacks);
             } catch (Exception e) {
                 lastError = e;
                 log.warn("LLM call failed (attempt {}/{}): provider={} model={} error={}",
-                    attempt + 1, MAX_RETRIES, providerName, model, e.getMessage());
-                if (attempt > 0) {
-                    retryCounter.add(1, providerModelAttrs(providerName, model));
-                }
-                if (attempt < MAX_RETRIES - 1) {
+                    attempt + 1, MAX_ATTEMPTS, provider, model, e.getMessage());
+                if (attempt < MAX_ATTEMPTS - 1) {
+                    // The attribute name comes from _shared/test-vectors/chat-with-retry.json.
+                    retryCounter.add(1, Attributes.builder()
+                        .put(GenAi.PROVIDER_NAME, provider)
+                        .put(GenAi.ERROR_TYPE, errorType(e))
+                        .put(GenAi.RETRY_ATTEMPT, attempt + 1L)
+                        .build());
                     sleep(backoffWithJitter(attempt));
                 }
             }
         }
-        log.error("All {} retries exhausted for provider={}", MAX_RETRIES, providerName, lastError);
-        return null;
+
+        errorCounter.add(1, Attributes.of(
+            AttributeKey.stringKey(GenAi.PROVIDER_NAME), provider,
+            AttributeKey.stringKey(GenAi.REQUEST_MODEL), model,
+            AttributeKey.stringKey(GenAi.ERROR_TYPE), errorType(lastError)));
+        log.error("All {} attempts failed for provider={}", MAX_ATTEMPTS, provider, lastError);
+        if (lastError instanceof RuntimeException runtimeError) {
+            throw runtimeError;
+        }
+        throw new IllegalStateException(
+            "Provider " + provider + " failed after " + MAX_ATTEMPTS + " attempts", lastError);
     }
 
     private LlmResponse generateOnce(
-        ChatModel chatModel, String providerName, String model,
-        String systemPrompt, String userPrompt, String stage, List<ToolCallback> toolCallbacks
+        ChatModel chatModel, String provider, String model,
+        String systemPrompt, String userPrompt, List<ToolCallback> toolCallbacks
     ) {
-        String spanName = "gen_ai.chat " + model;
         long start = System.nanoTime();
-
-        Span span = tracer.spanBuilder(spanName)
-            .setAttribute("gen_ai.operation.name", "chat")
-            .setAttribute("gen_ai.provider.name", providerName)
-            .setAttribute("gen_ai.request.model", model)
-            .setAttribute("server.address", LlmConfig.PROVIDER_SERVERS.getOrDefault(providerName, "unknown"))
-            .setAttribute("server.port", (long) LlmConfig.PROVIDER_PORTS.getOrDefault(providerName, 443))
-            .setAttribute("gen_ai.request.temperature", config.temperature())
-            .setAttribute("gen_ai.request.max_tokens", (long) config.maxTokens())
-            .startSpan();
-
-        if (stage != null && !stage.isEmpty()) {
-            span.setAttribute("support.stage", stage);
-        }
-
-        try (Scope ignored = span.makeCurrent()) {
-            if (captureContent) {
-                span.addEvent("gen_ai.user.message", Attributes.of(
-                    AttributeKey.stringKey("gen_ai.input.messages"), truncate(piiFilter.scrub(userPrompt), 1000)
-                ));
-                if (systemPrompt != null && !systemPrompt.isEmpty()) {
-                    span.addEvent("gen_ai.user.message", Attributes.of(
-                        AttributeKey.stringKey("gen_ai.system_instructions"), truncate(systemPrompt, 500)
-                    ));
-                }
-            }
-
-            var prompt = buildPrompt(systemPrompt, userPrompt, model, toolCallbacks);
+        try {
+            Prompt prompt = buildPrompt(chatModel, systemPrompt, userPrompt, model, toolCallbacks);
             ChatResponse response = chatModel.call(prompt);
 
+            // Spring AI 2.0 leaves tool execution to the caller. Running it through the
+            // ToolCallingManager keeps the framework's execute_tool observation.
+            int toolRounds = 0;
+            while (response.hasToolCalls()) {
+                if (toolRounds >= MAX_TOOL_ROUNDS) {
+                    log.warn("Tool call loop hit the limit of {} rounds, asking for a plain answer",
+                        MAX_TOOL_ROUNDS);
+                    conversations.recordOnConversation(GenAi.TOOL_LOOP_LIMIT_EVENT, Attributes.of(
+                        AttributeKey.longKey(GenAi.TOOL_LOOP_ROUNDS), (long) toolRounds));
+                    // Breaking here would leave the caller with a tool-call-only message and no
+                    // text, so ask the model once more with the tools taken away.
+                    response = chatModel.call(
+                        toolFreePrompt(chatModel, prompt.getInstructions(), model));
+                    break;
+                }
+                ToolExecutionResult toolResult = toolCallingManager.executeToolCalls(prompt, response);
+                if (toolResult.returnDirect()) {
+                    break;
+                }
+                prompt = new Prompt(toolResult.conversationHistory(), prompt.getOptions());
+                response = chatModel.call(prompt);
+                toolRounds++;
+            }
+
             var generation = response.getResult();
-            var metadata = generation.getMetadata();
             var usage = response.getMetadata().getUsage();
-
-            String content = generation.getOutput().getText();
-            int inputTokens = usage != null ? (int) usage.getPromptTokens() : 0;
-            int outputTokens = usage != null ? (int) usage.getCompletionTokens() : 0;
-            String responseModel = response.getMetadata().getModel() != null
+            int inputTokens = usage != null && usage.getPromptTokens() != null ? usage.getPromptTokens() : 0;
+            int outputTokens = usage != null && usage.getCompletionTokens() != null ? usage.getCompletionTokens() : 0;
+            String responseModel = response.getMetadata().getModel() != null && !response.getMetadata().getModel().isBlank()
                 ? response.getMetadata().getModel() : model;
-            String finishReason = metadata.getFinishReason() != null
-                ? metadata.getFinishReason() : "";
-            double costUsd = pricing.calculateCost(responseModel, inputTokens, outputTokens);
-            double duration = (System.nanoTime() - start) / 1_000_000_000.0;
-
-            span.setAttribute("gen_ai.response.model", responseModel);
-            span.setAttribute("gen_ai.usage.input_tokens", (long) inputTokens);
-            span.setAttribute("gen_ai.usage.output_tokens", (long) outputTokens);
-            span.setAttribute("gen_ai.usage.cost_usd", costUsd);
-            if (!finishReason.isEmpty()) {
-                span.setAttribute("gen_ai.response.finish_reasons", finishReason);
+            String finishReason = generation != null && generation.getMetadata().getFinishReason() != null
+                ? generation.getMetadata().getFinishReason() : "";
+            String content = generation != null ? generation.getOutput().getText() : null;
+            if (content == null || content.isBlank()) {
+                content = DEGRADED_ANSWER;
             }
 
-            if (captureContent) {
-                span.addEvent("gen_ai.assistant.message", Attributes.of(
-                    AttributeKey.stringKey("gen_ai.output.messages"), truncate(piiFilter.scrub(content), 2000)
-                ));
-            }
+            operationDuration.record(elapsedSeconds(start), Attributes.of(
+                AttributeKey.stringKey(GenAi.OPERATION_NAME), "chat",
+                AttributeKey.stringKey(GenAi.PROVIDER_NAME), provider,
+                AttributeKey.stringKey(GenAi.REQUEST_MODEL), model));
 
-            var attrs = providerModelAttrs(providerName, responseModel);
-            tokenUsage.record(inputTokens, withTokenType(attrs, "input"));
-            tokenUsage.record(outputTokens, withTokenType(attrs, "output"));
-            operationDuration.record(duration, attrs);
-            costCounter.add(costUsd, attrs);
-
-            return new LlmResponse(content, responseModel, providerName,
-                inputTokens, outputTokens, costUsd, finishReason);
+            return new LlmResponse(
+                content, responseModel, provider,
+                inputTokens, outputTokens,
+                pricing.calculateCost(responseModel, inputTokens, outputTokens), finishReason);
 
         } catch (Exception e) {
-            span.setStatus(StatusCode.ERROR, e.getMessage());
-            span.setAttribute("error.type", classifyError(e));
-            errorCounter.add(1, Attributes.of(
-                AttributeKey.stringKey("gen_ai.provider.name"), providerName,
-                AttributeKey.stringKey("gen_ai.request.model"), model,
-                AttributeKey.stringKey("error.type"), classifyError(e)
-            ));
+            operationDuration.record(elapsedSeconds(start), Attributes.of(
+                AttributeKey.stringKey(GenAi.OPERATION_NAME), "chat",
+                AttributeKey.stringKey(GenAi.PROVIDER_NAME), provider,
+                AttributeKey.stringKey(GenAi.REQUEST_MODEL), model,
+                AttributeKey.stringKey(GenAi.ERROR_TYPE), errorType(e)));
             throw e;
-        } finally {
-            span.end();
         }
     }
 
-    private Prompt buildPrompt(String systemPrompt, String userPrompt, String model, List<ToolCallback> toolCallbacks) {
-        var messages = new java.util.ArrayList<org.springframework.ai.chat.messages.Message>();
+    /**
+     * Each provider's ChatModel expects its own ChatOptions type, so the per-call
+     * options start from the model's own defaults rather than a generic builder.
+     */
+    private Prompt buildPrompt(ChatModel chatModel, String systemPrompt, String userPrompt,
+                               String model, List<ToolCallback> toolCallbacks) {
+        var messages = new ArrayList<Message>();
         if (systemPrompt != null && !systemPrompt.isEmpty()) {
             messages.add(new SystemMessage(systemPrompt));
         }
         messages.add(new UserMessage(userPrompt));
 
+        ChatOptions defaults = chatModel.getDefaultOptions();
+        ChatOptions.Builder builder = defaults != null ? defaults.mutate() : ToolCallingChatOptions.builder();
+        builder.model(model)
+            .temperature(config.temperature())
+            .maxTokens(config.maxTokens());
+
         if (toolCallbacks != null && !toolCallbacks.isEmpty()) {
-            var options = ToolCallingChatOptions.builder()
-                .model(model)
-                .temperature(config.temperature())
-                .maxTokens(config.maxTokens())
-                .toolCallbacks(toolCallbacks)
-                .build();
-            return new Prompt(messages, options);
+            if (builder instanceof ToolCallingChatOptions.Builder toolBuilder) {
+                toolBuilder.toolCallbacks(toolCallbacks);
+            } else {
+                log.warn("Dropping {} tool callbacks: {} does not build tool calling options",
+                    toolCallbacks.size(), builder.getClass().getName());
+            }
         }
 
-        var options = ChatOptions.builder()
-            .model(model)
+        return new Prompt(messages, builder.build());
+    }
+
+    /** The same options as a normal call, with every tool removed. */
+    private Prompt toolFreePrompt(ChatModel chatModel, List<Message> messages, String model) {
+        ChatOptions defaults = chatModel.getDefaultOptions();
+        ChatOptions.Builder builder = defaults != null ? defaults.mutate() : ToolCallingChatOptions.builder();
+        builder.model(model)
             .temperature(config.temperature())
-            .maxTokens(config.maxTokens())
-            .build();
-        return new Prompt(messages, options);
+            .maxTokens(config.maxTokens());
+
+        if (builder instanceof ToolCallingChatOptions.Builder toolBuilder) {
+            toolBuilder.toolCallbacks(List.of());
+        }
+
+        return new Prompt(messages, builder.build());
     }
 
-    static String classifyError(Exception e) {
-        if (e == null) return "unknown_error";
-        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-        if (msg.contains("rate limit") || msg.contains("429")) return "rate_limit";
-        if (msg.contains("timeout") || msg.contains("timed out") || msg.contains("deadline")) return "timeout";
-        if (msg.contains("401") || msg.contains("403") || msg.contains("auth") || msg.contains("api key")) return "auth_error";
-        if (msg.contains("400") || msg.contains("422") || msg.contains("invalid")) return "invalid_request";
-        if (msg.contains("500") || msg.contains("502") || msg.contains("503") || msg.contains("server")) return "server_error";
-        if (msg.contains("connect") || msg.contains("dns") || msg.contains("network") || msg.contains("reset")) return "network_error";
-        return "unknown_error";
+    static String errorType(Throwable error) {
+        return error != null ? error.getClass().getSimpleName() : "unknown";
     }
 
-    private long backoffWithJitter(int attempt) {
+    private static double elapsedSeconds(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000_000.0;
+    }
+
+    private static long backoffWithJitter(int attempt) {
         long base = Math.min(MIN_BACKOFF_MS * (1L << attempt), MAX_BACKOFF_MS);
-        long jitter = ThreadLocalRandom.current().nextLong(0, base / 4 + 1);
-        return base + jitter;
+        return base + ThreadLocalRandom.current().nextLong(0, base / 4 + 1);
     }
 
-    private void sleep(long ms) {
+    private static void sleep(long millis) {
         try {
-            Thread.sleep(ms);
+            Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private static String truncate(String s, int max) {
-        return s != null && s.length() > max ? s.substring(0, max) : (s != null ? s : "");
-    }
-
-    private static Attributes providerModelAttrs(String provider, String model) {
-        return Attributes.of(
-            AttributeKey.stringKey("gen_ai.operation.name"), "chat",
-            AttributeKey.stringKey("gen_ai.provider.name"), provider,
-            AttributeKey.stringKey("gen_ai.request.model"), model
-        );
-    }
-
-    private static Attributes withTokenType(Attributes base, String tokenType) {
-        return base.toBuilder()
-            .put(AttributeKey.stringKey("gen_ai.token.type"), tokenType)
-            .build();
     }
 }

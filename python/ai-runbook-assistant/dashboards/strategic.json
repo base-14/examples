@@ -58,7 +58,7 @@
       "gridPos": {"h": 4, "w": 5, "x": 15, "y": 1},
       "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 2, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost'", "refId": "A", "format": "time_series"}]
+      "targets": [{"rawSql": "$increase(Value) FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'base14.gen_ai.cost'", "refId": "A", "format": "time_series"}]
     },
     {
       "id": 6,
@@ -80,7 +80,7 @@
         {"matcher": {"id": "byName", "options": "openai"}, "properties": [{"id": "color", "value": {"fixedColor": "#10A37F", "mode": "fixed"}}]}
       ]},
       "options": {"orientation": "horizontal", "showValue": "always", "barWidth": 0.7},
-      "targets": [{"rawSql": "SELECT Attributes['gen_ai.provider.name'] as provider, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost' AND Attributes['gen_ai.provider.name'] != '' GROUP BY provider ORDER BY cost DESC", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT Attributes['gen_ai.provider.name'] as provider, argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'base14.gen_ai.cost' AND Attributes['gen_ai.provider.name'] != '' GROUP BY provider ORDER BY cost DESC", "refId": "A", "format": "table"}]
     },
     {
       "id": 8,
@@ -130,7 +130,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 12, "y": 12},
       "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(t.total_tokens, 0) * 1000 as cost_per_1k FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost') c, (SELECT sum(Sum) as total_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage') t", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(t.total_tokens, 0) * 1000 as cost_per_1k FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'base14.gen_ai.cost') c, (SELECT sum(Sum) as total_tokens FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage') t", "refId": "A", "format": "table"}]
     },
     {
       "id": 13,
@@ -139,7 +139,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 18, "y": 12},
       "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(r.requests, 0) as avg_cost FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost') c, (SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent') r", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(r.requests, 0) as avg_cost FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'base14.gen_ai.cost') c, (SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent') r", "refId": "A", "format": "table"}]
     },
     {
       "id": 14,
@@ -164,7 +164,7 @@
         {"matcher": {"id": "byName", "options": "cost_per_req"}, "properties": [{"id": "unit", "value": "currencyUSD"}, {"id": "displayName", "value": "Cost/Request"}, {"id": "decimals", "value": 4}]}
       ]},
       "options": {"showHeader": true, "sortBy": [{"displayName": "Avg Input Tokens", "desc": true}]},
-      "targets": [{"rawSql": "SELECT t.model, t.avg_input, t.avg_output, c.cost_per_req FROM (SELECT Attributes['gen_ai.request.model'] as model, sum(Sum) / nullIf(sum(Count), 0) as avg_input, sumIf(Sum, Attributes['gen_ai.token.type'] = 'output') / nullIf(sumIf(Count, Attributes['gen_ai.token.type'] = 'output'), 0) as avg_output FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) t LEFT JOIN (SELECT Attributes['gen_ai.request.model'] as model, (argMax(Value, TimeUnix) - argMin(Value, TimeUnix)) / nullIf(sum(Count), 0) as cost_per_req FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) c ON t.model = c.model ORDER BY t.avg_input DESC", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT t.model, t.avg_input, t.avg_output, c.cost_per_req FROM (SELECT Attributes['gen_ai.request.model'] as model, sum(Sum) / nullIf(sum(Count), 0) as avg_input, sumIf(Sum, Attributes['gen_ai.token.type'] = 'output') / nullIf(sumIf(Count, Attributes['gen_ai.token.type'] = 'output'), 0) as avg_output FROM infraspec.otel_metrics_histogram WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.token.usage' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) t LEFT JOIN (SELECT Attributes['gen_ai.request.model'] as model, (argMax(Value, TimeUnix) - argMin(Value, TimeUnix)) / nullIf(sum(Count), 0) as cost_per_req FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'base14.gen_ai.cost' AND Attributes['gen_ai.request.model'] != '' GROUP BY model) c ON t.model = c.model ORDER BY t.avg_input DESC", "refId": "A", "format": "table"}]
     },
     {
       "collapsed": false,
@@ -269,7 +269,7 @@
       "gridPos": {"h": 4, "w": 6, "x": 0, "y": 67},
       "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.05}, {"color": "red", "value": 0.1}]}}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
-      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(r.requests, 0) as cost_per_request FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'gen_ai.client.cost') c, (SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent') r", "refId": "A", "format": "table"}]
+      "targets": [{"rawSql": "SELECT c.total_cost / nullIf(r.requests, 0) as cost_per_request FROM (SELECT argMax(Value, TimeUnix) - argMin(Value, TimeUnix) as total_cost FROM infraspec.otel_metrics_sum WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND MetricName = 'base14.gen_ai.cost') c, (SELECT count() as requests FROM infraspec.otel_traces WHERE $timeFilter AND ServiceName = 'ai-runbook-assistant' AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent') r", "refId": "A", "format": "table"}]
     },
     {
       "id": 27,

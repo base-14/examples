@@ -8,16 +8,21 @@ services:
       - OTEL_SERVICE_NAME=ai-sales-intelligence
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_ENABLED=true
-      - LLM_PROVIDER=${LLM_PROVIDER:-google}
-      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-gemini-2.5-pro}
-      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-gemini-2.5-flash}
-      - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-anthropic}
-      - FALLBACK_MODEL=${FALLBACK_MODEL:-claude-haiku-4-5-20251001}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+      - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-qwen3.5:9B}
+      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-qwen3.5:9B}
+      - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-ollama}
+      - FALLBACK_MODEL=${FALLBACK_MODEL:-qwen3.5:9B}
+      # Override with http://ollama:11434 when using --profile ollama (Dockerized Ollama).
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/app/data
       - ../../_shared:/app/_shared:ro
@@ -61,8 +66,8 @@ services:
       - "55679:55679" # zpages (debugging UI)
     environment:
       # Base14 Scout credentials (from .env)
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
       - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
       - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}

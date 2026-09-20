@@ -15,8 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sales_intelligence.config import get_settings
 from sales_intelligence.database import close_db, engine, get_session, init_db
+from sales_intelligence.errors import unhandled_exception_handler
 from sales_intelligence.graph import run_pipeline
-from sales_intelligence.middleware import MetricsMiddleware
+from sales_intelligence.middleware import MetricsMiddleware, SpanStatusMiddleware
 from sales_intelligence.models import Campaign, Connection, Prospect
 from sales_intelligence.telemetry import instrument_fastapi, setup_telemetry
 
@@ -45,6 +46,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_middleware(MetricsMiddleware)
+app.add_middleware(SpanStatusMiddleware)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 instrument_fastapi(app)
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

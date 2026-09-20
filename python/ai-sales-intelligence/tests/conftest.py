@@ -5,6 +5,12 @@ from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from opentelemetry import metrics, trace
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from sales_intelligence.database import Base
@@ -12,6 +18,24 @@ from sales_intelligence.database import Base
 
 os.environ["OTEL_ENABLED"] = "false"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+
+# Registered here, before any test module imports sales_intelligence.llm, so the
+# tracer and the metric instruments that module creates at import time write into
+# these in-memory collectors.
+SPAN_EXPORTER = InMemorySpanExporter()
+METRIC_READER = InMemoryMetricReader()
+
+_tracer_provider = TracerProvider()
+_tracer_provider.add_span_processor(SimpleSpanProcessor(SPAN_EXPORTER))
+trace.set_tracer_provider(_tracer_provider)
+metrics.set_meter_provider(MeterProvider(metric_readers=[METRIC_READER]))
+
+
+@pytest.fixture
+def span_exporter() -> InMemorySpanExporter:
+    """In-memory span exporter, cleared before each test that uses it."""
+    SPAN_EXPORTER.clear()
+    return SPAN_EXPORTER
 
 
 @pytest.fixture

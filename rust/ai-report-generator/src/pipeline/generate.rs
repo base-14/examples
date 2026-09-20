@@ -27,9 +27,9 @@ pub struct NarrativeSection {
     name = "pipeline_stage generate",
     skip(llm_client, data, analysis),
     fields(
-        pipeline.stage = "generate",
-        narrative.title,
-        narrative.sections_count,
+        base14.pipeline.stage = "generate",
+        base14.narrative.title,
+        base14.narrative.sections_count,
     )
 )]
 pub async fn generate(
@@ -96,8 +96,8 @@ pub async fn generate(
     narrative.provider = provider;
 
     let span = tracing::Span::current();
-    span.record("narrative.title", &narrative.title);
-    span.record("narrative.sections_count", narrative.sections.len());
+    span.record("base14.narrative.title", &narrative.title);
+    span.record("base14.narrative.sections_count", narrative.sections.len());
 
     Ok(narrative)
 }

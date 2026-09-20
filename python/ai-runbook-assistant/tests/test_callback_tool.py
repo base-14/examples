@@ -21,12 +21,15 @@ def test_tool_span_named_and_typed():
 
     h = OTelCallbackHandler(tracer=tracer)
     rid = uuid4()
-    h.on_tool_start({"name": "search_runbooks"}, "disk full", run_id=rid)
+    h.on_tool_start(
+        {"name": "search_runbooks"}, "disk full", run_id=rid, tool_call_id="call_abc123"
+    )
     h.on_tool_end("3 runbooks", run_id=rid)
     span = exporter.get_finished_spans()[0]
     assert span.name == "execute_tool search_runbooks"
     assert span.attributes["gen_ai.tool.name"] == "search_runbooks"
     assert span.attributes["gen_ai.operation.name"] == "execute_tool"
+    assert span.attributes["gen_ai.tool.call.id"] == "call_abc123"
 
 
 def test_tool_error_marks_span_error_and_parent_event():

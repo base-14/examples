@@ -55,6 +55,7 @@ vi.mock("../../src/pipeline/embed.ts", () => ({
   embedChunks: vi.fn().mockResolvedValue({
     embeddings: [[0.1, 0.2, 0.3]],
     total_tokens: 100,
+    total_cost_usd: 0.000002,
     batch_count: 1,
   }),
 }));

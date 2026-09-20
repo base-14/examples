@@ -26,7 +26,6 @@ RUN apk add --no-cache ca-certificates tzdata wget && \
 WORKDIR /app
 
 COPY --from=builder /build/rust/ai-report-generator/target/release/server .
-COPY --from=builder /build/_shared/pricing.json /app/_shared/pricing.json
 
 USER appuser
 

@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"ai-data-analyst/internal/llm"
+	"ai-data-analyst/internal/telemetry"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -36,7 +36,7 @@ func Explain(ctx context.Context, tracer trace.Tracer, client *llm.Client, quest
 	ctx, span := tracer.Start(ctx, "pipeline_stage explain")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("nlsql.stage", "explain"))
+	span.SetAttributes(attribute.String("base14.nlsql.stage", "explain"))
 
 	prompt := buildExplainPrompt(question, sql, execResult)
 
@@ -49,7 +49,7 @@ func Explain(ctx context.Context, tracer trace.Tracer, client *llm.Client, quest
 		Stage:       "explain",
 	})
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, "explain_failed")
 		return nil, fmt.Errorf("explanation generation failed: %w", err)
 	}
 
@@ -59,9 +59,9 @@ func Explain(ctx context.Context, tracer trace.Tracer, client *llm.Client, quest
 	result.CostUSD = resp.CostUSD
 
 	span.SetAttributes(
-		attribute.Int("nlsql.summary_length", len(result.Summary)),
-		attribute.Int("nlsql.insights_count", len(result.Insights)),
-		attribute.Int("nlsql.follow_ups_count", len(result.FollowUps)),
+		attribute.Int("base14.nlsql.summary_length", len(result.Summary)),
+		attribute.Int("base14.nlsql.insights_count", len(result.Insights)),
+		attribute.Int("base14.nlsql.follow_ups_count", len(result.FollowUps)),
 	)
 
 	return result, nil

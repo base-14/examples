@@ -17,6 +17,20 @@ const RouteSchema = z.object({
     .describe("false only for trivially simple, single-purpose documents with no unusual terms"),
 });
 
+const SYSTEM_PROMPT = `You are a legal document classifier. Choose the single document type that best matches the text.
+
+nda: obligations to keep information confidential or not to disclose it.
+employment: terms on which an employer hires an individual employee.
+service_agreement: one party performs services or delivers work product for another in return for payment.
+lease: the right to occupy or use property in return for rent.
+partnership: two or more parties sharing ownership, profit or control of a joint venture.
+unknown: the text is not a contract at all, for example an invoice, an article or a letter.
+
+Always pick the closest of the five contract types, even when the document is unusual or covers
+more than one subject. Use "unknown" only when the text is not a contract.
+
+For complexity, go higher when in doubt.`;
+
 export async function routeDocument(fullText: string): Promise<RouteResult> {
   // Only the first 3000 chars are needed to classify a document
   const preview = fullText.slice(0, 3000);
@@ -25,8 +39,7 @@ export async function routeDocument(fullText: string): Promise<RouteResult> {
   const { output, usage } = await generateText({
     model: fastDescriptor.model,
     output: Output.object({ schema: RouteSchema }),
-    system: `You are a legal document classifier. Identify the document type, complexity, and whether it requires full analysis.
-Be conservative: if in doubt about document type, use "unknown". If in doubt about complexity, go higher.`,
+    system: SYSTEM_PROMPT,
     prompt: preview,
   });
 

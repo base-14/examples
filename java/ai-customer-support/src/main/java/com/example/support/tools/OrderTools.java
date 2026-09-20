@@ -11,19 +11,17 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import com.example.support.telemetry.SupportMetrics;
-
 @Component
 public class OrderTools {
 
     private static final Logger log = LoggerFactory.getLogger(OrderTools.class);
 
     private final JdbcTemplate jdbc;
-    private final SupportMetrics metrics;
+    private final ToolTelemetry toolTelemetry;
 
-    public OrderTools(JdbcTemplate jdbc, SupportMetrics metrics) {
+    public OrderTools(JdbcTemplate jdbc, ToolTelemetry toolTelemetry) {
         this.jdbc = jdbc;
-        this.metrics = metrics;
+        this.toolTelemetry = toolTelemetry;
     }
 
     @Tool(description = "Look up order status and tracking info by order ID (e.g. ORD-12345)")
@@ -31,7 +29,6 @@ public class OrderTools {
         @ToolParam(description = "Order ID, e.g. ORD-12345") String orderId
     ) {
         log.info("Tool call: getOrderStatus({})", orderId);
-        metrics.recordToolCall("getOrderStatus", true);
         var rows = jdbc.queryForList(
             """
             SELECT o.order_id, o.status, o.tracking_number, o.estimated_delivery,
@@ -41,8 +38,9 @@ public class OrderTools {
             """, orderId);
 
         if (rows.isEmpty()) {
-            return Map.of("error", "Order not found: " + orderId);
+            return toolTelemetry.failure("getOrderStatus", "order_not_found", "Order not found: " + orderId);
         }
+        toolTelemetry.success("getOrderStatus");
         return rows.getFirst();
     }
 
@@ -52,14 +50,15 @@ public class OrderTools {
         @ToolParam(description = "Maximum number of orders to return") int limit
     ) {
         log.info("Tool call: getOrderHistory(email={}, limit={})", email, limit);
-        metrics.recordToolCall("getOrderHistory", true);
-        return jdbc.queryForList(
+        var rows = jdbc.queryForList(
             """
             SELECT o.order_id, o.status, o.total_amount, o.created_at
             FROM orders o JOIN customers c ON o.customer_id = c.id
             WHERE c.email = ?
             ORDER BY o.created_at DESC LIMIT ?
             """, email, Math.min(limit, 10));
+        toolTelemetry.success("getOrderHistory");
+        return rows;
     }
 
     @Tool(description = "Initiate a return for an order. Returns must be within 30 days of delivery.")
@@ -68,18 +67,18 @@ public class OrderTools {
         @ToolParam(description = "Reason for the return") String reason
     ) {
         log.info("Tool call: initiateReturn(orderId={}, reason={})", orderId, reason);
-        metrics.recordToolCall("initiateReturn", true);
 
         var orders = jdbc.queryForList(
             "SELECT id, status, total_amount FROM orders WHERE order_id = ?", orderId);
         if (orders.isEmpty()) {
-            return Map.of("error", "Order not found: " + orderId);
+            return toolTelemetry.failure("initiateReturn", "order_not_found", "Order not found: " + orderId);
         }
 
         var order = orders.getFirst();
         String status = (String) order.get("status");
         if (!"delivered".equals(status)) {
-            return Map.of("error", "Returns can only be initiated for delivered orders. Current status: " + status);
+            return toolTelemetry.failure("initiateReturn", "order_not_delivered",
+                "Returns can only be initiated for delivered orders. Current status: " + status);
         }
 
         UUID orderUuid = (UUID) order.get("id");
@@ -89,6 +88,7 @@ public class OrderTools {
             "INSERT INTO returns (order_id, return_id, reason, status, refund_amount) VALUES (?, ?, ?, 'pending', ?)",
             orderUuid, returnId, reason, order.get("total_amount"));
 
+        toolTelemetry.success("initiateReturn");
         return Map.of(
             "return_id", returnId,
             "order_id", orderId,
@@ -103,7 +103,6 @@ public class OrderTools {
         @ToolParam(description = "Return ID, e.g. RET-67890") String returnId
     ) {
         log.info("Tool call: getReturnStatus({})", returnId);
-        metrics.recordToolCall("getReturnStatus", true);
         var rows = jdbc.queryForList(
             """
             SELECT r.return_id, r.reason, r.status, r.refund_amount, r.created_at,
@@ -113,8 +112,9 @@ public class OrderTools {
             """, returnId);
 
         if (rows.isEmpty()) {
-            return Map.of("error", "Return not found: " + returnId);
+            return toolTelemetry.failure("getReturnStatus", "return_not_found", "Return not found: " + returnId);
         }
+        toolTelemetry.success("getReturnStatus");
         return rows.getFirst();
     }
 }

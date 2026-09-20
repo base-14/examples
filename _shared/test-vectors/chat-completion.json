@@ -31,7 +31,7 @@
       "gen_ai.usage.output_tokens": 5,
       "server.address": "api.anthropic.com",
       "server.port": 443,
-      "base14.gen_ai.cost_usd_approx": 0.000111
+      "base14.gen_ai.cost_usd": 0.000111
     },
     "events": [
       {

@@ -1,4 +1,4 @@
-.PHONY: install dev check lint format typecheck test test-api seed docker-build docker-up docker-down clean
+.PHONY: install dev build check lint format typecheck test test-watch test-coverage test-api verify seed db-migrate docker-build docker-up docker-down clean
 
 install:
 	bun install
@@ -6,7 +6,10 @@ install:
 dev:
 	bun run --watch --preload ./src/telemetry.ts src/index.ts
 
-check: lint typecheck test
+build:
+	bun build src/index.ts --outdir dist --target bun
+
+check: lint typecheck build test
 
 lint:
 	bunx biome check src tests
@@ -15,19 +18,22 @@ format:
 	bunx biome format --write src tests
 
 typecheck:
-	tsc --noEmit
+	bunx tsc --noEmit
 
 test:
-	vitest run
+	bunx vitest run
 
 test-watch:
-	vitest
+	bunx vitest
 
 test-coverage:
-	vitest run --coverage
+	bunx vitest run --coverage
 
 test-api:
 	./scripts/test-api.sh
+
+verify:
+	./scripts/verify-scout.sh
 
 seed:
 	bun run scripts/seed-data.ts
@@ -36,7 +42,7 @@ db-migrate:
 	bun run scripts/db-migrate.ts
 
 docker-build:
-	docker build -t ai-contract-analyzer .
+	docker build --build-context shared=../../_shared -t ai-contract-analyzer .
 
 docker-up:
 	docker compose up -d

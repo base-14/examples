@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/providers.ts", () => ({
@@ -49,5 +50,57 @@ describe("routeDocument", () => {
     await routeDocument("contract text");
 
     expect(vi.mocked(getFastModel)).toHaveBeenCalled();
+  });
+});
+
+describe("routeDocument classifier prompt", () => {
+  async function lastSystemPrompt(): Promise<string> {
+    const { generateText } = await import("ai");
+    const call = vi.mocked(generateText).mock.calls.at(-1)?.[0] as unknown as { system: string };
+    return call.system;
+  }
+
+  it("defines every contract type the schema accepts", async () => {
+    await routeDocument("contract text");
+    const system = await lastSystemPrompt();
+
+    for (const type of ["nda", "employment", "service_agreement", "lease", "partnership"]) {
+      expect(system).toContain(`${type}:`);
+    }
+  });
+
+  it("reserves unknown for text that is not a contract", async () => {
+    await routeDocument("contract text");
+    const system = await lastSystemPrompt();
+
+    expect(system).toContain('Use "unknown" only when the text is not a contract');
+    expect(system).not.toContain("if in doubt about document type");
+  });
+
+  it("asks for the single best match rather than a conservative one", async () => {
+    await routeDocument("contract text");
+    const system = await lastSystemPrompt();
+
+    expect(system).toContain("single document type that best matches");
+    expect(system).toContain("Always pick the closest of the five contract types");
+  });
+});
+
+describe("routeDocument on the shipped sample", () => {
+  const samplePath = new URL("../../data/contracts/sample-nda.txt", import.meta.url).pathname;
+
+  it("classifies data/contracts/sample-nda.txt as an nda", async () => {
+    const result = await routeDocument(readFileSync(samplePath, "utf8"));
+
+    expect(result.document_type).toBe("nda");
+  });
+
+  it("sends the sample's heading to the classifier", async () => {
+    const { generateText } = await import("ai");
+
+    await routeDocument(readFileSync(samplePath, "utf8"));
+
+    const call = vi.mocked(generateText).mock.calls.at(-1)?.[0] as unknown as { prompt: string };
+    expect(call.prompt).toContain("NON-DISCLOSURE AGREEMENT");
   });
 });

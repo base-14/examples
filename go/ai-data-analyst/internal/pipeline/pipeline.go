@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"ai-data-analyst/internal/config"
@@ -11,7 +12,6 @@ import (
 	"ai-data-analyst/internal/telemetry"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -52,13 +52,14 @@ func (p *Pipeline) Ask(ctx context.Context, question string) (*AskResult, error)
 	genResult, err := Generate(ctx, p.Tracer, p.LLM, question, parsed,
 		p.Config.LLMModelCapable, p.Config.DefaultTemperature, p.Config.DefaultMaxTokens)
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, "generate_stage_failed")
 		return nil, fmt.Errorf("generate stage failed: %w", err)
 	}
 
 	if genResult.SQL == "" {
-		span.SetStatus(codes.Error, "no SQL generated")
-		return nil, fmt.Errorf("LLM did not generate SQL for: %s", question)
+		err := fmt.Errorf("LLM did not generate SQL for: %s", question)
+		telemetry.RecordError(span, err, "no_sql_generated")
+		return nil, err
 	}
 
 	// Low confidence check
@@ -80,13 +81,13 @@ func (p *Pipeline) Ask(ctx context.Context, question string) (*AskResult, error)
 
 	if p.Metrics != nil {
 		p.Metrics.SQLValid.Add(ctx, 1,
-			telemetry.WithBoolAttr("nlsql.valid", validated.Valid),
+			telemetry.WithSQLValid(validated.Valid),
 		)
 	}
 
 	if !validated.Valid {
 		span.SetAttributes(
-			attribute.StringSlice("nlsql.violations", validated.Violations),
+			attribute.StringSlice("base14.nlsql.violations", validated.Violations()),
 		)
 		return &AskResult{
 			Question:   question,
@@ -95,7 +96,7 @@ func (p *Pipeline) Ask(ctx context.Context, question string) (*AskResult, error)
 			DurationMS: time.Since(start).Milliseconds(),
 			TraceID:    traceID,
 			Explanation: &ExplainResult{
-				Summary: "The generated SQL was rejected by safety validation: " + fmt.Sprintf("%v", validated.Violations),
+				Summary: "The generated SQL was rejected by safety validation: " + strings.Join(validated.Violations(), "; "),
 			},
 		}, nil
 	}
@@ -103,7 +104,7 @@ func (p *Pipeline) Ask(ctx context.Context, question string) (*AskResult, error)
 	// Stage 4: Execute
 	execResult, err := Execute(ctx, p.Tracer, p.DB, validated.SafeSQL)
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, "execute_stage_failed")
 		return nil, fmt.Errorf("execute stage failed: %w", err)
 	}
 
@@ -119,7 +120,7 @@ func (p *Pipeline) Ask(ctx context.Context, question string) (*AskResult, error)
 	explainResult, err := Explain(ctx, p.Tracer, p.LLM, question, validated.SafeSQL, execResult,
 		p.Config.LLMModelFast, 0.3, 512)
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		telemetry.RecordError(span, err, "explain_stage_failed")
 		return nil, fmt.Errorf("explain stage failed: %w", err)
 	}
 
@@ -161,10 +162,10 @@ func (p *Pipeline) Ask(ctx context.Context, question string) (*AskResult, error)
 	})
 
 	span.SetAttributes(
-		attribute.String("nlsql.question_type", parsed.QuestionType),
-		attribute.Float64("nlsql.confidence", genResult.Confidence),
-		attribute.Int("nlsql.row_count", execResult.RowCount),
-		attribute.Int64("nlsql.duration_ms", duration.Milliseconds()),
+		attribute.String("base14.nlsql.question_type", parsed.QuestionType),
+		attribute.Float64("base14.nlsql.confidence", genResult.Confidence),
+		attribute.Int("base14.nlsql.row_count", execResult.RowCount),
+		attribute.Int64("base14.nlsql.duration_ms", duration.Milliseconds()),
 	)
 
 	return result, nil

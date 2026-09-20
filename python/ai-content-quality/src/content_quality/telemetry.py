@@ -1,7 +1,6 @@
 import atexit
 import logging
 import os
-from importlib.metadata import version
 from typing import Any
 
 from opentelemetry import _logs, metrics, trace
@@ -34,10 +33,9 @@ def setup_telemetry(
     4. Auto-instrumentation for logging (trace_id/span_id correlation)
 
     GenAI telemetry (spans, metrics, events) is handled by custom instrumentation
-    in llm.py following OTel GenAI semantic conventions. We intentionally do NOT use
-    OpenInference/LlamaIndex auto-instrumentation to avoid non-standard attributes
-    (llm.*, input.*, output.*) that pollute the telemetry with framework-specific
-    data outside the OTel GenAI semconv.
+    in llm.py following OTel GenAI semantic conventions. LlamaIndex has no OTel GenAI
+    instrumentation that emits the current semconv names, so this example instruments
+    the LLM calls by hand.
 
     Args:
         service_name: Service identifier for all telemetry
@@ -53,7 +51,7 @@ def setup_telemetry(
     resource = Resource.create(
         {
             "service.name": service_name,
-            "service.version": version("ai-content-quality"),
+            "service.version": "1.0.0",
             "deployment.environment": os.getenv("SCOUT_ENVIRONMENT", "development"),
             "environment": os.getenv("SCOUT_ENVIRONMENT", "development"),
         }

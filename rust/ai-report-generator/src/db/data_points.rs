@@ -32,7 +32,7 @@ struct JoinedRow {
 #[tracing::instrument(
     name = "db.data_points.query",
     skip(pool),
-    fields(indicator_count, data_point_count)
+    fields(base14.indicator_count, base14.data_point_count)
 )]
 pub async fn query_indicator_data(
     pool: &PgPool,
@@ -81,8 +81,8 @@ pub async fn query_indicator_data(
     let results: Vec<IndicatorData> = order.into_iter().filter_map(|c| map.remove(&c)).collect();
 
     let total_points: usize = results.iter().map(|d| d.values.len()).sum();
-    span.record("indicator_count", results.len());
-    span.record("data_point_count", total_points);
+    span.record("base14.indicator_count", results.len());
+    span.record("base14.data_point_count", total_points);
 
     Ok(results)
 }

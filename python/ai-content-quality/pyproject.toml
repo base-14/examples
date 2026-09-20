@@ -20,43 +20,43 @@ classifiers = [
 
 dependencies = [
     # Web framework
-    "fastapi>=0.128.4",
-    "uvicorn[standard]>=0.40.0",
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.52.4",
 
     # Validation & settings
-    "pydantic>=2.12.5",
-    "pydantic-settings>=2.12.0",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
 
     # LLM
-    "llama-index-core>=0.14.13",
-    "llama-index-llms-openai>=0.6.18",
-    "llama-index-llms-google-genai>=0.8.7",
-    "llama-index-llms-anthropic>=0.10.8",
-    "llama-index-llms-ollama>=0.6.1",
+    "llama-index-core==0.14.24",
+    "llama-index-llms-openai==0.8.0",
+    "llama-index-llms-google-genai==0.11.0",
+    "llama-index-llms-anthropic==0.12.0",
+    "llama-index-llms-ollama==0.11.0",
 
     # Utilities
-    "tenacity>=9.1.4",
-    "httpx>=0.28.1",
-    "pyyaml>=6.0.3",
+    "tenacity==9.1.4",
+    "httpx==0.28.1",
+    "pyyaml==6.0.3",
 
     # Observability (OpenTelemetry)
-    "opentelemetry-sdk>=1.40.0",
-    "opentelemetry-api>=1.40.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.40.0",
-    "opentelemetry-instrumentation-fastapi>=0.61b0",
-    "opentelemetry-instrumentation-logging>=0.61b0",
+    "opentelemetry-sdk==1.44.0",
+    "opentelemetry-api==1.44.0",
+    "opentelemetry-exporter-otlp-proto-http==1.44.0",
+    "opentelemetry-instrumentation-fastapi==0.65b0",
+    "opentelemetry-instrumentation-logging==0.65b0",
 
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.2",
-    "pytest-cov>=7.0.0",
-    "pytest-asyncio>=1.1.0",
-    "ruff>=0.15.0",
-    "mypy>=1.19.1",
-    "pip-audit>=2.10.0",
-    "types-pyyaml>=6.0.12.20250915",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.16.5",
+    "mypy==2.3.1",
+    "pip-audit==2.10.1",
+    "types-pyyaml==6.0.12.20260815",
 ]
 
 [project.urls]

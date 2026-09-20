@@ -14,16 +14,20 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /app/server ./cmd/serve
 
 FROM alpine:3.23
 
-RUN apk --no-cache add ca-certificates wget
+RUN apk --no-cache add ca-certificates wget && \
+    adduser -D -u 10001 app
 
 WORKDIR /app
-COPY --from=builder /app/server .
-COPY --from=builder /build/go/ai-data-analyst/data/schema-context.txt /app/data/schema-context.txt
-COPY --from=builder /build/_shared/pricing.json /app/_shared/pricing.json
+COPY --from=builder --chown=app:app /app/server .
+COPY --from=builder --chown=app:app /build/go/ai-data-analyst/data/schema-context.txt /app/data/schema-context.txt
+COPY --from=builder --chown=app:app /build/_shared/pricing.json /app/_shared/pricing.json
 
+ENV PRICING_JSON_PATH=/app/_shared/pricing.json
+
+USER app
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
+  CMD wget -q -O /dev/null http://localhost:8080/api/health || exit 1
 
 ENTRYPOINT ["/app/server"]

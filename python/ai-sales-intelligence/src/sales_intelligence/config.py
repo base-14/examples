@@ -30,11 +30,11 @@ class Settings(BaseSettings):
     )
 
     # LLM Provider Configuration
-    llm_provider: LLMProvider = "google"
-    llm_model_capable: str = "gemini-2.5-pro"
-    llm_model_fast: str = "gemini-2.5-flash"
-    fallback_provider: LLMProvider = "anthropic"
-    fallback_model: str = "claude-haiku-4-5-20251001"
+    llm_provider: LLMProvider = "ollama"
+    llm_model_capable: str = "qwen3.5:9B"
+    llm_model_fast: str = "qwen3.5:9B"
+    fallback_provider: LLMProvider = "ollama"
+    fallback_model: str = "qwen3.5:9B"
 
     # Ollama (used when llm_provider=ollama or fallback_provider=ollama)
     ollama_base_url: str = "http://localhost:11434"
@@ -46,12 +46,18 @@ class Settings(BaseSettings):
 
     # LLM Generation Settings
     default_temperature: float = 0.7
-    default_max_tokens: int = 1024
+    # Large enough that a reasoning model's thinking does not exhaust the budget
+    # before it emits the answer.
+    default_max_tokens: int = 4096
 
     # OpenTelemetry / Base14 Scout
     otel_service_name: str = "ai-sales-intelligence"
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
     scout_environment: str = "development"
+
+    # Records prompt and completion content on the GenAI inference event.
+    # Off by default: the content may contain PII.
+    otel_instrumentation_genai_capture_message_content: bool = False
 
     # Feature flags
     otel_enabled: bool = True

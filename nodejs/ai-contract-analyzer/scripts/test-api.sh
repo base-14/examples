@@ -24,20 +24,20 @@ check() {
   fi
 }
 
-echo "=== AI Contract Analyzer — API Smoke Tests ==="
+echo "=== AI Contract Analyzer - API Smoke Tests ==="
 echo "Target: $BASE_URL"
 echo ""
 
 # ── health ─────────────────────────────────────────────────────────────────────
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health")
+STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/health")
 check "GET /health returns 200" "$STATUS" "200"
 
-BODY=$(curl -s "$BASE_URL/health")
+BODY=$(curl -s --max-time 10 "$BASE_URL/health")
 DB_STATUS=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['db'])" 2>/dev/null || echo "error")
 check "GET /health db=connected" "$DB_STATUS" "connected"
 
 # ── contract upload ────────────────────────────────────────────────────────────
-UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/contracts" \
+UPLOAD_RESPONSE=$(curl -s --max-time 1800 -w "\n%{http_code}" -X POST "$BASE_URL/api/contracts" \
   -F "file=@data/contracts/sample-nda.txt;type=text/plain")
 
 UPLOAD_STATUS=$(echo "$UPLOAD_RESPONSE" | tail -1)
@@ -64,36 +64,36 @@ else
 fi
 
 # ── list contracts ─────────────────────────────────────────────────────────────
-LIST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/contracts")
+LIST_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/api/contracts")
 check "GET /api/contracts returns 200" "$LIST_STATUS" "200"
 
 # ── get contract ───────────────────────────────────────────────────────────────
 if [[ -n "$CONTRACT_ID" ]]; then
-  GET_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/contracts/$CONTRACT_ID")
+  GET_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/api/contracts/$CONTRACT_ID")
   check "GET /api/contracts/:id returns 200" "$GET_STATUS" "200"
 
-  GET_BODY=$(curl -s "$BASE_URL/api/contracts/$CONTRACT_ID")
+  GET_BODY=$(curl -s --max-time 10 "$BASE_URL/api/contracts/$CONTRACT_ID")
   CONTRACT_STATUS=$(echo "$GET_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['contract']['status'])" 2>/dev/null || echo "")
   check "GET /api/contracts/:id status=complete" "$CONTRACT_STATUS" "complete"
 fi
 
 # ── 404 for unknown contract ───────────────────────────────────────────────────
-NOT_FOUND=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/contracts/00000000-0000-0000-0000-000000000000")
+NOT_FOUND=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/api/contracts/00000000-0000-0000-0000-000000000000")
 check "GET /api/contracts/:id returns 404 for unknown id" "$NOT_FOUND" "404"
 
 # ── semantic search ────────────────────────────────────────────────────────────
-SEARCH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/search" \
+SEARCH_STATUS=$(curl -s --max-time 300 -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/search" \
   -H "Content-Type: application/json" \
   -d '{"query":"confidentiality obligations","limit":5}')
 check "POST /api/search returns 200" "$SEARCH_STATUS" "200"
 
 # ── bad request: missing file ──────────────────────────────────────────────────
-BAD_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/contracts" \
+BAD_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/contracts" \
   -F "not_a_file=hello")
 check "POST /api/contracts without file returns 400" "$BAD_STATUS" "400"
 
 # ── unsupported file type ──────────────────────────────────────────────────────
-UNS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/contracts" \
+UNS_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/contracts" \
   -F "file=@package.json;type=application/json")
 check "POST /api/contracts with unsupported type returns 415" "$UNS_STATUS" "415"
 

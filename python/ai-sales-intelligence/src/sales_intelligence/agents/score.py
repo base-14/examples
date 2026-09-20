@@ -25,9 +25,9 @@ async def score_agent(state: AgentState) -> AgentState:
         Updated state with scored prospects (filtered by threshold)
     """
     with tracer.start_as_current_span("agent.score") as span:
-        span.set_attribute("campaign_id", state.campaign_id)
-        span.set_attribute("prospects_count", len(state.prospects))
-        span.set_attribute("score_threshold", state.score_threshold)
+        span.set_attribute("base14.campaign_id", state.campaign_id)
+        span.set_attribute("base14.prospects_count", len(state.prospects))
+        span.set_attribute("base14.score_threshold", state.score_threshold)
 
         if not state.prospects or not state.enriched:
             logger.info("No prospects to score")
@@ -39,7 +39,7 @@ async def score_agent(state: AgentState) -> AgentState:
 
         for prospect, enrichment in zip(state.prospects, state.enriched, strict=False):
             with tracer.start_as_current_span("score.prospect") as pspan:
-                pspan.set_attribute("prospect_id", prospect.connection_id)
+                pspan.set_attribute("base14.prospect_id", prospect.connection_id)
 
                 system_prompt = format_prompt("score", "system")
                 user_prompt = format_prompt(
@@ -68,7 +68,7 @@ async def score_agent(state: AgentState) -> AgentState:
                     score = data.get("icp_score", 0)
                     reasoning = data.get("reasoning", "")
 
-                    pspan.set_attribute("icp_score", score)
+                    pspan.set_attribute("base14.icp_score", score)
 
                     if score >= state.score_threshold:
                         scored.append(
@@ -86,8 +86,8 @@ async def score_agent(state: AgentState) -> AgentState:
                     logger.error("Scoring failed for %s: %s", prospect.company, e)
                     errors.append(f"Score error for {prospect.connection_id}: {e}")
 
-        span.set_attribute("scored_count", len(scored))
-        span.set_attribute("passed_threshold", len(scored))
+        span.set_attribute("base14.scored_count", len(scored))
+        span.set_attribute("base14.passed_threshold", len(scored))
         logger.info("Scored %d prospects, %d passed threshold", len(state.prospects), len(scored))
 
         return state.model_copy(

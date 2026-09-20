@@ -8,7 +8,7 @@ import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
-// Read config directly from env — avoids circular import with config.ts
+// Read config directly from env - avoids circular import with config.ts
 const otelEnabled = Bun.env.OTEL_ENABLED !== "false";
 const endpoint = Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? "http://localhost:4318";
 const serviceName = Bun.env.OTEL_SERVICE_NAME ?? "ai-contract-analyzer";
@@ -17,7 +17,7 @@ if (otelEnabled) {
   diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
 
   // ── Traces + Metrics ───────────────────────────────────────────────────────
-  // NodeSDK owns the global MeterProvider when metricReader is passed here —
+  // NodeSDK owns the global MeterProvider when metricReader is passed here -
   // avoids the duplicate-registration error that occurs when a separate
   // MeterProvider is created after sdk.start() registers one internally.
   // NodeSDK also handles SIGTERM (flushes pending spans/metrics before exit)

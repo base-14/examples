@@ -25,8 +25,8 @@ async def enrich_agent(state: AgentState) -> AgentState:
         Updated state with enrichment data
     """
     with tracer.start_as_current_span("agent.enrich") as span:
-        span.set_attribute("campaign_id", state.campaign_id)
-        span.set_attribute("prospects_count", len(state.prospects))
+        span.set_attribute("base14.campaign_id", state.campaign_id)
+        span.set_attribute("base14.prospects_count", len(state.prospects))
 
         if not state.prospects:
             logger.info("No prospects to enrich")
@@ -38,8 +38,8 @@ async def enrich_agent(state: AgentState) -> AgentState:
 
         for prospect in state.prospects:
             with tracer.start_as_current_span("enrich.prospect") as pspan:
-                pspan.set_attribute("prospect_id", prospect.connection_id)
-                pspan.set_attribute("company", prospect.company)
+                pspan.set_attribute("base14.prospect_id", prospect.connection_id)
+                pspan.set_attribute("base14.company", prospect.company)
 
                 system_prompt = format_prompt("enrich", "system")
                 user_prompt = format_prompt(
@@ -69,7 +69,7 @@ async def enrich_agent(state: AgentState) -> AgentState:
                     enriched.append(EnrichedData(confidence=0.0))
                     errors.append(f"Enrich error for {prospect.connection_id}: {e}")
 
-        span.set_attribute("enriched_count", len(enriched))
+        span.set_attribute("base14.enriched_count", len(enriched))
 
         return state.model_copy(
             update={

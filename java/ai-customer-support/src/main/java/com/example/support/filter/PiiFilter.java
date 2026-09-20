@@ -7,16 +7,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
 
+import com.example.support.telemetry.GenAi;
+
+/** Redacts email addresses, phone numbers, SSNs and card numbers from free text. */
 @Component
 public class PiiFilter {
 
     private static final Logger log = LoggerFactory.getLogger(PiiFilter.class);
     private static final String REDACTED = "[REDACTED]";
+    private static final String EVALUATION_NAME = "pii_scan";
 
     private record PiiPattern(String name, Pattern pattern) {}
 
@@ -32,32 +35,49 @@ public class PiiFilter {
     );
 
     public String scrub(String text) {
-        if (text == null || text.isEmpty()) return text;
-
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
         String result = text;
-        boolean piiFound = false;
-
-        for (var pii : PATTERNS) {
+        for (PiiPattern pii : PATTERNS) {
             var matcher = pii.pattern().matcher(result);
             if (matcher.find()) {
-                piiFound = true;
-                log.warn("PII detected (type={}), redacting", pii.name());
                 result = matcher.replaceAll(REDACTED);
             }
         }
-
-        if (piiFound) {
-            Span current = Span.current();
-            current.addEvent("support.pii_detected", Attributes.of(
-                AttributeKey.booleanKey("support.pii_redacted"), true
-            ));
-        }
-
         return result;
     }
 
+    /** Scrubs the text and records the result as a GenAI evaluation on the current span. */
+    public String evaluate(String text) {
+        List<String> detected = detect(text);
+        if (!detected.isEmpty()) {
+            log.warn("PII detected (types={}), redacting", detected);
+        }
+
+        AttributesBuilder attributes = Attributes.builder()
+            .put(GenAi.EVALUATION_NAME, EVALUATION_NAME)
+            .put(GenAi.EVALUATION_SCORE_VALUE, detected.isEmpty() ? 1.0 : 0.0)
+            .put(GenAi.EVALUATION_SCORE_LABEL, detected.isEmpty() ? "pass" : "fail");
+        if (!detected.isEmpty()) {
+            attributes.put(GenAi.EVALUATION_EXPLANATION, "Redacted " + String.join(", ", detected));
+        }
+        Span.current().addEvent(GenAi.EVALUATION_RESULT_EVENT, attributes.build());
+
+        return detected.isEmpty() ? text : scrub(text);
+    }
+
+    public List<String> detect(String text) {
+        if (text == null || text.isEmpty()) {
+            return List.of();
+        }
+        return PATTERNS.stream()
+            .filter(pii -> pii.pattern().matcher(text).find())
+            .map(PiiPattern::name)
+            .toList();
+    }
+
     public boolean containsPii(String text) {
-        if (text == null || text.isEmpty()) return false;
-        return PATTERNS.stream().anyMatch(p -> p.pattern().matcher(text).find());
+        return !detect(text).isEmpty();
     }
 }

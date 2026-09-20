@@ -45,7 +45,8 @@ htmlcov/
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
 
 # Logs
 *.log

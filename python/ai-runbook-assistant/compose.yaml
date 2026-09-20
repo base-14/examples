@@ -9,10 +9,14 @@ services:
       - INSTRUMENTATION_MODE=${INSTRUMENTATION_MODE:-callback}
       - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
       - LLM_MODEL=${LLM_MODEL:-qwen3.5:9B}
-      # Ollama runs on the HOST (not a compose service) to keep the image small
-      # and reuse the existing model cache. Reachable via host.docker.internal.
+      - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-ollama}
+      - FALLBACK_MODEL=${FALLBACK_MODEL:-qwen3.5:9B}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-embeddinggemma}
+      # Defaults to the host's Ollama; use http://ollama:11434 with the ollama compose profile.
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OTEL_SERVICE_NAME=ai-runbook-assistant
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_ENABLED=true
@@ -21,6 +25,8 @@ services:
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
     extra_hosts:
       - "host.docker.internal:host-gateway"  # reach host Ollama on Linux
+    volumes:
+      - ../../_shared:/app/_shared:ro  # pricing.json
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,11 +67,20 @@ services:
       - "4318:4318"   # OTLP HTTP
       - "13133:13133" # Health check
     environment:
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
       - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
       - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
 
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ollama]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   postgres_data:
+  ollama_data:

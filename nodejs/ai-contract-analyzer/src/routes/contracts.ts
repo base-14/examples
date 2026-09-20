@@ -8,10 +8,9 @@ import { findRisksByContract } from "../db/risks.ts";
 import { logger } from "../logger.ts";
 import { analyzeContract } from "../pipeline/orchestrator.ts";
 
-const tracer = trace.getTracer("ai-contract-analyzer");
 export const contracts = new Hono();
 
-// POST /api/contracts — upload + analyze
+// POST /api/contracts - upload + analyze
 contracts.post("/contracts", async (c) => {
   const formData = await c.req.formData();
   const file = formData.get("file");
@@ -29,50 +28,49 @@ contracts.post("/contracts", async (c) => {
   }
 
   const pool = getPool();
+  const span = trace.getActiveSpan();
 
-  return tracer.startActiveSpan("POST /api/contracts", async (span) => {
-    span.setAttribute("document.filename", file.name);
-    span.setAttribute("document.size_bytes", file.size);
-    try {
-      const result = await analyzeContract(file, pool);
-      span.setAttribute("contract.id", result.ingest.contract_id);
-      span.setAttribute("risk.overall", result.risks.overall_risk);
-      span.end();
-      return c.json(
-        {
-          contract_id: result.ingest.contract_id,
-          filename: result.ingest.contract_id,
-          overall_risk: result.risks.overall_risk,
-          clauses_found: result.extraction.clauses.filter((cl) => cl.present).length,
-          total_duration_ms: result.total_duration_ms,
-          trace_id: result.trace_id,
-        },
-        201,
-      );
-    } catch (err) {
-      logger.error("Contract analysis failed", {
+  span?.setAttribute("base14.document.filename", file.name);
+  span?.setAttribute("base14.document.size_bytes", file.size);
+
+  try {
+    const result = await analyzeContract(file, pool);
+    span?.setAttribute("base14.contract.id", result.ingest.contract_id);
+    span?.setAttribute("base14.risk.overall", result.risks.overall_risk);
+    return c.json(
+      {
+        contract_id: result.ingest.contract_id,
         filename: file.name,
-        error: (err as Error).message,
-      });
-      span.recordException(err as Error);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
-      span.end();
-      const code = (err as { code?: string }).code;
-      if (code === "PARSE_ERROR") return c.json({ error: (err as Error).message }, 422);
-      if (code === "UNSUPPORTED_TYPE") return c.json({ error: (err as Error).message }, 415);
-      return c.json({ error: "analysis failed" }, 500);
-    }
-  });
+        overall_risk: result.risks.overall_risk,
+        clauses_found: result.extraction.clauses.filter((cl) => cl.present).length,
+        total_duration_ms: result.total_duration_ms,
+        trace_id: result.trace_id,
+      },
+      201,
+    );
+  } catch (err) {
+    logger.error("Contract analysis failed", {
+      filename: file.name,
+      error: (err as Error).message,
+    });
+    span?.recordException(err as Error);
+    span?.setAttribute("error.type", (err as Error)?.constructor?.name ?? "UnknownError");
+    span?.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+    const code = (err as { code?: string }).code;
+    if (code === "PARSE_ERROR") return c.json({ error: (err as Error).message }, 422);
+    if (code === "UNSUPPORTED_TYPE") return c.json({ error: (err as Error).message }, 415);
+    return c.json({ error: "analysis failed" }, 500);
+  }
 });
 
-// GET /api/contracts — list all contracts
+// GET /api/contracts - list all contracts
 contracts.get("/contracts", async (c) => {
   const pool = getPool();
   const rows = await listContracts(pool);
   return c.json({ contracts: rows });
 });
 
-// GET /api/contracts/:id — full analysis result
+// GET /api/contracts/:id - full analysis result
 contracts.get("/contracts/:id", async (c) => {
   const { id } = c.req.param();
   const pool = getPool();

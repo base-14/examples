@@ -10,13 +10,13 @@ import com.example.support.llm.LlmResponse;
 import com.example.support.llm.LlmService;
 import com.example.support.model.IntentResult;
 import com.example.support.model.IntentResult.Intent;
+import com.example.support.telemetry.GenAi;
+import com.example.support.telemetry.Telemetry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 
 @Component
@@ -46,27 +46,27 @@ public class IntentClassifier {
         """;
 
     private final LlmService llmService;
-    private final Tracer tracer;
+    private final Telemetry telemetry;
 
-    public IntentClassifier(LlmService llmService) {
+    public IntentClassifier(LlmService llmService, Telemetry telemetry) {
         this.llmService = llmService;
-        this.tracer = GlobalOpenTelemetry.getTracer("ai-customer-support");
+        this.telemetry = telemetry;
     }
 
     public IntentResult classify(String userMessage) {
-        Span span = tracer.spanBuilder("classify_intent")
-            .setAttribute("support.stage", "classify")
+        Span span = telemetry.tracer().spanBuilder("classify_intent")
+            .setAttribute("base14.support.stage", "classify")
             .startSpan();
 
         try (Scope ignored = span.makeCurrent()) {
-            LlmResponse response = llmService.generateFast(SYSTEM_PROMPT, userMessage, "classify");
+            LlmResponse response = llmService.generateFast(SYSTEM_PROMPT, userMessage);
             IntentResult result = parseResponse(response);
 
-            span.setAttribute("support.intent", result.intent().name());
-            span.setAttribute("support.confidence", result.confidence());
-            span.setAttribute("support.sub_category", result.subCategory());
+            span.setAttribute("base14.support.intent", result.intent().name());
+            span.setAttribute("base14.support.confidence", result.confidence());
+            span.setAttribute("base14.support.sub_category", result.subCategory());
             if (!result.entities().isEmpty()) {
-                span.setAttribute("support.entities", String.join(",", result.entities()));
+                span.setAttribute("base14.support.entities", String.join(",", result.entities()));
             }
 
             log.debug("Classified intent: {} (confidence={}, sub={})",
@@ -74,6 +74,8 @@ public class IntentClassifier {
             return result;
 
         } catch (Exception e) {
+            span.recordException(e);
+            span.setAttribute(GenAi.ERROR_TYPE, e.getClass().getSimpleName());
             span.setStatus(StatusCode.ERROR, e.getMessage());
             log.error("Intent classification failed, using fallback: {}", e.getMessage());
             return IntentResult.fallback();

@@ -9,5 +9,10 @@ const googleBaseURL = "https://generativelanguage.googleapis.com/v1beta/openai"
 func NewGoogleProvider(apiKey string) *OpenAIProvider {
 	cfg := openai.DefaultConfig(apiKey)
 	cfg.BaseURL = googleBaseURL
-	return &OpenAIProvider{client: openai.NewClientWithConfig(cfg)}
+	return &OpenAIProvider{
+		client:  openai.NewClientWithConfig(cfg),
+		name:    "google",
+		address: "generativelanguage.googleapis.com",
+		port:    443,
+	}
 }

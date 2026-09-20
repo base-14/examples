@@ -1,5 +1,5 @@
 /**
- * Failure injection toolkit — demonstrates 7 failure scenarios and how each
+ * Failure injection toolkit - demonstrates 7 failure scenarios and how each
  * produces a distinct, diagnosable trace pattern in Base14 Scout.
  *
  * Usage:
@@ -50,8 +50,8 @@ async function hallucination() {
   const result = await uploadContract(`${TEST_DIR}minimal-nda.txt`, {
     force_full_extraction: true,
   });
-  log("hallucination", `done — trace: ${result.trace_id}`);
-  log("hallucination", "Scout: look for extraction span with confidence_avg < 0.5 and clauses flagged with present=true but no text excerpt");
+  log("hallucination", `done - trace: ${result.trace_id}`);
+  log("hallucination", "Scout: look for extraction span with base14.extraction.confidence_avg < 0.5 and clauses flagged with present=true but no text excerpt");
 }
 
 // ── scenario 2: token overflow ────────────────────────────────────────────────
@@ -63,8 +63,8 @@ async function tokenOverflow() {
   const result = await uploadContract(`${TEST_DIR}huge-contract.txt`, {
     disable_chunking_fallback: true,
   });
-  log("token-overflow", `done — trace: ${result.trace_id}`);
-  log("token-overflow", "Scout: ingest span shows document.total_characters >> 600000");
+  log("token-overflow", `done - trace: ${result.trace_id}`);
+  log("token-overflow", "Scout: ingest span shows base14.document.total_characters >> 600000");
 }
 
 // ── scenario 3: embedding API failure ─────────────────────────────────────────
@@ -92,7 +92,7 @@ async function malformedPdf() {
     await uploadContract(`${TEST_DIR}corrupted.pdf`);
   } catch (err) {
     log("malformed-pdf", `expected failure: ${(err as Error).message}`);
-    log("malformed-pdf", "Scout: ingest span has SpanStatus=ERROR, document.parse_error attribute set");
+    log("malformed-pdf", "Scout: ingest span has SpanStatus=ERROR, base14.document.parse_error attribute set");
   }
 }
 
@@ -109,7 +109,7 @@ async function encryptedPdf() {
 }
 
 // ── scenario 6: batch overload / cost runaway ─────────────────────────────────
-// Upload all sample contracts concurrently. gen_ai.client.cost counter spikes.
+// Upload all sample contracts concurrently. base14.gen_ai.cost counter spikes.
 // Scout shows concurrent analyze_contract spans and total token usage.
 async function batchOverload() {
   log("batch-overload", "uploading all sample contracts concurrently...");
@@ -120,7 +120,7 @@ async function batchOverload() {
       .filter((f) => f.endsWith(".pdf") || f.endsWith(".txt"))
       .map((f) => `${CONTRACTS_DIR}${f}`);
   } catch {
-    log("batch-overload", "no contracts in data/contracts/ — add some PDFs first");
+    log("batch-overload", "no contracts in data/contracts/ - add some PDFs first");
     return;
   }
 
@@ -133,8 +133,8 @@ async function batchOverload() {
   const results = await Promise.allSettled(files.map((f) => uploadContract(f)));
   const succeeded = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
-  log("batch-overload", `done — ${succeeded} succeeded, ${failed} failed`);
-  log("batch-overload", "Scout: gen_ai.client.cost counter shows spike, multiple concurrent analyze_contract spans");
+  log("batch-overload", `done - ${succeeded} succeeded, ${failed} failed`);
+  log("batch-overload", "Scout: base14.gen_ai.cost counter shows spike, multiple concurrent analyze_contract spans");
 }
 
 // ── scenario 7: contradictory clauses ─────────────────────────────────────────
@@ -144,7 +144,7 @@ async function batchOverload() {
 async function contradictoryClauses() {
   log("contradictory-clauses", "uploading contract with contradictory termination clauses...");
   const result = await uploadContract(`${TEST_DIR}contradictory-termination.txt`);
-  log("contradictory-clauses", `done — overall risk: ${result.overall_risk}, trace: ${result.trace_id}`);
+  log("contradictory-clauses", `done - overall risk: ${result.overall_risk}, trace: ${result.trace_id}`);
   log("contradictory-clauses", "Scout: score span shows both termination_for_convenience and irrevocable_agreement present");
 }
 

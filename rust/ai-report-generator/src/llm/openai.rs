@@ -12,7 +12,6 @@ use super::{GenerateRequest, GenerateResponse, Provider};
 
 pub struct OpenAIProvider {
     client: Client<OpenAIConfig>,
-    provider_name: String,
 }
 
 impl OpenAIProvider {
@@ -20,7 +19,6 @@ impl OpenAIProvider {
         let config = OpenAIConfig::new().with_api_key(api_key);
         Self {
             client: Client::with_config(config),
-            provider_name: "openai".to_string(),
         }
     }
 
@@ -30,7 +28,6 @@ impl OpenAIProvider {
             .with_api_base("https://generativelanguage.googleapis.com/v1beta/openai");
         Self {
             client: Client::with_config(config),
-            provider_name: "google".to_string(),
         }
     }
 
@@ -40,7 +37,6 @@ impl OpenAIProvider {
             .with_api_base(format!("{base_url}/v1"));
         Self {
             client: Client::with_config(config),
-            provider_name: "ollama".to_string(),
         }
     }
 }
@@ -63,7 +59,7 @@ impl Provider for OpenAIProvider {
         let request = CreateChatCompletionRequest {
             model: req.model.clone(),
             messages,
-            temperature: Some(req.temperature),
+            temperature: Some(req.temperature as f32),
             max_completion_tokens: Some(req.max_tokens),
             ..Default::default()
         };
@@ -91,15 +87,12 @@ impl Provider for OpenAIProvider {
         Ok(GenerateResponse {
             content,
             model: response.model,
+            response_id: Some(response.id).filter(|id| !id.is_empty()),
             input_tokens,
             output_tokens,
             cost_usd: 0.0,
             finish_reason,
             provider: String::new(),
         })
-    }
-
-    fn name(&self) -> &str {
-        &self.provider_name
     }
 }

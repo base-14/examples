@@ -22,10 +22,9 @@ tracer = trace.get_tracer("gen_ai.evaluation")
 meter = metrics.get_meter("gen_ai.evaluation")
 
 
-# Evaluation score histogram per OTel GenAI semconv
-# Custom metric - enables quality trend dashboards
+# The semconv has no evaluation score metric, so this one carries a base14. prefix.
 _evaluation_score = meter.create_histogram(
-    name="gen_ai.evaluation.score",
+    name="base14.gen_ai.evaluation.score",
     description="Quality evaluation scores (0-1 normalized)",
     unit="1",
 )
@@ -41,9 +40,9 @@ async def evaluate_agent(state: AgentState) -> AgentState:
         Updated state with evaluation results
     """
     with tracer.start_as_current_span("agent.evaluate") as span:
-        span.set_attribute("campaign_id", state.campaign_id)
-        span.set_attribute("drafts_count", len(state.drafts))
-        span.set_attribute("quality_threshold", state.quality_threshold)
+        span.set_attribute("base14.campaign_id", state.campaign_id)
+        span.set_attribute("base14.drafts_count", len(state.drafts))
+        span.set_attribute("base14.quality_threshold", state.quality_threshold)
 
         if not state.drafts:
             logger.info("No drafts to evaluate")
@@ -55,7 +54,7 @@ async def evaluate_agent(state: AgentState) -> AgentState:
 
         for draft in state.drafts:
             with tracer.start_as_current_span("evaluate.draft") as espan:
-                espan.set_attribute("prospect_id", draft.prospect_id)
+                espan.set_attribute("base14.prospect_id", draft.prospect_id)
 
                 system_prompt = format_prompt("evaluate", "system")
                 user_prompt = format_prompt(
@@ -77,13 +76,9 @@ async def evaluate_agent(state: AgentState) -> AgentState:
                     score = data.get("quality_score", 0)
                     passed = score >= state.quality_threshold
 
-                    espan.set_attribute("quality_score", score)
-                    espan.set_attribute("passed", passed)
+                    espan.set_attribute("base14.quality_score", score)
+                    espan.set_attribute("base14.passed", passed)
 
-                    # === OTel GenAI Evaluation Event ===
-                    # CUSTOM EVENT: Per OTel GenAI semconv for evaluation results
-                    # This enables evaluation tracking in Scout dashboards
-                    # See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
                     espan.add_event(
                         "gen_ai.evaluation.result",
                         attributes={
@@ -100,7 +95,7 @@ async def evaluate_agent(state: AgentState) -> AgentState:
                         {
                             "gen_ai.evaluation.name": "email_quality",
                             "gen_ai.evaluation.score.label": "passed" if passed else "failed",
-                            "campaign_id": state.campaign_id,
+                            "base14.campaign_id": state.campaign_id,
                         },
                     )
 
@@ -121,8 +116,8 @@ async def evaluate_agent(state: AgentState) -> AgentState:
                     errors.append(f"Evaluate error for {draft.prospect_id}: {e}")
 
         passed_count = sum(1 for e in evaluations if e.passed)
-        span.set_attribute("evaluations_count", len(evaluations))
-        span.set_attribute("passed_count", passed_count)
+        span.set_attribute("base14.evaluations_count", len(evaluations))
+        span.set_attribute("base14.passed_count", passed_count)
         logger.info(
             "Evaluated %d drafts, %d passed quality threshold", len(evaluations), passed_count
         )

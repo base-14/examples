@@ -13,10 +13,6 @@ version: "1.0"
 # a base14. prefix, per the naming guidance at
 # https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/naming.md
 #
-# Shipped examples keep their current attribute and metric names (the
-# gen_ai.usage.cost_usd, campaign_id, and gen_ai.client.* forms) until each
-# example is next touched. This file records the target shape for new and
-# updated examples.
 
 providers:
   anthropic:
@@ -30,7 +26,7 @@ providers:
   google:
     server_address: "generativelanguage.googleapis.com"
     server_port: 443
-    semconv_name: "google"
+    semconv_name: "gcp.gemini"
   ollama:
     server_address: "localhost"        # overridden by OLLAMA_BASE_URL env var
     server_port: 11434                 # NOT 443 — Ollama runs on 11434

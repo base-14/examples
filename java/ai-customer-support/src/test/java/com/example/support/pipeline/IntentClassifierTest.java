@@ -3,6 +3,7 @@ package com.example.support.pipeline;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -11,12 +12,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 import com.example.support.llm.LlmResponse;
 import com.example.support.model.IntentResult;
 import com.example.support.model.IntentResult.Intent;
+import com.example.support.telemetry.TestOtel;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class IntentClassifierTest {
 
-    private final IntentClassifier classifier = new IntentClassifier(null);
+    private final TestOtel otel = new TestOtel();
+    private final IntentClassifier classifier = new IntentClassifier(null, otel.telemetry());
+
+    @AfterEach
+    void tearDown() {
+        otel.close();
+    }
 
     static Stream<Arguments> intentParsingCases() {
         return Stream.of(

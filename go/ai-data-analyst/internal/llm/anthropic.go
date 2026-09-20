@@ -19,6 +19,10 @@ func NewAnthropicProvider(apiKey string) *AnthropicProvider {
 
 func (p *AnthropicProvider) Name() string { return "anthropic" }
 
+func (p *AnthropicProvider) ServerAddress() string { return "api.anthropic.com" }
+
+func (p *AnthropicProvider) ServerPort() int { return 443 }
+
 func (p *AnthropicProvider) Generate(ctx context.Context, req GenerateRequest) (*GenerateResponse, error) {
 	resp, err := p.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(req.Model),
@@ -44,6 +48,7 @@ func (p *AnthropicProvider) Generate(ctx context.Context, req GenerateRequest) (
 	return &GenerateResponse{
 		Content:      content,
 		Model:        string(resp.Model),
+		ResponseID:   resp.ID,
 		InputTokens:  int(resp.Usage.InputTokens),
 		OutputTokens: int(resp.Usage.OutputTokens),
 		FinishReason: string(resp.StopReason),

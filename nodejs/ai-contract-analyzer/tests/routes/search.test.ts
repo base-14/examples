@@ -13,9 +13,11 @@ vi.mock("ai", () => ({
 
 vi.mock("../../src/providers.ts", () => ({
   getEmbeddingModel: vi.fn().mockReturnValue({
+    modelId: "mock-embedding-model",
     model: "mock-embedding-model",
     dimensions: 768,
     costPerMToken: 0.02,
+    target: { semconvName: "openai", serverAddress: "api.openai.com", serverPort: 443 },
   }),
 }));
 

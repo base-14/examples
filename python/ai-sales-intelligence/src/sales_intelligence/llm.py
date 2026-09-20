@@ -1,27 +1,37 @@
 """LLM client with unified observability.
 
-Provider-agnostic design supporting Anthropic, Google, and OpenAI with full
-OpenTelemetry GenAI semantic conventions instrumentation.
+Provider-agnostic client for Anthropic, Gemini, OpenAI and Ollama, instrumented
+to the OpenTelemetry GenAI semantic conventions.
 
-Auto-instrumentation via opentelemetry-instrumentation-httpx captures HTTP-level
-spans automatically. This module adds CUSTOM instrumentation for:
-- GenAI-specific span attributes (model, tokens, cost) - enables LLM cost tracking
-- GenAI metrics (token usage, duration, cost) - enables usage dashboards
-- Business context (agent name, campaign ID) - enables cost attribution
+httpx auto-instrumentation records the HTTP layer of every provider call. This
+module adds what auto-instrumentation cannot know: the `chat {model}` span with
+GenAI attributes, the inference content event, the token, duration and cost
+metrics, and the retry, fallback and error counters.
 """
 
 import json
+import logging
 import re
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from opentelemetry import metrics, trace
+from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_exponential
 
 from sales_intelligence.config import LLMProvider, get_settings
 from sales_intelligence.pii import scrub_completion, scrub_prompt
+
+
+logger = logging.getLogger(__name__)
+
+PROMPT_MAX_CHARS = 1000
+SYSTEM_MAX_CHARS = 500
+COMPLETION_MAX_CHARS = 2000
 
 
 def _load_pricing() -> dict[str, dict[str, float]]:
@@ -44,7 +54,6 @@ def _load_pricing() -> dict[str, dict[str, float]]:
 
 PRICING: dict[str, dict[str, float]] = _load_pricing()
 
-# Provider server addresses for OTel server.address attribute
 PROVIDER_SERVERS: dict[LLMProvider, str] = {
     "anthropic": "api.anthropic.com",
     "google": "generativelanguage.googleapis.com",
@@ -52,7 +61,6 @@ PROVIDER_SERVERS: dict[LLMProvider, str] = {
     "ollama": "localhost",
 }
 
-# Provider ports for OTel server.port attribute
 PROVIDER_PORTS: dict[LLMProvider, int] = {
     "anthropic": 443,
     "google": 443,
@@ -60,12 +68,18 @@ PROVIDER_PORTS: dict[LLMProvider, int] = {
     "ollama": 11434,
 }
 
+# The config value for Gemini is `google`, matching the gateway contract. The
+# telemetry attribute uses the semantic convention name.
+PROVIDER_SEMCONV_NAMES: dict[LLMProvider, str] = {
+    "anthropic": "anthropic",
+    "google": "gcp.gemini",
+    "openai": "openai",
+    "ollama": "ollama",
+}
+
 tracer = trace.get_tracer("gen_ai.client")
 meter = metrics.get_meter("gen_ai.client")
 
-# GenAI metrics per OpenTelemetry semantic conventions
-# These are CUSTOM metrics - auto-instrumentation only provides HTTP metrics
-# Custom metrics enable: token usage dashboards, cost tracking, model comparison
 _token_usage = meter.create_histogram(
     name="gen_ai.client.token.usage",
     description="Number of tokens used per LLM call",
@@ -77,47 +91,42 @@ _operation_duration = meter.create_histogram(
     unit="s",
 )
 _cost_counter = meter.create_counter(
-    name="gen_ai.client.cost",
+    name="base14.gen_ai.cost",
     description="Cost of GenAI operations in USD",
     unit="usd",
 )
-
-# Additional metrics for Error & Retry Analysis dashboard
 _retry_counter = meter.create_counter(
-    name="gen_ai.client.retry.count",
-    description="Number of retry attempts",
+    name="base14.gen_ai.retry.count",
+    description="Number of retry attempts, excluding the initial attempt",
     unit="{retry}",
 )
 _fallback_counter = meter.create_counter(
-    name="gen_ai.client.fallback.count",
+    name="base14.gen_ai.fallback.count",
     description="Number of fallback triggers",
     unit="{fallback}",
 )
 _error_counter = meter.create_counter(
-    name="gen_ai.client.error.count",
+    name="base14.gen_ai.error.count",
     description="Number of errors by type",
     unit="{error}",
 )
 
 
 def _on_retry(retry_state: RetryCallState) -> None:
-    """Callback invoked before each retry attempt."""
     provider = "unknown"
-    if retry_state.args and len(retry_state.args) > 0:
-        self_arg = retry_state.args[0]
-        if hasattr(self_arg, "provider_name"):
-            provider = self_arg.provider_name
+    if retry_state.args and hasattr(retry_state.args[0], "provider_name"):
+        provider = PROVIDER_SEMCONV_NAMES[retry_state.args[0].provider_name]
 
     error_type = "unknown"
     if retry_state.outcome and retry_state.outcome.exception():
-        error_type = type(retry_state.outcome.exception()).__name__
+        error_type = type(retry_state.outcome.exception()).__qualname__
 
     _retry_counter.add(
         1,
         {
             "gen_ai.provider.name": provider,
             "error.type": error_type,
-            "retry.attempt": retry_state.attempt_number,
+            "base14.retry.attempt": retry_state.attempt_number,
         },
     )
 
@@ -139,11 +148,10 @@ class BaseLLMProvider(ABC):
 
     provider_name: LLMProvider
     server_address: str
+    server_port: int
 
     @abstractmethod
-    def __init__(self, api_key: str) -> None:
-        """Initialize provider with API key."""
-        ...
+    def __init__(self, api_key: str) -> None: ...
 
     @abstractmethod
     async def generate(
@@ -153,9 +161,7 @@ class BaseLLMProvider(ABC):
         prompt: str,
         temperature: float,
         max_tokens: int,
-    ) -> LLMResponse:
-        """Generate completion from the LLM."""
-        ...
+    ) -> LLMResponse: ...
 
 
 class AnthropicProvider(BaseLLMProvider):
@@ -163,6 +169,7 @@ class AnthropicProvider(BaseLLMProvider):
 
     provider_name: LLMProvider = "anthropic"
     server_address: str = PROVIDER_SERVERS["anthropic"]
+    server_port: int = PROVIDER_PORTS["anthropic"]
 
     def __init__(self, api_key: str) -> None:
         from anthropic import AsyncAnthropic
@@ -173,6 +180,7 @@ class AnthropicProvider(BaseLLMProvider):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         before_sleep=_on_retry,
+        reraise=True,
     )
     async def generate(
         self,
@@ -182,10 +190,6 @@ class AnthropicProvider(BaseLLMProvider):
         temperature: float,
         max_tokens: int,
     ) -> LLMResponse:
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         response = await self._client.messages.create(
             model=model,
             max_tokens=max_tokens,
@@ -199,10 +203,9 @@ class AnthropicProvider(BaseLLMProvider):
             if hasattr(block, "text"):
                 content = block.text
         logger.info(
-            "LLM response length: %d, stop_reason: %s, first100: %s",
+            "LLM response length: %d, stop_reason: %s",
             len(content),
             response.stop_reason,
-            repr(content[:100]),
         )
         return LLMResponse(
             content=content,
@@ -214,11 +217,12 @@ class AnthropicProvider(BaseLLMProvider):
         )
 
 
-class GoogleProvider(BaseLLMProvider):
+class GeminiProvider(BaseLLMProvider):
     """Google Gemini provider."""
 
     provider_name: LLMProvider = "google"
     server_address: str = PROVIDER_SERVERS["google"]
+    server_port: int = PROVIDER_PORTS["google"]
 
     def __init__(self, api_key: str) -> None:
         from google import genai
@@ -229,6 +233,7 @@ class GoogleProvider(BaseLLMProvider):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         before_sleep=_on_retry,
+        reraise=True,
     )
     async def generate(
         self,
@@ -274,6 +279,7 @@ class OpenAIProvider(BaseLLMProvider):
 
     provider_name: LLMProvider = "openai"
     server_address: str = PROVIDER_SERVERS["openai"]
+    server_port: int = PROVIDER_PORTS["openai"]
 
     def __init__(self, api_key: str) -> None:
         from openai import AsyncOpenAI
@@ -284,6 +290,7 @@ class OpenAIProvider(BaseLLMProvider):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         before_sleep=_on_retry,
+        reraise=True,
     )
     async def generate(
         self,
@@ -320,11 +327,13 @@ class OllamaProvider(BaseLLMProvider):
     """Ollama local model provider (OpenAI-compatible API)."""
 
     provider_name: LLMProvider = "ollama"
-    server_address: str = PROVIDER_SERVERS["ollama"]
 
     def __init__(self, api_key: str, base_url: str = "http://localhost:11434") -> None:
         from openai import AsyncOpenAI
 
+        parsed_base_url = urlparse(base_url)
+        self.server_address = parsed_base_url.hostname or PROVIDER_SERVERS["ollama"]
+        self.server_port = parsed_base_url.port or PROVIDER_PORTS["ollama"]
         # Ollama's OpenAI-compatible API lives at /v1
         if not base_url.endswith("/v1"):
             base_url = f"{base_url.rstrip('/')}/v1"
@@ -334,6 +343,7 @@ class OllamaProvider(BaseLLMProvider):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         before_sleep=_on_retry,
+        reraise=True,
     )
     async def generate(
         self,
@@ -367,12 +377,11 @@ class OllamaProvider(BaseLLMProvider):
 
 
 def _create_provider(provider: LLMProvider, api_key: str, base_url: str = "") -> BaseLLMProvider:
-    """Factory to create provider instance."""
     if provider == "ollama":
-        return OllamaProvider(api_key=api_key, base_url=base_url or "http://localhost:11434/v1")
+        return OllamaProvider(api_key=api_key, base_url=base_url or "http://localhost:11434")
     providers: dict[LLMProvider, type[BaseLLMProvider]] = {
         "anthropic": AnthropicProvider,
-        "google": GoogleProvider,
+        "google": GeminiProvider,
         "openai": OpenAIProvider,
     }
     return providers[provider](api_key)
@@ -405,21 +414,73 @@ def _normalize_model_id(model: str) -> str:
 
 
 def _calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    """Calculate cost in USD for a model call."""
+    """Calculate cost in USD for a model call. Unknown models cost 0.0."""
     pricing = PRICING.get(model) or PRICING.get(
         _normalize_model_id(model), {"input": 0.0, "output": 0.0}
     )
     return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
 
-class LLMClient:
-    """Provider-agnostic LLM client with full OTel GenAI instrumentation.
+def _emit_content_event(span: Span, prompt: str, system: str, response: LLMResponse | None) -> None:
+    """Emit the inference content event when content capture is switched on.
 
-    Custom instrumentation is added on top of auto-instrumentation because:
-    1. Auto (httpx): Captures HTTP request/response spans only
-    2. Custom: Adds GenAI semantic attributes for model, tokens, cost tracking
-    3. Custom: Records GenAI-specific metrics for dashboards and alerts
-    4. Custom: Enables business context attribution (agent, campaign)
+    Content is PII-scrubbed and truncated. The system prompt goes on
+    gen_ai.system_instructions, not into the input messages.
+    """
+    if not get_settings().otel_instrumentation_genai_capture_message_content:
+        return
+
+    attributes: dict[str, Any] = {
+        "gen_ai.input.messages": scrub_prompt(prompt)[:PROMPT_MAX_CHARS],
+    }
+    system_instructions = scrub_prompt(system)[:SYSTEM_MAX_CHARS]
+    if system_instructions:
+        attributes["gen_ai.system_instructions"] = system_instructions
+    if response is not None:
+        attributes["gen_ai.output.messages"] = scrub_completion(response.content)[
+            :COMPLETION_MAX_CHARS
+        ]
+
+    span.add_event("gen_ai.client.inference.operation.details", attributes=attributes)
+
+
+def _record_duration(base_attrs: dict[str, Any], duration: float, error_type: str | None) -> None:
+    attrs = dict(base_attrs)
+    if error_type:
+        attrs["error.type"] = error_type
+    _operation_duration.record(duration, attrs)
+
+
+def _record_usage(
+    base_attrs: dict[str, Any],
+    response: LLMResponse,
+    model: str,
+    agent_name: str | None,
+    campaign_id: str | None,
+    span: Span,
+) -> None:
+    usage_attrs = {**base_attrs, "gen_ai.response.model": response.model}
+
+    _token_usage.record(response.input_tokens, {**usage_attrs, "gen_ai.token.type": "input"})
+    _token_usage.record(response.output_tokens, {**usage_attrs, "gen_ai.token.type": "output"})
+
+    cost = _calculate_cost(model, response.input_tokens, response.output_tokens)
+    cost_attrs = dict(usage_attrs)
+    if agent_name:
+        cost_attrs["gen_ai.agent.name"] = agent_name
+    if campaign_id:
+        cost_attrs["base14.campaign_id"] = campaign_id
+    _cost_counter.add(cost, cost_attrs)
+
+    span.set_attribute("base14.gen_ai.cost_usd", cost)
+
+
+class LLMClient:
+    """Provider-agnostic LLM client with OTel GenAI instrumentation.
+
+    Each call opens a CLIENT span named `chat {model}`. When the primary
+    provider fails after its retries, the client switches to the fallback
+    provider and records the switch on the calling span.
     """
 
     def __init__(self) -> None:
@@ -453,17 +514,17 @@ class LLMClient:
         agent_name: str | None = None,
         campaign_id: str | None = None,
     ) -> str:
-        """Generate text with full OTel GenAI observability.
+        """Generate text, falling back to the secondary provider on failure.
 
         Args:
             prompt: User prompt
             system: System instruction
             provider: LLM provider (defaults to settings.llm_provider)
-            model: Model to use (defaults to settings.llm_model)
+            model: Model to use (defaults to the capable model)
             temperature: Sampling temperature
             max_tokens: Max output tokens
-            use_fallback: Whether to fallback to secondary provider on failure
-            agent_name: Agent name for attribution (recorded in spans/metrics)
+            use_fallback: Whether to switch provider when the primary fails
+            agent_name: Agent name for cost attribution
             campaign_id: Campaign ID for cost attribution
 
         Returns:
@@ -474,47 +535,87 @@ class LLMClient:
         temperature = temperature if temperature is not None else self._temperature
         max_tokens = max_tokens or self._max_tokens
 
-        llm_provider = self._get_provider(provider)
-
-        # CUSTOM SPAN: OTel GenAI semantic conventions
-        # Auto-instrumentation (httpx) only captures HTTP-level details
-        # This span adds LLM-specific context for debugging and cost analysis
-        with tracer.start_as_current_span(f"gen_ai.chat {model}") as span:
-            # === REQUIRED attributes (OTel GenAI semconv) ===
-            span.set_attribute("gen_ai.operation.name", "chat")
-            span.set_attribute("gen_ai.provider.name", provider)
-
-            # === CONDITIONALLY REQUIRED attributes ===
-            span.set_attribute("gen_ai.request.model", model)
-
-            # === RECOMMENDED attributes ===
-            # server.address/port identify which endpoint was called
-            span.set_attribute("server.address", llm_provider.server_address)
-            span.set_attribute("server.port", PROVIDER_PORTS[provider])
-            span.set_attribute("gen_ai.request.temperature", temperature)
-            span.set_attribute("gen_ai.request.max_tokens", max_tokens)
-
-            # === CUSTOM attributes for business context ===
-            # These enable cost attribution by agent and campaign in dashboards
-            if agent_name:
-                span.set_attribute("gen_ai.agent.name", agent_name)
-            if campaign_id:
-                span.set_attribute("campaign_id", campaign_id)
-
-            # === OTel GenAI Prompt Event ===
-            # Record prompt with PII scrubbed for safe telemetry
-            # Per GenAI semconv: gen_ai.user.message event
-            span.add_event(
-                "gen_ai.user.message",
-                attributes={
-                    "gen_ai.input.messages": scrub_prompt(prompt)[:1000],
-                    "gen_ai.system_instructions": scrub_prompt(system)[:500],
-                },
+        try:
+            return await self._chat(
+                provider=provider,
+                model=model,
+                prompt=prompt,
+                system=system,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                agent_name=agent_name,
+                campaign_id=campaign_id,
+            )
+        except Exception as exc:
+            if not use_fallback or provider == self._fallback_provider:
+                raise
+            self._record_fallback(provider, exc)
+            return await self._chat(
+                provider=self._fallback_provider,
+                model=self._fallback_model,
+                prompt=prompt,
+                system=system,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                agent_name=agent_name,
+                campaign_id=campaign_id,
             )
 
-            import time
+    def _record_fallback(self, provider: LLMProvider, exc: Exception) -> None:
+        """Record the provider switch on the calling span without failing it."""
+        error_type = type(exc).__qualname__
+        attrs = {
+            "gen_ai.provider.name": PROVIDER_SEMCONV_NAMES[provider],
+            "base14.gen_ai.fallback.provider": PROVIDER_SEMCONV_NAMES[self._fallback_provider],
+            "error.type": error_type,
+        }
 
+        span = trace.get_current_span()
+        span.record_exception(exc)
+        span.add_event("provider_fallback", attributes=attrs)
+        span.set_attribute("gen_ai.fallback.triggered", True)
+
+        _fallback_counter.add(1, attrs)
+
+    async def _chat(
+        self,
+        provider: LLMProvider,
+        model: str,
+        prompt: str,
+        system: str,
+        temperature: float,
+        max_tokens: int,
+        agent_name: str | None,
+        campaign_id: str | None,
+    ) -> str:
+        """Run one chat completion inside a `chat {model}` CLIENT span."""
+        llm_provider = self._get_provider(provider)
+
+        metric_attrs: dict[str, Any] = {
+            "gen_ai.operation.name": "chat",
+            "gen_ai.provider.name": PROVIDER_SEMCONV_NAMES[provider],
+            "gen_ai.request.model": model,
+            "server.address": llm_provider.server_address,
+            "server.port": llm_provider.server_port,
+        }
+
+        # Sampling-relevant attributes are set at span creation.
+        span_attrs: dict[str, Any] = {
+            **metric_attrs,
+            "gen_ai.request.temperature": temperature,
+            "gen_ai.request.max_tokens": max_tokens,
+        }
+        if agent_name:
+            span_attrs["gen_ai.agent.name"] = agent_name
+        if campaign_id:
+            span_attrs["base14.campaign_id"] = campaign_id
+
+        with tracer.start_as_current_span(
+            f"chat {model}", kind=SpanKind.CLIENT, attributes=span_attrs
+        ) as span:
             start_time = time.perf_counter()
+            response: LLMResponse | None = None
+            error_type: str | None = None
 
             try:
                 response = await llm_provider.generate(
@@ -524,141 +625,37 @@ class LLMClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
-                duration = time.perf_counter() - start_time
 
-                # === RECOMMENDED response attributes ===
-                # These help debug model behavior and track actual model used
                 span.set_attribute("gen_ai.response.model", response.model)
                 if response.response_id:
                     span.set_attribute("gen_ai.response.id", response.response_id)
                 if response.finish_reason:
                     span.set_attribute("gen_ai.response.finish_reasons", [response.finish_reason])
-
-                # === RECOMMENDED usage attributes ===
-                # Critical for token tracking and cost calculation
                 span.set_attribute("gen_ai.usage.input_tokens", response.input_tokens)
                 span.set_attribute("gen_ai.usage.output_tokens", response.output_tokens)
 
-                # === OTel GenAI Completion Event ===
-                # Record completion with PII scrubbed for safe telemetry
-                # Per GenAI semconv: gen_ai.assistant.message event
-                span.add_event(
-                    "gen_ai.assistant.message",
-                    attributes={
-                        "gen_ai.output.messages": scrub_completion(response.content)[:2000],
-                    },
-                )
-
-                # Record metrics with proper attributes
-                self._record_metrics(
-                    provider=provider,
-                    model=model,
-                    response=response,
-                    duration=duration,
-                    agent_name=agent_name,
-                    campaign_id=campaign_id,
-                    span=span,
-                )
+                _record_usage(metric_attrs, response, model, agent_name, campaign_id, span)
 
                 return response.content
 
-            except Exception as e:
-                span.record_exception(e)
-                error_type = type(e).__name__
+            except Exception as exc:
+                error_type = type(exc).__qualname__
+                span.record_exception(exc)
                 span.set_attribute("error.type", error_type)
-
-                # Track error metrics
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
                 _error_counter.add(
                     1,
                     {
-                        "gen_ai.provider.name": provider,
+                        "gen_ai.provider.name": PROVIDER_SEMCONV_NAMES[provider],
                         "gen_ai.request.model": model,
                         "error.type": error_type,
                     },
                 )
-
-                if use_fallback and provider != self._fallback_provider:
-                    span.set_attribute("gen_ai.fallback.triggered", True)
-
-                    # Track fallback trigger
-                    _fallback_counter.add(
-                        1,
-                        {
-                            "gen_ai.provider.name": provider,
-                            "gen_ai.fallback.provider": self._fallback_provider,
-                            "error.type": error_type,
-                        },
-                    )
-
-                    return await self.generate(
-                        prompt=prompt,
-                        system=system,
-                        provider=self._fallback_provider,
-                        model=self._fallback_model,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        use_fallback=False,
-                        agent_name=agent_name,
-                        campaign_id=campaign_id,
-                    )
                 raise
 
-    def _record_metrics(
-        self,
-        provider: LLMProvider,
-        model: str,
-        response: LLMResponse,
-        duration: float,
-        agent_name: str | None,
-        campaign_id: str | None,
-        span: Any,
-    ) -> None:
-        """Record GenAI metrics per OTel semantic conventions.
-
-        CUSTOM METRICS: Auto-instrumentation provides HTTP metrics only.
-        These GenAI-specific metrics enable:
-        - Token usage dashboards (by model, agent, campaign)
-        - Cost tracking and attribution
-        - Operation duration analysis for optimization
-        """
-        # === REQUIRED metric attributes (OTel GenAI semconv) ===
-        base_attrs: dict[str, Any] = {
-            "gen_ai.operation.name": "chat",
-            "gen_ai.provider.name": provider,
-        }
-
-        # === CONDITIONALLY REQUIRED ===
-        base_attrs["gen_ai.request.model"] = model
-
-        # === RECOMMENDED ===
-        base_attrs["server.address"] = PROVIDER_SERVERS[provider]
-        base_attrs["server.port"] = PROVIDER_PORTS[provider]
-        base_attrs["gen_ai.response.model"] = response.model
-
-        # Token usage histogram - separate input/output for analysis
-        _token_usage.record(
-            response.input_tokens,
-            {**base_attrs, "gen_ai.token.type": "input"},
-        )
-        _token_usage.record(
-            response.output_tokens,
-            {**base_attrs, "gen_ai.token.type": "output"},
-        )
-
-        # Operation duration histogram
-        _operation_duration.record(duration, base_attrs)
-
-        # Cost tracking with business context for attribution
-        cost = _calculate_cost(model, response.input_tokens, response.output_tokens)
-        cost_attrs = {**base_attrs}
-        if agent_name:
-            cost_attrs["gen_ai.agent.name"] = agent_name
-        if campaign_id:
-            cost_attrs["campaign_id"] = campaign_id
-        _cost_counter.add(cost, cost_attrs)
-
-        # Also record cost on span for per-request visibility
-        span.set_attribute("gen_ai.usage.cost_usd", cost)
+            finally:
+                _record_duration(metric_attrs, time.perf_counter() - start_time, error_type)
+                _emit_content_event(span, prompt, system, response)
 
 
 _client: LLMClient | None = None

@@ -12,16 +12,16 @@ import org.springframework.stereotype.Component;
 import com.example.support.llm.LlmResponse;
 import com.example.support.llm.LlmService;
 import com.example.support.model.IntentResult;
-import com.example.support.telemetry.SupportMetrics;
+import com.example.support.telemetry.GenAi;
+import com.example.support.telemetry.Telemetry;
 import com.example.support.tools.OrderTools;
 import com.example.support.tools.ProductTools;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 
+/** Builds the agent prompt and asks the capable model for the customer-facing reply. */
 @Component
 public class ResponseGenerator {
 
@@ -46,34 +46,31 @@ public class ResponseGenerator {
 
     private final LlmService llmService;
     private final ContextRetriever contextRetriever;
-    private final SupportMetrics metrics;
     private final List<ToolCallback> toolCallbacks;
-    private final Tracer tracer;
+    private final Telemetry telemetry;
 
     public ResponseGenerator(LlmService llmService, ContextRetriever contextRetriever,
-                             SupportMetrics metrics,
+                             Telemetry telemetry,
                              OrderTools orderTools, ProductTools productTools) {
         this.llmService = llmService;
         this.contextRetriever = contextRetriever;
-        this.metrics = metrics;
+        this.telemetry = telemetry;
         this.toolCallbacks = List.of(
             MethodToolCallbackProvider.builder()
                 .toolObjects(orderTools, productTools)
                 .build()
                 .getToolCallbacks()
         );
-        this.tracer = GlobalOpenTelemetry.getTracer("ai-customer-support");
     }
 
     public LlmResponse generate(String userMessage, IntentResult intent,
-                                 List<Document> ragContext, String conversationHistory) {
-        Span span = tracer.spanBuilder("generate_response")
-            .setAttribute("support.stage", "generate")
-            .setAttribute("support.rag_matches_used", ragContext.size())
+                                List<Document> ragContext, String conversationHistory) {
+        Span span = telemetry.tracer().spanBuilder("generate_response")
+            .setAttribute("base14.support.stage", "generate")
+            .setAttribute("base14.support.rag_matches_used", ragContext.size())
             .startSpan();
 
         try (Scope ignored = span.makeCurrent()) {
-            String ragSection = contextRetriever.formatContext(ragContext);
             String historySection = conversationHistory != null && !conversationHistory.isEmpty()
                 ? "Previous conversation:\n" + conversationHistory + "\n"
                 : "";
@@ -81,22 +78,19 @@ public class ResponseGenerator {
             String systemPrompt = SYSTEM_PROMPT_TEMPLATE.formatted(
                 intent.intent().name(),
                 intent.confidence() * 100,
-                ragSection,
+                contextRetriever.formatContext(ragContext),
                 historySection
             );
 
-            LlmResponse response = llmService.generateCapable(systemPrompt, userMessage, "generate", toolCallbacks);
-
-            span.setAttribute("gen_ai.usage.input_tokens", (long) response.inputTokens());
-            span.setAttribute("gen_ai.usage.output_tokens", (long) response.outputTokens());
-            span.setAttribute("gen_ai.usage.cost_usd", response.costUsd());
-
+            LlmResponse response = llmService.generateCapable(systemPrompt, userMessage, toolCallbacks);
             log.debug("Generated response: {} tokens (in={}, out={})",
                 response.inputTokens() + response.outputTokens(),
                 response.inputTokens(), response.outputTokens());
             return response;
 
         } catch (Exception e) {
+            span.recordException(e);
+            span.setAttribute(GenAi.ERROR_TYPE, e.getClass().getSimpleName());
             span.setStatus(StatusCode.ERROR, e.getMessage());
             log.error("Response generation failed: {}", e.getMessage());
             throw e;

@@ -3,7 +3,8 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use opentelemetry::trace::TraceContextExt;
+use opentelemetry::KeyValue;
+use opentelemetry::trace::{Status, TraceContextExt};
 use serde_json::json;
 use thiserror::Error;
 use tracing::Span;
@@ -44,8 +45,36 @@ fn get_trace_id() -> Option<String> {
     }
 }
 
+impl AppError {
+    fn error_type(&self) -> &'static str {
+        match self {
+            AppError::Validation(_) => "validation_error",
+            AppError::NotFound(_) => "not_found",
+            AppError::Database(_) => "database_error",
+            AppError::Llm(_) => "llm_error",
+            AppError::Pipeline(_) => "pipeline_error",
+            AppError::Internal(_) => "internal_error",
+        }
+    }
+}
+
+fn record_on_active_span(error_type: &'static str, message: &str) {
+    let span = Span::current();
+    span.add_event(
+        "exception",
+        vec![
+            KeyValue::new("exception.type", error_type),
+            KeyValue::new("exception.message", message.to_string()),
+        ],
+    );
+    span.set_attribute("error.type", error_type);
+    span.set_status(Status::error(message.to_string()));
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        record_on_active_span(self.error_type(), &self.to_string());
+
         let (status, error_message) = match &self {
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
@@ -131,6 +160,27 @@ mod tests {
     fn test_internal_error() {
         let error = AppError::Internal("unexpected".to_string());
         assert_eq!(error.to_string(), "Internal error: unexpected");
+    }
+
+    #[test]
+    fn test_error_types() {
+        assert_eq!(
+            AppError::Validation("test".to_string()).error_type(),
+            "validation_error"
+        );
+        assert_eq!(
+            AppError::NotFound("test".to_string()).error_type(),
+            "not_found"
+        );
+        assert_eq!(AppError::Llm("test".to_string()).error_type(), "llm_error");
+        assert_eq!(
+            AppError::Pipeline("test".to_string()).error_type(),
+            "pipeline_error"
+        );
+        assert_eq!(
+            AppError::Internal("test".to_string()).error_type(),
+            "internal_error"
+        );
     }
 
     #[test]

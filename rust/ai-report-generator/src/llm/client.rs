@@ -1,16 +1,23 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use opentelemetry::KeyValue;
-use tracing::Instrument;
+use opentelemetry::trace::Status;
+use opentelemetry::{Array, KeyValue, StringValue, Value};
+use tracing::{Instrument, Span};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
-use super::pricing::{PROVIDER_PORTS, PROVIDER_SERVERS, calculate_cost};
+use super::content::{COMPLETION_MAX_CHARS, PROMPT_MAX_CHARS, SYSTEM_MAX_CHARS, scrub, truncate};
+use super::pricing::calculate_cost;
+use super::provider::{endpoint, semconv_name};
 use super::{GenerateRequest, GenerateResponse, Provider};
 use crate::telemetry::metrics::{
     GEN_AI_COST, GEN_AI_ERROR_COUNT, GEN_AI_FALLBACK_COUNT, GEN_AI_OPERATION_DURATION,
     GEN_AI_RETRY_COUNT, GEN_AI_TOKEN_USAGE,
 };
+
+const MAX_ATTEMPTS: u32 = 3;
+const RETRY_MIN_DELAY: Duration = Duration::from_secs(1);
+const RETRY_MAX_DELAY: Duration = Duration::from_secs(10);
 
 pub struct LlmClient {
     pub primary: Arc<dyn Provider>,
@@ -18,58 +25,78 @@ pub struct LlmClient {
     pub primary_provider: String,
     pub fallback_provider: String,
     pub fallback_model: String,
+    pub ollama_base_url: String,
+    pub capture_content: bool,
 }
 
 impl LlmClient {
-    pub async fn generate_once(
+    pub async fn generate(&self, req: &GenerateRequest) -> anyhow::Result<GenerateResponse> {
+        let primary_err = match self
+            .chat(self.primary.as_ref(), &self.primary_provider, req)
+            .await
+        {
+            Ok(resp) => return Ok(resp),
+            Err(err) => err,
+        };
+
+        let Some(fallback) = self.fallback.as_ref() else {
+            return Err(anyhow::anyhow!(
+                "primary provider {} failed after retries: {}",
+                self.primary_provider,
+                primary_err
+            ));
+        };
+
+        self.record_fallback(&primary_err);
+
+        let fallback_req = GenerateRequest {
+            model: self.fallback_model.clone(),
+            ..req.clone()
+        };
+
+        self.chat(fallback.as_ref(), &self.fallback_provider, &fallback_req)
+            .await
+    }
+
+    async fn chat(
         &self,
         provider: &dyn Provider,
         provider_name: &str,
         req: &GenerateRequest,
     ) -> anyhow::Result<GenerateResponse> {
-        let span_display_name = format!("gen_ai.chat {}", req.model);
-        let start = Instant::now();
-
-        let server_addr = PROVIDER_SERVERS
-            .get(provider_name)
-            .copied()
-            .unwrap_or("unknown");
-        let server_port = PROVIDER_PORTS.get(provider_name).copied().unwrap_or(443);
+        let semconv_provider = semconv_name(provider_name);
+        let (server_address, server_port) = endpoint(provider_name, &self.ollama_base_url);
 
         let span = tracing::info_span!(
-            "gen_ai.chat",
-            otel.name = %span_display_name,
+            "chat",
+            otel.name = %format!("chat {}", req.model),
+            otel.kind = "client",
             gen_ai.operation.name = "chat",
-            gen_ai.provider.name = %provider_name,
+            gen_ai.provider.name = semconv_provider,
             gen_ai.request.model = %req.model,
-            server.address = %server_addr,
+            server.address = %server_address,
             server.port = server_port,
             gen_ai.request.temperature = req.temperature,
             gen_ai.request.max_tokens = req.max_tokens as i64,
             gen_ai.response.model = tracing::field::Empty,
+            gen_ai.response.id = tracing::field::Empty,
             gen_ai.usage.input_tokens = tracing::field::Empty,
             gen_ai.usage.output_tokens = tracing::field::Empty,
-            gen_ai.usage.cost_usd = tracing::field::Empty,
-            gen_ai.response.finish_reasons = tracing::field::Empty,
-            report.stage = %req.stage,
-            otel.status_code = tracing::field::Empty,
+            base14.gen_ai.cost_usd = tracing::field::Empty,
+            base14.report.stage = %req.stage,
             error.type = tracing::field::Empty,
         );
 
-        {
-            let mut user_event_attrs =
-                vec![KeyValue::new("gen_ai.input.messages", truncate(&req.prompt, 1000))];
-            if !req.system.is_empty() {
-                user_event_attrs.push(KeyValue::new(
-                    "gen_ai.system_instructions",
-                    truncate(&req.system, 500),
-                ));
-            }
-            span.add_event("gen_ai.user.message", user_event_attrs);
-        }
+        let operation_attrs = [
+            KeyValue::new("gen_ai.operation.name", "chat"),
+            KeyValue::new("gen_ai.provider.name", semconv_provider),
+            KeyValue::new("gen_ai.request.model", req.model.clone()),
+        ];
 
-        let result = provider.generate(req).instrument(span.clone()).await;
-
+        let start = Instant::now();
+        let result = self
+            .attempt_with_retries(provider, semconv_provider, req, &span)
+            .await;
         let duration = start.elapsed().as_secs_f64();
 
         match result {
@@ -78,112 +105,106 @@ impl LlmClient {
                 resp.cost_usd = calculate_cost(&resp.model, resp.input_tokens, resp.output_tokens);
 
                 span.record("gen_ai.response.model", resp.model.as_str());
-                span.record("gen_ai.usage.input_tokens", resp.input_tokens as i64);
-                span.record("gen_ai.usage.output_tokens", resp.output_tokens as i64);
-                span.record("gen_ai.usage.cost_usd", resp.cost_usd);
+                if let Some(id) = resp.response_id.as_deref() {
+                    span.record("gen_ai.response.id", id);
+                }
                 if !resp.finish_reason.is_empty() {
-                    span.record(
+                    span.set_attribute(
                         "gen_ai.response.finish_reasons",
-                        resp.finish_reason.as_str(),
+                        Value::Array(Array::String(vec![StringValue::from(
+                            resp.finish_reason.clone(),
+                        )])),
                     );
                 }
+                span.record("gen_ai.usage.input_tokens", i64::from(resp.input_tokens));
+                span.record("gen_ai.usage.output_tokens", i64::from(resp.output_tokens));
+                span.record("base14.gen_ai.cost_usd", resp.cost_usd);
 
-                span.add_event(
-                    "gen_ai.assistant.message",
-                    vec![KeyValue::new(
-                        "gen_ai.output.messages",
-                        truncate(&resp.content, 2000),
-                    )],
-                );
-
-                let op_kv = KeyValue::new("gen_ai.operation.name", "chat");
-                let provider_kv = KeyValue::new("gen_ai.provider.name", provider_name.to_string());
-                let model_kv = KeyValue::new("gen_ai.request.model", resp.model.clone());
+                self.emit_content_event(&span, req, Some(&resp));
 
                 GEN_AI_TOKEN_USAGE.record(
                     f64::from(resp.input_tokens),
-                    &[
+                    &with_attr(
+                        &operation_attrs,
                         KeyValue::new("gen_ai.token.type", "input"),
-                        op_kv.clone(),
-                        provider_kv.clone(),
-                        model_kv.clone(),
-                    ],
+                    ),
                 );
                 GEN_AI_TOKEN_USAGE.record(
                     f64::from(resp.output_tokens),
-                    &[
+                    &with_attr(
+                        &operation_attrs,
                         KeyValue::new("gen_ai.token.type", "output"),
-                        op_kv.clone(),
-                        provider_kv.clone(),
-                        model_kv.clone(),
-                    ],
+                    ),
                 );
-                GEN_AI_OPERATION_DURATION.record(
-                    duration,
-                    &[op_kv.clone(), provider_kv.clone(), model_kv.clone()],
-                );
-                GEN_AI_COST.add(resp.cost_usd, &[op_kv, provider_kv, model_kv]);
+                GEN_AI_OPERATION_DURATION.record(duration, &operation_attrs);
+                GEN_AI_COST.add(resp.cost_usd, &operation_attrs);
 
                 Ok(resp)
             }
             Err(err) => {
-                span.record("otel.status_code", "ERROR");
-                span.record("error.type", classify_error(&err));
+                let error_type = classify_error(&err);
 
-                GEN_AI_ERROR_COUNT.add(
-                    1,
-                    &[
-                        KeyValue::new("gen_ai.provider.name", provider_name.to_string()),
-                        KeyValue::new("gen_ai.request.model", req.model.clone()),
+                span.add_event(
+                    "exception",
+                    vec![
+                        KeyValue::new("exception.type", error_type),
+                        KeyValue::new("exception.message", err.to_string()),
                     ],
                 );
+                span.record("error.type", error_type);
+                span.set_status(Status::error(err.to_string()));
+
+                self.emit_content_event(&span, req, None);
+
+                let error_attrs =
+                    with_attr(&operation_attrs, KeyValue::new("error.type", error_type));
+                GEN_AI_OPERATION_DURATION.record(duration, &error_attrs);
+                GEN_AI_ERROR_COUNT.add(1, &error_attrs);
 
                 Err(err)
             }
         }
     }
 
-    pub async fn generate_with_retry(
+    async fn attempt_with_retries(
         &self,
         provider: &dyn Provider,
-        provider_name: &str,
+        semconv_provider: &'static str,
         req: &GenerateRequest,
+        span: &Span,
     ) -> anyhow::Result<GenerateResponse> {
-        let max_retries: u32 = 3;
         let mut last_err = None;
 
-        for attempt in 0..max_retries {
-            match self.generate_once(provider, provider_name, req).await {
+        for attempt in 0..MAX_ATTEMPTS {
+            match provider.generate(req).instrument(span.clone()).await {
                 Ok(resp) => return Ok(resp),
                 Err(err) => {
+                    let retry = attempt + 1 < MAX_ATTEMPTS;
                     tracing::warn!(
                         attempt = attempt + 1,
-                        max_retries = max_retries,
-                        provider = provider_name,
+                        max_attempts = MAX_ATTEMPTS,
+                        provider = semconv_provider,
                         model = %req.model,
                         error = %err,
-                        "LLM call failed, retrying"
+                        will_retry = retry,
+                        "LLM call failed"
                     );
 
-                    if attempt > 0 {
+                    if retry {
                         GEN_AI_RETRY_COUNT.add(
                             1,
                             &[
-                                KeyValue::new("gen_ai.provider.name", provider_name.to_string()),
-                                KeyValue::new("gen_ai.request.model", req.model.clone()),
+                                KeyValue::new("gen_ai.provider.name", semconv_provider),
+                                KeyValue::new("error.type", classify_error(&err)),
+                                KeyValue::new("base14.retry.attempt", i64::from(attempt + 1)),
                             ],
                         );
                     }
 
                     last_err = Some(err);
 
-                    if attempt < max_retries - 1 {
-                        let base = Duration::from_secs(1) * 2u32.pow(attempt);
-                        let base = base.min(Duration::from_secs(10));
-                        // 25% jitter to avoid thundering herd
-                        let jitter_ms = fastrand::u64(0..=base.as_millis() as u64 / 4);
-                        let delay = base + Duration::from_millis(jitter_ms);
-                        tokio::time::sleep(delay).await;
+                    if retry {
+                        tokio::time::sleep(backoff(attempt)).await;
                     }
                 }
             }
@@ -192,45 +213,74 @@ impl LlmClient {
         Err(last_err.unwrap_or_else(|| anyhow::anyhow!("all retries exhausted")))
     }
 
-    pub async fn generate(&self, req: &GenerateRequest) -> anyhow::Result<GenerateResponse> {
-        let result = self
-            .generate_with_retry(self.primary.as_ref(), &self.primary_provider, req)
-            .await;
+    fn record_fallback(&self, err: &anyhow::Error) {
+        let attrs = vec![
+            KeyValue::new("gen_ai.provider.name", semconv_name(&self.primary_provider)),
+            KeyValue::new(
+                "base14.gen_ai.fallback.provider",
+                semconv_name(&self.fallback_provider),
+            ),
+            KeyValue::new("error.type", classify_error(err)),
+        ];
 
-        match result {
-            Ok(resp) => Ok(resp),
-            Err(primary_err) => {
-                if let Some(ref fallback) = self.fallback {
-                    tracing::warn!(
-                        primary_provider = %self.primary_provider,
-                        fallback_provider = %self.fallback_provider,
-                        error = %primary_err,
-                        "Primary provider failed, falling back"
-                    );
+        tracing::warn!(
+            primary_provider = %self.primary_provider,
+            fallback_provider = %self.fallback_provider,
+            error = %err,
+            "Primary provider failed, falling back"
+        );
 
-                    GEN_AI_FALLBACK_COUNT.add(1, &[]);
+        let span = Span::current();
+        span.add_event("provider_fallback", attrs.clone());
+        span.set_attribute("gen_ai.fallback.triggered", true);
 
-                    let fallback_req = GenerateRequest {
-                        model: self.fallback_model.clone(),
-                        ..req.clone()
-                    };
-
-                    self.generate_with_retry(
-                        fallback.as_ref(),
-                        &self.fallback_provider,
-                        &fallback_req,
-                    )
-                    .await
-                } else {
-                    Err(anyhow::anyhow!(
-                        "primary provider {} failed after retries: {}",
-                        self.primary_provider,
-                        primary_err
-                    ))
-                }
-            }
-        }
+        GEN_AI_FALLBACK_COUNT.add(1, &attrs);
     }
+
+    fn emit_content_event(
+        &self,
+        span: &Span,
+        req: &GenerateRequest,
+        resp: Option<&GenerateResponse>,
+    ) {
+        if !self.capture_content {
+            return;
+        }
+
+        let mut attrs = vec![KeyValue::new(
+            "gen_ai.input.messages",
+            truncate(&scrub(&req.prompt), PROMPT_MAX_CHARS),
+        )];
+
+        let system_instructions = truncate(&scrub(&req.system), SYSTEM_MAX_CHARS);
+        if !system_instructions.is_empty() {
+            attrs.push(KeyValue::new(
+                "gen_ai.system_instructions",
+                system_instructions,
+            ));
+        }
+
+        if let Some(resp) = resp {
+            attrs.push(KeyValue::new(
+                "gen_ai.output.messages",
+                truncate(&scrub(&resp.content), COMPLETION_MAX_CHARS),
+            ));
+        }
+
+        span.add_event("gen_ai.client.inference.operation.details", attrs);
+    }
+}
+
+fn with_attr(base: &[KeyValue; 3], extra: KeyValue) -> Vec<KeyValue> {
+    let mut attrs = base.to_vec();
+    attrs.push(extra);
+    attrs
+}
+
+fn backoff(attempt: u32) -> Duration {
+    let base = (RETRY_MIN_DELAY * 2u32.pow(attempt)).min(RETRY_MAX_DELAY);
+    let jitter_ms = fastrand::u64(0..=base.as_millis() as u64 / 4);
+    base + Duration::from_millis(jitter_ms)
 }
 
 fn classify_error(err: &anyhow::Error) -> &'static str {
@@ -250,6 +300,7 @@ fn classify_error(err: &anyhow::Error) -> &'static str {
     } else if msg.contains("500")
         || msg.contains("502")
         || msg.contains("503")
+        || msg.contains("unavailable")
         || msg.contains("server")
     {
         "server_error"
@@ -264,23 +315,12 @@ fn classify_error(err: &anyhow::Error) -> &'static str {
     }
 }
 
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        s.char_indices()
-            .take_while(|&(i, _)| i < max)
-            .map(|(_, c)| c)
-            .collect()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_classify_error_categories() {
+    fn classify_error_maps_messages_to_error_codes() {
         let cases = vec![
             ("rate limit exceeded", "rate_limit"),
             ("status 429: too many requests", "rate_limit"),
@@ -296,6 +336,7 @@ mod tests {
             ("500 internal server error", "server_error"),
             ("502 bad gateway", "server_error"),
             ("503 service unavailable", "server_error"),
+            ("Service unavailable", "server_error"),
             ("connection refused", "network_error"),
             ("dns resolution failed", "network_error"),
             ("connection reset by peer", "network_error"),
@@ -313,25 +354,10 @@ mod tests {
     }
 
     #[test]
-    fn test_truncate_short() {
-        assert_eq!(truncate("hello", 10), "hello");
-    }
-
-    #[test]
-    fn test_truncate_exact() {
-        assert_eq!(truncate("hello", 5), "hello");
-    }
-
-    #[test]
-    fn test_truncate_long() {
-        let result = truncate("hello world", 5);
-        assert_eq!(result, "hello");
-    }
-
-    #[test]
-    fn test_truncate_multibyte_safe() {
-        let result = truncate("hé世界!", 3);
-        assert!(result.len() <= 3);
-        assert!(result.is_char_boundary(result.len()));
+    fn backoff_grows_and_is_capped() {
+        assert!(backoff(0) >= Duration::from_secs(1));
+        assert!(backoff(0) < Duration::from_millis(1500));
+        assert!(backoff(1) >= Duration::from_secs(2));
+        assert!(backoff(8) <= Duration::from_millis(12_500));
     }
 }

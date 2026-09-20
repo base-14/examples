@@ -7,10 +7,10 @@ echo "Testing AI Sales Intelligence API at $BASE_URL"
 echo "================================================"
 
 echo -e "\n1. Health check..."
-curl -s "$BASE_URL/health" | jq .
+curl -s --max-time 10 "$BASE_URL/health" | jq .
 
 echo -e "\n2. Creating campaign..."
-CAMPAIGN=$(curl -s -X POST "$BASE_URL/campaigns" \
+CAMPAIGN=$(curl -s --max-time 10 -X POST "$BASE_URL/campaigns" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Test Campaign",
@@ -21,14 +21,14 @@ echo "$CAMPAIGN" | jq .
 CAMPAIGN_ID=$(echo "$CAMPAIGN" | jq -r '.id')
 
 echo -e "\n3. Importing connections..."
-curl -s -X POST "$BASE_URL/campaigns/$CAMPAIGN_ID/connections/import" \
+curl -s --max-time 10 -X POST "$BASE_URL/campaigns/$CAMPAIGN_ID/connections/import" \
   -F "file=@data/sample-connections.csv" | jq .
 
 echo -e "\n4. Getting campaign..."
-curl -s "$BASE_URL/campaigns/$CAMPAIGN_ID" | jq .
+curl -s --max-time 10 "$BASE_URL/campaigns/$CAMPAIGN_ID" | jq .
 
 echo -e "\n5. Running pipeline (this may take a while)..."
-curl -s -X POST "$BASE_URL/campaigns/$CAMPAIGN_ID/run" \
+curl -s --max-time 300 -X POST "$BASE_URL/campaigns/$CAMPAIGN_ID/run" \
   -H "Content-Type: application/json" \
   -d '{
     "score_threshold": 50,
@@ -36,6 +36,6 @@ curl -s -X POST "$BASE_URL/campaigns/$CAMPAIGN_ID/run" \
   }' | jq .
 
 echo -e "\n6. Getting prospects..."
-curl -s "$BASE_URL/campaigns/$CAMPAIGN_ID/prospects" | jq .
+curl -s --max-time 10 "$BASE_URL/campaigns/$CAMPAIGN_ID/prospects" | jq .
 
 echo -e "\nDone!"

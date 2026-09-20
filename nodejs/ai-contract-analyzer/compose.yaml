@@ -1,6 +1,13 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      # _shared/pricing.json sits at the repo root, outside this directory, so it
+      # cannot be COPYed from the build context. A named context carries just
+      # that directory in rather than sending the whole examples repo to the
+      # daemon. `make docker-build` passes the same thing on the command line.
+      additional_contexts:
+        shared: ../../_shared
     ports:
       - "3000:3000"
     environment:
@@ -8,20 +15,28 @@ services:
       - OTEL_SERVICE_NAME=ai-contract-analyzer
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_ENABLED=true
-      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+      - OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+      - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-ollama}
+      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-qwen3.5:9B}
+      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-qwen3.5:9B}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-embeddinggemma}
+      - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-}
+      - FALLBACK_MODEL=${FALLBACK_MODEL:-}
+      # Ollama runs on the host by default, so the container reaches it through
+      # host.docker.internal. The `ollama` profile below runs it in Compose.
+      # Override with http://ollama:11434 when using --profile ollama (Dockerized Ollama).
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-}
-      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
       - PORT=3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/app/data
-      - ../../_shared:/_shared:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,8 +77,8 @@ services:
       - "13133:13133"
       - "55679:55679"
     environment:
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
       - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
       - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
@@ -71,5 +86,19 @@ services:
       postgres:
         condition: service_healthy
 
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ollama]
+    ports:
+      - "11434:11434"
+    environment:
+      # Ollama defaults to a 4096-token context, which is too small for the
+      # extract and score stages. Their prompt, JSON schema and answer together
+      # run past it and the answer is cut off mid-JSON.
+      - OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT_LENGTH:-32768}
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   postgres_data:
+  ollama_data:

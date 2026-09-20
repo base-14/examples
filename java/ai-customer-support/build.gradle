@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'checkstyle'
     id 'org.springframework.boot' version '4.0.7'
     id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -30,11 +31,12 @@ dependencies {
     // Web (reactive)
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
-    // Observability
+    // Observability. The OpenTelemetry Java agent is the only exporter: the app
+    // supplies no SDK and no OTLP exporter of its own.
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'
-    implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
     implementation 'io.opentelemetry:opentelemetry-api'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5:2.31.1-alpha'
 
     // Spring AI - LLM providers
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
@@ -56,6 +58,32 @@ dependencies {
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'io.opentelemetry:opentelemetry-sdk'
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing'
+}
+
+checkstyle {
+    toolVersion = '11.0.1'
+    configFile = file("$projectDir/config/checkstyle/checkstyle.xml")
+    maxWarnings = 0
+}
+
+// pricing.json and the shared test vectors live at the repo root. The Docker
+// builder stage copies them to <project>/_shared; a host build reads them from
+// ../../_shared.
+def sharedDir = [file("$projectDir/_shared"), file("$projectDir/../../_shared")].find { it.isDirectory() }
+if (sharedDir == null) {
+    throw new GradleException('_shared not found. Expected ../../_shared (host) or ./_shared (Docker build).')
+}
+
+tasks.named('processResources') {
+    from(new File(sharedDir, 'pricing.json'))
+}
+
+tasks.named('processTestResources') {
+    from(new File(sharedDir, 'test-vectors')) {
+        into 'test-vectors'
+    }
 }
 
 bootJar {

@@ -14,90 +14,88 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type GenerateRequest struct {
-	Model       string
-	System      string
-	Prompt      string
-	Temperature float64
-	MaxTokens   int
-	Stage       string
-}
-
-type GenerateResponse struct {
-	Content      string
-	Model        string
-	InputTokens  int
-	OutputTokens int
-	CostUSD      float64
-	FinishReason string
-}
-
-type Provider interface {
-	Generate(ctx context.Context, req GenerateRequest) (*GenerateResponse, error)
-	Name() string
-}
+const (
+	maxAttempts        = 3
+	promptMaxChars     = 1000
+	systemMaxChars     = 500
+	completionMaxChars = 2000
+)
 
 type Client struct {
-	Primary              Provider
-	Fallback             Provider
-	Tracer               trace.Tracer
-	Metrics              *telemetry.GenAIMetrics
-	PrimaryProvider      string
-	FallbackProviderName string
-	FallbackModel        string
+	Primary       Provider
+	Fallback      Provider
+	FallbackModel string
+	Tracer        trace.Tracer
+	Metrics       *telemetry.GenAIMetrics
 
-	// CaptureContent gates recording of prompt and completion text on spans.
-	// Off by default: message content is sensitive and increases span size and
-	// cost. Toggled via OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT.
+	// CaptureContent gates the inference details event that carries prompt and
+	// completion text. Off by default; OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
+	// turns it on.
 	CaptureContent bool
+
+	// Backoff is the retry schedule. Nil means exponential 1 s to 10 s.
+	Backoff backoff.BackOff
 }
 
-func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerName string, req GenerateRequest) (*GenerateResponse, error) {
-	spanName := "gen_ai.chat " + req.Model
-	start := time.Now()
+// Generate runs one chat completion against the primary provider and, when
+// that fails after its retries, against the fallback provider.
+func (c *Client) Generate(ctx context.Context, req GenerateRequest) (*GenerateResponse, error) {
+	resp, err := c.chat(ctx, c.Primary, req)
+	if err == nil {
+		return resp, nil
+	}
 
-	ctx, span := c.Tracer.Start(ctx, spanName)
-	defer span.End()
+	if c.Fallback == nil || c.Fallback.Name() == c.Primary.Name() {
+		return nil, fmt.Errorf("provider %s failed after %d attempts: %w", c.Primary.Name(), maxAttempts, err)
+	}
 
-	serverAddr := ProviderServers[providerName]
-	serverPort := ProviderPorts[providerName]
+	c.recordFallback(ctx, err)
 
-	span.SetAttributes(
+	fallbackReq := req
+	if c.FallbackModel != "" {
+		fallbackReq.Model = c.FallbackModel
+	}
+	return c.chat(ctx, c.Fallback, fallbackReq)
+}
+
+func (c *Client) chat(ctx context.Context, provider Provider, req GenerateRequest) (*GenerateResponse, error) {
+	call := telemetry.CallAttrs{
+		Provider: SemconvProviderName(provider.Name()),
+		Model:    req.Model,
+		Stage:    req.Stage,
+	}
+
+	spanAttrs := []attribute.KeyValue{
 		attribute.String("gen_ai.operation.name", "chat"),
-		attribute.String("gen_ai.provider.name", providerName),
+		attribute.String("gen_ai.provider.name", call.Provider),
 		attribute.String("gen_ai.request.model", req.Model),
-		attribute.String("server.address", serverAddr),
-		attribute.Int("server.port", serverPort),
+		attribute.String("server.address", provider.ServerAddress()),
+		attribute.Int("server.port", provider.ServerPort()),
 		attribute.Float64("gen_ai.request.temperature", req.Temperature),
 		attribute.Int("gen_ai.request.max_tokens", req.MaxTokens),
-	)
-
+	}
 	if req.Stage != "" {
-		span.SetAttributes(attribute.String("nlsql.stage", req.Stage))
+		spanAttrs = append(spanAttrs, attribute.String("base14.nlsql.stage", req.Stage))
 	}
 
-	if c.CaptureContent {
-		span.AddEvent("gen_ai.user.message", trace.WithAttributes(
-			attribute.String("gen_ai.input.messages", truncate(req.Prompt, 1000)),
-		))
-		if req.System != "" {
-			span.AddEvent("gen_ai.user.message", trace.WithAttributes(
-				attribute.String("gen_ai.system_instructions", truncate(req.System, 500)),
-			))
-		}
-	}
+	ctx, span := c.Tracer.Start(ctx, "chat "+req.Model,
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(spanAttrs...),
+	)
+	defer span.End()
 
-	resp, err := provider.Generate(ctx, req)
+	start := time.Now()
+	resp, err := c.callWithRetry(ctx, provider, req, call)
 	duration := time.Since(start).Seconds()
 
 	if err != nil {
+		errorType := classifyError(err)
+		span.RecordError(err)
+		span.SetAttributes(attribute.String("error.type", errorType))
 		span.SetStatus(codes.Error, err.Error())
-		span.SetAttributes(attribute.String("error.type", classifyError(err)))
-		if c.Metrics != nil {
-			c.Metrics.ErrorCount.Add(ctx, 1,
-				telemetry.WithProviderModel(providerName, req.Model),
-			)
-		}
+		c.Metrics.RecordError(ctx, call, errorType)
+		c.Metrics.RecordDuration(ctx, call, duration, errorType)
+		c.emitContentEvent(span, req, nil)
 		return nil, err
 	}
 
@@ -107,79 +105,85 @@ func (c *Client) GenerateOnce(ctx context.Context, provider Provider, providerNa
 		attribute.String("gen_ai.response.model", resp.Model),
 		attribute.Int("gen_ai.usage.input_tokens", resp.InputTokens),
 		attribute.Int("gen_ai.usage.output_tokens", resp.OutputTokens),
-		attribute.Float64("gen_ai.usage.cost_usd", resp.CostUSD),
+		attribute.Float64("base14.gen_ai.cost_usd", resp.CostUSD),
 	)
+	if resp.ResponseID != "" {
+		span.SetAttributes(attribute.String("gen_ai.response.id", resp.ResponseID))
+	}
 	if resp.FinishReason != "" {
-		span.SetAttributes(attribute.String("gen_ai.response.finish_reasons", resp.FinishReason))
+		span.SetAttributes(attribute.StringSlice("gen_ai.response.finish_reasons", []string{resp.FinishReason}))
 	}
 
-	if c.CaptureContent {
-		span.AddEvent("gen_ai.assistant.message", trace.WithAttributes(
-			attribute.String("gen_ai.output.messages", truncate(resp.Content, 2000)),
-		))
-	}
-
-	if c.Metrics != nil {
-		c.Metrics.RecordGenAIMetrics(ctx, telemetry.RecordParams{
-			Provider:     providerName,
-			Model:        resp.Model,
-			Stage:        req.Stage,
-			InputTokens:  resp.InputTokens,
-			OutputTokens: resp.OutputTokens,
-			DurationSec:  duration,
-			CostUSD:      resp.CostUSD,
-		})
-	}
+	c.Metrics.RecordUsage(ctx, call, resp.InputTokens, resp.OutputTokens, resp.CostUSD)
+	c.Metrics.RecordDuration(ctx, call, duration, "")
+	c.emitContentEvent(span, req, resp)
 
 	return resp, nil
 }
 
-func (c *Client) GenerateWithRetry(ctx context.Context, provider Provider, providerName string, req GenerateRequest) (*GenerateResponse, error) {
-	var retries int
+func (c *Client) callWithRetry(ctx context.Context, provider Provider, req GenerateRequest, call telemetry.CallAttrs) (*GenerateResponse, error) {
+	retries := 0
+	return backoff.Retry(ctx,
+		func() (*GenerateResponse, error) {
+			return provider.Generate(ctx, req)
+		},
+		backoff.WithBackOff(c.backOff()),
+		backoff.WithMaxTries(maxAttempts),
+		// Notify runs before each wait, so the attempt that exhausts the
+		// budget is not counted as a retry.
+		backoff.WithNotify(func(err error, _ time.Duration) {
+			retries++
+			c.Metrics.RecordRetry(ctx, call, classifyError(err), retries)
+		}),
+	)
+}
+
+func (c *Client) backOff() backoff.BackOff {
+	if c.Backoff != nil {
+		return c.Backoff
+	}
 	bo := backoff.NewExponentialBackOff()
 	bo.InitialInterval = 1 * time.Second
 	bo.MaxInterval = 10 * time.Second
-	bo.RandomizationFactor = 0.5 // symmetric ±50%: interval randomly in [0.5*base, 1.5*base]
-
-	resp, err := backoff.Retry(ctx, func() (*GenerateResponse, error) {
-		resp, err := c.GenerateOnce(ctx, provider, providerName, req)
-		if err != nil {
-			retries++
-			if c.Metrics != nil {
-				c.Metrics.RetryCount.Add(ctx, 1,
-					telemetry.WithProviderModel(providerName, req.Model),
-				)
-			}
-			return nil, err
-		}
-		return resp, nil
-	},
-		backoff.WithBackOff(bo),
-		backoff.WithMaxTries(3),
-	)
-
-	return resp, err
+	bo.RandomizationFactor = 0.5
+	return bo
 }
 
-func (c *Client) Generate(ctx context.Context, req GenerateRequest) (*GenerateResponse, error) {
-	resp, err := c.GenerateWithRetry(ctx, c.Primary, c.PrimaryProvider, req)
-	if err == nil {
-		return resp, nil
+// recordFallback marks the provider switch on the calling span. The switch is
+// a recovery, so the span records the error and an event but keeps its status.
+func (c *Client) recordFallback(ctx context.Context, err error) {
+	errorType := classifyError(err)
+	from := SemconvProviderName(c.Primary.Name())
+	to := SemconvProviderName(c.Fallback.Name())
+
+	span := trace.SpanFromContext(ctx)
+	span.RecordError(err)
+	span.AddEvent("provider_fallback", trace.WithAttributes(
+		attribute.String("gen_ai.provider.name", from),
+		attribute.String("base14.gen_ai.fallback.provider", to),
+		attribute.String("error.type", errorType),
+	))
+	span.SetAttributes(attribute.Bool("gen_ai.fallback.triggered", true))
+
+	c.Metrics.RecordFallback(ctx, from, to, errorType)
+}
+
+func (c *Client) emitContentEvent(span trace.Span, req GenerateRequest, resp *GenerateResponse) {
+	if !c.CaptureContent {
+		return
 	}
 
-	if c.Fallback == nil {
-		return nil, fmt.Errorf("primary provider %s failed after retries: %w", c.PrimaryProvider, err)
+	attrs := []attribute.KeyValue{
+		attribute.String("gen_ai.input.messages", scrubAndTruncate(req.Prompt, promptMaxChars)),
+	}
+	if system := scrubAndTruncate(req.System, systemMaxChars); system != "" {
+		attrs = append(attrs, attribute.String("gen_ai.system_instructions", system))
+	}
+	if resp != nil {
+		attrs = append(attrs, attribute.String("gen_ai.output.messages", scrubAndTruncate(resp.Content, completionMaxChars)))
 	}
 
-	if c.Metrics != nil {
-		c.Metrics.FallbackCount.Add(ctx, 1)
-	}
-
-	fallbackReq := req
-	if c.FallbackModel != "" {
-		fallbackReq.Model = c.FallbackModel
-	}
-	return c.GenerateWithRetry(ctx, c.Fallback, c.FallbackProviderName, fallbackReq)
+	span.AddEvent("gen_ai.client.inference.operation.details", trace.WithAttributes(attrs...))
 }
 
 func classifyError(err error) string {
@@ -190,6 +194,8 @@ func classifyError(err error) string {
 	switch {
 	case strings.Contains(msg, "rate limit") || strings.Contains(msg, "429"):
 		return "rate_limit"
+	case strings.Contains(msg, "canceled"):
+		return "canceled"
 	case strings.Contains(msg, "timeout") || strings.Contains(msg, "deadline"):
 		return "timeout"
 	case strings.Contains(msg, "401") || strings.Contains(msg, "403") || strings.Contains(msg, "auth") || strings.Contains(msg, "api key"):
@@ -203,11 +209,4 @@ func classifyError(err error) string {
 	default:
 		return "unknown_error"
 	}
-}
-
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max]
 }

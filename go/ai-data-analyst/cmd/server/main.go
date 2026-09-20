@@ -18,6 +18,12 @@ import (
 	"ai-data-analyst/internal/telemetry"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	dbConnectWindow   = 30 * time.Second
+	dbConnectInterval = 2 * time.Second
 )
 
 func main() {
@@ -36,38 +42,31 @@ func main() {
 	}
 
 	// Database
-	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	pool, err := connectWithRetry(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Printf("WARNING: Database not available: %v", err)
-		log.Printf("Running without database — /api/ask will not work")
+		log.Printf("Running without database - /api/ask will not work")
 		pool = nil
 	}
 
 	// LLM client
-	var primary llm.Provider
-	switch cfg.LLMProvider {
-	case "ollama":
-		primary = llm.NewOllamaProvider(cfg.OllamaBaseURL)
-	case "google":
-		primary = llm.NewGoogleProvider(cfg.GoogleAPIKey)
-	default:
-		primary = llm.NewOpenAIProvider(cfg.OpenAIAPIKey)
+	primary, err := llm.NewProvider(cfg.LLMProvider, cfg)
+	if err != nil {
+		log.Fatalf("Failed to create primary provider: %v", err)
 	}
 
-	var fallback llm.Provider
-	if cfg.FallbackProvider == "anthropic" && cfg.AnthropicAPIKey != "" {
-		fallback = llm.NewAnthropicProvider(cfg.AnthropicAPIKey)
+	fallback, err := llm.NewProvider(cfg.FallbackProvider, cfg)
+	if err != nil {
+		log.Fatalf("Failed to create fallback provider: %v", err)
 	}
 
 	llmClient := &llm.Client{
-		Primary:              primary,
-		Fallback:             fallback,
-		Tracer:               tp.Tracer,
-		Metrics:              metrics,
-		PrimaryProvider:      cfg.LLMProvider,
-		FallbackProviderName: cfg.FallbackProvider,
-		FallbackModel:        cfg.FallbackModel,
-		CaptureContent:       cfg.CaptureContent,
+		Primary:        primary,
+		Fallback:       fallback,
+		FallbackModel:  cfg.FallbackModel,
+		Tracer:         tp.Tracer,
+		Metrics:        metrics,
+		CaptureContent: cfg.CaptureContent,
 	}
 
 	// Pipeline
@@ -84,6 +83,8 @@ func main() {
 	// Router
 	r := chi.NewRouter()
 	r.Use(middleware.OTelHTTP(cfg.OTelServiceName))
+	r.Use(middleware.ErrorStatus)
+	r.Use(middleware.Recovery)
 
 	r.Get("/api/health", routes.HealthHandler(cfg.OTelServiceName))
 	r.Get("/api/schema", routes.SchemaHandler())
@@ -98,7 +99,7 @@ func main() {
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		WriteTimeout: 300 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
@@ -125,5 +126,26 @@ func main() {
 	}
 	if err := tp.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Telemetry shutdown error: %v", err)
+	}
+}
+
+// connectWithRetry keeps trying the database for dbConnectWindow, because the
+// postgres image restarts its server after first-time initialisation and can
+// refuse connections just after its readiness probe passes.
+func connectWithRetry(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
+	return retryConnect(ctx, databaseURL, db.NewPool, dbConnectWindow, dbConnectInterval)
+}
+
+type poolDialer func(ctx context.Context, databaseURL string) (*pgxpool.Pool, error)
+
+func retryConnect(ctx context.Context, databaseURL string, dial poolDialer, window, interval time.Duration) (*pgxpool.Pool, error) {
+	deadline := time.Now().Add(window)
+	for {
+		pool, err := dial(ctx, databaseURL)
+		if err == nil || time.Now().After(deadline) {
+			return pool, err
+		}
+		log.Printf("Database not ready, retrying in %s: %v", interval, err)
+		time.Sleep(interval)
 	}
 }

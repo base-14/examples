@@ -70,12 +70,12 @@ invoke_agent runbook_assistant
 | Tokens by Model | Donut | Group by `gen_ai.request.model` | Model usage distribution |
 | Tokens by Provider | Donut | Group by `gen_ai.provider.name` | Provider distribution |
 | Input vs Output Over Time | Time Series | Split by `gen_ai.token.type` | Usage pattern over time |
-| Total Cost | Stat | `gen_ai.client.cost` increase | Period spend (zero on local Ollama) |
+| Total Cost | Stat | `base14.gen_ai.cost` increase | Period spend (zero on local Ollama) |
 | Avg Cost / Request | Stat | cost / `invoke_agent` span count | Unit economics |
 | Daily Run Rate | Stat | cost rate * 86400 | Spend projection |
 | Cost per 1K Tokens | Stat | cost / tokens * 1000 | Token-cost efficiency |
 | Cost by Model / Provider | Donut | Group by model / provider | Spend attribution |
-| Cost Rate by Provider | Time Series | `gen_ai.client.cost` increase per provider | Spend trend |
+| Cost Rate by Provider | Time Series | `base14.gen_ai.cost` increase per provider | Spend trend |
 | Tool Calls | Stat | `execute_tool` span count | Tool activity volume |
 | Tool Failures | Stat | `tool_execution_failed` span events | Tool reliability |
 | Retrieval Calls | Stat | `retrieval` span count | RAG activity volume |
@@ -89,7 +89,10 @@ invoke_agent runbook_assistant
 | Tool Latency by Tool | Time Series | avg `execute_tool` `Duration` by `gen_ai.tool.name` | Slow-tool detection |
 | Error Rate Over Time | Time Series | error spans / total `invoke_agent` | Error trend |
 | Tool Performance Summary | Table | per `gen_ai.tool.name`: calls, p50/p90/p99, errors | Tool drill-down |
-| Total Errors | Stat | `gen_ai.client.error.count` increase | Error volume |
+| Total Errors | Stat | `base14.gen_ai.error.count` increase | Error volume |
+| Retry Attempts | Time Series | `base14.gen_ai.retry.count` increase | Transient provider failures |
+| Fallback Switches | Time Series | `base14.gen_ai.fallback.count` increase | Primary provider outages |
+| Fallback Target by Provider | Bar | Group by `base14.gen_ai.fallback.provider` | Which provider absorbed the traffic |
 | Errors by Type | Donut | Group by `error.type` | Error classification |
 | Errors by Provider | Bar | Group by `gen_ai.provider.name` | Provider error attribution |
 | Errors Over Time by Type | Time Series | count by `error.type` | Error pattern timing |
@@ -159,9 +162,9 @@ children to see where a slow or failed request spent its time.
 | Requests Processed | Stat | `invoke_agent` span count | Volume |
 | Tool Calls | Stat | `execute_tool` span count | Tool activity |
 | Tool Success Rate | Gauge | (total - errors) / total on `execute_tool` | Tool reliability |
-| Total Cost | Stat | `gen_ai.client.cost` increase | Period spend |
+| Total Cost | Stat | `base14.gen_ai.cost` increase | Period spend |
 | Request Success Rate | Gauge | success on `invoke_agent` | Reliability |
-| Cost by Provider | Bar | Group `gen_ai.client.cost` by `gen_ai.provider.name` | Spend attribution |
+| Cost by Provider | Bar | Group `base14.gen_ai.cost` by `gen_ai.provider.name` | Spend attribution |
 | Requests & Token Trend | Time Series | request count + `gen_ai.client.token.usage` | Volume vs token load |
 | Avg Input / Output Tokens | Stat | `gen_ai.client.token.usage` mean per type | Prompt sizing |
 | Cost per 1K Tokens | Stat | cost / tokens * 1000 | Token-cost efficiency |
@@ -189,7 +192,7 @@ children to see where a slow or failed request spent its time.
 | Cost per request | $0.01 | $0.05 | Cost anomaly |
 | Avg request duration | 10s | 30s | Latency budget |
 
-> **Cost note**: With a local Ollama provider, `gen_ai.usage.cost_usd` and the cost metrics read zero - this is expected,
+> **Cost note**: With a local Ollama provider, `base14.gen_ai.cost_usd` and the cost metrics read zero - this is expected,
 > not a failure. The cost panels populate when a paid provider (for example Anthropic) is configured.
 
 ### Provider Color Scheme
@@ -210,17 +213,20 @@ children to see where a slow or failed request spent its time.
 |-------------|------|----------------|
 | `gen_ai.client.token.usage` | Histogram | `gen_ai.request.model`, `gen_ai.provider.name`, `gen_ai.token.type` |
 | `gen_ai.client.operation.duration` | Histogram | `gen_ai.request.model`, `gen_ai.provider.name` |
-| `gen_ai.client.cost` | Sum | `gen_ai.request.model`, `gen_ai.provider.name` |
-| `gen_ai.client.error.count` | Sum | `gen_ai.provider.name`, `error.type` |
+| `base14.gen_ai.cost` | Sum | `gen_ai.request.model`, `gen_ai.provider.name` |
+| `base14.gen_ai.retry.count` | Sum | `gen_ai.provider.name`, `error.type`, `base14.retry.attempt` |
+| `base14.gen_ai.fallback.count` | Sum | `gen_ai.provider.name`, `base14.gen_ai.fallback.provider` |
+| `base14.gen_ai.error.count` | Sum | `gen_ai.provider.name`, `error.type` |
 
 ### Spans
 
 | Span Name Pattern | Key Attributes |
 |-------------------|----------------|
 | `invoke_agent runbook_assistant` | `gen_ai.operation.name=invoke_agent`, `gen_ai.agent.name`, `gen_ai.conversation.id`, status |
-| `chat {model}` | `gen_ai.operation.name=chat`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.provider.name`, token + cost attributes |
-| `execute_tool {tool}` | `gen_ai.operation.name=execute_tool`, `gen_ai.tool.name`, `gen_ai.tool.type=function` |
-| `retrieval runbooks` | `gen_ai.operation.name=retrieval`, `gen_ai.data_source.id=runbooks`, `app.retrieval.chunk_count` |
+| `chat {model}` | `gen_ai.operation.name=chat`, `gen_ai.request.model`, `gen_ai.request.temperature`, `gen_ai.request.max_tokens`, `gen_ai.response.model`, `gen_ai.response.id`, `gen_ai.provider.name`, `server.address`, `server.port`, token + `base14.gen_ai.cost_usd` |
+| `execute_tool {tool}` | `gen_ai.operation.name=execute_tool`, `gen_ai.tool.name`, `gen_ai.tool.type=function`, `gen_ai.tool.call.id` |
+| `retrieval runbooks` | `gen_ai.operation.name=retrieval`, `gen_ai.data_source.id=runbooks`, `server.address`, `server.port`, `app.retrieval.chunk_count` |
+| `embeddings {model}` | `gen_ai.operation.name=embeddings`, `gen_ai.request.model`, `gen_ai.provider.name`, `server.address`, `server.port` |
 | SQLAlchemy spans | `db.system=postgresql`, `db.operation` |
 
 ### Span Events

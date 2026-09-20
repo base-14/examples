@@ -27,9 +27,9 @@ pub struct Trend {
     name = "pipeline_stage analyze",
     skip(llm_client, data),
     fields(
-        pipeline.stage = "analyze",
-        analysis.trends_found,
-        analysis.key_findings,
+        base14.pipeline.stage = "analyze",
+        base14.analysis.trends_found,
+        base14.analysis.key_findings,
     )
 )]
 pub async fn analyze(
@@ -105,8 +105,8 @@ pub async fn analyze(
     analysis.provider = provider;
 
     let span = tracing::Span::current();
-    span.record("analysis.trends_found", analysis.trends.len());
-    span.record("analysis.key_findings", analysis.key_findings.len());
+    span.record("base14.analysis.trends_found", analysis.trends.len());
+    span.record("base14.analysis.key_findings", analysis.key_findings.len());
 
     Ok(analysis)
 }

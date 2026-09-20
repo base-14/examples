@@ -7,7 +7,7 @@ function makeFile(content: string, name = "test.txt", type = "text/plain"): File
   return new File([content], name, { type });
 }
 
-describe("ingestDocument — plain text", () => {
+describe("ingestDocument - plain text", () => {
   it("extracts full text and filename", async () => {
     const file = makeFile("Hello world. This is a contract.", "contract.txt");
     const result = await ingestDocument(file, CONTRACT_ID);
@@ -64,7 +64,7 @@ describe("ingestDocument — plain text", () => {
   });
 });
 
-describe("ingestDocument — error handling", () => {
+describe("ingestDocument - error handling", () => {
   it("throws PARSE_ERROR for invalid PDF content", async () => {
     const garbage = new Uint8Array([0x00, 0x01, 0x02, 0x03]);
     const file = new File([garbage], "bad.pdf", { type: "application/pdf" });

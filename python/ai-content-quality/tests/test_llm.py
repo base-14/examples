@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from llama_index.core.llms import ChatMessage
 from pydantic import BaseModel
 
 import content_quality.services.llm as llm_mod
@@ -10,6 +11,7 @@ from content_quality.services.llm import (
     PRICING,
     LLMClient,
     _calculate_cost,
+    _chat_and_parse,
     _extract_raw_usage,
     _extract_token_counts,
     _is_content_capture_enabled,
@@ -176,8 +178,8 @@ def test_token_metrics_records_when_tokens_available() -> None:
 
     mock_cost.add.assert_called_once()
     cost_attrs = mock_cost.add.call_args.args[1]
-    assert cost_attrs["content.type"] == "blog"
-    assert cost_attrs["endpoint"] == "/review"
+    assert cost_attrs["base14.content.type"] == "blog"
+    assert cost_attrs["base14.endpoint"] == "/review"
 
 
 def test_token_metrics_skipped_when_tokens_unavailable() -> None:
@@ -241,11 +243,11 @@ def test_token_metrics_records_cost_on_span() -> None:
         _record_token_metrics(chat_resp, common_attrs, "gpt-4.1-nano", "general", "/review", span)
 
     expected_cost = _calculate_cost("gpt-4.1-nano", 1000, 500)
-    span.set_attribute.assert_any_call("gen_ai.usage.cost_usd", expected_cost)
+    span.set_attribute.assert_any_call("base14.gen_ai.cost_usd", expected_cost)
 
 
 # ---------------------------------------------------------------------------
-# _extract_raw_usage / _raw_get — Anthropic-style raw dict responses
+# _extract_raw_usage / _raw_get - Anthropic-style raw dict responses
 # ---------------------------------------------------------------------------
 
 
@@ -275,6 +277,12 @@ def test_extract_raw_usage_from_object_with_usage() -> None:
     assert result["output_tokens"] == 120
 
 
+def test_extract_raw_usage_from_dict_with_prompt_completion_tokens() -> None:
+    """Ollama's raw response nests usage as prompt_tokens/completion_tokens."""
+    raw = {"usage": {"prompt_tokens": 40, "completion_tokens": 15, "total_tokens": 55}}
+    assert _extract_raw_usage(raw) == {"input_tokens": 40, "output_tokens": 15}
+
+
 def test_extract_raw_usage_returns_empty_for_none() -> None:
     assert _extract_raw_usage(None) == {}
 
@@ -284,7 +292,7 @@ def test_extract_raw_usage_returns_empty_for_dict_without_usage() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _extract_token_counts — zero-value handling
+# _extract_token_counts - zero-value handling
 # ---------------------------------------------------------------------------
 
 
@@ -337,7 +345,7 @@ def test_raw_get_from_none() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _record_token_metrics — Anthropic-style (tokens in raw dict)
+# _record_token_metrics - Anthropic-style (tokens in raw dict)
 # ---------------------------------------------------------------------------
 
 
@@ -368,7 +376,7 @@ def test_token_metrics_from_anthropic_raw_dict() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _set_response_attrs — Anthropic-style (attrs in raw dict)
+# _set_response_attrs - Anthropic-style (attrs in raw dict)
 # ---------------------------------------------------------------------------
 
 
@@ -423,9 +431,9 @@ def test_strip_markdown_json_strips_whitespace() -> None:
 
 def test_on_retry_increments_counter_with_error_and_attempt() -> None:
     mock_counter = MagicMock()
-    client = _make_client("gpt-4.1-mini", provider="openai")
     retry_state = MagicMock()
-    retry_state.args = (client,)
+    retry_state.args = ()
+    retry_state.kwargs = {"model_name": "gpt-4.1-mini", "provider": "openai"}
     retry_state.outcome.exception.return_value = httpx.ConnectError("conn refused")
     retry_state.attempt_number = 1
 
@@ -436,13 +444,14 @@ def test_on_retry_increments_counter_with_error_and_attempt() -> None:
     assert attrs["gen_ai.request.model"] == "gpt-4.1-mini"
     assert attrs["gen_ai.provider.name"] == "openai"
     assert attrs["error.type"] == "ConnectError"
-    assert attrs["retry.attempt"] == 1
+    assert attrs["base14.retry.attempt"] == 1
 
 
-def test_on_retry_handles_missing_args() -> None:
+def test_on_retry_handles_missing_kwargs() -> None:
     mock_counter = MagicMock()
     retry_state = MagicMock()
     retry_state.args = ()
+    retry_state.kwargs = {}
     retry_state.outcome.exception.return_value = None
     retry_state.attempt_number = 2
 
@@ -451,11 +460,11 @@ def test_on_retry_handles_missing_args() -> None:
 
     attrs = mock_counter.add.call_args.args[1]
     assert attrs["gen_ai.request.model"] == "unknown"
-    assert attrs["retry.attempt"] == 2
+    assert attrs["base14.retry.attempt"] == 2
 
 
 # ---------------------------------------------------------------------------
-# generate_structured — span creation & attributes
+# generate_structured - span creation & attributes
 # ---------------------------------------------------------------------------
 
 
@@ -506,11 +515,13 @@ async def test_generate_creates_span_with_correct_name() -> None:
     client, tracer, _span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
-    tracer.start_as_current_span.assert_called_once_with("gen_ai.chat gpt-4.1-nano")
+    from opentelemetry.trace import SpanKind
+
+    tracer.start_as_current_span.assert_called_once_with("chat gpt-4.1-nano", kind=SpanKind.CLIENT)
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
@@ -520,7 +531,7 @@ async def test_generate_sets_content_attributes_on_span() -> None:
     client, tracer, span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -529,9 +540,9 @@ async def test_generate_sets_content_attributes_on_span() -> None:
             endpoint="/review",
         )
 
-    span.set_attribute.assert_any_call("content.type", "marketing")
-    span.set_attribute.assert_any_call("content.length", 11)
-    span.set_attribute.assert_any_call("endpoint", "/review")
+    span.set_attribute.assert_any_call("base14.content.type", "marketing")
+    span.set_attribute.assert_any_call("base14.content.length", 11)
+    span.set_attribute.assert_any_call("base14.endpoint", "/review")
     span.set_attribute.assert_any_call("gen_ai.operation.name", "chat")
     span.set_attribute.assert_any_call("gen_ai.output.type", "json")
     span.set_attribute.assert_any_call("server.address", "api.openai.com")
@@ -547,7 +558,7 @@ async def test_generate_sets_model_attributes_on_span() -> None:
     )
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/score"
         )
 
@@ -563,7 +574,7 @@ async def test_generate_sets_temperature_on_span() -> None:
     client.llm.temperature = 0.7
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -578,7 +589,7 @@ async def test_generate_skips_temperature_when_not_available() -> None:
     del client.llm.temperature
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -591,21 +602,20 @@ async def test_generate_skips_temperature_when_not_available() -> None:
 @patch.object(llm_mod, "cost_counter", MagicMock())
 @patch.object(llm_mod, "token_usage", MagicMock())
 async def test_generate_records_operation_duration() -> None:
-    client, tracer, span = _setup_generate_mocks()
+    client, tracer, _span = _setup_generate_mocks()
     mock_duration = MagicMock()
 
     with (
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "operation_duration", mock_duration),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
     mock_duration.record.assert_called_once()
     duration_val = mock_duration.record.call_args.args[0]
     assert duration_val > 0
-    span.set_attribute.assert_any_call("gen_ai.client.operation.duration", duration_val)
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
@@ -618,7 +628,7 @@ async def test_generate_records_token_histograms() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "token_usage", mock_tokens),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -640,7 +650,7 @@ async def test_generate_records_cost() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "cost_counter", mock_cost),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -654,21 +664,21 @@ async def test_generate_records_cost() -> None:
     expected = _calculate_cost("gpt-4.1-nano", 1000, 500)
     assert cost_val == pytest.approx(expected)
     attrs = mock_cost.add.call_args.args[1]
-    assert attrs["content.type"] == "technical"
-    assert attrs["endpoint"] == "/score"
+    assert attrs["base14.content.type"] == "technical"
+    assert attrs["base14.endpoint"] == "/score"
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
 @patch.object(llm_mod, "token_usage", MagicMock())
 @patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_emits_user_and_assistant_span_events() -> None:
+async def test_generate_emits_single_inference_event() -> None:
     client, tracer, span = _setup_generate_mocks()
 
     with (
         patch.object(llm_mod, "tracer", tracer),
         patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -677,17 +687,14 @@ async def test_generate_emits_user_and_assistant_span_events() -> None:
             endpoint="/review",
         )
 
-    assert span.add_event.call_count == 2
-    assert span.add_event.call_args_list[0].args[0] == "gen_ai.user.message"
-    assert span.add_event.call_args_list[1].args[0] == "gen_ai.assistant.message"
+    assert span.add_event.call_count == 1
+    assert span.add_event.call_args_list[0].args[0] == "gen_ai.client.inference.operation.details"
 
-    user_attrs = span.add_event.call_args_list[0].args[1]
-    assert "gen_ai.input.messages" in user_attrs
-    assert "[EMAIL]" in user_attrs["gen_ai.system_instructions"]
-    assert "john@test.com" not in user_attrs["gen_ai.system_instructions"]
-
-    asst_attrs = span.add_event.call_args_list[1].args[1]
-    assert "gen_ai.output.messages" in asst_attrs
+    event_attrs = span.add_event.call_args_list[0].args[1]
+    assert "gen_ai.input.messages" in event_attrs
+    assert "[EMAIL]" in event_attrs["gen_ai.system_instructions"]
+    assert "john@test.com" not in event_attrs["gen_ai.system_instructions"]
+    assert "gen_ai.output.messages" in event_attrs
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
@@ -700,13 +707,13 @@ async def test_generate_user_event_omits_system_instructions_when_no_system_prom
         patch.object(llm_mod, "tracer", tracer),
         patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
-    user_attrs = span.add_event.call_args_list[0].args[1]
-    assert "gen_ai.system_instructions" not in user_attrs
-    assert "gen_ai.input.messages" in user_attrs
+    event_attrs = span.add_event.call_args_list[0].args[1]
+    assert "gen_ai.system_instructions" not in event_attrs
+    assert "gen_ai.input.messages" in event_attrs
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
@@ -721,7 +728,7 @@ async def test_generate_span_events_truncate_content() -> None:
         patch.object(llm_mod, "tracer", tracer),
         patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -730,10 +737,9 @@ async def test_generate_span_events_truncate_content() -> None:
             endpoint="/review",
         )
 
-    user_attrs = span.add_event.call_args_list[0].args[1]
-    assert len(user_attrs["gen_ai.system_instructions"]) <= 500
-    asst_attrs = span.add_event.call_args_list[1].args[1]
-    assert len(asst_attrs["gen_ai.output.messages"]) <= 2000
+    event_attrs = span.add_event.call_args_list[0].args[1]
+    assert len(event_attrs["gen_ai.system_instructions"]) <= 500
+    assert len(event_attrs["gen_ai.output.messages"]) <= 2000
 
 
 @patch.object(llm_mod, "cost_counter", MagicMock())
@@ -747,7 +753,7 @@ async def test_generate_skips_span_event_when_content_capture_disabled() -> None
         patch.dict(os.environ, {}, clear=False),
     ):
         os.environ.pop("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", None)
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -763,7 +769,7 @@ async def test_generate_sets_response_model_on_span() -> None:
     )
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -777,7 +783,7 @@ async def test_generate_response_model_falls_back_to_request_model() -> None:
     client, tracer, span = _setup_generate_mocks(model_name="gpt-4.1-nano")
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -795,7 +801,7 @@ async def test_generate_common_attrs_include_server_address_and_response_model()
         patch.object(llm_mod, "tracer", tracer),
         patch.object(llm_mod, "token_usage", mock_tokens),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -806,7 +812,7 @@ async def test_generate_common_attrs_include_server_address_and_response_model()
 
 
 # ---------------------------------------------------------------------------
-# generate_structured — error path
+# generate_structured - error path
 # ---------------------------------------------------------------------------
 
 
@@ -827,7 +833,7 @@ async def test_generate_error_records_exception_on_span() -> None:
         patch.object(llm_mod, "tracer", tracer),
         pytest.raises(RuntimeError, match="LLM crashed"),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -859,7 +865,7 @@ async def test_generate_error_increments_error_counter() -> None:
         patch.object(llm_mod, "error_counter", mock_errors),
         pytest.raises(ValueError, match="bad response"),
     ):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -874,7 +880,7 @@ async def test_generate_error_increments_error_counter() -> None:
 
 
 # ---------------------------------------------------------------------------
-# generate_structured — retry triggers retry_counter via @retry decorator
+# generate_structured - retry triggers retry_counter via @retry decorator
 # ---------------------------------------------------------------------------
 
 
@@ -915,11 +921,11 @@ async def test_generate_retry_increments_retry_counter() -> None:
     mock_retries.add.assert_called_once()
     retry_attrs = mock_retries.add.call_args.args[1]
     assert "error.type" in retry_attrs
-    assert "retry.attempt" in retry_attrs
+    assert "base14.retry.attempt" in retry_attrs
 
 
 # ---------------------------------------------------------------------------
-# generate_structured — returns parsed result
+# generate_structured - returns parsed result
 # ---------------------------------------------------------------------------
 
 
@@ -930,7 +936,7 @@ async def test_generate_returns_parsed_pydantic_model() -> None:
     client, tracer, _span = _setup_generate_mocks(content='{"answer": "42"}')
 
     with patch.object(llm_mod, "tracer", tracer):
-        result = await LLMClient._generate_with_retry.__wrapped__(
+        result = await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -945,7 +951,7 @@ async def test_generate_passes_system_prompt_as_first_message() -> None:
     client, tracer, _span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client,
             _make_prompt_template(),
             FakeResult,
@@ -967,7 +973,7 @@ async def test_generate_includes_json_schema_in_system_message() -> None:
     client, tracer, _span = _setup_generate_mocks()
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -979,7 +985,7 @@ async def test_generate_includes_json_schema_in_system_message() -> None:
 
 
 # ---------------------------------------------------------------------------
-# generate_structured — parse retry on ValidationError
+# generate_structured - parse retry on ValidationError
 # ---------------------------------------------------------------------------
 
 
@@ -1000,7 +1006,7 @@ async def test_generate_retries_on_validation_error() -> None:
     tracer.start_as_current_span.return_value = span
 
     with patch.object(llm_mod, "tracer", tracer):
-        result = await LLMClient._generate_with_retry.__wrapped__(
+        result = await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -1015,32 +1021,34 @@ async def test_generate_retries_on_validation_error() -> None:
 @patch.object(llm_mod, "token_usage", MagicMock())
 @patch.object(llm_mod, "operation_duration", MagicMock())
 async def test_generate_raises_after_max_parse_retries() -> None:
-    client = _make_client()
+    """_chat_and_parse's own schema-correction loop, isolated from the outer
+    network-level retry that wraps it via _chat_and_parse_with_retry."""
+    llm = _make_llm()
     bad_resp = _make_chat_response(content='{"wrong": "data"}')
-
-    client.llm.achat = AsyncMock(return_value=bad_resp)
-
+    llm.achat = AsyncMock(return_value=bad_resp)
     span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-    tracer = MagicMock()
-    tracer.start_as_current_span.return_value = span
 
     from pydantic import ValidationError
 
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        pytest.raises(ValidationError),
-    ):
-        await LLMClient._generate_with_retry.__wrapped__(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
+    with pytest.raises(ValidationError):
+        await _chat_and_parse(
+            llm,
+            [ChatMessage(role="system", content="schema"), ChatMessage(role="user", content="x")],
+            {},
+            FakeResult,
+            span,
+            "gpt-4.1-nano",
+            "api.openai.com",
+            "openai",
+            "general",
+            "/review",
         )
 
-    assert client.llm.achat.call_count == 3  # initial + 2 retries
+    assert llm.achat.call_count == 3  # initial + 2 corrections
 
 
 # ---------------------------------------------------------------------------
-# _set_initial_span_attrs — direct unit tests
+# _set_initial_span_attrs - direct unit tests
 # ---------------------------------------------------------------------------
 
 
@@ -1055,8 +1063,8 @@ def test_set_initial_span_attrs_skips_server_address_when_empty() -> None:
     ]
     assert len(server_addr_calls) == 0
     span.set_attribute.assert_any_call("gen_ai.request.temperature", 0.5)
-    span.set_attribute.assert_any_call("content.type", "blog")
-    span.set_attribute.assert_any_call("content.length", 5)
+    span.set_attribute.assert_any_call("base14.content.type", "blog")
+    span.set_attribute.assert_any_call("base14.content.length", 5)
 
 
 def test_set_initial_span_attrs_sets_all_attributes() -> None:
@@ -1073,13 +1081,13 @@ def test_set_initial_span_attrs_sets_all_attributes() -> None:
     span.set_attribute.assert_any_call("server.port", 443)
     span.set_attribute.assert_any_call("gen_ai.output.type", "json")
     span.set_attribute.assert_any_call("gen_ai.request.temperature", 0.3)
-    span.set_attribute.assert_any_call("content.type", "technical")
-    span.set_attribute.assert_any_call("content.length", 12)
-    span.set_attribute.assert_any_call("endpoint", "/score")
+    span.set_attribute.assert_any_call("base14.content.type", "technical")
+    span.set_attribute.assert_any_call("base14.content.length", 12)
+    span.set_attribute.assert_any_call("base14.endpoint", "/score")
 
 
 # ---------------------------------------------------------------------------
-# create_llm — error case
+# create_llm - error case
 # ---------------------------------------------------------------------------
 
 
@@ -1092,7 +1100,7 @@ async def test_generate_sets_response_id_and_finish_reason_on_span() -> None:
     )
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -1101,7 +1109,7 @@ async def test_generate_sets_response_id_and_finish_reason_on_span() -> None:
 
 
 # ---------------------------------------------------------------------------
-# create_llm — error case
+# create_llm - error case
 # ---------------------------------------------------------------------------
 
 
@@ -1117,7 +1125,7 @@ async def test_generate_sets_port_11434_for_ollama() -> None:
     client, tracer, span = _setup_generate_mocks(model_name="llama3.2", provider="ollama")
 
     with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry.__wrapped__(
+        await LLMClient._generate_with_retry(
             client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
@@ -1131,15 +1139,18 @@ def test_create_llm_ollama_uses_base_url() -> None:
             provider="ollama",
             model="llama3.2",
             ollama_base_url="http://my-ollama:11434",
+            ollama_context_window=16384,
         )
     mock_ollama_cls.assert_called_once()
     call_kwargs = mock_ollama_cls.call_args.kwargs
     assert call_kwargs["model"] == "llama3.2"
     assert call_kwargs["base_url"] == "http://my-ollama:11434"
+    assert call_kwargs["context_window"] == 16384
+    assert call_kwargs["thinking"] is False
 
 
 # ---------------------------------------------------------------------------
-# generate_structured — provider fallback
+# generate_structured - provider fallback
 # ---------------------------------------------------------------------------
 
 
@@ -1179,7 +1190,12 @@ async def test_generate_uses_fallback_when_primary_fails() -> None:
     assert isinstance(result, FakeResult)
     assert result.answer == "from fallback"
     mock_fallback_ctr.add.assert_called_once_with(
-        1, {"gen_ai.provider.name": "openai", "gen_ai.fallback.provider": "gcp.gemini"}
+        1,
+        {
+            "gen_ai.provider.name": "openai",
+            "base14.gen_ai.fallback.provider": "gcp.gemini",
+            "error.type": "RuntimeError",
+        },
     )
 
 
@@ -1206,7 +1222,7 @@ async def test_generate_raises_when_no_fallback_configured() -> None:
 
 
 # ---------------------------------------------------------------------------
-# PRICING — loaded from _shared/pricing.json
+# PRICING - loaded from _shared/pricing.json
 # ---------------------------------------------------------------------------
 
 
@@ -1217,7 +1233,7 @@ def test_pricing_loaded_from_shared_json() -> None:
     If PRICING is still inline, this test fails (KeyError or zero cost).
     """
     assert "gpt-4.1" in PRICING, (
-        "gpt-4.1 not found in PRICING — pricing may still be inline dict, not loaded from _shared/pricing.json"
+        "gpt-4.1 not found in PRICING - pricing may still be inline dict, not loaded from _shared/pricing.json"
     )
     assert PRICING["gpt-4.1"]["input"] == pytest.approx(2.0)
     assert PRICING["gpt-4.1"]["output"] == pytest.approx(8.0)

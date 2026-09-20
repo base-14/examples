@@ -18,6 +18,7 @@ pub struct Config {
     pub otel_exporter_endpoint: String,
     pub default_temperature: f64,
     pub default_max_tokens: u32,
+    pub capture_message_content: bool,
 }
 
 impl Config {
@@ -32,15 +33,13 @@ impl Config {
             environment: env::var("SCOUT_ENVIRONMENT")
                 .unwrap_or_else(|_| "development".to_string()),
             database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
-            llm_provider: env::var("LLM_PROVIDER").unwrap_or_else(|_| "openai".to_string()),
+            llm_provider: env::var("LLM_PROVIDER").unwrap_or_else(|_| "ollama".to_string()),
             llm_model_capable: env::var("LLM_MODEL_CAPABLE")
-                .unwrap_or_else(|_| "gpt-4.1".to_string()),
-            llm_model_fast: env::var("LLM_MODEL_FAST")
-                .unwrap_or_else(|_| "gpt-4.1-mini".to_string()),
+                .unwrap_or_else(|_| "qwen3.5:9B".to_string()),
+            llm_model_fast: env::var("LLM_MODEL_FAST").unwrap_or_else(|_| "qwen3.5:9B".to_string()),
             fallback_provider: env::var("FALLBACK_PROVIDER")
-                .unwrap_or_else(|_| "anthropic".to_string()),
-            fallback_model: env::var("FALLBACK_MODEL")
-                .unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string()),
+                .unwrap_or_else(|_| "ollama".to_string()),
+            fallback_model: env::var("FALLBACK_MODEL").unwrap_or_else(|_| "qwen3.5:9B".to_string()),
             ollama_base_url: env::var("OLLAMA_BASE_URL")
                 .unwrap_or_else(|_| "http://localhost:11434".to_string()),
             openai_api_key: env::var("OPENAI_API_KEY").ok(),
@@ -58,6 +57,8 @@ impl Config {
                 .unwrap_or_else(|_| "4096".to_string())
                 .parse()
                 .expect("DEFAULT_MAX_TOKENS must be a number"),
+            capture_message_content: env::var("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT")
+                .is_ok_and(|value| value.eq_ignore_ascii_case("true")),
         }
     }
 

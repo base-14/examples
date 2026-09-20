@@ -42,9 +42,9 @@ pub struct FormatParams<'a> {
     name = "pipeline_stage format",
     skip(params),
     fields(
-        pipeline.stage = "format",
-        report.title,
-        report.sections_count,
+        base14.pipeline.stage = "format",
+        base14.report.title,
+        base14.report.sections_count,
     )
 )]
 pub fn format_report(params: FormatParams<'_>) -> Result<Report, AppError> {
@@ -59,8 +59,8 @@ pub fn format_report(params: FormatParams<'_>) -> Result<Report, AppError> {
     }
 
     let span = tracing::Span::current();
-    span.record("report.title", &params.narrative.title);
-    span.record("report.sections_count", params.narrative.sections.len());
+    span.record("base14.report.title", &params.narrative.title);
+    span.record("base14.report.sections_count", params.narrative.sections.len());
 
     Ok(Report {
         id: Uuid::new_v4(),

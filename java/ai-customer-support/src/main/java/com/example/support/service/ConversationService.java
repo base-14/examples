@@ -79,7 +79,9 @@ public class ConversationService {
     }
 
     public String formatHistory(List<Message> messages) {
-        if (messages.isEmpty()) return "";
+        if (messages.isEmpty()) {
+            return "";
+        }
 
         var sb = new StringBuilder();
         for (var msg : messages) {

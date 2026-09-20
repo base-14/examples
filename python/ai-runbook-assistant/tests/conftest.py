@@ -1,4 +1,21 @@
 import pytest
+from opentelemetry import metrics, trace
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+
+# Registered at import, before any test module builds a handler or a metric
+# instrument, so the global tracer and meter write into these collectors.
+SPAN_EXPORTER = InMemorySpanExporter()
+METRIC_READER = InMemoryMetricReader()
+
+_tracer_provider = TracerProvider()
+_tracer_provider.add_span_processor(SimpleSpanProcessor(SPAN_EXPORTER))
+trace.set_tracer_provider(_tracer_provider)
+metrics.set_meter_provider(MeterProvider(metric_readers=[METRIC_READER]))
 
 
 def _settings_env_names() -> set[str]:
@@ -28,6 +45,12 @@ def _isolate_settings(monkeypatch):
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def span_exporter() -> InMemorySpanExporter:
+    SPAN_EXPORTER.clear()
+    return SPAN_EXPORTER
 
 
 @pytest.fixture

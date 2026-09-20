@@ -1,194 +1,156 @@
 /**
- * Middleware behavioral tests — retry, fallback, error propagation.
- *
- * OTel is a no-op here (SDK not registered in test env). We verify behavior
- * via mock call counts and return values, not span/metric internals.
+ * Middleware behaviour: retry, fallback, content-capture gating and pricing,
+ * asserted against the in-memory span and metric exporters.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { withFallback, withSemconv } from "../../src/llm/middleware.ts";
+import { findSpan, metricTotal, resetTelemetry, shutdownTelemetry } from "../telemetry.ts";
+import {
+  ANTHROPIC_TARGET,
+  generateParams,
+  generateResult,
+  type MockResponse,
+  OPENAI_TARGET,
+  stubModel,
+} from "./model-stub.ts";
 
-vi.mock("@opentelemetry/api", () => {
-  const span = {
-    setAttribute: vi.fn(),
-    addEvent: vi.fn(),
-    recordException: vi.fn(),
-    setStatus: vi.fn(),
-    end: vi.fn(),
-    spanContext: vi.fn().mockReturnValue({ traceId: "test-trace" }),
-  };
-  const instrument = { record: vi.fn(), add: vi.fn() };
-  const meter = {
-    createHistogram: vi.fn(() => instrument),
-    createCounter: vi.fn(() => instrument),
-  };
-  return {
-    trace: {
-      getTracer: vi.fn(() => ({
-        startActiveSpan: (_name: string, fn: (s: typeof span) => unknown) => fn(span),
-      })),
-    },
-    metrics: { getMeter: vi.fn(() => meter) },
-    SpanStatusCode: { OK: 1, ERROR: 2 },
-  };
+const RESPONSE: MockResponse = {
+  content: "Answer text",
+  input_tokens: 100,
+  output_tokens: 50,
+  model: "claude-sonnet-4",
+  response_id: "msg_1",
+  finish_reason: "end_turn",
+};
+
+const CAPTURE_ENV = "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT";
+
+beforeEach(() => {
+  resetTelemetry();
+  delete process.env[CAPTURE_ENV];
 });
 
-import { createSemconvMiddleware, withFallback, withSemconv } from "../../src/llm/middleware.ts";
+afterEach(() => {
+  vi.useRealTimers();
+  delete process.env[CAPTURE_ENV];
+});
 
-// Minimal success result matching LanguageModelV3GenerateResult shape
-function makeSuccessResult(text = "Result text") {
-  return {
-    content: [{ type: "text" as const, text }],
-    finishReason: { unified: "stop", raw: "stop" },
-    usage: {
-      inputTokens: { total: 100 },
-      outputTokens: { total: 50 },
-    },
-    response: { modelId: "test-model", id: "resp-123" },
-  };
-}
+afterAll(async () => {
+  await shutdownTelemetry();
+});
 
-// biome-ignore lint/suspicious/noExplicitAny: minimal mock avoids full LanguageModelV3 shape
-function makeModel(modelId = "test-model", doGenerate?: () => Promise<unknown>): any {
-  return {
-    specificationVersion: "v3",
-    provider: "test",
-    modelId,
-    defaultObjectGenerationMode: undefined,
-    supportedUrls: {},
-    doGenerate: doGenerate ?? vi.fn().mockResolvedValue(makeSuccessResult()),
-    doStream: vi.fn(),
-  };
-}
+describe("withSemconv", () => {
+  it("names the span `chat {model}` and gives it CLIENT kind", async () => {
+    const model = withSemconv(
+      stubModel("claude-sonnet-4", async () => generateResult(RESPONSE)),
+      ANTHROPIC_TARGET,
+      { inputCostPerMToken: 3, outputCostPerMToken: 15 },
+    );
 
-function callWrapGenerate(
-  middleware: ReturnType<typeof createSemconvMiddleware>,
-  doGenerate: () => Promise<unknown>,
-) {
-  // biome-ignore lint/suspicious/noExplicitAny: test helper avoids complex SDK types
-  return (middleware.wrapGenerate as any)({
-    doGenerate,
-    doStream: vi.fn(),
-    params: {
-      prompt: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
-      inputFormat: "messages",
-      mode: { type: "regular" },
-    },
-    model: makeModel(),
+    await model.doGenerate(generateParams("Hello", "Be brief.", { temperature: 0.2 }));
+
+    const span = findSpan("chat claude-sonnet-4");
+    expect(span.kind).toBe(SpanKind.CLIENT);
+    expect(span.attributes["gen_ai.operation.name"]).toBe("chat");
+    expect(span.attributes["gen_ai.provider.name"]).toBe("anthropic");
+    expect(span.attributes["server.port"]).toBe(443);
+    expect(span.attributes["gen_ai.request.temperature"]).toBe(0.2);
+    expect(span.attributes["base14.gen_ai.cost_usd"]).toBeCloseTo(0.00105, 8);
   });
-}
 
-describe("createSemconvMiddleware", () => {
-  beforeEach(() => {
+  it("costs an unknown model at zero rather than failing", async () => {
+    const model = withSemconv(
+      stubModel("qwen3.5:9B", async () => generateResult({ ...RESPONSE, model: "qwen3.5:9B" })),
+      { semconvName: "ollama", serverAddress: "localhost", serverPort: 11434 },
+      { inputCostPerMToken: 0, outputCostPerMToken: 0 },
+    );
+
+    await model.doGenerate(generateParams("Hello"));
+
+    const span = findSpan("chat qwen3.5:9B");
+    expect(span.attributes["base14.gen_ai.cost_usd"]).toBe(0);
+    expect(span.attributes["server.port"]).toBe(11434);
+  });
+
+  it("emits no content event while capture is off", async () => {
+    const model = withSemconv(
+      stubModel("claude-sonnet-4", async () => generateResult(RESPONSE)),
+      ANTHROPIC_TARGET,
+    );
+
+    await model.doGenerate(generateParams("Hello", "Be brief."));
+
+    expect(findSpan("chat claude-sonnet-4").events).toEqual([]);
+  });
+
+  it("emits one scrubbed inference event when capture is on", async () => {
+    process.env[CAPTURE_ENV] = "true";
+    const model = withSemconv(
+      stubModel("claude-sonnet-4", async () =>
+        generateResult({ ...RESPONSE, content: "Reach me at reply@example.com" }),
+      ),
+      ANTHROPIC_TARGET,
+    );
+
+    await model.doGenerate(generateParams("Email owner@example.com", "Be brief."));
+
+    const events = findSpan("chat claude-sonnet-4").events;
+    expect(events.map((e) => e.name)).toEqual(["gen_ai.client.inference.operation.details"]);
+    expect(events[0]?.attributes?.["gen_ai.input.messages"]).toBe("Email [EMAIL]");
+    expect(events[0]?.attributes?.["gen_ai.output.messages"]).toBe("Reach me at [EMAIL]");
+    expect(events[0]?.attributes?.["gen_ai.system_instructions"]).toBe("Be brief.");
+  });
+
+  it("omits system instructions when there is no system prompt", async () => {
+    process.env[CAPTURE_ENV] = "true";
+    const model = withSemconv(
+      stubModel("claude-sonnet-4", async () => generateResult(RESPONSE)),
+      ANTHROPIC_TARGET,
+    );
+
+    await model.doGenerate(generateParams("Hello"));
+
+    const event = findSpan("chat claude-sonnet-4").events[0];
+    expect(event?.attributes?.["gen_ai.system_instructions"]).toBeUndefined();
+  });
+
+  it("retries three times in total and then fails the span", async () => {
     vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("passes through a successful doGenerate result", async () => {
-    const successResult = makeSuccessResult("hello");
-    const doGenerate = vi.fn().mockResolvedValue(successResult);
-    const middleware = createSemconvMiddleware("anthropic", "api.anthropic.com");
-
-    const result = await callWrapGenerate(middleware, doGenerate);
-
-    expect(result).toBe(successResult);
-    expect(doGenerate).toHaveBeenCalledOnce();
-  });
-
-  it("retries on transient failure and returns the eventual success", async () => {
-    const successResult = makeSuccessResult();
-    const doGenerate = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("transient"))
-      .mockRejectedValueOnce(new Error("transient"))
-      .mockResolvedValueOnce(successResult);
-    const middleware = createSemconvMiddleware("anthropic", "api.anthropic.com");
-
-    const promise = callWrapGenerate(middleware, doGenerate);
-
-    // Advance timers to skip exponential backoff delays
-    await vi.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toBe(successResult);
-    // 1 initial attempt + 2 retries = 3 total calls
-    expect(doGenerate).toHaveBeenCalledTimes(3);
-  });
-
-  it("throws after exhausting all retries (3 attempts total)", async () => {
     const doGenerate = vi.fn().mockRejectedValue(new Error("permanent failure"));
-    const middleware = createSemconvMiddleware("anthropic", "api.anthropic.com");
+    const model = withSemconv(stubModel("claude-sonnet-4", doGenerate), ANTHROPIC_TARGET);
 
-    const promise = callWrapGenerate(middleware, doGenerate);
-    // Attach rejection handler before advancing timers to prevent unhandled rejection
-    const assertion = expect(promise).rejects.toThrow("permanent failure");
-
+    const promise = model.doGenerate(generateParams("Hello"));
+    const rejects = expect(promise).rejects.toThrow("permanent failure");
     await vi.runAllTimersAsync();
-    await assertion;
+    await rejects;
 
     expect(doGenerate).toHaveBeenCalledTimes(3);
+
+    const span = findSpan("chat claude-sonnet-4");
+    expect(span.status.code).toBe(SpanStatusCode.ERROR);
+    expect(span.attributes["error.type"]).toBe("Error");
+    expect(await metricTotal("base14.gen_ai.retry.count", {})).toBe(2);
+    expect(await metricTotal("base14.gen_ai.error.count", { "error.type": "Error" })).toBe(1);
   });
 });
 
 describe("withFallback", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("calls fallback model when primary exhausts all retries", async () => {
-    const fallbackResult = makeSuccessResult("from fallback");
-    const primaryDoGenerate = vi.fn().mockRejectedValue(new Error("primary down"));
-    const fallbackDoGenerate = vi.fn().mockResolvedValue(fallbackResult);
-
-    const primaryModel = makeModel("primary", primaryDoGenerate);
-    const fallbackModel = makeModel("fallback", fallbackDoGenerate);
-
-    const wrappedPrimary = withSemconv(primaryModel, "anthropic", "api.anthropic.com");
-    const wrappedFallback = withSemconv(fallbackModel, "openai", "api.openai.com");
-    const modelWithFallback = withFallback(wrappedPrimary, "anthropic", wrappedFallback);
-
-    // biome-ignore lint/suspicious/noExplicitAny: test-only call
-    const promise = (modelWithFallback.doGenerate as any)({
-      prompt: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
-      inputFormat: "messages",
-      mode: { type: "regular" },
-    });
-    await vi.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toBe(fallbackResult);
-    expect(fallbackDoGenerate).toHaveBeenCalledOnce();
-    // Primary was retried 3 times before giving up
-    expect(primaryDoGenerate).toHaveBeenCalledTimes(3);
-  });
-
-  it("returns primary result when primary succeeds without fallback", async () => {
-    const primaryResult = makeSuccessResult("from primary");
-    const primaryDoGenerate = vi.fn().mockResolvedValue(primaryResult);
+  it("returns the primary result and leaves the caller span untouched", async () => {
     const fallbackDoGenerate = vi.fn();
+    const model = withFallback(
+      withSemconv(
+        stubModel("claude-sonnet-4", async () => generateResult(RESPONSE)),
+        ANTHROPIC_TARGET,
+      ),
+      ANTHROPIC_TARGET,
+      stubModel("gpt-4.1-mini", fallbackDoGenerate),
+      OPENAI_TARGET,
+    );
 
-    const primaryModel = makeModel("primary", primaryDoGenerate);
-    const fallbackModel = makeModel("fallback", fallbackDoGenerate);
+    await model.doGenerate(generateParams("Hello"));
 
-    const wrappedPrimary = withSemconv(primaryModel, "anthropic", "api.anthropic.com");
-    const wrappedFallback = withSemconv(fallbackModel, "openai", "api.openai.com");
-    const modelWithFallback = withFallback(wrappedPrimary, "anthropic", wrappedFallback);
-
-    // biome-ignore lint/suspicious/noExplicitAny: test-only call
-    const promise = (modelWithFallback.doGenerate as any)({
-      prompt: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
-      inputFormat: "messages",
-      mode: { type: "regular" },
-    });
-    await vi.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toBe(primaryResult);
     expect(fallbackDoGenerate).not.toHaveBeenCalled();
+    expect(await metricTotal("base14.gen_ai.fallback.count", {})).toBe(0);
   });
 });

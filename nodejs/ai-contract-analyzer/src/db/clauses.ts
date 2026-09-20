@@ -20,7 +20,7 @@ export async function insertClauses(
 ): Promise<void> {
   if (clauses.length === 0) return;
 
-  // Unnest-based batch insert — single round-trip for all clauses
+  // Unnest-based batch insert - single round-trip for all clauses
   const clauseTypes = clauses.map((c) => c.clause_type);
   const presents = clauses.map((c) => c.present);
   const excerpts = clauses.map((c) => c.text_excerpt ?? null);

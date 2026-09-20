@@ -1,18 +1,27 @@
-FROM python:3.14-slim
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir uv && \
-    apt-get update && apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir uv
 
-# Copy dependency files and README (required by hatchling)
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --no-dev
+RUN uv sync --no-dev --frozen --no-install-project
 
-COPY src/ src/
+FROM python:3.14-slim AS runtime
 
-ENV PYTHONPATH=/app/src
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd --create-home --uid 10001 app
+
+WORKDIR /app
+
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --chown=app:app src/ src/
+
+ENV PATH=/app/.venv/bin:$PATH \
+    PYTHONPATH=/app/src
+
+USER app
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "runbook_assistant.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "runbook_assistant.main:app", "--host", "0.0.0.0", "--port", "8000"]

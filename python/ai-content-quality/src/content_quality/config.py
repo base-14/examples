@@ -12,18 +12,20 @@ class Settings(BaseSettings):
 
     service_name: str = "ai-content-quality"
 
-    llm_provider: str = "openai"
-    llm_model: str = "gpt-4.1-nano"
+    llm_provider: str = "ollama"
+    llm_model: str = "qwen3.5:9B"
     llm_temperature: float = 0.3
-    llm_timeout: float = 30.0
+    llm_timeout: float = 300.0
     openai_api_key: str = ""
     google_api_key: str = ""
     anthropic_api_key: str = ""
-    fallback_provider: str = "google"
-    fallback_model: str = "gemini-2.5-flash-lite"
+    fallback_provider: str = "ollama"
+    fallback_model: str = "qwen3.5:9B"
     ollama_base_url: str = "http://localhost:11434"
+    ollama_context_window: int = 32768
+    ollama_reasoning: bool = False
 
-    request_timeout: float = 60.0
+    request_timeout: float = 600.0
 
     review_prompt_version: str = "v1"
     improve_prompt_version: str = "v1"

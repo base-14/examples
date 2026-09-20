@@ -13,17 +13,19 @@ import com.example.support.model.EscalationDecision;
 import com.example.support.model.IntentResult;
 import com.example.support.model.Message;
 import com.example.support.service.ConversationService;
+import com.example.support.telemetry.ConversationScope;
+import com.example.support.telemetry.GenAi;
 import com.example.support.telemetry.SupportMetrics;
+import com.example.support.telemetry.Telemetry;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+/** Classify, retrieve, generate, scrub, route. One conversation span per turn. */
 @Component
 public class SupportPipeline {
 
@@ -36,7 +38,8 @@ public class SupportPipeline {
     private final PiiFilter piiFilter;
     private final SupportMetrics metrics;
     private final ConversationService conversationService;
-    private final Tracer tracer;
+    private final ConversationScope conversations;
+    private final Telemetry telemetry;
 
     public SupportPipeline(
         IntentClassifier intentClassifier,
@@ -45,7 +48,9 @@ public class SupportPipeline {
         EscalationRouter escalationRouter,
         PiiFilter piiFilter,
         SupportMetrics metrics,
-        ConversationService conversationService
+        ConversationService conversationService,
+        ConversationScope conversations,
+        Telemetry telemetry
     ) {
         this.intentClassifier = intentClassifier;
         this.contextRetriever = contextRetriever;
@@ -54,7 +59,8 @@ public class SupportPipeline {
         this.piiFilter = piiFilter;
         this.metrics = metrics;
         this.conversationService = conversationService;
-        this.tracer = GlobalOpenTelemetry.getTracer("ai-customer-support");
+        this.conversations = conversations;
+        this.telemetry = telemetry;
     }
 
     public record PipelineResult(
@@ -80,41 +86,37 @@ public class SupportPipeline {
                     .flatMap(history -> Mono.fromCallable(
                         () -> runPipeline(userMessage, convId, history))
                         .subscribeOn(Schedulers.boundedElastic()))
-                    .flatMap(result -> persistResult(convId, userMessage, result)
+                    .flatMap(result -> persistResult(convId, result)
                         .thenReturn(result));
             });
     }
 
     private PipelineResult runPipeline(String userMessage, UUID conversationId, List<Message> history) {
         long startNanos = System.nanoTime();
-        Span span = tracer.spanBuilder("support_conversation")
-            .setAttribute("support.conversation_id", conversationId.toString())
+        Span span = telemetry.tracer().spanBuilder("support_conversation")
+            .setAttribute(GenAi.CONVERSATION_ID, conversationId.toString())
+            .setAttribute(GenAi.AGENT_NAME, ConversationScope.AGENT_NAME)
             .startSpan();
+        conversations.begin(conversationId.toString(), span);
 
         try (Scope ignored = span.makeCurrent()) {
-            // 1. Classify intent (fast model)
             IntentResult intent = intentClassifier.classify(userMessage);
-            span.setAttribute("support.intent", intent.intent().name());
-            span.setAttribute("support.confidence", intent.confidence());
+            span.setAttribute("base14.support.intent", intent.intent().name());
+            span.setAttribute("base14.support.confidence", intent.confidence());
 
-            // 2. Retrieve RAG context
             var ragDocs = contextRetriever.retrieve(userMessage);
-            span.setAttribute("support.rag_matches", ragDocs.size());
+            span.setAttribute("base14.support.rag_matches", ragDocs.size());
 
-            // 3. Generate response (capable model)
             String conversationHistory = conversationService.formatHistory(history);
             LlmResponse response = responseGenerator.generate(
                 userMessage, intent, ragDocs, conversationHistory);
 
-            // 4. PII scrub
-            String content = piiFilter.scrub(response.content());
+            String content = piiFilter.evaluate(response.content());
 
-            // 5. Check escalation
             int turns = history.size() / 2 + 1;
             EscalationDecision escalation = escalationRouter.evaluate(intent, turns, 0);
-            span.setAttribute("support.should_escalate", escalation.shouldEscalate());
+            span.setAttribute("base14.support.should_escalate", escalation.shouldEscalate());
 
-            // 6. Record domain metrics
             if (!ragDocs.isEmpty()) {
                 Double topScore = ragDocs.getFirst().getScore();
                 if (topScore != null) {
@@ -128,12 +130,11 @@ public class SupportPipeline {
             double durationSec = (System.nanoTime() - startNanos) / 1_000_000_000.0;
             metrics.recordConversationDuration(durationSec, intent.intent().name(), escalation.shouldEscalate());
 
-            // Record totals
             int totalTokens = intent.inputTokens() + intent.outputTokens()
                 + response.inputTokens() + response.outputTokens();
-            span.setAttribute("support.total_turns", (long) turns);
-            span.setAttribute("support.total_tokens", (long) totalTokens);
-            span.setAttribute("support.total_cost_usd", response.costUsd());
+            span.setAttribute("base14.support.total_turns", (long) turns);
+            span.setAttribute("base14.support.total_tokens", (long) totalTokens);
+            span.setAttribute("base14.support.total_cost_usd", response.costUsd());
 
             log.info("Pipeline complete: conv={} intent={} turns={} tokens={} escalate={}",
                 conversationId, intent.intent(), turns, totalTokens, escalation.shouldEscalate());
@@ -145,16 +146,19 @@ public class SupportPipeline {
                 response.costUsd(), conversationId);
 
         } catch (Exception e) {
+            span.recordException(e);
+            span.setAttribute(GenAi.ERROR_TYPE, e.getClass().getSimpleName());
             span.setStatus(StatusCode.ERROR, e.getMessage());
             log.error("Pipeline failed for conversation {}: {}", conversationId, e.getMessage());
-            throw new RuntimeException("Pipeline failed: " + e.getMessage(), e);
+            throw new IllegalStateException("Pipeline failed: " + e.getMessage(), e);
 
         } finally {
+            conversations.end();
             span.end();
         }
     }
 
-    private Mono<Void> persistResult(UUID conversationId, String userMessage, PipelineResult result) {
+    private Mono<Void> persistResult(UUID conversationId, PipelineResult result) {
         int totalTokens = result.inputTokens() + result.outputTokens()
             + result.intent().inputTokens() + result.intent().outputTokens();
 

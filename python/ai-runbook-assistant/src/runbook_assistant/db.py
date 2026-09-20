@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -31,6 +32,12 @@ class Diagnosis(Base):
     service: Mapped[str | None] = mapped_column(String(64), nullable=True)
     duration_ms: Mapped[int] = mapped_column(Integer)
     trace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+def database_endpoint(database_url: str) -> tuple[str | None, int | None]:
+    """Host and port of the database, for server.address / server.port."""
+    url = make_url(database_url)
+    return url.host, url.port
 
 
 def make_engine(database_url: str) -> AsyncEngine:

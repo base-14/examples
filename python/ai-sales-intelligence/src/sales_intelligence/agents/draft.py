@@ -25,8 +25,8 @@ async def draft_agent(state: AgentState) -> AgentState:
         Updated state with email drafts
     """
     with tracer.start_as_current_span("agent.draft") as span:
-        span.set_attribute("campaign_id", state.campaign_id)
-        span.set_attribute("scored_count", len(state.scored))
+        span.set_attribute("base14.campaign_id", state.campaign_id)
+        span.set_attribute("base14.scored_count", len(state.scored))
 
         if not state.scored:
             logger.info("No scored prospects for drafting")
@@ -38,8 +38,8 @@ async def draft_agent(state: AgentState) -> AgentState:
 
         for scored in state.scored:
             with tracer.start_as_current_span("draft.email") as dspan:
-                dspan.set_attribute("prospect_id", scored.prospect.connection_id)
-                dspan.set_attribute("icp_score", scored.icp_score)
+                dspan.set_attribute("base14.prospect_id", scored.prospect.connection_id)
+                dspan.set_attribute("base14.icp_score", scored.icp_score)
 
                 system_prompt = format_prompt("draft", "system")
                 user_prompt = format_prompt(
@@ -79,7 +79,7 @@ async def draft_agent(state: AgentState) -> AgentState:
                     logger.error("Draft failed for %s: %s", scored.prospect.company, e)
                     errors.append(f"Draft error for {scored.prospect.connection_id}: {e}")
 
-        span.set_attribute("drafts_count", len(drafts))
+        span.set_attribute("base14.drafts_count", len(drafts))
         logger.info("Generated %d email drafts", len(drafts))
 
         return state.model_copy(

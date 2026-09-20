@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
 import { createOpenAI, openai } from "@ai-sdk/openai";
@@ -11,12 +10,13 @@ import {
 } from "ai";
 import { config } from "./config.ts";
 import { withFallback, withSemconv } from "./llm/middleware.ts";
+import { modelPricing } from "./llm/pricing.ts";
+import type { ModelPricing, ProviderTarget } from "./llm/provider-target.ts";
+import { thinkingOff } from "./llm/thinking-off.ts";
 
-export interface ModelDescriptor {
+export interface ModelDescriptor extends ModelPricing {
   modelId: string;
   model: LanguageModel;
-  inputCostPerMToken: number;
-  outputCostPerMToken: number;
 }
 
 export interface EmbeddingDescriptor {
@@ -24,123 +24,98 @@ export interface EmbeddingDescriptor {
   model: EmbeddingModel;
   dimensions: number;
   costPerMToken: number;
+  target: ProviderTarget;
 }
+
+type LlmProvider = "anthropic" | "google" | "ollama";
+type EmbeddingProvider = "openai" | "google" | "ollama";
 
 const ANTHROPIC_CAPABLE_DEFAULT = "claude-sonnet-4-6";
 const ANTHROPIC_FAST_DEFAULT = "claude-haiku-4-5-20251001";
 const GOOGLE_CAPABLE_DEFAULT = "gemini-2.5-flash";
 const GOOGLE_FAST_DEFAULT = "gemini-2.5-flash-lite";
-const OLLAMA_CAPABLE_DEFAULT = "llama3.1:8b";
-const OLLAMA_FAST_DEFAULT = "llama3.2";
+const OLLAMA_CAPABLE_DEFAULT = "qwen3.5:9B";
+const OLLAMA_FAST_DEFAULT = "qwen3.5:9B";
 const OPENAI_EMBED_DEFAULT = "text-embedding-3-small";
-const OLLAMA_EMBED_DEFAULT = "nomic-embed-text";
+const OLLAMA_EMBED_DEFAULT = "embeddinggemma";
 const GOOGLE_EMBED_DEFAULT = "gemini-embedding-001";
 const EMBEDDING_DIMENSIONS = 768;
 
-// Provider → OTel semconv name + server address (LLM Gateway Contract §providers)
-const PROVIDER_META: Record<string, { semconvName: string; serverAddress: string }> = {
-  anthropic: { semconvName: "anthropic", serverAddress: "api.anthropic.com" },
-  google: { semconvName: "google", serverAddress: "generativelanguage.googleapis.com" },
-  openai: { semconvName: "openai", serverAddress: "api.openai.com" },
-  ollama: { semconvName: "ollama", serverAddress: "localhost" },
-};
+function ollamaTarget(): ProviderTarget {
+  return {
+    semconvName: "ollama",
+    serverAddress: new URL(config.ollamaBaseUrl).hostname,
+    serverPort: 11434,
+  };
+}
+
+/**
+ * Provider config key to telemetry target (LLM Gateway Contract §providers).
+ * The key `google` selects Gemini; its `gen_ai.provider.name` is `gcp.gemini`.
+ */
+function providerTarget(provider: LlmProvider | EmbeddingProvider): ProviderTarget {
+  switch (provider) {
+    case "anthropic":
+      return {
+        semconvName: "anthropic",
+        serverAddress: "api.anthropic.com",
+        serverPort: 443,
+      };
+    case "google":
+      return {
+        semconvName: "gcp.gemini",
+        serverAddress: "generativelanguage.googleapis.com",
+        serverPort: 443,
+      };
+    case "openai":
+      return { semconvName: "openai", serverAddress: "api.openai.com", serverPort: 443 };
+    case "ollama":
+      return ollamaTarget();
+  }
+}
 
 const googleV1 = createGoogleGenerativeAI({
   baseURL: "https://generativelanguage.googleapis.com/v1",
 });
 
-// Pricing per million tokens (USD) — loaded from _shared/pricing.json
-// Single source of truth shared across all AI examples in this repo.
-let _pricingFile: { models: Record<string, { provider: string; input: number; output: number }> };
-try {
-  _pricingFile = JSON.parse(
-    readFileSync(new URL("../../../_shared/pricing.json", import.meta.url).pathname, "utf-8"),
-  );
-} catch (err) {
-  throw new Error(
-    `Failed to load _shared/pricing.json — ensure the repo root includes _shared/. Cause: ${(err as Error).message}`,
-  );
-}
-
-export const MODEL_PRICING: Record<string, { input: number; output: number }> = Object.fromEntries(
-  Object.entries(_pricingFile.models).map(([id, m]) => [id, { input: m.input, output: m.output }]),
-);
-
-// Conservative fallback for unknown/custom models
-const DEFAULT_PRICING = { input: 3.0, output: 15.0 };
-
-const MODEL_DATE_SUFFIX = /-\d{8}$/;
-const MODEL_MINOR_VERSION = /^(claude-(?:sonnet|opus|haiku))-(\d+)-(\d+)$/;
-
-// Providers return dated IDs (claude-sonnet-4-5-20250929) and dash-minor forms
-// (claude-opus-4-6); pricing.json keys are dot-form (claude-opus-4.6).
-function normalizeModelId(modelId: string): string {
-  return modelId.replace(MODEL_DATE_SUFFIX, "").replace(MODEL_MINOR_VERSION, "$1-$2.$3");
-}
-
-function modelPricing(modelId: string): {
-  inputCostPerMToken: number;
-  outputCostPerMToken: number;
-} {
-  const p = MODEL_PRICING[modelId] ?? MODEL_PRICING[normalizeModelId(modelId)] ?? DEFAULT_PRICING;
-  return { inputCostPerMToken: p.input, outputCostPerMToken: p.output };
+// Ollama speaks the OpenAI wire protocol at /v1, which is what ai@6 accepts.
+function ollamaClient() {
+  return createOpenAI({
+    baseURL: `${config.ollamaBaseUrl}/v1`,
+    apiKey: "ollama",
+    fetch: thinkingOff as typeof fetch,
+  });
 }
 
 /** Build a raw (unwrapped) language model for the given provider + modelId. */
-function buildRawModel(
-  provider: "anthropic" | "google" | "ollama",
-  modelId: string,
-): LanguageModelV3 {
+function buildRawModel(provider: LlmProvider, modelId: string): LanguageModelV3 {
   if (provider === "google") return google(modelId) as unknown as LanguageModelV3;
-
-  if (provider === "ollama") {
-    const ollamaOpenAI = createOpenAI({ baseURL: `${config.ollamaBaseUrl}/v1`, apiKey: "ollama" });
-    return ollamaOpenAI(modelId) as unknown as LanguageModelV3;
-  }
-
+  if (provider === "ollama") return ollamaClient()(modelId) as unknown as LanguageModelV3;
   return anthropic(modelId) as unknown as LanguageModelV3;
 }
 
-/** Wrap a raw model with the GenAI semconv middleware for its provider. */
-function wrapWithSemconv(
-  raw: LanguageModelV3,
-  provider: "anthropic" | "google" | "ollama",
-  modelId: string,
-): LanguageModelV3 {
-  const meta = PROVIDER_META[provider] ?? { semconvName: provider, serverAddress: "localhost" };
-  return withSemconv(raw, meta.semconvName, meta.serverAddress, modelPricing(modelId));
-}
-
 /**
- * Build a ModelDescriptor for the given provider + modelId.
- * Applies the GenAI semconv middleware automatically.
- * If LLM_PROVIDER_FALLBACK is configured, wraps with fallback on top.
+ * Build a ModelDescriptor for the given provider + modelId, wrapped in the
+ * GenAI semconv middleware and, when FALLBACK_PROVIDER is set, in fallback.
  */
-function buildDescriptor(
-  provider: "anthropic" | "google" | "ollama",
-  modelId: string,
-): ModelDescriptor {
-  const rawPrimary = buildRawModel(provider, modelId);
-  let wrappedModel: LanguageModelV3 = wrapWithSemconv(rawPrimary, provider, modelId);
+function buildDescriptor(provider: LlmProvider, modelId: string): ModelDescriptor {
+  const target = providerTarget(provider);
+  const pricing = modelPricing(modelId);
+  let model = withSemconv(buildRawModel(provider, modelId), target, pricing);
 
-  // Optional fallback provider (LLM Gateway Contract §error_resilience.fallback)
   if (config.llmProviderFallback && config.llmProviderFallback !== provider) {
     const fallbackProvider = config.llmProviderFallback;
     const fallbackModelId = config.llmModelFallback ?? modelId;
-    const rawFallback = buildRawModel(fallbackProvider, fallbackModelId);
-    const wrappedFallback = wrapWithSemconv(rawFallback, fallbackProvider, fallbackModelId);
-    wrappedModel = withFallback(
-      wrappedModel,
-      PROVIDER_META[provider]?.semconvName ?? provider,
-      wrappedFallback,
+    const fallbackTarget = providerTarget(fallbackProvider);
+    const fallback = withSemconv(
+      buildRawModel(fallbackProvider, fallbackModelId),
+      fallbackTarget,
+      modelPricing(fallbackModelId),
     );
+    model = withFallback(model, target, fallback, fallbackTarget);
   }
 
-  return {
-    modelId,
-    model: wrappedModel as unknown as LanguageModel,
-    ...modelPricing(modelId),
-  };
+  return { modelId, model: model as unknown as LanguageModel, ...pricing };
 }
 
 export function getCapableModel(): ModelDescriptor {
@@ -148,8 +123,7 @@ export function getCapableModel(): ModelDescriptor {
     return buildDescriptor("google", config.llmModelCapable ?? GOOGLE_CAPABLE_DEFAULT);
   }
   if (config.llmProvider === "ollama") {
-    const d = buildDescriptor("ollama", config.llmModelCapable ?? OLLAMA_CAPABLE_DEFAULT);
-    return { ...d, inputCostPerMToken: 0, outputCostPerMToken: 0 };
+    return buildDescriptor("ollama", config.llmModelCapable ?? OLLAMA_CAPABLE_DEFAULT);
   }
   return buildDescriptor("anthropic", config.llmModelCapable ?? ANTHROPIC_CAPABLE_DEFAULT);
 }
@@ -159,21 +133,20 @@ export function getFastModel(): ModelDescriptor {
     return buildDescriptor("google", config.llmModelFast ?? GOOGLE_FAST_DEFAULT);
   }
   if (config.llmProvider === "ollama") {
-    const d = buildDescriptor("ollama", config.llmModelFast ?? OLLAMA_FAST_DEFAULT);
-    return { ...d, inputCostPerMToken: 0, outputCostPerMToken: 0 };
+    return buildDescriptor("ollama", config.llmModelFast ?? OLLAMA_FAST_DEFAULT);
   }
   return buildDescriptor("anthropic", config.llmModelFast ?? ANTHROPIC_FAST_DEFAULT);
 }
 
 export function getEmbeddingModel(): EmbeddingDescriptor {
   if (config.embeddingProvider === "google") {
-    const modelName = config.embeddingModel ?? GOOGLE_EMBED_DEFAULT;
+    const modelId = config.embeddingModel ?? GOOGLE_EMBED_DEFAULT;
     return {
-      modelId: modelName,
+      modelId,
       // providerOptions.google.outputDimensionality reduces gemini-embedding-001 (3072-dim)
       // to 768 to match the pgvector column dimension.
       model: wrapEmbeddingModel({
-        model: googleV1.textEmbeddingModel(modelName),
+        model: googleV1.textEmbeddingModel(modelId),
         middleware: defaultEmbeddingSettingsMiddleware({
           settings: {
             providerOptions: { google: { outputDimensionality: EMBEDDING_DIMENSIONS } },
@@ -181,31 +154,27 @@ export function getEmbeddingModel(): EmbeddingDescriptor {
         }),
       }),
       dimensions: EMBEDDING_DIMENSIONS,
-      costPerMToken: 0.025,
+      costPerMToken: modelPricing(modelId).inputCostPerMToken,
+      target: providerTarget("google"),
     };
   }
 
   if (config.embeddingProvider === "ollama") {
-    const modelName = config.embeddingModel ?? OLLAMA_EMBED_DEFAULT;
-    // Use Ollama's OpenAI-compatible /v1 endpoint — ollama-ai-provider only
-    // implements the v1 embedding spec which ai@6 no longer accepts.
-    const ollamaOpenAI = createOpenAI({
-      baseURL: `${config.ollamaBaseUrl}/v1`,
-      apiKey: "ollama",
-    });
+    const modelId = config.embeddingModel ?? OLLAMA_EMBED_DEFAULT;
     return {
-      modelId: modelName,
-      model: ollamaOpenAI.embedding(modelName),
+      modelId,
+      model: ollamaClient().embedding(modelId),
       dimensions: EMBEDDING_DIMENSIONS,
-      costPerMToken: 0,
+      costPerMToken: modelPricing(modelId).inputCostPerMToken,
+      target: providerTarget("ollama"),
     };
   }
 
-  const modelName = config.embeddingModel ?? OPENAI_EMBED_DEFAULT;
+  const modelId = config.embeddingModel ?? OPENAI_EMBED_DEFAULT;
   return {
-    modelId: modelName,
+    modelId,
     model: wrapEmbeddingModel({
-      model: openai.embedding(modelName),
+      model: openai.embedding(modelId),
       middleware: defaultEmbeddingSettingsMiddleware({
         settings: {
           providerOptions: { openai: { dimensions: EMBEDDING_DIMENSIONS } },
@@ -213,6 +182,7 @@ export function getEmbeddingModel(): EmbeddingDescriptor {
       }),
     }),
     dimensions: EMBEDDING_DIMENSIONS,
-    costPerMToken: 0.02,
+    costPerMToken: modelPricing(modelId).inputCostPerMToken,
+    target: providerTarget("openai"),
   };
 }

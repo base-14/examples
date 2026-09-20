@@ -4,7 +4,7 @@ from typing import Any
 
 from langchain.agents import create_agent
 
-from runbook_assistant.llm import build_chat_model
+from runbook_assistant.llm import build_resilient_chat_model
 from runbook_assistant.tools import build_tools
 
 
@@ -20,7 +20,7 @@ SYSTEM_PROMPT = (
 
 def build_agent(retriever: Any) -> Any:
     return create_agent(
-        model=build_chat_model(),
+        model=build_resilient_chat_model(),
         tools=build_tools(retriever),
         system_prompt=SYSTEM_PROMPT,
     )

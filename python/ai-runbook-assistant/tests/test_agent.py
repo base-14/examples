@@ -11,7 +11,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 class _ToolBindingFakeModel(FakeListChatModel):
     """FakeListChatModel that accepts bind_tools (the base raises
     NotImplementedError). It ignores the tools and returns a plain answer, so
-    create_agent runs one model step and the agent loop ends — enough to assert
+    create_agent runs one model step and the agent loop ends - enough to assert
     the callback emits the root invoke_agent span without a real provider."""
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> Any:

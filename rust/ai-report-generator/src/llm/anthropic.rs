@@ -33,6 +33,7 @@ struct AnthropicMessage {
 
 #[derive(Deserialize)]
 struct AnthropicResponse {
+    id: Option<String>,
     content: Vec<AnthropicContent>,
     model: String,
     usage: AnthropicUsage,
@@ -122,15 +123,12 @@ impl Provider for AnthropicProvider {
         Ok(GenerateResponse {
             content,
             model: resp.model,
+            response_id: resp.id,
             input_tokens: resp.usage.input_tokens,
             output_tokens: resp.usage.output_tokens,
             cost_usd: 0.0,
             finish_reason: resp.stop_reason.unwrap_or_default(),
             provider: String::new(),
         })
-    }
-
-    fn name(&self) -> &str {
-        "anthropic"
     }
 }

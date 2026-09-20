@@ -10,19 +10,17 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import com.example.support.telemetry.SupportMetrics;
-
 @Component
 public class ProductTools {
 
     private static final Logger log = LoggerFactory.getLogger(ProductTools.class);
 
     private final JdbcTemplate jdbc;
-    private final SupportMetrics metrics;
+    private final ToolTelemetry toolTelemetry;
 
-    public ProductTools(JdbcTemplate jdbc, SupportMetrics metrics) {
+    public ProductTools(JdbcTemplate jdbc, ToolTelemetry toolTelemetry) {
         this.jdbc = jdbc;
-        this.metrics = metrics;
+        this.toolTelemetry = toolTelemetry;
     }
 
     @Tool(description = "Search product catalog by name, description, or category")
@@ -31,25 +29,28 @@ public class ProductTools {
         @ToolParam(description = "Category filter (optional, empty string for all)") String category
     ) {
         log.info("Tool call: searchProducts(query={}, category={})", query, category);
-        metrics.recordToolCall("searchProducts", true);
 
+        List<Map<String, Object>> rows;
         if (category != null && !category.isBlank()) {
-            return jdbc.queryForList(
+            rows = jdbc.queryForList(
                 """
                 SELECT name, description, category, price, sku, in_stock
                 FROM products
                 WHERE category = ? AND (LOWER(name) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?))
                 LIMIT 10
                 """, category, "%" + query + "%", "%" + query + "%");
+        } else {
+            rows = jdbc.queryForList(
+                """
+                SELECT name, description, category, price, sku, in_stock
+                FROM products
+                WHERE LOWER(name) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?)
+                LIMIT 10
+                """, "%" + query + "%", "%" + query + "%");
         }
 
-        return jdbc.queryForList(
-            """
-            SELECT name, description, category, price, sku, in_stock
-            FROM products
-            WHERE LOWER(name) LIKE LOWER(?) OR LOWER(description) LIKE LOWER(?)
-            LIMIT 10
-            """, "%" + query + "%", "%" + query + "%");
+        toolTelemetry.success("searchProducts");
+        return rows;
     }
 
     @Tool(description = "Get detailed product information by SKU")
@@ -57,13 +58,13 @@ public class ProductTools {
         @ToolParam(description = "Product SKU") String sku
     ) {
         log.info("Tool call: getProductInfo({})", sku);
-        metrics.recordToolCall("getProductInfo", true);
         var rows = jdbc.queryForList(
             "SELECT name, description, category, price, sku, in_stock FROM products WHERE sku = ?", sku);
 
         if (rows.isEmpty()) {
-            return Map.of("error", "Product not found: " + sku);
+            return toolTelemetry.failure("getProductInfo", "product_not_found", "Product not found: " + sku);
         }
+        toolTelemetry.success("getProductInfo");
         return rows.getFirst();
     }
 }

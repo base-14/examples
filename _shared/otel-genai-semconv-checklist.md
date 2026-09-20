@@ -7,8 +7,7 @@ has no tagged release, so it is cited by repo and date, not by version.
 
 Naming rule: application-specific attributes and metrics must not sit under an
 existing semconv namespace (`gen_ai.*`, `mcp.*`, and so on). Custom names use a
-`base14.` prefix. Shipped examples keep their current attribute and metric
-names until each is next touched.
+`base14.` prefix.
 
 ---
 

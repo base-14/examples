@@ -1,49 +1,33 @@
 /**
- * OTel GenAI Semantic Convention middleware for AI SDK v6.
+ * OTel GenAI semantic convention middleware for AI SDK v6.
  *
- * Wraps every LanguageModelV3 call with:
- * - A `gen_ai.chat {model}` span carrying all required semconv attributes
- * - `gen_ai.user.message` / `gen_ai.assistant.message` span events (truncated)
- * - Application-level retry (3 attempts, exponential backoff 1–10 s) on all errors
- * - Metrics: operation.duration, error.count, retry.count
+ * `withSemconv` wraps a LanguageModelV3 so every call runs inside a CLIENT span
+ * named `chat {model}`, retries all errors three times with exponential backoff,
+ * and records the token, duration, cost, retry and error instruments.
+ *
+ * `withFallback` wraps a wrapped model with a second provider. A switch is
+ * recorded as a `provider_fallback` event on the calling span, which stays OK.
  *
  * Usage (providers.ts):
- *   import { withSemconv } from "./llm/middleware.ts";
- *   const model = withSemconv(anthropic("claude-sonnet-4-6"), "anthropic", "api.anthropic.com");
+ *   const model = withSemconv(anthropic("claude-sonnet-4-6"), target, pricing);
  */
 import type { LanguageModelV3, LanguageModelV3Middleware } from "@ai-sdk/provider";
-import { metrics, SpanStatusCode, trace } from "@opentelemetry/api";
+import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { wrapLanguageModel } from "ai";
+import {
+  costCounter,
+  errorCounter,
+  fallbackCounter,
+  opDurationHistogram,
+  retryCounter,
+  tokenUsageHistogram,
+} from "./instruments.ts";
+import type { ModelPricing, ProviderTarget } from "./provider-target.ts";
+import { scrubPii } from "./scrub.ts";
 
 const tracer = trace.getTracer("ai-contract-analyzer");
-const meter = metrics.getMeter("ai-contract-analyzer");
 
-export const opDurationHistogram = meter.createHistogram("gen_ai.client.operation.duration", {
-  description: "LLM operation duration",
-  unit: "s",
-});
-export const errorCounter = meter.createCounter("gen_ai.client.error.count", {
-  description: "LLM call error count",
-  unit: "{error}",
-});
-export const retryCounter = meter.createCounter("gen_ai.client.retry.count", {
-  description: "LLM call retry count",
-  unit: "{retry}",
-});
-export const fallbackCounter = meter.createCounter("gen_ai.client.fallback.count", {
-  description: "LLM provider fallback count",
-  unit: "{fallback}",
-});
-export const tokenUsageHistogram = meter.createHistogram("gen_ai.client.token.usage", {
-  description: "LLM token usage",
-  unit: "{token}",
-});
-export const costCounter = meter.createCounter("gen_ai.client.cost", {
-  description: "LLM cost in USD",
-  unit: "usd",
-});
-
-// Semconv truncation limits (LLM Gateway Contract §events)
+// Content capture limits (LLM Gateway Contract §content_capture.truncation)
 const TRUNCATE_PROMPT = 1_000;
 const TRUNCATE_COMPLETION = 2_000;
 const TRUNCATE_SYSTEM = 500;
@@ -53,32 +37,56 @@ const MAX_RETRIES = 2; // 3 total attempts
 const MIN_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 10_000;
 
-function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max)}…` : s;
+type GeneratePrompt = Parameters<LanguageModelV3["doGenerate"]>[0]["prompt"];
+
+function contentCaptureEnabled(): boolean {
+  return process.env.OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT === "true";
 }
 
-function extractPromptText(
-  prompt: LanguageModelV3["doGenerate"] extends (p: infer P) => unknown
-    ? P extends { prompt: infer R }
-      ? R
-      : never
-    : never,
-): { system?: string; user: string } {
-  let system: string | undefined;
+function scrubAndTruncate(text: string, max: number): string {
+  return scrubPii(text).slice(0, max);
+}
+
+function errorType(err: unknown): string {
+  return (err as Error)?.constructor?.name ?? "UnknownError";
+}
+
+function extractPromptText(prompt: GeneratePrompt): { system: string; user: string } {
+  let system = "";
   const userParts: string[] = [];
-  for (const msg of prompt as Array<{ role: string; content: unknown }>) {
-    if (msg.role === "system" && typeof msg.content === "string") {
+  for (const msg of prompt) {
+    if (msg.role === "system") {
       system = msg.content;
     } else if (msg.role === "user") {
-      const parts = msg.content as Array<{ type: string; text?: string }>;
-      if (Array.isArray(parts)) {
-        for (const p of parts) {
-          if (p.type === "text" && p.text) userParts.push(p.text);
-        }
+      for (const part of msg.content) {
+        if (part.type === "text") userParts.push(part.text);
       }
     }
   }
   return { system, user: userParts.join("\n") };
+}
+
+/**
+ * The single content event per call, replacing the removed per-message events.
+ * Emitted only when content capture is switched on.
+ */
+function emitInferenceEvent(
+  span: Span,
+  prompt: { system: string; user: string },
+  completion: string | undefined,
+): void {
+  if (!contentCaptureEnabled()) return;
+
+  const attributes: Record<string, string> = {
+    "gen_ai.input.messages": scrubAndTruncate(prompt.user, TRUNCATE_PROMPT),
+  };
+  const systemInstructions = scrubAndTruncate(prompt.system, TRUNCATE_SYSTEM);
+  if (systemInstructions) attributes["gen_ai.system_instructions"] = systemInstructions;
+  if (completion !== undefined) {
+    attributes["gen_ai.output.messages"] = scrubAndTruncate(completion, TRUNCATE_COMPLETION);
+  }
+
+  span.addEvent("gen_ai.client.inference.operation.details", attributes);
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -86,182 +94,173 @@ async function sleep(ms: number): Promise<void> {
 }
 
 export function createSemconvMiddleware(
-  providerName: string,
-  serverAddress: string,
-  pricing?: { inputCostPerMToken: number; outputCostPerMToken: number },
+  target: ProviderTarget,
+  pricing?: ModelPricing,
 ): LanguageModelV3Middleware {
   return {
     specificationVersion: "v3",
     async wrapGenerate({ doGenerate, params, model }) {
       const modelId = model.modelId;
-      const spanName = `gen_ai.chat ${modelId}`;
+      const prompt = extractPromptText(params.prompt);
 
-      const { system, user } = extractPromptText(
-        params.prompt as Parameters<typeof extractPromptText>[0],
-      );
+      // Sampling-relevant attributes are set at span creation.
+      const metricAttrs = {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.provider.name": target.semconvName,
+        "gen_ai.request.model": modelId,
+      };
+      const spanAttrs: Record<string, string | number> = {
+        ...metricAttrs,
+        "server.address": target.serverAddress,
+        "server.port": target.serverPort,
+      };
+      if (params.maxOutputTokens !== undefined)
+        spanAttrs["gen_ai.request.max_tokens"] = params.maxOutputTokens;
+      if (params.temperature !== undefined)
+        spanAttrs["gen_ai.request.temperature"] = params.temperature;
 
-      return tracer.startActiveSpan(spanName, async (span) => {
-        // Required semconv attributes
-        span.setAttribute("gen_ai.operation.name", "chat");
-        span.setAttribute("gen_ai.provider.name", providerName);
-        span.setAttribute("gen_ai.request.model", modelId);
-        span.setAttribute("server.address", serverAddress);
+      return tracer.startActiveSpan(
+        `chat ${modelId}`,
+        { kind: SpanKind.CLIENT, attributes: spanAttrs },
+        async (span) => {
+          const startMs = Date.now();
+          let lastError: Error | undefined;
 
-        // Recommended attributes
-        if (params.maxOutputTokens !== undefined)
-          span.setAttribute("gen_ai.request.max_tokens", params.maxOutputTokens);
-        if (params.temperature !== undefined)
-          span.setAttribute("gen_ai.request.temperature", params.temperature);
+          for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+              const result = await doGenerate();
 
-        // gen_ai.user.message event (truncated)
-        span.addEvent("gen_ai.user.message", {
-          "gen_ai.input.messages": truncate(user, TRUNCATE_PROMPT),
-          ...(system ? { "gen_ai.system_instructions": truncate(system, TRUNCATE_SYSTEM) } : {}),
-        });
+              const inputTokens = result.usage.inputTokens.total ?? 0;
+              const outputTokens = result.usage.outputTokens.total ?? 0;
 
-        const startMs = Date.now();
-        let lastError: Error | undefined;
+              if (result.response?.modelId)
+                span.setAttribute("gen_ai.response.model", result.response.modelId);
+              if (result.response?.id) span.setAttribute("gen_ai.response.id", result.response.id);
+              if (result.finishReason)
+                span.setAttribute("gen_ai.response.finish_reasons", [result.finishReason.unified]);
+              span.setAttribute("gen_ai.usage.input_tokens", inputTokens);
+              span.setAttribute("gen_ai.usage.output_tokens", outputTokens);
 
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          try {
-            const result = await doGenerate();
-            const durationS = (Date.now() - startMs) / 1000;
+              tokenUsageHistogram.record(inputTokens, {
+                ...metricAttrs,
+                "gen_ai.token.type": "input",
+              });
+              tokenUsageHistogram.record(outputTokens, {
+                ...metricAttrs,
+                "gen_ai.token.type": "output",
+              });
 
-            const inputTokens = result.usage.inputTokens.total ?? 0;
-            const outputTokens = result.usage.outputTokens.total ?? 0;
-
-            // Response attributes
-            if (result.response?.modelId)
-              span.setAttribute("gen_ai.response.model", result.response.modelId);
-            if (result.response?.id) span.setAttribute("gen_ai.response.id", result.response.id);
-            if (result.finishReason)
-              span.setAttribute("gen_ai.response.finish_reasons", [result.finishReason.unified]);
-            span.setAttribute("gen_ai.usage.input_tokens", inputTokens);
-            span.setAttribute("gen_ai.usage.output_tokens", outputTokens);
-
-            // gen_ai.assistant.message event (truncated text content)
-            const completionText = result.content
-              .filter((c): c is { type: "text"; text: string } => c.type === "text")
-              .map((c) => c.text)
-              .join("");
-            span.addEvent("gen_ai.assistant.message", {
-              "gen_ai.output.messages": truncate(completionText, TRUNCATE_COMPLETION),
-            });
-
-            // gen_ai.client.token.usage — required attrs per LLM Gateway Contract
-            const metricAttrs = {
-              "gen_ai.operation.name": "chat",
-              "gen_ai.provider.name": providerName,
-              "gen_ai.request.model": modelId,
-            };
-            tokenUsageHistogram.record(inputTokens, {
-              ...metricAttrs,
-              "gen_ai.token.type": "input",
-            });
-            tokenUsageHistogram.record(outputTokens, {
-              ...metricAttrs,
-              "gen_ai.token.type": "output",
-            });
-
-            // gen_ai.client.cost + span attribute when pricing is available
-            if (pricing) {
-              const costUsd =
-                (inputTokens * pricing.inputCostPerMToken +
-                  outputTokens * pricing.outputCostPerMToken) /
-                1_000_000;
-              span.setAttribute("gen_ai.usage.cost_usd", costUsd);
+              const costUsd = pricing
+                ? (inputTokens * pricing.inputCostPerMToken +
+                    outputTokens * pricing.outputCostPerMToken) /
+                  1_000_000
+                : 0;
+              span.setAttribute("base14.gen_ai.cost_usd", costUsd);
               costCounter.add(costUsd, metricAttrs);
-            }
 
-            opDurationHistogram.record(durationS, {
-              "gen_ai.request.model": modelId,
-              "gen_ai.provider.name": providerName,
-            });
+              opDurationHistogram.record((Date.now() - startMs) / 1000, metricAttrs);
 
-            span.end();
-            return result;
-          } catch (err) {
-            lastError = err as Error;
+              const completionText = result.content
+                .filter((c): c is { type: "text"; text: string } => c.type === "text")
+                .map((c) => c.text)
+                .join("");
+              emitInferenceEvent(span, prompt, completionText);
 
-            if (attempt < MAX_RETRIES) {
-              retryCounter.add(1, {
-                "gen_ai.request.model": modelId,
-                "gen_ai.provider.name": providerName,
-              });
-              const backoffMs = Math.min(MIN_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
-              span.addEvent("gen_ai.retry", {
-                attempt: attempt + 1,
-                backoff_ms: backoffMs,
-                error: (err as Error).message,
-              });
-              await sleep(backoffMs);
+              span.end();
+              return result;
+            } catch (err) {
+              lastError = err as Error;
+
+              if (attempt < MAX_RETRIES) {
+                const backoffMs = Math.min(MIN_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
+                retryCounter.add(1, {
+                  "gen_ai.provider.name": target.semconvName,
+                  "gen_ai.request.model": modelId,
+                  "error.type": errorType(err),
+                  "base14.retry.attempt": attempt + 1,
+                });
+                span.addEvent("base14.gen_ai.retry", {
+                  "base14.retry.attempt": attempt + 1,
+                  "base14.retry.backoff_ms": backoffMs,
+                  "error.type": errorType(err),
+                });
+                await sleep(backoffMs);
+              }
             }
           }
-        }
 
-        // All retries exhausted
-        const durationS = (Date.now() - startMs) / 1000;
-        const errorType = lastError?.constructor?.name ?? "UnknownError";
+          const failure = lastError as Error;
+          const type = errorType(failure);
 
-        span.recordException(lastError as Error);
-        span.setAttribute("error.type", errorType);
-        span.setStatus({ code: SpanStatusCode.ERROR, message: lastError?.message });
+          span.recordException(failure);
+          span.setAttribute("error.type", type);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: failure.message });
 
-        errorCounter.add(1, {
-          "gen_ai.request.model": modelId,
-          "gen_ai.provider.name": providerName,
-          "error.type": errorType,
-        });
-        opDurationHistogram.record(durationS, {
-          "gen_ai.request.model": modelId,
-          "gen_ai.provider.name": providerName,
-        });
+          errorCounter.add(1, {
+            "gen_ai.provider.name": target.semconvName,
+            "gen_ai.request.model": modelId,
+            "error.type": type,
+          });
+          opDurationHistogram.record((Date.now() - startMs) / 1000, {
+            ...metricAttrs,
+            "error.type": type,
+          });
 
-        span.end();
-        throw lastError;
-      });
+          emitInferenceEvent(span, prompt, undefined);
+
+          span.end();
+          throw failure;
+        },
+      );
     },
   };
 }
 
+/** Wrap a raw model with the GenAI semconv span, retry and metrics. */
+export function withSemconv(
+  model: LanguageModelV3,
+  target: ProviderTarget,
+  pricing?: ModelPricing,
+): LanguageModelV3 {
+  return wrapLanguageModel({ model, middleware: createSemconvMiddleware(target, pricing) });
+}
+
 /**
- * Wraps a model with:
- * 1. GenAI semconv spans + retry (via createSemconvMiddleware)
- * 2. Fallback to a secondary model if all retries fail
+ * Switch to a second provider when the primary has exhausted its retries.
+ *
+ * The switch is non-fatal: the calling span records the exception and a
+ * `provider_fallback` event, and keeps its OK status if the fallback succeeds.
  */
 export function withFallback(
   primary: LanguageModelV3,
-  primaryProviderName: string,
+  primaryTarget: ProviderTarget,
   fallback: LanguageModelV3,
+  fallbackTarget: ProviderTarget,
 ): LanguageModelV3 {
   const fallbackMiddleware: LanguageModelV3Middleware = {
     specificationVersion: "v3",
-    async wrapGenerate({ doGenerate, params, model }) {
+    async wrapGenerate({ doGenerate, params }) {
       try {
         return await doGenerate();
-      } catch (_err) {
-        fallbackCounter.add(1, {
-          "gen_ai.request.model": model.modelId,
-          "gen_ai.provider.name": primaryProviderName,
-        });
-        // Call fallback model directly (it has its own semconv wrapper)
+      } catch (err) {
+        const attrs = {
+          "gen_ai.provider.name": primaryTarget.semconvName,
+          "base14.gen_ai.fallback.provider": fallbackTarget.semconvName,
+          "error.type": errorType(err),
+        };
+
+        const span = trace.getActiveSpan();
+        if (span) {
+          span.recordException(err as Error);
+          span.addEvent("provider_fallback", attrs);
+          span.setAttribute("gen_ai.fallback.triggered", true);
+        }
+        fallbackCounter.add(1, attrs);
+
         return await fallback.doGenerate(params);
       }
     },
   };
 
   return wrapLanguageModel({ model: primary, middleware: fallbackMiddleware });
-}
-
-/** Convenience: wrap a raw model with semconv middleware. */
-export function withSemconv(
-  model: LanguageModelV3,
-  providerName: string,
-  serverAddress: string,
-  pricing?: { inputCostPerMToken: number; outputCostPerMToken: number },
-): LanguageModelV3 {
-  return wrapLanguageModel({
-    model,
-    middleware: createSemconvMiddleware(providerName, serverAddress, pricing),
-  });
 }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// vi.mock is hoisted — factory must not reference module-level variables
+// vi.mock is hoisted - factory must not reference module-level variables
 vi.mock("ai", () => ({ Output: { object: (opts: unknown) => opts }, generateText: vi.fn() }));
 vi.mock("../../src/providers.ts", () => ({
   getCapableModel: vi.fn().mockReturnValue({
@@ -54,7 +54,7 @@ const EXTRACTION_OBJECT = {
   expiration_date: "2026-01-01",
   governing_law: "Delaware",
   contract_type: "nda",
-  // EvaluationSchema fields — evaluator sees passed:true, so loop exits after first iteration
+  // EvaluationSchema fields - evaluator sees passed:true, so loop exits after first iteration
   passed: true,
   issues: [],
 };
@@ -102,7 +102,7 @@ describe("extractClauses", () => {
   it("uses all 41 clause types in system prompt when force_full_extraction is set", async () => {
     await extractClauses("contract text", { force_full_extraction: true });
 
-    // First call is the generator — check its system prompt
+    // First call is the generator - check its system prompt
     const generatorCall = vi.mocked(generateText).mock.calls[0]?.[0];
     expect((generatorCall as { system: string }).system).toContain("(41)");
   });
@@ -125,9 +125,9 @@ describe("extractClauses", () => {
           300,
           25,
         ),
-      ) // evaluator 1 — FAIL
+      ) // evaluator 1 - FAIL
       .mockResolvedValueOnce(mockResult(EXTRACTION_OBJECT, 25500, 4000)) // generator attempt 2
-      .mockResolvedValueOnce(mockResult({ passed: true, issues: [] }, 300, 20)); // evaluator 2 — PASS
+      .mockResolvedValueOnce(mockResult({ passed: true, issues: [] }, 300, 20)); // evaluator 2 - PASS
 
     const result = await extractClauses("contract text");
 

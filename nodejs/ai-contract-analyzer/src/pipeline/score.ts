@@ -1,38 +1,47 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getFastModel } from "../providers.ts";
-import { CUAD_CLAUSE_TYPES } from "../types/clauses.ts";
+import { CLAUSES_BY_TYPE, CUAD_CLAUSE_TYPES, type CUADClauseType } from "../types/clauses.ts";
 import type { ExtractionResult, RiskResult } from "../types/pipeline.ts";
 
 const RiskLevelEnum = z.enum(["critical", "high", "medium", "low", "none"]);
 
-const RiskSchema = z.object({
-  clause_risks: z.array(
-    z.object({
-      clause_type: z.enum(CUAD_CLAUSE_TYPES),
-      risk_level: RiskLevelEnum,
-      risk_factors: z.preprocess(
-        (v) =>
-          typeof v === "string"
-            ? v
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : v,
-        z.array(z.string()),
-      ),
-      recommendation: z.string(),
-    }),
-  ),
-  overall_risk: z.enum(["critical", "high", "medium", "low"]),
-  missing_clauses: z.array(
-    z.object({
-      clause_type: z.enum(CUAD_CLAUSE_TYPES),
-      importance: z.enum(["required", "recommended", "optional"]),
-      explanation: z.string(),
-    }),
-  ),
-});
+/**
+ * The risk schema narrowed to the clause types this extraction covers, for the
+ * same reason as `clauseSchemaFor`: the full enum appears twice here, which on
+ * a local model crowds out room the answer needs.
+ */
+function buildRiskSchema(clauseTypes: readonly CUADClauseType[]) {
+  const ClauseTypeEnum = z.enum(clauseTypes as [CUADClauseType, ...CUADClauseType[]]);
+
+  return z.object({
+    clause_risks: z.array(
+      z.object({
+        clause_type: ClauseTypeEnum,
+        risk_level: RiskLevelEnum,
+        risk_factors: z.preprocess(
+          (v) =>
+            typeof v === "string"
+              ? v
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : v,
+          z.array(z.string()),
+        ),
+        recommendation: z.string(),
+      }),
+    ),
+    overall_risk: z.enum(["critical", "high", "medium", "low"]),
+    missing_clauses: z.array(
+      z.object({
+        clause_type: ClauseTypeEnum,
+        importance: z.enum(["required", "recommended", "optional"]),
+        explanation: z.string(),
+      }),
+    ),
+  });
+}
 
 export interface ScoreResult {
   risks: RiskResult;
@@ -41,7 +50,10 @@ export interface ScoreResult {
   cost_usd: number;
 }
 
-export async function scoreRisks(extraction: ExtractionResult): Promise<ScoreResult> {
+export async function scoreRisks(
+  extraction: ExtractionResult,
+  documentType?: string,
+): Promise<ScoreResult> {
   const presentClauses = extraction.clauses
     .filter((c) => c.present)
     .map((c) => `${c.clause_type}: "${c.text_excerpt.slice(0, 200)}"`)
@@ -63,10 +75,17 @@ Missing clause types: ${missingClauses || "(none missing)"}
 
 Assess the risk level for each present clause and identify which missing clauses are concerning.`;
 
+  // An empty extraction must not reopen the schema to all 42 CUAD types; fall
+  // back to the document type's own list, the same one extract was given.
+  const extracted = extraction.clauses.map((c) => c.clause_type as CUADClauseType);
+  const riskSchema = buildRiskSchema(
+    extracted.length > 0 ? extracted : (CLAUSES_BY_TYPE[documentType ?? ""] ?? CUAD_CLAUSE_TYPES),
+  );
+
   const fastDescriptor = getFastModel();
   const { output, usage } = await generateText({
     model: fastDescriptor.model,
-    output: Output.object({ schema: RiskSchema }),
+    output: Output.object({ schema: riskSchema }),
     maxOutputTokens: 3_000,
     system: `You are a contract risk analyst. For each present clause, assess:
 - risk_level: critical (immediate action), high (significant concern), medium (review), low (acceptable), none (standard)

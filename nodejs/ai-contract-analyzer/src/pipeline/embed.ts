@@ -1,5 +1,4 @@
-import { embedMany } from "ai";
-import { getEmbeddingModel } from "../providers.ts";
+import { embedValues } from "../llm/embeddings.ts";
 import type { ChunkData } from "../types/pipeline.ts";
 
 const BATCH_SIZE = 20;
@@ -7,6 +6,7 @@ const BATCH_SIZE = 20;
 export interface EmbedResult {
   embeddings: number[][];
   total_tokens: number;
+  total_cost_usd: number;
   batch_count: number;
 }
 
@@ -25,21 +25,19 @@ export async function embedChunks(
   const texts = chunks.map((c) => c.text);
   const allEmbeddings: number[][] = [];
   let totalTokens = 0;
+  let totalCost = 0;
 
-  const embeddingDescriptor = getEmbeddingModel();
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-    const batch = texts.slice(i, i + BATCH_SIZE);
-    const { embeddings, usage } = await embedMany({
-      model: embeddingDescriptor.model,
-      values: batch,
-    });
-    allEmbeddings.push(...embeddings);
-    totalTokens += usage.tokens;
+    const outcome = await embedValues(texts.slice(i, i + BATCH_SIZE));
+    allEmbeddings.push(...outcome.embeddings);
+    totalTokens += outcome.tokens;
+    totalCost += outcome.costUsd;
   }
 
   return {
     embeddings: allEmbeddings,
     total_tokens: totalTokens,
+    total_cost_usd: totalCost,
     batch_count: Math.ceil(texts.length / BATCH_SIZE),
   };
 }

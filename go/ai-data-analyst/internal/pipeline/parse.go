@@ -138,14 +138,14 @@ func Parse(ctx context.Context, tracer trace.Tracer, question string) *ParseResu
 	result.QuestionType = classifyQuestion(lower)
 
 	span.SetAttributes(
-		attribute.String("nlsql.stage", "parse"),
-		attribute.String("nlsql.question_type", result.QuestionType),
-		attribute.Int("nlsql.entities_found", len(result.Entities)),
-		attribute.StringSlice("nlsql.indicators_matched", result.Indicators),
-		attribute.StringSlice("nlsql.countries_matched", result.Countries),
+		attribute.String("base14.nlsql.stage", "parse"),
+		attribute.String("base14.nlsql.question_type", result.QuestionType),
+		attribute.Int("base14.nlsql.entities_found", len(result.Entities)),
+		attribute.StringSlice("base14.nlsql.indicators_matched", result.Indicators),
+		attribute.StringSlice("base14.nlsql.countries_matched", result.Countries),
 	)
 	if result.TimeRange != nil {
-		span.SetAttributes(attribute.String("nlsql.time_range",
+		span.SetAttributes(attribute.String("base14.nlsql.time_range",
 			strconv.Itoa(result.TimeRange.StartYear)+"-"+strconv.Itoa(result.TimeRange.EndYear)))
 	}
 

@@ -8,21 +8,25 @@ services:
     environment:
       - APP_PORT=8080
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/data_analyst?sslmode=disable
-      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
-      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-gpt-5.5}
-      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-gpt-5.4-mini}
-      - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-anthropic}
-      - FALLBACK_MODEL=${FALLBACK_MODEL:-claude-haiku-4-5-20251001}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL_CAPABLE=${LLM_MODEL_CAPABLE:-qwen3.5:9B}
+      - LLM_MODEL_FAST=${LLM_MODEL_FAST:-qwen3.5:9B}
+      - FALLBACK_PROVIDER=${FALLBACK_PROVIDER:-ollama}
+      - FALLBACK_MODEL=${FALLBACK_MODEL:-qwen3.5:9B}
+      # Override with http://ollama:11434 when using --profile ollama (Dockerized Ollama).
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - OTEL_SERVICE_NAME=ai-data-analyst
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
       - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}
       - DEFAULT_TEMPERATURE=${DEFAULT_TEMPERATURE:-0.1}
       - DEFAULT_MAX_TOKENS=${DEFAULT_MAX_TOKENS:-1024}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ../../_shared:/_shared:ro
     depends_on:
@@ -31,7 +35,7 @@ services:
       otel-collector:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -66,11 +70,20 @@ services:
       - "13133:13133"
       - "55679:55679"
     environment:
-      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-}
-      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-}
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
       - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
       - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
 
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ollama]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   pgdata:
+  ollama_data:

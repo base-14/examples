@@ -57,9 +57,22 @@ export const ClauseSchema = z.object({
 
 export type Clause = z.infer<typeof ClauseSchema>;
 
+/**
+ * The clause schema narrowed to one document type's clause list.
+ *
+ * The full 42-value enum is serialized into every structured-output request,
+ * which crowds out the room the answer needs on a local model with a small
+ * context window. The prompt only asks about the narrowed list anyway.
+ */
+export function clauseSchemaFor(clauseTypes: readonly CUADClauseType[]) {
+  return ClauseSchema.extend({
+    clause_type: z.enum(clauseTypes as [CUADClauseType, ...CUADClauseType[]]),
+  });
+}
+
 export type RiskLevel = "critical" | "high" | "medium" | "low" | "none";
 
-// Focused clause subsets per document type — reduces context noise and improves extraction accuracy.
+// Focused clause subsets per document type - reduces context noise and improves extraction accuracy.
 // Falls back to all CUAD_CLAUSE_TYPES for unknown document types.
 export const CLAUSES_BY_TYPE: Partial<Record<string, readonly CUADClauseType[]>> = {
   nda: [

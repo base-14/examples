@@ -21,23 +21,23 @@ check() {
   fi
 }
 
-echo "=== AI Data Analyst — API Smoke Tests ==="
+echo "=== AI Data Analyst - API Smoke Tests ==="
 echo "Target: $BASE_URL"
 echo ""
 
 # Health
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
+STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
 check "GET /api/health returns 200" "$STATUS" "200"
 
-BODY=$(curl -s "$BASE_URL/api/health")
+BODY=$(curl -s --max-time 10 "$BASE_URL/api/health")
 SVC=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || echo "error")
 check "GET /api/health status=ok" "$SVC" "ok"
 
 # Schema
-SCHEMA_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/schema")
+SCHEMA_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/api/schema")
 check "GET /api/schema returns 200" "$SCHEMA_STATUS" "200"
 
-SCHEMA_BODY=$(curl -s "$BASE_URL/api/schema")
+SCHEMA_BODY=$(curl -s --max-time 10 "$BASE_URL/api/schema")
 if echo "$SCHEMA_BODY" | grep -q "countries"; then
   green "GET /api/schema contains schema info"
   PASS=$((PASS + 1))
@@ -47,15 +47,15 @@ else
 fi
 
 # Indicators
-IND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/indicators")
+IND_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/api/indicators")
 check "GET /api/indicators returns 200" "$IND_STATUS" "200"
 
 # History
-HIST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/history")
+HIST_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$BASE_URL/api/history")
 check "GET /api/history returns 200" "$HIST_STATUS" "200"
 
-# Ask — valid question
-ASK_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/ask" \
+# Ask - valid question
+ASK_RESPONSE=$(curl -s --max-time 300 -w "\n%{http_code}" -X POST "$BASE_URL/api/ask" \
   -H "Content-Type: application/json" \
   -d '{"question":"Top 5 countries by GDP growth in 2023"}')
 ASK_STATUS=$(echo "$ASK_RESPONSE" | tail -1)
@@ -81,14 +81,14 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# Ask — empty question
-BAD_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/ask" \
+# Ask - empty question
+BAD_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/ask" \
   -H "Content-Type: application/json" \
   -d '{"question":""}')
 check "POST /api/ask empty question returns 400" "$BAD_STATUS" "400"
 
-# Ask — invalid JSON
-INVALID_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/ask" \
+# Ask - invalid JSON
+INVALID_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/ask" \
   -H "Content-Type: application/json" \
   -d 'not json')
 check "POST /api/ask invalid JSON returns 400" "$INVALID_STATUS" "400"

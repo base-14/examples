@@ -1,5 +1,5 @@
 /**
- * Seed script — loads sample contracts from data/contracts/ and runs the
+ * Seed script - loads sample contracts from data/contracts/ and runs the
  * full analysis pipeline on each. Generated embeddings are persisted to the
  * database so semantic search works immediately after setup.
  *
@@ -40,7 +40,7 @@ async function seed() {
       try {
         const result = await analyzeContract(file, pool);
         console.log(
-          `    Done — ${result.extraction.clauses.filter((c) => c.present).length} clauses, risk: ${result.risks.overall_risk}`
+          `    Done - ${result.extraction.clauses.filter((c) => c.present).length} clauses, risk: ${result.risks.overall_risk}`
         );
       } catch (err) {
         console.error(`    Failed: ${err instanceof Error ? err.message : err}`);

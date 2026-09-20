@@ -14,9 +14,9 @@ pub struct RetrieveResult {
     name = "pipeline_stage retrieve",
     skip(pool),
     fields(
-        pipeline.stage = "retrieve",
-        report.indicators_count,
-        report.data_points,
+        base14.pipeline.stage = "retrieve",
+        base14.report.indicators_count,
+        base14.report.data_points,
     )
 )]
 pub async fn retrieve(
@@ -32,8 +32,8 @@ pub async fn retrieve(
     let total_data_points: usize = indicators.iter().map(|i| i.values.len()).sum();
 
     let span = tracing::Span::current();
-    span.record("report.indicators_count", indicators.len());
-    span.record("report.data_points", total_data_points);
+    span.record("base14.report.indicators_count", indicators.len());
+    span.record("base14.report.data_points", total_data_points);
 
     if indicators.is_empty() {
         return Err(AppError::Pipeline(
