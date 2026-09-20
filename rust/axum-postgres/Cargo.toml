@@ -2,7 +2,7 @@
 name = "rust-axum-postgres"
 version = "1.0.0"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.98"
 description = "Production-ready Rust API with Axum, PostgreSQL, and OpenTelemetry"
 license = "MIT"
 

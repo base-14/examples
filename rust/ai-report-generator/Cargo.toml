@@ -2,7 +2,7 @@
 name = "ai-report-generator"
 version = "1.0.0"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.98"
 description = "AI-powered economic report generator with OpenTelemetry observability"
 license = "MIT"
 

@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.92-alpine AS builder
+FROM rust:1.98-alpine AS builder
 
 WORKDIR /app
 
@@ -30,7 +30,7 @@ RUN touch src/main.rs src/lib.rs src/bin/worker.rs && \
     cargo build --release --bin worker
 
 # Runtime stage
-FROM alpine:3.21
+FROM alpine:3.23
 
 WORKDIR /app
 

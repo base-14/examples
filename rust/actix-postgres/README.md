@@ -25,7 +25,7 @@ background worker binary. The full guide is
 
 | Component | Version | Status | Notes |
 |-----------|---------|--------|-------|
-| **Rust** | 1.92.0 | Active | Edition 2024 |
+| **Rust** | 1.98.1 | Active | Edition 2024 |
 | **Actix Web** | 4.12 | Active | High-performance async web framework |
 | **SQLx** | 0.8.6 | Active | Async PostgreSQL with compile-time queries |
 | **PostgreSQL** | 18 | Active (Nov 2029) | Latest stable |
@@ -69,7 +69,7 @@ async PostgreSQL. OTel Collector pinned to 0.144.0 due to oauth2client regressio
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Rust 1.92+** (for local development only)
+3. **Rust 1.98+** (for local development only)
 
 ## Quick Start
 
@@ -435,7 +435,7 @@ docker compose exec postgres psql -U postgres -d actix_postgres_app \
 # Clean and rebuild
 cargo clean && cargo build
 
-# Check Rust version (requires 1.92+)
+# Check Rust version (requires 1.98+)
 rustc --version
 
 # Update toolchain

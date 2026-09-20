@@ -6,7 +6,7 @@ Economic report generation pipeline that retrieves FRED indicator data from Post
 trends and correlations through an LLM, generates a structured narrative report and formats the
 final output, with OpenTelemetry instrumentation throughout.
 
-Stack: Rust 1.92, Axum, async-openai, tracing with the OpenTelemetry SDK, PostgreSQL.
+Stack: Rust 1.98, Axum, async-openai, tracing with the OpenTelemetry SDK, PostgreSQL.
 
 ## How to instrument async-openai LLM calls in Rust with OpenTelemetry
 
