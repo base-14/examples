@@ -1,4 +1,4 @@
-FROM elixir:1.18-slim
+FROM elixir:1.20-slim
 
 RUN apt-get update && apt-get install -y bash curl git build-essential && rm -rf /var/lib/apt/lists/*
 

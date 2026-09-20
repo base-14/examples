@@ -32,7 +32,7 @@ full guide is [Rails OpenTelemetry Instrumentation](https://docs.base14.io/instr
 
 - Docker Desktop or Docker Engine with Compose
 - Base14 Scout OIDC credentials ([setup guide](https://docs.base14.io/category/opentelemetry-collector-setup))
-- Ruby 3.3+ (only for local development without Docker)
+- Ruby 4.0+ (only for local development without Docker)
 
 ## Quick Start
 
@@ -199,7 +199,7 @@ environment:
 | Component | Version |
 | --------- | ------- |
 | Rails | 8.1.1 |
-| Ruby | 3.3+ |
+| Ruby | 4.0+ |
 | OpenTelemetry SDK | Latest |
 | OpenTelemetry Instrumentation | Latest |
 | SQLite | 2.1+ |

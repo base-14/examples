@@ -31,7 +31,7 @@ message creation and delivery, and trace and span ids in `Logger.metadata`. The 
 
 ## Prerequisites
 
-- Elixir 1.14+ and Erlang/OTP 25+
+- Elixir 1.20+ and Erlang/OTP 29+
 - PostgreSQL 14+
 - Node.js 18+ (for asset compilation)
 - base14 Scout account for traces and logs visualization
@@ -261,7 +261,7 @@ Verify Scout credentials are correct and token URL is accessible. Ensure
 | Component | Version |
 | --------- | ------- |
 | Phoenix | 1.8.1 |
-| Elixir | 1.15+ |
+| Elixir | 1.20+ |
 | Erlang/OTP | 25+ |
 | LiveView | 1.1+ |
 | OpenTelemetry | 1.3+ |
