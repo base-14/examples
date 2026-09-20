@@ -40,7 +40,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **Fiber** | Fiber 2 + sqlx + PostgreSQL 18 | [fiber-postgres](./go/fiber-postgres) | River jobs (PostgreSQL-native), repository pattern |
 | **Echo + Temporal** | Echo 4 + Temporal + PostgreSQL 18 | [go-temporal-postgres](./go/go-temporal-postgres) | Workflow orchestration, microservice workers, simulation framework |
 | **Chi** | Chi + In-memory storage | [chi-inmemory](./go/chi-inmemory) | Custom instrumentation |
-| **stdlib net/http** | Go 1.26 stdlib + pgx + PostgreSQL 18 | [stdlib-postgres](./go/stdlib-postgres) | otelhttp + otelpgx, otelslog bridge, two-service distributed tracing |
+| **stdlib net/http** | Go 1.27 stdlib + pgx + PostgreSQL 18 | [stdlib-postgres](./go/stdlib-postgres) | otelhttp + otelpgx, otelslog bridge, two-service distributed tracing |
 | **Gin (Legacy)** | Gin 1.9.1 + PostgreSQL 14 | [go119-gin191-postgres](./go/go119-gin191-postgres) | Legacy Go 1.19 support |
 | **AI Data Analyst** | Chi + Direct OpenAI API + Native OTel SDK | [ai-data-analyst](./go/ai-data-analyst) | NL-to-SQL pipeline, GenAI observability, multi-provider |
 

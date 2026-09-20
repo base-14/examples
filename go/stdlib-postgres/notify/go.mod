@@ -1,6 +1,6 @@
 module stdlib-notify
 
-go 1.26.1
+go 1.27.1
 
 require (
 	go.opentelemetry.io/contrib/bridges/otelslog v0.20.1

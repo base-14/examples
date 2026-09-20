@@ -1,6 +1,6 @@
 module stdlib-articles
 
-go 1.26.1
+go 1.27.1
 
 require (
 	github.com/exaring/otelpgx v0.11.1

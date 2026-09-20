@@ -28,7 +28,7 @@ and a span per pipeline stage. Prompt and completion text is recorded on a
 
 ## Requirements
 
-* Go 1.26.
+* Go 1.27.
 * Chi.
 * Ollama, OpenAI, Gemini or Anthropic through their HTTP APIs.
 * Native OTel SDK.

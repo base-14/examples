@@ -1,6 +1,6 @@
 module go-fiber-postgres
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/XSAM/otelsql v0.43.0

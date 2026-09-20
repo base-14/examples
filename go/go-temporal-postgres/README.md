@@ -70,7 +70,7 @@ Microservices architecture with each domain running as an independent Temporal w
 
 ### Prerequisites
 
-- Go 1.25.7+
+- Go 1.27+
 - Docker and Docker Compose
 
 ### Run with Docker Compose
@@ -335,4 +335,3 @@ These simplifications are intentional to keep the example focused on demonstrati
 - [GORM Documentation](https://gorm.io/docs/)
 - [OpenTelemetry Go](https://opentelemetry.io/docs/languages/go/)
 - [base14 Scout Documentation](https://docs.base14.io)
-

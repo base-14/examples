@@ -24,7 +24,7 @@ guide is [Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/ap
 
 | Component | Version | EOL Status | Current Version |
 |-----------|---------|------------|-----------------|
-| **Go** | 1.24.13 | Feb 2026 | Latest stable |
+| **Go** | 1.27.1 | Aug 2027 | Latest stable |
 | **Fiber** | 2.52 | Active | Express-inspired web framework |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 (database + job queue) |
 | **sqlx** | 1.4 | Active | Lightweight SQL toolkit |
@@ -128,7 +128,7 @@ HTTP POST /api/articles (parent span)
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Go 1.24.13+** (for local development)
+3. **Go 1.27+** (for local development)
 
 ## Quick Start
 
@@ -540,7 +540,7 @@ docker compose down -v
 
 ```bash
 # Check Go version
-go version  # Should be 1.24+
+go version  # Should be 1.27+
 
 # View application logs
 docker compose logs api
@@ -621,4 +621,3 @@ After starting the application and generating some traffic:
 - [River Documentation](https://riverqueue.com/docs)
 - [OpenTelemetry Go](https://opentelemetry.io/docs/languages/go/)
 - [base14 Scout Documentation](https://docs.base14.io)
-
