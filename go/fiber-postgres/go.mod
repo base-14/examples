@@ -9,8 +9,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/riverqueue/river v0.44.1
-	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.44.1
+	github.com/riverqueue/river v0.47.0
+	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.47.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.20.1
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.22.0
@@ -41,9 +41,9 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.29 // indirect
-	github.com/riverqueue/river/riverdriver v0.44.1 // indirect
-	github.com/riverqueue/river/rivershared v0.44.1 // indirect
-	github.com/riverqueue/river/rivertype v0.44.1 // indirect
+	github.com/riverqueue/river/riverdriver v0.47.0 // indirect
+	github.com/riverqueue/river/rivershared v0.47.0 // indirect
+	github.com/riverqueue/river/rivertype v0.47.0 // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
