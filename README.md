@@ -48,7 +48,7 @@ Production-ready examples for integrating OpenTelemetry with
 
 | Framework | Stack | Example | Features |
 | --- | --- | --- | --- |
-| **Quarkus** | Quarkus 3 + Java 21 + PostgreSQL 18 | [quarkus-postgres](./java/quarkus-postgres) | Built-in OTEL, native compilation, JWT auth |
+| **Quarkus** | Quarkus 3 + Java 25 + PostgreSQL 18 | [quarkus-postgres](./java/quarkus-postgres) | Built-in OTEL, native compilation, JWT auth |
 | **Spring Boot** | Spring Boot 3 + Java 17 + MySQL | [spring-boot-java17-mysql](./java/spring-boot-java17-mysql) | Auto-instrumentation |
 | **Spring Boot** | Spring Boot 3 + Java 25 + PostgreSQL | [spring-boot-java25-postgresql](./java/spring-boot-java25-postgresql) | SDK Integration |
 | **Spring Boot** | Spring Boot 3 + Java 25 + MongoDB | [spring-boot-java25-mongodb-java-agent](./java/spring-boot-java25-mongodb-java-agent) | Java Agent |
@@ -78,13 +78,13 @@ Production-ready examples for integrating OpenTelemetry with
 | **Laravel 13** | Laravel 13 + PHP 8.5 + PostgreSQL 18 | [php85-laravel13-postgres](./php/php85-laravel13-postgres) | JWT auth, auto-instrumentation |
 | **Slim 4** | Slim 4 + PHP 8.4 + MongoDB 8 | [php84-slim4-mongodb](./php/php84-slim4-mongodb) | Auto-slim HTTP spans, MongoDB, log correlation |
 | **Slim 3 (Legacy)** | Slim 3 + PHP 8.4 + MongoDB 8 | [php84-slim3-mongodb](./php/php84-slim3-mongodb) | Manual TelemetryMiddleware, MongoDB, log correlation |
-| **Symfony 8** | Symfony 8 + PHP 8.5 + MySQL 8.4 | [symfony-mysql](./php/symfony-mysql) | Doctrine ORM, distributed tracing, notification microservice |
+| **Symfony 8** | Symfony 8 + PHP 8.5 + MySQL 9 | [symfony-mysql](./php/symfony-mysql) | Doctrine ORM, distributed tracing, notification microservice |
 
 ### Elixir
 
 | Framework | Stack | Example | Features |
 | --- | --- | --- | --- |
-| **Phoenix** | Phoenix 1.8 + Ecto 3 + PostgreSQL 14+ | [phoenix18-ecto3-postgres](./elixir/phoenix18-ecto3-postgres) | LiveView, real-time chat, auto-instrumentation |
+| **Phoenix** | Phoenix 1.8 + Ecto 3 + PostgreSQL 18 | [phoenix18-ecto3-postgres](./elixir/phoenix18-ecto3-postgres) | LiveView, real-time chat, auto-instrumentation |
 
 ### Rust
 

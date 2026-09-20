@@ -226,7 +226,7 @@ curl -X POST http://localhost:8080/api/articles \
 ## Docker Architecture
 
 ```text
-Client :8080 --> nginx:alpine --> php:8.4-fpm (app)
+Client :8080 --> nginx:1.29-alpine --> php:8.4-fpm (app)
                                       |
                                       +-- OTLP :4318 --> otel-collector
                                       |                      |
