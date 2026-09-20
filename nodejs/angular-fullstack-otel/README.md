@@ -103,7 +103,7 @@ click (angular-browser)
 1. **Docker & Docker Compose** - to run the services.
 2. **base14 Scout account** (optional) - to view telemetry in Scout. Without it,
    everything still flows to the collector's local debug exporter.
-3. **Node.js 24.15+ or 26+** (optional) - only to build or run the apps outside
+3. **Node.js 26+** (optional) - only to build or run the apps outside
    Docker (Angular 22 engines).
 4. **Chrome or Chromium + Node.js** (optional) - only for the automated headless
    browser drive in `scripts/verify-scout.sh`.

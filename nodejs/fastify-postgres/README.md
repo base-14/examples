@@ -91,7 +91,7 @@ POST /api/articles (HTTP endpoint)
 
 1. **Docker & Docker Compose** - For running services
 2. **base14 Scout Account** - For viewing traces
-3. **Node.js 24+** (optional) - For local development
+3. **Node.js 26+** (optional) - For local development
 
 ## Quick Start
 

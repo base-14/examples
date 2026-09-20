@@ -4,7 +4,7 @@
   "description": "Fastify 5 + PostgreSQL + OpenTelemetry Example",
   "type": "module",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=26.0.0"
   },
   "scripts": {
     "clean": "rm -rf node_modules dist coverage .next *.tsbuildinfo",

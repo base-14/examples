@@ -23,7 +23,7 @@ helper for custom spans, and a separately instrumented BullMQ worker process. Th
 ## Stack
 
 - **Framework**: Next.js 16.1.2 (Turbopack)
-- **Runtime**: Node.js 22
+- **Runtime**: Node.js 26
 - **Database**: MongoDB 8 with Mongoose 9
 - **Cache/Queue**: Redis 7 with BullMQ
 - **Validation**: Zod 4
@@ -34,7 +34,7 @@ helper for custom spans, and a separately instrumented BullMQ worker process. Th
 
 ### Prerequisites
 
-- Node.js 22+
+- Node.js 26+
 - MongoDB (replica set required for transactions)
 - Redis (for background jobs)
 

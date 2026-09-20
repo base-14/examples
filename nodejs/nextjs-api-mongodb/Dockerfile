@@ -4,7 +4,7 @@
 # ==========================================================================
 # Stage 1: Base
 # ==========================================================================
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 
 # ==========================================================================
 # Stage 2: Dependencies
@@ -42,7 +42,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
 
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
