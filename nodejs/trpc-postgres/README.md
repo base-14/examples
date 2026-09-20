@@ -32,7 +32,7 @@ full guide is
 | Zod | 4.3 |
 | PostgreSQL | 18 |
 | OTel Node SDK | 0.214.0 |
-| OTel Collector | 0.148.0 |
+| OTel Collector | 0.161.0 |
 
 ## Architecture
 

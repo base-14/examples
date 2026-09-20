@@ -95,7 +95,7 @@ example for the modern approach.
 | open-telemetry/exporter-otlp | ^1.4 | OTLP exporter |
 | opentelemetry-auto-mongodb | ^0.2 | MongoDB auto-instrumentation |
 | opentelemetry-logger-monolog | ^1.1 | Log-trace correlation |
-| OTel Collector | 0.144.0 | Telemetry pipeline |
+| OTel Collector | 0.161.0 | Telemetry pipeline |
 
 ## Prerequisites
 

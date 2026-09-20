@@ -79,7 +79,7 @@ and JSON logs carrying `trace_id` and `span_id`. The full guide is
 | python-json-logger                     | 4.1.0    |
 | OpenTelemetry SDK / API / Exporter     | 1.41.0   |
 | OpenTelemetry contrib (instrumentations) | 0.62b0  |
-| OpenTelemetry Collector contrib        | 0.148.0  |
+| OpenTelemetry Collector contrib        | 0.161.0  |
 | Postgres                               | 18-alpine |
 | uv (package manager)                   | 0.6.12   |
 

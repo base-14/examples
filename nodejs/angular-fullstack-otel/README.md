@@ -46,7 +46,7 @@ change, and pino logs bridged to OTLP on the backend. The full guide is
 | **web-vitals**          | 5.3.0                                | Core Web Vitals source                            |
 | **OpenTelemetry (web)** | `sdk-trace-web` 2.8.0 / others 0.219 | Browser SDK: traces + metrics + logs              |
 | **OpenTelemetry (Node)**| `sdk-node` 0.219.0                   | Backend SDK, auto-instrumentation                 |
-| **Collector**           | contrib 0.153.0                      | OTLP in (CORS), Scout + debug out                 |
+| **Collector**           | contrib 0.161.0                      | OTLP in (CORS), Scout + debug out                 |
 
 ## Architecture
 
@@ -252,7 +252,7 @@ angular-fullstack-otel/
 - Versions: Angular 22.0.4; OTel web `sdk-trace-web` 2.8.0 /
   `auto-instrumentations-web` 0.64.0 / `exporter-trace-otlp-http` 0.219.0;
   `web-vitals` 5.3.0; Node `sdk-node` 0.219.0 / `auto-instrumentations-node` 0.77.0;
-  Express 5.2.1; pg 8.22.0; collector-contrib 0.153.0; Postgres 18.2.
+  Express 5.2.1; pg 8.22.0; collector-contrib 0.161.0; Postgres 18.2.
 
 ### 2026-06-30 - post-review fixes
 

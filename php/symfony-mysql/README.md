@@ -39,7 +39,7 @@ is
 | **Doctrine ORM** | 3.6 | Active | Attribute mapping |
 | **MySQL** | 8.4 | Apr 2032 | LTS |
 | **OpenTelemetry SDK** | 1.14 | Active | Current stable |
-| **OTel Collector** | 0.148.0 | Active | Contrib distribution |
+| **OTel Collector** | 0.161.0 | Active | Contrib distribution |
 
 ## Architecture
 
@@ -106,7 +106,7 @@ context, producing a single distributed trace spanning both services.
 | open-telemetry/opentelemetry-auto-psr18 | 1.2 | HTTP client auto-instrumentation |
 | open-telemetry/opentelemetry-auto-psr3 | 0.2 | Log correlation |
 | ext-opentelemetry (PECL) | 1.2.1 | PHP extension for auto-instrumentation |
-| OTel Collector contrib | 0.148.0 | Telemetry pipeline |
+| OTel Collector contrib | 0.161.0 | Telemetry pipeline |
 
 ## Prerequisites
 

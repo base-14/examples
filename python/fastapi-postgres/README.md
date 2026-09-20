@@ -133,7 +133,7 @@ This starts:
 
 - **app**: FastAPI application on port 8000
 - **postgres**: PostgreSQL 18 database
-- **otel-collector**: OpenTelemetry Collector 0.144.0
+- **otel-collector**: OpenTelemetry Collector 0.161.0
 
 ### 4. Run Database Migrations
 

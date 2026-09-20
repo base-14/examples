@@ -35,13 +35,13 @@ background worker binary. The full guide is
 | **tracing-actix-web** | 0.7 | Active | HTTP span instrumentation |
 | **jsonwebtoken** | 10.3.0 | Active | JWT authentication |
 | **argon2** | 0.5.3 | Active | Password hashing |
-| **OTel Collector** | 0.144.0 | Pinned | 0.145.0 breaks oauth2client |
+| **OTel Collector** | 0.161.0 | Active | Contrib distribution |
 
 **Version Selection**: Latest Stable
-**Verified**: 2026-02-15
+**Verified**: 2026-09-20
 
 **Why This Stack**: Latest stable Rust with Actix Web 4 (high-throughput actor-based framework) and SQLx for
-async PostgreSQL. OTel Collector pinned to 0.144.0 due to oauth2client regression in 0.145.0.
+async PostgreSQL.
 
 ## What's Instrumented
 
@@ -323,7 +323,7 @@ docker build -f Dockerfile.worker -t actix-postgres-worker .
 | api | 8080 | Main API server |
 | worker | - | Background job processor |
 | postgres | 5432 | PostgreSQL database |
-| otel-collector | 4317 | OpenTelemetry Collector (0.144.0) |
+| otel-collector | 4317 | OpenTelemetry Collector (0.161.0) |
 
 ## OpenTelemetry Configuration
 

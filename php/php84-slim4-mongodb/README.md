@@ -105,7 +105,7 @@ the `php84-slim3-mongodb` example for the legacy approach.
 | opentelemetry-auto-slim | ^1.3 | Slim 4 auto-instrumentation |
 | opentelemetry-auto-mongodb | ^0.2 | MongoDB auto-instrumentation |
 | opentelemetry-logger-monolog | ^1.1 | Log-trace correlation |
-| OTel Collector | 0.144.0 | Telemetry pipeline |
+| OTel Collector | 0.161.0 | Telemetry pipeline |
 
 ## Prerequisites
 

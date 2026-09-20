@@ -60,7 +60,7 @@ Service name: `ruby30-rails61-mysql-otel` (configurable via `OTEL_SERVICE_NAME`)
 | Rails | 6.1.7 | EOL Apr 2024 — API-only mode |
 | MySQL | 8.0 | LTS, widely deployed |
 | Puma | 5.6 | Compatible with Ruby 3.0 + Rails 6.1 |
-| OTel Collector | 0.144.0 | Contrib distribution |
+| OTel Collector | 0.161.0 | Contrib distribution |
 
 ## Prerequisites
 

@@ -182,7 +182,7 @@ For local testing without Scout, run an OpenTelemetry collector:
 
 ```bash
 docker run -p 4318:4318 \
-  otel/opentelemetry-collector:latest
+  otel/opentelemetry-collector-contrib:0.161.0
 ```
 
 ## Telemetry Data

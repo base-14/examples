@@ -34,7 +34,7 @@ guide is [Go stdlib OpenTelemetry Instrumentation](https://docs.base14.io/instru
 | otelpgx | latest |
 | OTel Go SDK | 1.43 |
 | OTel logs SDK + bridge | 0.19 |
-| OTel Collector | 0.149 |
+| OTel Collector | 0.161.0 |
 
 ## Architecture
 

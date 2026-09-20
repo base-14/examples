@@ -45,7 +45,7 @@ services:
       start_period: 30s
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.158.0
+    image: otel/opentelemetry-collector-contrib:0.161.0
     # Two config files, and the second is added only when SCOUT_CLIENT_ID is set.
     # `${VAR:+...}` expands to nothing when the variable is empty or unset, and a
     # string command is split into arguments, so with no credentials the collector

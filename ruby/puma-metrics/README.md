@@ -233,7 +233,7 @@ scrape config at `/metrics` directly.
 | yabeda | 0.16 |
 | yabeda-puma-plugin | 0.9 |
 | yabeda-prometheus | 0.9 |
-| OpenTelemetry Collector | 0.147.0 |
+| OpenTelemetry Collector | 0.161.0 |
 
 ## Resources
 

@@ -38,7 +38,7 @@ Scout. The full guide is
 | Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 | EF Core 10 provider. |
 | OpenTelemetry .NET (core) | 1.18.0 | OTLP exporter + extensions hosting. |
 | OpenTelemetry instrumentation | AspNetCore 1.18.0, Http 1.18.0, Runtime 1.18.0, EFCore 1.15.1-beta.1 | Per-package latest stable (the contrib EF Core package is still beta). |
-| OTel Collector contrib | 0.151.0 | Receives OTLP from the apps; OAuth2 export to Scout. |
+| OTel Collector contrib | 0.161.0 | Receives OTLP from the apps; OAuth2 export to Scout. |
 
 **Verified**: 2026-08-26.
 
@@ -75,7 +75,7 @@ Scout. The full guide is
        all OTLP/gRPC over :4317                               |
        +---------------+ <-----------+----------------------+ +
        | OTel Collector|
-       |  contrib 0.151|--->  Scout   (otlphttp + OAuth2)
+       |  contrib 0.161.0|--->  Scout   (otlphttp + OAuth2)
        +---------------+--->  debug   (local stdout)
 ```
 

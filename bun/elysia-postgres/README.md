@@ -37,7 +37,7 @@ notify service, OTel log records from `@opentelemetry/api-logs` with trace and s
 | Drizzle ORM | 0.45 |
 | PostgreSQL | 18 |
 | OTel Node SDK | 0.214.0 |
-| OTel Collector | 0.148.0 |
+| OTel Collector | 0.161.0 |
 
 ## Architecture
 
