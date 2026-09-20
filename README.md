@@ -97,8 +97,8 @@ Production-ready examples for integrating OpenTelemetry with
 
 | Framework | Stack | Example | Features |
 | --- | --- | --- | --- |
-| **ASP.NET Core** | .NET 9 + EF Core + Azure SQL Edge | [dotnet-sqlserver](./csharp/dotnet-sqlserver) | Minimal APIs, rate limiting, auto-instrumentation |
-| **.NET Aspire** | .NET Aspire 13.2 + ASP.NET Core 9 + EF Core 9 + PostgreSQL 18 | [aspire-postgres](./csharp/aspire-postgres) | ServiceDefaults pattern, custom ActivitySource and Meter, two-service distributed tracing, Aspire and Compose run modes |
+| **ASP.NET Core** | .NET 10 + EF Core + Azure SQL Edge | [dotnet-sqlserver](./csharp/dotnet-sqlserver) | Minimal APIs, rate limiting, auto-instrumentation |
+| **.NET Aspire** | .NET Aspire 13.2 + ASP.NET Core 10 + EF Core 10 + PostgreSQL 18 | [aspire-postgres](./csharp/aspire-postgres) | ServiceDefaults pattern, custom ActivitySource and Meter, two-service distributed tracing, Aspire and Compose run modes |
 | **Approval-Gated Agent** | .NET 10 + Microsoft Agent Framework 1.21 + MCP 2.2 + PostgreSQL 18 | [agent-rebooking](./csharp/agent-rebooking) | Agent handoff, in-process MCP client and server, human approval as spans and a histogram, six-scenario error matrix |
 
 ### Infrastructure & Integrations
@@ -271,14 +271,14 @@ Full OpenTelemetry instrumentation with custom business metric spans and trace c
 
 ### ASP.NET Core
 
-.NET 9 Minimal APIs with Entity Framework Core, Azure SQL Edge, and built-in rate limiting.
+.NET 10 Minimal APIs with Entity Framework Core, Azure SQL Edge, and built-in rate limiting.
 SQL Server-native job queue with `READPAST` pattern and comprehensive OpenTelemetry instrumentation.
 
 [View README →](./csharp/dotnet-sqlserver/README.md)
 
 ### .NET Aspire
 
-.NET Aspire 13.2 AppHost orchestrating PostgreSQL 18, an OTel Collector container, and two ASP.NET Core 9 services
+.NET Aspire 13.2 AppHost orchestrating PostgreSQL 18, an OTel Collector container, and two ASP.NET Core 10 services
 (articles API and notify). ServiceDefaults wires OTel for every project; custom `ActivitySource` and `Meter`
 demonstrate business-level instrumentation. Ships parallel Aspire AppHost and Docker Compose run modes from the same
 code.

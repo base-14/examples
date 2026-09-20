@@ -25,13 +25,13 @@ and a separately instrumented background worker. The full guide is
 
 | Component | Version | Status | Notes |
 |-----------|---------|--------|-------|
-| **.NET SDK** | 9.0 | Active | Latest stable |
-| **ASP.NET Core** | 9.0 | Active | Minimal APIs |
-| **C#** | 13 | Active | Latest language version |
+| **.NET SDK** | 10.0 | LTS | Latest stable |
+| **ASP.NET Core** | 10.0 | LTS | Minimal APIs |
+| **C#** | 14 | Active | Latest language version |
 | **Azure SQL Edge** | latest | Active | SQL Server compatible, ARM64 native |
-| **Entity Framework Core** | 9.0.0 | Active | Latest ORM version |
-| **OpenTelemetry** | 1.15.0 | Active | Traces, metrics, logs via OTLP |
-| **BCrypt.Net-Next** | 4.0.3 | Active | Password hashing |
+| **Entity Framework Core** | 10.0.11 | Active | Latest ORM version |
+| **OpenTelemetry** | 1.18.0 | Active | Traces, metrics, logs via OTLP |
+| **BCrypt.Net-Next** | 4.2.0 | Active | Password hashing |
 
 **Version Selection**: Latest Stable
 **Verified**: 2026-08-26
