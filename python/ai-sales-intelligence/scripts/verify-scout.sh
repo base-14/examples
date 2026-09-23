@@ -315,7 +315,7 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     # --- Resource Attributes ---
     echo "  $(dim "--- Resource Attributes ---")"
     warn_log  "Resource: service.name"              "service.name"            "$LOGS_FILE"
-    warn_log  "Resource: deployment.environment"    "deployment.environment"  "$LOGS_FILE"
+    warn_log  "Resource: deployment.environment.name"    "deployment.environment.name"  "$LOGS_FILE"
     [ "$CLEANUP_LOGS" = "1" ] && rm -f "$LOGS_FILE"
   fi
 fi

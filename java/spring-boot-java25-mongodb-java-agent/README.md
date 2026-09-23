@@ -170,7 +170,7 @@ Automatically included in telemetry:
 service.name=java-spring-boot-otel-mongodb
 service.namespace=base14
 service.version=0.0.1-SNAPSHOT
-deployment.environment=dev
+deployment.environment.name=dev
 environment=dev
 ```
 

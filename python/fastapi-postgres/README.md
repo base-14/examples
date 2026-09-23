@@ -18,7 +18,7 @@ JWT authentication, and PostgreSQL integration with base14 Scout.
    `SQLAlchemyInstrumentor().instrument(engine=engine)` on the engine it creates.
 3. Set `OTEL_SERVICE_NAME=fastapi-postgres-app`,
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
-   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=development,...` as in `.env.example`
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development,...` as in `.env.example`
    and `compose.yaml`. The exporters read these variables directly.
 
 This example adds SQLAlchemy query spans, a custom `http_requests_total` counter from
@@ -196,7 +196,7 @@ Automatically included in telemetry:
 ```properties
 service.name=fastapi-postgres-app
 service.version=1.0.0
-deployment.environment=development
+deployment.environment.name=development
 environment=development
 ```
 

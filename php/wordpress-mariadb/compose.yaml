@@ -6,7 +6,7 @@ x-otel-env: &otel-env
   OTEL_METRICS_EXPORTER: otlp
   OTEL_LOGS_EXPORTER: otlp
   OTEL_PHP_AUTOLOAD_ENABLED: "true"
-  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=development,environment=development
 
 x-db-creds: &db-creds
   WORDPRESS_DB_HOST: mariadb:3306
@@ -74,7 +74,7 @@ services:
       - wordpress-data:/var/www/html
     environment:
       <<: [*wp-env, *otel-env]
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development,service.instance.role=apache
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=development,environment=development,service.instance.role=apache
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost/"]
       interval: 10s
@@ -123,7 +123,7 @@ services:
     environment:
       <<: [*wp-env, *otel-env]
       WORDPRESS_DB_NAME: wordpress_fpm
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=development,environment=development,service.instance.role=fpm
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=development,environment=development,service.instance.role=fpm
     healthcheck:
       # FPM speaks FastCGI, not HTTP; cgi-fcgi pings ping.path (config/php-fpm.conf).
       # Also gates readiness: wp-init-fpm must not seed before a worker answers.

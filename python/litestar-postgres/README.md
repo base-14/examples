@@ -21,7 +21,7 @@ collector* when traffic flows through it.
 3. Set `OTEL_SERVICE_NAME=litestar-postgres-app`,
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
    `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_PYTHON_LOG_CORRELATION=true` and
-   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=development,...` as in `compose.yaml`
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development,...` as in `compose.yaml`
    and `.env.example`. No SDK setup code is needed in the app.
 
 This example adds asyncpg query spans, a distributed trace across two Litestar services
@@ -233,7 +233,7 @@ A few things that work in compose but you would change for a real deployment:
 | `OTEL_SERVICE_NAME`               | `compose.yaml`    | One per service                               |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`     | `compose.yaml`    | Points to the collector                       |
 | `OTEL_EXPORTER_OTLP_PROTOCOL`     | `compose.yaml`    | `http/protobuf`                                |
-| `OTEL_RESOURCE_ATTRIBUTES`        | `compose.yaml`    | `deployment.environment`, `service.version`   |
+| `OTEL_RESOURCE_ATTRIBUTES`        | `compose.yaml`    | `deployment.environment.name`, `service.version`   |
 | `OTEL_PYTHON_LOG_CORRELATION`     | `compose.yaml`    | Inject trace IDs onto LogRecords              |
 | `OTEL_METRIC_EXPORT_INTERVAL`     | `compose.yaml`    | 10 s — fast feedback for dev                   |
 | `OTEL_BSP_SCHEDULE_DELAY`         | `compose.yaml`    | 2 s span batch flush                          |

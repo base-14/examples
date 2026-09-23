@@ -50,7 +50,7 @@ processors:
   # Add deployment environment to all telemetry
   attributes:
     actions:
-      - key: deployment.environment
+      - key: deployment.environment.name
         value: ${SCOUT_ENVIRONMENT}
         action: upsert
       - key: environment

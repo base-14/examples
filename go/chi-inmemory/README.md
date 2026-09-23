@@ -134,7 +134,7 @@ https://your-tenant.base14.io
 | `APP_PORT` | HTTP server port | `8080` |
 | `OTEL_SERVICE_NAME` | Service name | `go-parking-lot-otel` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint | `http://otel-collector:4318` |
-| `OTEL_RESOURCE_ATTRIBUTES` | Resource attrs | `deployment.environment=dev` |
+| `OTEL_RESOURCE_ATTRIBUTES` | Resource attrs | `deployment.environment.name=dev` |
 | `SCOUT_ENDPOINT` | Scout OTLP endpoint | Required |
 | `SCOUT_CLIENT_ID` | Scout OAuth client ID | Required |
 | `SCOUT_CLIENT_SECRET` | Scout OAuth secret | Required |

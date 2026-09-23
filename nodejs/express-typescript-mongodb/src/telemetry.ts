@@ -22,7 +22,7 @@ export function setupTelemetry(): NodeSDK {
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: config.otel.serviceName,
     [ATTR_SERVICE_VERSION]: config.app.version,
-    'deployment.environment': config.app.env,
+    'deployment.environment.name': config.app.env,
     'environment': config.app.env,
   });
 

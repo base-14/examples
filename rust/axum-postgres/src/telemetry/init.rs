@@ -31,7 +31,7 @@ pub fn init_telemetry(config: &Config) -> anyhow::Result<TelemetryGuard> {
         .with_attribute(KeyValue::new("service.version", "1.0.0"))
         .with_attribute(KeyValue::new("service.namespace", "examples"))
         .with_attribute(KeyValue::new(
-            "deployment.environment",
+            "deployment.environment.name",
             config.environment.clone(),
         ))
         .with_attribute(KeyValue::new("environment", config.environment.clone()))

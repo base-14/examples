@@ -122,7 +122,7 @@ def test_resource_includes_service_metadata() -> None:
                     {
                         "service.name": "my-service",
                         "service.version": "1.0.0",
-                        "deployment.environment": "staging",
+                        "deployment.environment.name": "staging",
                         "environment": "staging",
                     }
                 )

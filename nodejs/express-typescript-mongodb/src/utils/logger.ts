@@ -84,7 +84,7 @@ export class Logger {
     const logContext = {
       ...context,
       component: this.component,
-      'deployment.environment': config.app.env,
+      'deployment.environment.name': config.app.env,
       'environment': config.app.env,
     };
 

@@ -25,7 +25,7 @@ instrumentation for end-to-end observability.
    `node --import ./dist/instrumentation.js dist/index.js`.
 3. Set `OTEL_SERVICE_NAME=express-mongodb-app`,
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
-   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=development,environment=development,service.version=1.0.0`
+   `OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=development,environment=development,service.version=1.0.0`
    in `.env`.
 
 This example adds MongoDB and Mongoose query spans, Winston log records with

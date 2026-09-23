@@ -77,7 +77,7 @@ receivers:
 processors:
   resource:
     attributes:
-      - key: deployment.environment
+      - key: deployment.environment.name
         value: ${env:ENVIRONMENT}
         action: upsert
       - key: environment

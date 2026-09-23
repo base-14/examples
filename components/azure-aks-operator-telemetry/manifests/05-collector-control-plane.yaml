@@ -94,7 +94,7 @@ spec:
           - {key: cloud.resource_id, value: "${env:AKS_RESOURCE_ID}", action: insert}
           - {key: k8s.cluster.name, value: "${env:AKS_CLUSTER_NAME}", action: insert}
           - {key: deployment.environment.name, value: "${env:ENVIRONMENT}", action: insert}
-          - {key: deployment.environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: deployment.environment.name, value: "${env:ENVIRONMENT}", action: insert}
           - {key: environment, value: "${env:ENVIRONMENT}", action: insert}
           - {key: service.name, value: aks-control-plane, action: insert}
     exporters:

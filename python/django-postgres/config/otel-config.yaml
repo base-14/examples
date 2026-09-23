@@ -31,7 +31,7 @@ processors:
     spike_limit_mib: 64
   resource:
     attributes:
-      - key: deployment.environment
+      - key: deployment.environment.name
         value: ${env:SCOUT_ENVIRONMENT}
         action: upsert
       - key: environment

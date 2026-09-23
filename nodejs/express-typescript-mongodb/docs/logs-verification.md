@@ -87,7 +87,7 @@ trace_id = "<trace-id>"
 ```
 
 **Key Attributes**: `user.id`, `article.id`, `event`, `path`, `method`,
-`statusCode`, `component`, `deployment.environment`
+`statusCode`, `component`, `deployment.environment.name`
 
 For detailed scenario-based verification, see
 [telemetry-verification.md](./telemetry-verification.md)

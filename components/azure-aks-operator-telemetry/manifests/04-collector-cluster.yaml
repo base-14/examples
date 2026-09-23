@@ -82,7 +82,7 @@ spec:
           - {key: cloud.region, value: "${env:AZURE_REGION}", action: insert}
           - {key: k8s.cluster.name, value: "${env:AKS_CLUSTER_NAME}", action: insert}
           - {key: deployment.environment.name, value: "${env:ENVIRONMENT}", action: insert}
-          - {key: deployment.environment, value: "${env:ENVIRONMENT}", action: insert}
+          - {key: deployment.environment.name, value: "${env:ENVIRONMENT}", action: insert}
           - {key: environment, value: "${env:ENVIRONMENT}", action: insert}
           - {key: service.name, value: otel-cluster, action: insert}
     exporters:

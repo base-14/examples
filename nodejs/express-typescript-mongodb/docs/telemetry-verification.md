@@ -76,14 +76,14 @@ POST (root)
   "statusCode": 400,
   "code": "VALIDATION_ERROR",
   "error": "email: Invalid email format, ...",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
 **Verification Points:**
 
 - ✅ Log has `trace_id` matching span
-- ✅ Log includes `deployment.environment`
+- ✅ Log includes `deployment.environment.name`
 - ✅ Error message describes validation failure
 
 ---
@@ -115,7 +115,7 @@ POST (root)
   "user.id": "...",
   "user.email": "...",
   "user.role": "user",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -152,7 +152,7 @@ POST (root)
   "user.id": "...",
   "user.email": "...",
   "reason": "invalid_password",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 
 [warn] [error-handler][trace_id=xxx]: Request error
@@ -196,7 +196,7 @@ POST (root)
 {
   "user.id": "...",
   "user.email": "...",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -259,7 +259,7 @@ POST (root)
   "method": "POST",
   "ip": "...",
   "reason": "missing_token",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -292,7 +292,7 @@ POST (root)
   "ip": "...",
   "reason": "invalid_token",
   "error": "Invalid token",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -358,7 +358,7 @@ POST (root)
   "statusCode": 400,
   "code": "VALIDATION_ERROR",
   "error": "content: Invalid input: expected string, received undefined",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -399,7 +399,7 @@ POST (root)
   "event": "article:created",
   "articleId": "...",
   "articleTitle": "...",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -485,7 +485,7 @@ GET (root)
   "method": "GET",
   "value": "invalid123",
   "kind": "ObjectId",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -735,7 +735,7 @@ Purpose: Apply updates to article document
   "event": "article:updated",
   "articleId": "6933d7ef23bf2349948546b0",
   "articleTitle": "Getting Started with OpenTelemetry - Updated Edition",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -835,7 +835,7 @@ job.publishArticle.process (root with propagated trace)
   "event": "article:published",
   "articleId": "693406cc23bf2349948546c0",
   "articleTitle": "Getting Started with Express.js 1765017291",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -975,7 +975,7 @@ Purpose: Delete article document from database
   "event": "article:deleted",
   "articleId": "693421df23bf2349948546e0",
   "articleTitle": "Article to Delete 1765024223",
-  "deployment.environment": "development"
+  "deployment.environment.name": "development"
 }
 ```text
 
@@ -1049,7 +1049,7 @@ Every log entry must have:
 - ✅ `span_id` - matches the span where log originated
 - ✅ `component` - identifies logger (e.g., "auth-controller",
   "error-handler")
-- ✅ `deployment.environment` - environment identifier
+- ✅ `deployment.environment.name` - environment identifier
 
 ### Metrics Verification
 
@@ -1104,7 +1104,7 @@ observability signals:
 
 - ✅ `service.name: express-mongodb-app`
 - ✅ `service.version: 1.0.0`
-- ✅ `deployment.environment: development`
+- ✅ `deployment.environment.name: development`
 
 ---
 
@@ -1198,7 +1198,7 @@ docker logs otel-collector 2>&1 | \
 ```bash
 docker logs otel-collector 2>&1 | \
   grep -B 2 -A 10 "LOG_MESSAGE" | \
-  grep -E "(Body:|Trace ID|Span ID|deployment.environment)"
+  grep -E "(Body:|Trace ID|Span ID|deployment.environment.name)"
 ```text
 
 ### View Metrics

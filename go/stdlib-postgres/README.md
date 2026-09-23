@@ -16,7 +16,7 @@ End-to-end observability example using only the Go standard library
    `otelhttp.NewTransport` for outbound calls; `initTelemetry` sets the global tracer, meter
    and logger providers.
 3. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://otel-collector:4318`) in
-   `compose.yaml`; `OTEL_RESOURCE_ATTRIBUTES` carries `deployment.environment` and
+   `compose.yaml`; `OTEL_RESOURCE_ATTRIBUTES` carries `deployment.environment.name` and
    `service.namespace`.
 
 This example adds pgx query spans, slog logs exported over OTLP through the otelslog bridge, a

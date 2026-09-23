@@ -52,7 +52,7 @@ def setup_telemetry(
         {
             "service.name": service_name,
             "service.version": "1.0.0",
-            "deployment.environment": os.getenv("SCOUT_ENVIRONMENT", "development"),
+            "deployment.environment.name": os.getenv("SCOUT_ENVIRONMENT", "development"),
             "environment": os.getenv("SCOUT_ENVIRONMENT", "development"),
         }
     )

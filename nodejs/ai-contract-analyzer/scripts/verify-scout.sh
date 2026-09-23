@@ -231,7 +231,7 @@ else
 
   echo "  $(dim "--- Resource Attributes ---")"
   warn_log  "Resource: service.name"            "service.name"                "$LOGS_FILE"
-  warn_log  "Resource: deployment.environment"  "deployment.environment"      "$LOGS_FILE"
+  warn_log  "Resource: deployment.environment.name"  "deployment.environment.name"      "$LOGS_FILE"
 
   [ "$OWN_LOG" = "1" ] && rm -f "$LOGS_FILE"
 fi

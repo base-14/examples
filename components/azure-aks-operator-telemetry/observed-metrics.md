@@ -188,7 +188,7 @@ cloud.account.id:             <subscription-id>
 cloud.region:                 <azure-region>
 k8s.cluster.name:             <cluster-name>
 deployment.environment.name:  <environment>
-deployment.environment:       <environment>
+deployment.environment.name:       <environment>
 environment:                  <environment>
 service.name:                 otel-agent | otel-cluster | aks-control-plane
 ```

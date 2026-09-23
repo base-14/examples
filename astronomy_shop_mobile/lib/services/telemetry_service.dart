@@ -663,7 +663,7 @@ class TelemetryService {
     return [
       {'key': 'service.name', 'value': {'stringValue': serviceName}},
       {'key': 'service.version', 'value': {'stringValue': serviceVersion}},
-      {'key': 'deployment.environment', 'value': {'stringValue': environment}},
+      {'key': 'deployment.environment.name', 'value': {'stringValue': environment}},
       {'key': 'environment', 'value': {'stringValue': environment}},
       {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'flutter-opentelemetry'}},
       {'key': 'telemetry.sdk.version', 'value': {'stringValue': '0.18.10'}},

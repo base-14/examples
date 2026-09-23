@@ -19,7 +19,7 @@ builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource
         .AddService(serviceName)
         .AddAttributes([
-            new KeyValuePair<string, object>("deployment.environment",
+            new KeyValuePair<string, object>("deployment.environment.name",
                 builder.Environment.EnvironmentName.ToLowerInvariant()),
             new KeyValuePair<string, object>("environment",
                 builder.Environment.EnvironmentName.ToLowerInvariant())

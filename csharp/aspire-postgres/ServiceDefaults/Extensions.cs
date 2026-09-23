@@ -64,7 +64,7 @@ public static class ServiceDefaultsExtensions
             .ConfigureResource(resource => resource
                 .AddAttributes(new[]
                 {
-                    new KeyValuePair<string, object>("deployment.environment", environment),
+                    new KeyValuePair<string, object>("deployment.environment.name", environment),
                     new KeyValuePair<string, object>("environment", environment),
                     new KeyValuePair<string, object>("service.namespace", "examples"),
                 }))

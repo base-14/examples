@@ -38,7 +38,7 @@ func InitTelemetry(ctx context.Context) (*TelemetryProvider, error) {
 
 	environment := os.Getenv("OTEL_RESOURCE_ATTRIBUTES")
 	if environment == "" {
-		environment = "deployment.environment=development"
+		environment = "deployment.environment.name=development"
 	}
 
 	// Create resource with service information
@@ -46,7 +46,7 @@ func InitTelemetry(ctx context.Context) (*TelemetryProvider, error) {
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
 			semconv.ServiceVersion("1.0.0"),
-			attribute.String("deployment.environment", getEnvironment(environment)),
+			attribute.String("deployment.environment.name", getEnvironment(environment)),
 			attribute.String("environment", getEnvironment(environment)),
 		),
 	)
@@ -147,9 +147,9 @@ func (tp *TelemetryProvider) Shutdown(ctx context.Context) error {
 }
 
 func getEnvironment(envAttr string) string {
-	// Parse deployment.environment from OTEL_RESOURCE_ATTRIBUTES
-	// Simple parser for "deployment.environment=value" format
-	const prefix = "deployment.environment="
+	// Parse deployment.environment.name from OTEL_RESOURCE_ATTRIBUTES
+	// Simple parser for "deployment.environment.name=value" format
+	const prefix = "deployment.environment.name="
 	if len(envAttr) > len(prefix) && envAttr[:len(prefix)] == prefix {
 		return envAttr[len(prefix):]
 	}

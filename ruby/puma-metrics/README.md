@@ -138,7 +138,7 @@ docker compose logs -f otel-collector
 | `SCOUT_CLIENT_ID` | Yes | Scout OAuth client ID |
 | `SCOUT_CLIENT_SECRET` | Yes | Scout OAuth client secret |
 | `SCOUT_TOKEN_URL` | Yes | Scout OAuth token endpoint |
-| `SCOUT_ENVIRONMENT` | No | Value for `deployment.environment` (default: `development`) |
+| `SCOUT_ENVIRONMENT` | No | Value for `deployment.environment.name` (default: `development`) |
 
 These are consumed by the collector, not the app — the Ruby process never
 touches Scout credentials.

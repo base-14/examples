@@ -188,7 +188,7 @@ Automatically included in all telemetry:
 service.name=php-laravel13-postgres-otel
 telemetry.sdk.name=opentelemetry
 telemetry.sdk.language=php
-deployment.environment=development
+deployment.environment.name=development
 environment=development
 ```
 

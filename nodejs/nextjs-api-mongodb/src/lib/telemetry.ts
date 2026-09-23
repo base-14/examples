@@ -17,7 +17,7 @@ const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhos
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
   [ATTR_SERVICE_VERSION]: '1.0.0',
-  'deployment.environment': process.env.NODE_ENV || 'development',
+  'deployment.environment.name': process.env.NODE_ENV || 'development',
   'environment': process.env.NODE_ENV || 'development',
 });
 

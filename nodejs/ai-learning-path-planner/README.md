@@ -156,7 +156,7 @@ they turn the export off rather than stopping anything.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | Where the app sends OTLP. `compose.yaml` fixes it to `http://otel-collector:4318`, which is the only name that resolves inside the network, so it is not interpolated from `.env`. A host run wants the default. |
 | `OTEL_RESOURCE_ATTRIBUTES` | unset | `compose.yaml` sets `service.namespace=examples` plus the two environment keys from `SCOUT_ENVIRONMENT`. |
 | `SCOUT_ENDPOINT`, `SCOUT_CLIENT_ID`, `SCOUT_CLIENT_SECRET`, `SCOUT_TOKEN_URL` | empty | Read by the collector, not by the app. Optional, and they go together. See [Scout export](#scout-export). |
-| `SCOUT_ENVIRONMENT` | `development` | Set as `deployment.environment` and `environment` on every resource. |
+| `SCOUT_ENVIRONMENT` | `development` | Set as `deployment.environment.name` and `environment` on every resource. |
 
 ## The corpus
 

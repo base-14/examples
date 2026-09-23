@@ -44,7 +44,7 @@ otel-collector`, fill in the four variables below.
 | `SCOUT_ENDPOINT` | OTLP/HTTP endpoint the collector exports to. |
 
 Put them in `.env` next to `compose.yaml`, or export them in the shell you run `make up` from. A
-fifth variable, `SCOUT_ENVIRONMENT`, sets `deployment.environment` and `environment` on every
+fifth variable, `SCOUT_ENVIRONMENT`, sets `deployment.environment.name` and `environment` on every
 resource and defaults to `development`.
 
 ```bash
@@ -417,14 +417,14 @@ Exported on every signal:
 ```text
 service.name: agent-rebooking
 service.namespace: examples
-deployment.environment: <SCOUT_ENVIRONMENT>
+deployment.environment.name: <SCOUT_ENVIRONMENT>
 environment: <SCOUT_ENVIRONMENT>
 telemetry.sdk.name: opentelemetry
 telemetry.sdk.language: dotnet
 telemetry.sdk.version: 1.18.0
 ```
 
-Both `deployment.environment` and `environment` are set, by the app and again by the collector's
+Both `deployment.environment.name` and `environment` are set, by the app and again by the collector's
 `resource` processor.
 
 ### Metrics seen in a live run
@@ -679,7 +679,7 @@ provider is set.
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | Exporter protocol. |
 | `PRICING_FILE` | `/app/pricing.json` | LLM cost table for `base14.gen_ai.cost`. Not what the approval gate prices from. |
 | `SCOUT_CLIENT_ID`, `SCOUT_CLIENT_SECRET`, `SCOUT_TOKEN_URL`, `SCOUT_ENDPOINT` | empty | Required by the collector. |
-| `SCOUT_ENVIRONMENT` | `development` | `deployment.environment` and `environment`. |
+| `SCOUT_ENVIRONMENT` | `development` | `deployment.environment.name` and `environment`. |
 
 Anything other than a case-insensitive `true` is read as false for the two boolean variables, so a
 set-but-empty value fails closed rather than throwing.

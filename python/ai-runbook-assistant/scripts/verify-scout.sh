@@ -194,7 +194,7 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
 
     echo "  $(dim "--- Resource attributes ---")"
     check_log "Resource: service.name = ai-runbook-assistant" "ai-runbook-assistant" "$LOGS_FILE"
-    warn_log  "Resource: deployment.environment"              "deployment.environment:" "$LOGS_FILE"
+    warn_log  "Resource: deployment.environment.name"              "deployment.environment.name:" "$LOGS_FILE"
     warn_log  "Resource: environment (dual-key)"              "> environment: Str(" "$LOGS_FILE"
 
     echo "  $(dim "--- Content capture ---")"

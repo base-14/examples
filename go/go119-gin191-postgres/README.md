@@ -152,7 +152,7 @@ telemetry data:
 | `DATABASE_URL` | `postgres://appuser:apppass@postgres:5432/appdb` |
 | `OTEL_SERVICE_NAME` | `go119-gin-app` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `otel-collector:4317` |
-| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=development` |
+| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment.name=development` |
 | `LOG_DIR` | `/var/log/app` |
 
 ### Resource Attributes
@@ -162,7 +162,7 @@ Automatically included in telemetry:
 ```properties
 service.name=go119-gin-app
 service.version=1.0.0
-deployment.environment=development
+deployment.environment.name=development
 environment=development
 ```
 

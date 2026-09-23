@@ -13,7 +13,7 @@ Attached to every trace, metric, and log export.
 |-----------|--------|---------|
 | `service.name` | `.env` SERVICE_NAME | `astronomy-shop-mobile` |
 | `service.version` | `.env` SERVICE_VERSION | `0.0.1` |
-| `deployment.environment` | `.env` ENVIRONMENT | `development` |
+| `deployment.environment.name` | `.env` ENVIRONMENT | `development` |
 | `telemetry.sdk.name` | Hardcoded | `flutter-opentelemetry` |
 | `telemetry.sdk.version` | Hardcoded | `0.18.10` |
 | `session.id` | Generated (UUID v4) | `a3f1b2c4-...` |

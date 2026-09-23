@@ -200,7 +200,7 @@ Attached to every trace, metric, and log export:
 |-----------|--------|
 | `service.name` | `.env` SERVICE_NAME |
 | `service.version` | `.env` SERVICE_VERSION |
-| `deployment.environment` | `.env` ENVIRONMENT |
+| `deployment.environment.name` | `.env` ENVIRONMENT |
 | `telemetry.sdk.name` | Hardcoded (`flutter-opentelemetry`) |
 | `telemetry.sdk.version` | Hardcoded (`0.18.10`) |
 | `session.id` | Generated UUID v4 per session |

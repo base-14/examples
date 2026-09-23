@@ -69,7 +69,7 @@ func newResource(ctx context.Context, serviceName string) (*resource.Resource, e
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
 			semconv.ServiceVersion("1.0.0"),
-			attribute.String("deployment.environment", environment),
+			attribute.String("deployment.environment.name", environment),
 			attribute.String("environment", environment),
 			attribute.String("service.namespace", "examples"),
 		),

@@ -10,7 +10,7 @@ in focus.
 
 | Variable | Label | Multi | Source | Notes |
 | --- | --- | --- | --- | --- |
-| `environment` | Environment | no | `SELECT DISTINCT ResourceAttributes['deployment.environment'] FROM otel_metrics_gauge WHERE TimeUnix > now() - INTERVAL 1 DAY` | OTel-standard key. Set by `resource/{linux,router,ups}` processors in `config/otel-collector.yaml`. |
+| `environment` | Environment | no | `SELECT DISTINCT ResourceAttributes['deployment.environment.name'] FROM otel_metrics_gauge WHERE TimeUnix > now() - INTERVAL 1 DAY` | OTel-standard key. Set by `resource/{linux,router,ups}` processors in `config/otel-collector.yaml`. |
 | `serviceName` | Service | yes (multi+includeAll) | `SELECT DISTINCT ServiceName FROM otel_metrics_gauge WHERE ... AND MetricName IN ('system.processes.count','system.network.interfaces.count','ups.battery.capacity')` | **Deviation from spec sec 4** (which says single-value). One SNMP dashboard genuinely covers three service.name values per environment (`linux-host-01`, `cisco-router-01`, `apc-ups-01`). Multi+includeAll lets the operator land on "All" and see every device class at once; the per-zone metric filters scope panels to the right class regardless. Pinned to three cheap anchor metrics (one per device kind) to keep the dropdown bounded. |
 | `device` | Device | yes (multi+includeAll) | `SELECT DISTINCT ResourceAttributes['device.id'] ...` pinned to the same three anchor metrics | Identity per spec sec 4. `device.id` is set from SNMPv2-MIB `sysName` per pipeline (receiver-emitted, not operator-set), so it is the canonical identity. In the simulator each pipeline maps 1:1 to a service.name, but `device.id` is the right key once a single pipeline scrapes multiple endpoints. |
 
@@ -31,7 +31,7 @@ attribute) as the discriminator and document here.
 ## Translation notes
 
 - **Environment key.** Source `resource/{linux,router,ups}` processors
-  set `deployment.environment` (OTel-standard). Older builds of this
+  set `deployment.environment.name` (OTel-standard). Older builds of this
   example set the bare `environment` key -- if you import this
   dashboard against a collector older than the bundled one, run
   `make replay` after restarting the collector to repopulate the new
