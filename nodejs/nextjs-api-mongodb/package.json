@@ -28,15 +28,15 @@
     "@opentelemetry/sdk-node": "0.222.0",
     "@opentelemetry/semantic-conventions": "1.43.0",
     "bcrypt": "6.0.0",
-    "bullmq": "5.81.4",
+    "bullmq": "5.81.5",
     "ioredis": "5.11.1",
     "jsonwebtoken": "9.0.3",
-    "mongoose": "9.9.4",
-    "next": "^16.3.4",
+    "mongoose": "9.10.2",
+    "next": "^16.3.6",
     "pino": "10.3.1",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "zod": "4.5.4"
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
   },
   "overrides": {
     "@grpc/grpc-js": ">=1.14.4",
@@ -56,13 +56,13 @@
   "devDependencies": {
     "@types/bcrypt": "6.0.0",
     "@types/jsonwebtoken": "9.0.10",
-    "@types/node": "25.9.5",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.5",
+    "@types/node": "25.9.8",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "esbuild": "^0.28.2",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.3.4",
-    "tsx": "4.23.13",
+    "eslint-config-next": "16.3.6",
+    "tsx": "4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
   }

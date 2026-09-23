@@ -19,14 +19,14 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@prisma/instrumentation": "^7.10.0",
-    "@trpc/server": "^11.18.0",
+    "@trpc/server": "^11.19.0",
     "pino": "^10.3.1",
-    "zod": "^4.5.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
+    "@types/node": "^24.13.6",
     "prisma": "^7.10.0",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   },
   "overrides": {
