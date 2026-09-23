@@ -7,19 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
-    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.21.0" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.22.0" />
     <!-- Carries AgentWorkflowBuilder and InProcessExecution, which the handoff workflow
          and the run store are built on. -->
-    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.21.0" />
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.22.0" />
     <!-- Prerelease, pinned exactly per the design. Referenceable and must compile,
          but never exercised: no remote Anthropic call is made anywhere in this example. -->
-    <PackageReference Include="Microsoft.Agents.AI.Anthropic" Version="1.21.0-preview.260911.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Anthropic" Version="1.22.0-preview.260918.1" />
     <PackageReference Include="OllamaSharp" Version="5.4.30" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
