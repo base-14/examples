@@ -98,6 +98,7 @@ Production-ready examples for integrating OpenTelemetry with
 | Framework | Stack | Example | Features |
 | --- | --- | --- | --- |
 | **ASP.NET Core** | .NET 10 + EF Core + Azure SQL Edge | [dotnet-sqlserver](./csharp/dotnet-sqlserver) | Minimal APIs, rate limiting, auto-instrumentation |
+| **ASP.NET Core zero-code** | .NET 8.0.22 + Microsoft.Data.SqlClient + Azure SQL Edge | [dotnet8-sqlserver-hello](./csharp/dotnet8-sqlserver-hello) | OpenTelemetry.AutoInstrumentation 1.17.0, no telemetry code, env-var configuration |
 | **.NET Aspire** | .NET Aspire 13.2 + ASP.NET Core 10 + EF Core 10 + PostgreSQL 18 | [aspire-postgres](./csharp/aspire-postgres) | ServiceDefaults pattern, custom ActivitySource and Meter, two-service distributed tracing, Aspire and Compose run modes |
 | **Approval-Gated Agent** | .NET 10 + Microsoft Agent Framework 1.21 + MCP 2.2 + PostgreSQL 18 | [agent-rebooking](./csharp/agent-rebooking) | Agent handoff, in-process MCP client and server, human approval as spans and a histogram, six-scenario error matrix |
 
@@ -275,6 +276,14 @@ Full OpenTelemetry instrumentation with custom business metric spans and trace c
 SQL Server-native job queue with `READPAST` pattern and comprehensive OpenTelemetry instrumentation.
 
 [View README →](./csharp/dotnet-sqlserver/README.md)
+
+### ASP.NET Core zero-code
+
+Hello-world Minimal API on .NET 8.0.22 writing greetings to Azure SQL Edge through Microsoft.Data.SqlClient. No
+OpenTelemetry code; the OpenTelemetry.AutoInstrumentation 1.17.0 NuGet package and `OTEL_` environment variables
+produce traces, metrics and correlated logs.
+
+[View README →](./csharp/dotnet8-sqlserver-hello/README.md)
 
 ### .NET Aspire
 
