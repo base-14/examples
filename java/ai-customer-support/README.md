@@ -34,14 +34,47 @@ filter and the escalation check, and `base14.support.*` metrics. The full guide 
 
 ## Architecture
 
-```text
-Message → Classify → Retrieve → Generate → PII Scrub → Route
-              │          │          │                      │
-          fast model  pgvector  capable model          Escalate?
-                        (RAG)   (+ tool calling)
+Each `POST /api/chat` turn runs a five-stage pipeline. The generate stage is the agent: the
+capable model can call order and product tools, and Spring AI runs the tool loop until the
+model returns a reply.
+
+```mermaid
+flowchart TD
+    req([POST /api/chat]) --> classify
+    classify["classify<br/>fast model"] -->|intent + confidence| retrieve
+    retrieve["retrieve<br/>pgvector, top 5 kb_articles"] --> generate
+
+    subgraph generate [generate, capable model]
+        llm{chat} -->|tool call| tools
+        subgraph tools [Tools]
+            order_tools[getOrderStatus<br/>getOrderHistory<br/>initiateReturn<br/>getReturnStatus]
+            product_tools[searchProducts<br/>getProductInfo]
+        end
+        tools -->|tool result| llm
+    end
+
+    llm -->|reply| scrub[PII scrub]
+    scrub --> route{escalate?}
+    route -->|no| resp([reply])
+    route -->|yes| escalated([reply + conversation escalated])
+
+    history[(conversation history)] -.-> generate
+    pg[(orders, returns, products)] -.-> tools
 ```
 
-5-stage pipeline with three layers of OTel: the Java agent (HTTP, database and Spring
+- **classify** sorts the message into `QUERY`, `ACTION`, `COMPLAINT` or `ESCALATE` with a
+  confidence score and extracted entities such as order IDs.
+- **retrieve** embeds the message and pulls the five closest knowledge-base articles.
+- **generate** builds a prompt from the intent, the articles and the conversation history.
+  The model then calls tools to look up orders, start a return or search the catalogue.
+  Each tool call gets an `execute_tool` span.
+- **PII scrub** redacts emails, SSNs, card numbers and phone numbers from the reply
+  before it is stored or returned.
+- **route** escalates to a human when the customer asks for one, a complaint is
+  classified with confidence below 0.6, any intent is below 0.5, or the conversation
+  passes five turns. The decision is recorded as a `gen_ai.evaluation.result` event.
+
+The pipeline has three layers of OTel: the Java agent (HTTP, database and Spring
 auto-instrumentation), Spring AI's own observations (chat, embedding and tool calls through
 Micrometer), and hand-written spans for the pipeline stages, retrieval and domain metrics.
 

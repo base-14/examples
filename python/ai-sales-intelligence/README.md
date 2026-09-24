@@ -79,6 +79,45 @@ Unified Observability (The Solution)
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Agent Workflow
+
+`POST /campaigns/{id}/run` runs a linear LangGraph pipeline of five agents over a shared
+`AgentState`. There are no conditional edges. Each agent reads what the previous one wrote,
+and an empty input makes an agent pass the state through unchanged.
+
+```mermaid
+flowchart TD
+    req([POST /campaigns/id/run]) --> research
+    research["research<br/>Postgres full-text search"] -->|up to 50 prospects| enrich
+    enrich["enrich<br/>capable model, one call per prospect"] -->|industry, size, pain points| score
+    score["score<br/>fast model, one call per prospect"] --> threshold{icp_score >= 50?}
+    threshold -->|no| dropped([dropped])
+    threshold -->|yes| draft
+    draft["draft<br/>capable model, one email per prospect"] --> evaluate
+    evaluate["evaluate<br/>fast model, quality score 0-100"] --> save[(prospects table)]
+    save --> resp([PipelineResponse])
+
+    db[(connections)] -.-> research
+    prompts[/config/prompts.yaml/] -.-> enrich & score & draft & evaluate
+```
+
+- **research** matches the campaign's keywords and titles against imported connections
+  with `websearch_to_tsquery`, ranked by `ts_rank`. It makes no LLM call.
+- **enrich** asks the model for each prospect's industry, company size, pain points and
+  recent news, and returns them as JSON.
+- **score** rates each prospect against the ideal customer profile. Prospects below
+  `score_threshold` (default 50) go no further.
+- **draft** writes a personalized subject and body for each prospect that passed, using
+  the enrichment data and the score reasoning.
+- **evaluate** scores each draft and records a `gen_ai.evaluation.result` event.
+  Drafts below `quality_threshold` (default 60) are saved with `quality_passed=false`
+  and are not regenerated.
+
+Each agent runs in an `invoke_agent {name}` span, and every model call gets its own
+`chat {model}` span. With `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, the
+rendered prompt and the completion are recorded, PII-scrubbed, on that span's
+`gen_ai.client.inference.operation.details` event.
+
 ## Stack Profile
 
 | Component | Technology | Version |

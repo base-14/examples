@@ -104,6 +104,41 @@ INSTRUMENTATION_MODE=auto docker compose up -d --build
 INSTRUMENTATION_MODE=auto ./scripts/verify-scout.sh
 ```
 
+## Agent workflow
+
+`POST /api/v1/diagnose` hands the incident question to one tool-calling agent built with
+LangChain `create_agent`. The model decides which tool to call next, reads the result,
+and repeats until it answers without a tool call. The system prompt tells it to start
+with a runbook and then follow that runbook's diagnostic steps.
+
+```mermaid
+flowchart TD
+    req([POST /api/v1/diagnose]) --> llm
+    llm{"chat model<br/>tool call or answer?"}
+    llm -->|tool call| tools
+    subgraph tools [Tools]
+        search_runbooks["search_runbooks<br/>pgvector over 12 runbooks"]
+        query_metrics["query_metrics"]
+        search_logs["search_logs"]
+        get_service_status["get_service_status"]
+    end
+    tools -->|tool result| llm
+    llm -->|final answer| save[(diagnoses table)]
+    save --> resp([diagnosis + trace_id])
+
+    fixtures[/data/fixtures/services.json/] -.-> query_metrics & search_logs & get_service_status
+```
+
+- **search_runbooks** embeds the question with `embeddinggemma` and returns the closest
+  runbooks from pgvector, such as `container-oom` or `p99-latency`.
+- **query_metrics**, **search_logs** and **get_service_status** return a metric value,
+  matching log lines and replica or deploy status for a service. They read fixed data
+  from `services.json`, so runs are repeatable.
+- The final **chat** call writes the root cause and remediation and cites the runbooks it
+  used. The answer is saved with the request's `trace_id`.
+
+Every model call goes through the retry and fallback wrapper in `llm.py`.
+
 ## What gets instrumented
 
 One `POST /api/v1/diagnose` produces a single trace spanning HTTP, agent, LLM, tools,

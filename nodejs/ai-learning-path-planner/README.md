@@ -184,6 +184,53 @@ DOCS_REPO=/path/to/docs EXAMPLES_REPO=/path/to/examples make index
 Inclusion is a set of filename and directory rules in `src/corpus/index-build.ts`, not a hand-picked list.
 Application source that is not telemetry-related is excluded.
 
+## Agent workflow
+
+`POST /plans` runs a lead agent that fans out to researcher subagents, one per subtopic, and
+then shapes their findings into a plan. Each agent runs a tool loop first and a separate
+structured-output call after it.
+
+```mermaid
+flowchart TD
+    req([POST /plans]) --> range{topic in corpus?}
+    range -->|no| declined([422 declined])
+    range -->|yes| lead
+
+    subgraph lead [Lead agent, qwen3.5:9B, up to 16 steps]
+        lead_llm{chat} -->|tool call| lead_tools[corpus_map<br/>check_coverage<br/>get_related]
+        lead_tools --> lead_llm
+        lead_llm -->|research_subtopic| researcher
+    end
+
+    subgraph researcher [Researcher per subtopic, gemma4:e2b, up to 6 steps]
+        r_llm{chat} -->|tool call| r_tools[search_docs<br/>outline<br/>fetch_section<br/>list_examples<br/>fetch_example_file]
+        r_tools --> r_llm
+        r_llm --> findings[findings call] --> confidence{half of citations valid?}
+        confidence -->|no, escalations left| r_large[retry on qwen3.5:9B]
+    end
+
+    confidence -->|yes| lead_llm
+    confidence -->|no, none left: gap| lead_llm
+    r_large --> lead_llm
+    lead_llm -->|done| shaper[plan call<br/>structured output]
+    shaper --> check{all citations valid?}
+    check -->|no| retry[plan call once more<br/>with bad paths listed] --> drop[drop steps still invalid,<br/>record them as gaps]
+    check -->|yes| resp([plan + gaps])
+    drop --> resp
+```
+
+- **Range check.** A topic the corpus never mentions is declined before any model call.
+- **Lead loop.** The lead maps the corpus, checks coverage of candidate subtopics, and
+  calls `research_subtopic` for each one, up to `MAX_SUBTOPICS`. Until it has researched
+  something, every step must be a tool call.
+- **Researcher loop.** Each researcher searches the docs and examples, reads outlines and
+  sections, and returns findings that cite corpus paths. Only findings whose citations
+  exist in the corpus are kept. If fewer than half pass, it runs again on the large model,
+  up to `MAX_ESCALATIONS` per run. If confidence is still low or no escalations are left,
+  the subtopic is recorded as a gap.
+- **Plan call.** The lead turns the research notes into weeks of steps. Steps whose
+  citations fail validation get one rewrite, then are dropped and listed as gaps.
+
 ## The agents and their tools
 
 The lead agent runs on `qwen3.5:9B`, a researcher on `gemma4:e2b`. The two tool sets are disjoint, and on the
