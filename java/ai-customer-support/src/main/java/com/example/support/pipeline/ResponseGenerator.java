@@ -65,6 +65,13 @@ public class ResponseGenerator {
 
     public LlmResponse generate(String userMessage, IntentResult intent,
                                 List<Document> ragContext, String conversationHistory) {
+        return generate(userMessage, intent, ragContext, conversationHistory, null);
+    }
+
+    /** A non-null {@code capableModel} replaces the configured capable model for this call. */
+    public LlmResponse generate(String userMessage, IntentResult intent,
+                                List<Document> ragContext, String conversationHistory,
+                                String capableModel) {
         Span span = telemetry.tracer().spanBuilder("generate_response")
             .setAttribute("base14.support.stage", "generate")
             .setAttribute("base14.support.rag_matches_used", ragContext.size())
@@ -82,7 +89,9 @@ public class ResponseGenerator {
                 historySection
             );
 
-            LlmResponse response = llmService.generateCapable(systemPrompt, userMessage, toolCallbacks);
+            LlmResponse response = capableModel != null
+                ? llmService.generate(systemPrompt, userMessage, capableModel, toolCallbacks)
+                : llmService.generateCapable(systemPrompt, userMessage, toolCallbacks);
             log.debug("Generated response: {} tokens (in={}, out={})",
                 response.inputTokens() + response.outputTokens(),
                 response.inputTokens(), response.outputTokens());

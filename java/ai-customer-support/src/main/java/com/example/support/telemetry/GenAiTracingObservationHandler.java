@@ -125,6 +125,10 @@ public class GenAiTracingObservationHandler extends DefaultTracingObservationHan
     public void onStop(Observation.Context context) {
         if (context instanceof ChatModelObservationContext chat) {
             applyResponseAttributes(chat, otel(getRequiredSpan(context)));
+        } else if (captureContent && context instanceof ToolCallingObservationContext tool
+            && tool.getToolCallResult() != null) {
+            otel(getRequiredSpan(context)).setAttribute(GenAi.TOOL_CALL_RESULT,
+                truncate(piiFilter.scrub(tool.getToolCallResult()), OUTPUT_MAX_CHARS));
         }
         super.onStop(context);
     }
@@ -158,6 +162,10 @@ public class GenAiTracingObservationHandler extends DefaultTracingObservationHan
             String toolCallId = tool.getToolCallId();
             if (toolCallId != null && !toolCallId.isBlank()) {
                 span.setAttribute(GenAi.TOOL_CALL_ID, toolCallId);
+            }
+            if (captureContent && tool.getToolCallArguments() != null) {
+                span.setAttribute(GenAi.TOOL_CALL_ARGUMENTS,
+                    truncate(piiFilter.scrub(tool.getToolCallArguments()), INPUT_MAX_CHARS));
             }
         }
     }

@@ -171,7 +171,9 @@ Events: `gen_ai.evaluation.result` for the PII scan and the escalation check,
 fails and the conversation continues, `tool_loop_limit_reached` when the tool loop stops at its
 round limit, and `provider_fallback` when the primary provider is exhausted. Prompt and
 completion text appears only in
-`gen_ai.client.inference.operation.details`, and only when content capture is on.
+`gen_ai.client.inference.operation.details`, and only when content capture is on. The same
+setting adds `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result` to each
+`execute_tool` span. Both are PII-scrubbed and truncated like the message content.
 
 ### Three layers of OTel
 
@@ -219,7 +221,8 @@ file costs 0.0.
 
 ## Failure Injection
 
-Activate with Spring profile `failure-injection`. 8 scenarios for testing observability under failure:
+Activate with Spring profile `failure-injection`, for example
+`SPRING_PROFILES_ACTIVE=ollama,failure-injection`. 9 scenarios for testing observability under failure:
 
 1. **hallucinated-order** - nonexistent order lookup.
 2. **escalation-thrash** - angry customer triggering escalation.
@@ -229,6 +232,17 @@ Activate with Spring profile `failure-injection`. 8 scenarios for testing observ
 6. **streaming-interrupt** - long response for SSE interruption.
 7. **sensitive-data** - PII in input, verify redaction.
 8. **context-overflow** - large conversation history.
+9. **model-not-found** - the generate call asks for `no-such-model:latest`. Each attempt produces
+   a `chat` span with status `Error` and the provider's error message. After three attempts the
+   request falls back to `FALLBACK_MODEL` and succeeds, recording the retry, fallback and error
+   metrics and a `provider_fallback` event. The fallback only runs when `FALLBACK_MODEL` is a model
+   the provider has.
+
+Trigger a scenario by name:
+
+```bash
+curl -X POST http://localhost:8080/api/failures/model-not-found
+```
 
 ## Sample Conversations
 

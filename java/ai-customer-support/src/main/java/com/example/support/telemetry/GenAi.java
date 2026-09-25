@@ -14,6 +14,8 @@ public final class GenAi {
     public static final String AGENT_NAME = "gen_ai.agent.name";
     public static final String TOOL_NAME = "gen_ai.tool.name";
     public static final String TOOL_CALL_ID = "gen_ai.tool.call.id";
+    public static final String TOOL_CALL_ARGUMENTS = "gen_ai.tool.call.arguments";
+    public static final String TOOL_CALL_RESULT = "gen_ai.tool.call.result";
     public static final String DATA_SOURCE_ID = "gen_ai.data_source.id";
 
     public static final String INPUT_MESSAGES = "gen_ai.input.messages";

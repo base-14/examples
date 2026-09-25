@@ -24,7 +24,11 @@ public class FailureInjector {
         this.pipeline = pipeline;
     }
 
+    static final String MODEL_NOT_FOUND = "model-not-found";
+    static final String MISSING_MODEL = "no-such-model:latest";
+
     private static final Map<String, String> SCENARIOS = Map.of(
+        MODEL_NOT_FOUND, "What is the status of order ORD-10002?",
         "hallucinated-order", "What is the status of order ORD-99999?",
         "escalation-thrash", "I am extremely angry about my order! I want to speak to a manager RIGHT NOW!",
         "tool-loop", "Check order ORD and also order ORD-",
@@ -44,7 +48,8 @@ public class FailureInjector {
 
         log.warn("Injecting failure scenario: {}", scenario);
         UUID conversationId = UUID.randomUUID();
-        return pipeline.process(message, conversationId);
+        String capableModel = MODEL_NOT_FOUND.equals(scenario) ? MISSING_MODEL : null;
+        return pipeline.process(message, conversationId, capableModel);
     }
 
     public Map<String, String> listScenarios() {

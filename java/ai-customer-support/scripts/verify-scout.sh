@@ -239,6 +239,8 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     if [ "${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-false}" = "true" ]; then
       warn_log  "Event: gen_ai.client.inference.operation.details" \
                 "gen_ai.client.inference.operation.details" "$LOGS_FILE"
+      warn_log  "Attr: gen_ai.tool.call.arguments"   "gen_ai.tool.call.arguments" "$LOGS_FILE"
+      warn_log  "Attr: gen_ai.tool.call.result"      "gen_ai.tool.call.result"    "$LOGS_FILE"
     else
       echo "  $(dim "SKIP") Inference details event gated by OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT (default: false)"
     fi

@@ -76,6 +76,11 @@ public class SupportPipeline {
     ) {}
 
     public Mono<PipelineResult> process(String userMessage, UUID conversationId) {
+        return process(userMessage, conversationId, null);
+    }
+
+    /** A non-null {@code capableModel} replaces the configured capable model for this turn. */
+    public Mono<PipelineResult> process(String userMessage, UUID conversationId, String capableModel) {
         return conversationService.findById(conversationId)
             .switchIfEmpty(conversationService.create(null).map(c -> c))
             .flatMap(conversation -> {
@@ -84,14 +89,15 @@ public class SupportPipeline {
                 return conversationService.addUserMessage(convId, userMessage)
                     .then(conversationService.getHistory(convId).collectList())
                     .flatMap(history -> Mono.fromCallable(
-                        () -> runPipeline(userMessage, convId, history))
+                        () -> runPipeline(userMessage, convId, history, capableModel))
                         .subscribeOn(Schedulers.boundedElastic()))
                     .flatMap(result -> persistResult(convId, result)
                         .thenReturn(result));
             });
     }
 
-    private PipelineResult runPipeline(String userMessage, UUID conversationId, List<Message> history) {
+    private PipelineResult runPipeline(String userMessage, UUID conversationId, List<Message> history,
+                                       String capableModel) {
         long startNanos = System.nanoTime();
         Span span = telemetry.tracer().spanBuilder("support_conversation")
             .setAttribute(GenAi.CONVERSATION_ID, conversationId.toString())
@@ -109,7 +115,7 @@ public class SupportPipeline {
 
             String conversationHistory = conversationService.formatHistory(history);
             LlmResponse response = responseGenerator.generate(
-                userMessage, intent, ragDocs, conversationHistory);
+                userMessage, intent, ragDocs, conversationHistory, capableModel);
 
             String content = piiFilter.evaluate(response.content());
 
