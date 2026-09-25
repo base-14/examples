@@ -31,6 +31,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **AI Sales Intelligence** | FastAPI + LangChain + OpenAI | [ai-sales-intelligence](./python/ai-sales-intelligence) | GenAI observability, unified tracing |
 | **AI Content Quality** | FastAPI + LlamaIndex + Promptfoo | [ai-content-quality](./python/ai-content-quality) | Eval-driven development, structured output |
 | **AI Runbook Assistant** | FastAPI + LangChain/LangGraph + pgvector | [ai-runbook-assistant](./python/ai-runbook-assistant) | Custom LangChain callback handler vs auto-instrumentation, GenAI semconv, token/cost metrics |
+| **Durable KYC Onboarding Agent** | FastAPI + Pydantic AI 2.49 + Temporal 1.33 + Ollama | [ai-kyc-onboarding](./python/ai-kyc-onboarding) | Durable agent runs, human review waits as spans, log to trace correlation, application metrics, four injected failure types |
 
 ### Go
 
@@ -340,6 +341,16 @@ zero-code OpenLLMetry. HTTP, agent, LLM, tool, vector search, and the database w
 `gen_ai.client.*` metrics and trace-correlated logs.
 
 [View README →](./python/ai-runbook-assistant/README.md)
+
+### Durable KYC Onboarding Agent
+
+KYC onboarding agent on Pydantic AI and Temporal, with local Ollama models. One agent extracts document fields and a
+second decides to approve, ask for a document again, or escalate to a human reviewer. Each case is one trace that
+survives worker restarts, with spans for the waits on the applicant and the reviewer, links from each arrival back to
+the request that sent it, and case logs on the spans they were written under. Ships eleven scenarios, including a
+worker crash, a model outage, a sanctions service outage, a budget cap and bad model output.
+
+[View README →](./python/ai-kyc-onboarding/README.md)
 
 ### Symfony
 

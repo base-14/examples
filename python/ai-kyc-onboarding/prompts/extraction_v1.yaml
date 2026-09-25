@@ -1,0 +1,15 @@
+- role: system
+  content: |
+    You extract structured fields from a single KYC onboarding document. Read the document text
+    carefully and call the one output tool that matches its document type, filling every field you
+    can find. Leave a field unset only when the document truly does not state it. Never invent a
+    value that is not present in the text.
+
+- role: user
+  content: |
+    Document type: {{document_type}}
+
+    Document text:
+    {{document_text}}
+
+    Extract the fields for this document type.

@@ -1,0 +1,149 @@
+services:
+  postgres:
+    image: postgres:18.6
+    environment: {POSTGRES_USER: temporal, POSTGRES_PASSWORD: temporal}
+    healthcheck: {test: ["CMD", "pg_isready", "-U", "temporal"], interval: 2s, retries: 30}
+    # Host port 5433 avoids a clash with a local Postgres on 5432.
+    ports: ["5433:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./db/01-kyc-schema.sql:/docker-entrypoint-initdb.d/01-kyc-schema.sql:ro
+      - ./db/02-kyc-seed.sql:/docker-entrypoint-initdb.d/02-kyc-seed.sql:ro
+
+  temporal-schema:
+    image: temporalio/admin-tools:1.32.0
+    depends_on: {postgres: {condition: service_healthy}}
+    environment: {SQL_PLUGIN: postgres12, SQL_HOST: postgres, SQL_PORT: "5432", SQL_USER: temporal, SQL_PASSWORD: temporal}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        temporal-sql-tool --db temporal create-database
+        temporal-sql-tool --db temporal setup-schema -v 0.0
+        temporal-sql-tool --db temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+        temporal-sql-tool --db temporal_visibility create-database
+        temporal-sql-tool --db temporal_visibility setup-schema -v 0.0
+        temporal-sql-tool --db temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+
+  temporal:
+    image: temporalio/server:1.32.0
+    depends_on: {temporal-schema: {condition: service_completed_successfully}}
+    environment: {DB: postgres12, DB_PORT: "5432", POSTGRES_USER: temporal, POSTGRES_PWD: temporal, POSTGRES_SEEDS: postgres, BIND_ON_IP: 0.0.0.0}
+    ports: ["7233:7233"]
+    volumes:
+      - ./dynamicconfig:/etc/temporal/config/dynamicconfig
+
+  temporal-namespace:
+    image: temporalio/admin-tools:1.32.0
+    depends_on: {temporal: {condition: service_started}}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        for i in $$(seq 1 60); do
+          if temporal operator namespace describe --namespace default --address temporal:7233 >/dev/null 2>&1; then
+            exit 0
+          fi
+          if temporal operator namespace create --namespace default --address temporal:7233; then
+            exit 0
+          fi
+          sleep 2
+        done
+        exit 1
+
+  temporal-ui:
+    image: temporalio/ui:2.54.1
+    depends_on: {temporal: {condition: service_started}}
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports: ["8080:8080"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    # Must hold a whole harness run of debug output, about 100 MB, for scripts/verify-scout.sh.
+    logging:
+      driver: json-file
+      options: {max-size: "200m", max-file: "5"}
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+      - "55679:55679" # zpages (debugging UI)
+      - "8888:8888"   # Collector self-metrics
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../_shared:/app/_shared:ro
+    environment:
+      - OTEL_SERVICE_NAME=ai-kyc-onboarding-api
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE:-kyc-onboarding}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      - OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+      - OTEL_METRIC_EXPORT_INTERVAL=${OTEL_METRIC_EXPORT_INTERVAL:-10000}
+      - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-true}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - KYC_DB_DSN=${KYC_DB_DSN:-postgresql://temporal:temporal@postgres:5432/kyc}
+      - KYC_FAULTS_ENABLED=${KYC_FAULTS_ENABLED:-false}
+      - EXTRACTION_PROMPT_VERSION=${EXTRACTION_PROMPT_VERSION:-v1}
+      - ASSESSMENT_PROMPT_VERSION=${ASSESSMENT_PROMPT_VERSION:-v3}
+      - DOCUMENT_DEADLINE_DAYS=${DOCUMENT_DEADLINE_DAYS:-3}
+      - REVIEW_DEADLINE_DAYS=${REVIEW_DEADLINE_DAYS:-2}
+      - REQUEST_BUDGET=${REQUEST_BUDGET:-40}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    build: .
+    command: ["python", "-m", "kyc_onboarding.worker"]
+    volumes:
+      - ../../_shared:/app/_shared:ro
+    environment:
+      - OTEL_SERVICE_NAME=ai-kyc-onboarding-worker
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE:-kyc-onboarding}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      - OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+      - OTEL_METRIC_EXPORT_INTERVAL=${OTEL_METRIC_EXPORT_INTERVAL:-10000}
+      - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-true}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - EXTRACTION_MODEL=${EXTRACTION_MODEL:-gemma4:e2b}
+      - ASSESSMENT_MODEL=${ASSESSMENT_MODEL:-qwen3.5:9B}
+      - EXTRACTION_PROMPT_VERSION=${EXTRACTION_PROMPT_VERSION:-v1}
+      - ASSESSMENT_PROMPT_VERSION=${ASSESSMENT_PROMPT_VERSION:-v3}
+      - KYC_DB_DSN=${KYC_DB_DSN:-postgresql://temporal:temporal@postgres:5432/kyc}
+      - KYC_FAULTS_ENABLED=${KYC_FAULTS_ENABLED:-false}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    depends_on:
+      temporal-namespace:
+        condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
+
+volumes:
+  postgres_data:

@@ -13,6 +13,8 @@ OpenTelemetry instrumentation examples for Python applications.
 | [litestar-postgres](./litestar-postgres) | Litestar 2.21 + PostgreSQL 18 (uv-managed) — two-service distributed tracing, async SQLAlchemy + asyncpg, trace-correlated JSON logs, custom metrics |
 | [ai-sales-intelligence](./ai-sales-intelligence) | FastAPI + LangChain + OpenAI with AI sales agent, unified GenAI observability, and OTel GenAI semantic conventions |
 | [ai-content-quality](./ai-content-quality) | FastAPI + LlamaIndex (OpenAI / Gemini / Anthropic) + Promptfoo with eval-driven development, structured output, and GenAI observability |
+| [ai-runbook-assistant](./ai-runbook-assistant) | FastAPI + LangChain/LangGraph + pgvector SRE agent with a custom OTel callback handler against zero-code OpenLLMetry |
+| [ai-kyc-onboarding](./ai-kyc-onboarding) | FastAPI + Pydantic AI + Temporal durable KYC agent on local Ollama, with review waits as spans, trace-correlated logs, application metrics and injected failures |
 
 ## Contributing
 
