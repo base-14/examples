@@ -19,7 +19,7 @@
     "index": "tsx scripts/build-index.ts"
   },
   "dependencies": {
-    "@ai-sdk/otel": "1.0.111",
+    "@ai-sdk/otel": "1.0.116",
     "@hono/node-server": "2.1.1",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/auto-instrumentations-node": "0.80.0",
@@ -29,17 +29,17 @@
     "@opentelemetry/sdk-node": "0.222.0",
     "@opentelemetry/sdk-trace-base": "2.11.0",
     "@opentelemetry/semantic-conventions": "1.43.0",
-    "ai": "7.0.111",
-    "hono": "4.13.8",
+    "ai": "7.0.116",
+    "hono": "4.13.9",
     "ollama-ai-provider-v2": "4.0.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.3",
     "tsx": "^4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.1",
+    "vitest": "5.0.2",
     "yaml": "2.9.1"
   }
 }

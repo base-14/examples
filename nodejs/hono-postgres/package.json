@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
-    "@hono/otel": "^1.1.2",
+    "@hono/otel": "^1.2.0",
     "@hono/zod-validator": "^0.9.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.222.0",
@@ -44,7 +44,7 @@
     "bcrypt": "^6.0.0",
     "bullmq": "^5.81.5",
     "drizzle-orm": "^0.45.3",
-    "hono": "^4.13.8",
+    "hono": "^4.13.9",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
