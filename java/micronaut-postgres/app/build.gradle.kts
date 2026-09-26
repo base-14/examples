@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    implementation(platform("io.opentelemetry:opentelemetry-bom:1.65.0"))
+    implementation(platform("io.opentelemetry:opentelemetry-bom:1.66.0"))
 
     annotationProcessor("io.micronaut.data:micronaut-data-processor")
     annotationProcessor("io.micronaut.serde:micronaut-serde-processor")
