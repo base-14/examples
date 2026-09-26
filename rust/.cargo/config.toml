@@ -1,0 +1,8 @@
+# Applies to every crate under rust/. The check targets (cargo check, clippy, test) do not need
+# full debuginfo, and it is most of a debug target directory. Release builds run inside Docker
+# and keep their own profile in each Cargo.toml.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.test]
+debug = "line-tables-only"
