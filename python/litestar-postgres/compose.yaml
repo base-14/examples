@@ -65,7 +65,7 @@ services:
       - app-network
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: litestar-postgres
     environment:
       - POSTGRES_USER=${DB_USERNAME:-postgres}

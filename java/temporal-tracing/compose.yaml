@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: temporal-postgres
     environment:
       POSTGRES_USER: temporal

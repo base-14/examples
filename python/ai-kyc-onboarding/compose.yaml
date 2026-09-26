@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18.6
+    image: postgres:18
     environment: {POSTGRES_USER: temporal, POSTGRES_PASSWORD: temporal}
     healthcheck: {test: ["CMD", "pg_isready", "-U", "temporal"], interval: 2s, retries: 30}
     # Host port 5433 avoids a clash with a local Postgres on 5432.

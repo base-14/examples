@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: postgres-db
     restart: always
     environment:

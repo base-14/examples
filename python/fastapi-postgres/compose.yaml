@@ -38,7 +38,7 @@ services:
       start_period: 10s
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: fastapi-postgres
     environment:
       - POSTGRES_USER=${DB_USERNAME:-postgres}

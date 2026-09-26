@@ -33,7 +33,7 @@ Scout. The full guide is
 | .NET SDK | 10.0.400 | Latest stable; arm64 native on Apple Silicon. |
 | ASP.NET Core | 10.0 | Minimal APIs. |
 | .NET Aspire | 13.2.4 | AppHost + Hosting.PostgreSQL. Dashboard auth on by default. |
-| PostgreSQL | 18 | Aspire-managed in dev; `postgres:18-alpine` image in Compose. |
+| PostgreSQL | 18 | Aspire-managed in dev; `postgres:18` image in Compose. |
 | Entity Framework Core | 10.0.11 | `EnsureCreated` at startup; no migrations. |
 | Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 | EF Core 10 provider. |
 | OpenTelemetry .NET (core) | 1.18.0 | OTLP exporter + extensions hosting. |
@@ -243,7 +243,7 @@ the `ports:` section of `compose.yaml`.
 
 ### Postgres first pull
 
-`postgres:18-alpine` ships a native arm64 image, so it runs without Rosetta on Apple Silicon. First pull can take
+`postgres:18` ships a native arm64 image, so it runs without Rosetta on Apple Silicon. First pull can take
 30-90 seconds depending on bandwidth; subsequent runs reuse the cached image.
 
 ### Expected timing

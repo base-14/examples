@@ -57,7 +57,7 @@ services:
     command: celery -A config worker --loglevel=info
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres

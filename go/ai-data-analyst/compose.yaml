@@ -42,7 +42,7 @@ services:
       start_period: 15s
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18
     environment:
       POSTGRES_DB: data_analyst
       POSTGRES_USER: postgres

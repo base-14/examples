@@ -60,7 +60,7 @@ services:
       - laravel-network
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: laravel-postgres
     environment:
       POSTGRES_DB: laravel

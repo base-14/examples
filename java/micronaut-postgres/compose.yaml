@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: micronaut-postgres
     environment:
       POSTGRES_DB: micronaut
