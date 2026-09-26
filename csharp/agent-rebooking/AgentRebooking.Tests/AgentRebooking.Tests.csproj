@@ -18,7 +18,7 @@
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
     <!-- Hosts the minimal API endpoints in memory so endpoint tests need no port and no
          Postgres. Pinned to the ASP.NET Core 10.0.11 runtime the SDK ships. -->
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
     <!-- Spins up a real Postgres via Docker for BookingStore/RebookingTools tests. Those
          tests probe for a reachable Docker daemon at runtime and skip cleanly, with a
          reason, when there is none. See Support/DockerRequiredFactAttribute.cs. -->
