@@ -206,7 +206,7 @@ check_go() {
   print_header "go/$name"
 
   local output
-  output=$(cd "$dir" && go list -m -u all 2>/dev/null | grep '\[' || true)
+  output=$(cd "$dir" && go list -m -u -f '{{if and (not .Indirect) .Update}}{{.Path}} {{.Version}} [{{.Update.Version}}]{{end}}' all 2>/dev/null | grep -v '^$' || true)
 
   if [[ -z "$output" ]]; then
     echo "  $CLEAN_MSG"
