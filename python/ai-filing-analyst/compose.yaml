@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:18
+    environment: {POSTGRES_USER: filing, POSTGRES_PASSWORD: filing, POSTGRES_DB: filing}
+    healthcheck: {test: ["CMD", "pg_isready", "-U", "filing"], interval: 2s, retries: 30}
+    # Host port 5433 avoids a clash with a local Postgres on 5432.
+    ports: ["5433:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./db/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    # Must hold a whole harness run of debug output for scripts/verify-scout.sh.
+    logging:
+      driver: json-file
+      options: {max-size: "200m", max-file: "5"}
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+      - "55679:55679" # zpages (debugging UI)
+      - "8888:8888"   # Collector self-metrics
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../_shared:/app/_shared:ro
+    environment:
+      # Standard OpenTelemetry variables. The SDK reads these itself.
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-ai-filing-analyst}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-service.version=1.0.0}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      - OTEL_TRACES_SAMPLER=${OTEL_TRACES_SAMPLER:-parentbased_always_on}
+      - OTEL_METRIC_EXPORT_INTERVAL=${OTEL_METRIC_EXPORT_INTERVAL:-10000}
+      - OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT=${OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT:-4096}
+      - OTEL_BSP_SCHEDULE_DELAY=${OTEL_BSP_SCHEDULE_DELAY:-5000}
+      - OTEL_BSP_MAX_EXPORT_BATCH_SIZE=${OTEL_BSP_MAX_EXPORT_BATCH_SIZE:-512}
+      # Standard variables that Strands or the logging bridge do not read; the example applies them.
+      - OTEL_SEMCONV_STABILITY_OPT_IN=${OTEL_SEMCONV_STABILITY_OPT_IN:-gen_ai_latest_experimental}
+      - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-true}
+      - OTEL_PYTHON_LOG_CORRELATION=${OTEL_PYTHON_LOG_CORRELATION:-true}
+      # Application settings.
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - ANALYST_MODEL=${ANALYST_MODEL:-qwen3.5:9B}
+      - RANKING_MODEL=${RANKING_MODEL:-gemma4:e2b}
+      - OLLAMA_THINK=${OLLAMA_THINK:-false}
+      - ANALYST_PROMPT_VERSION=${ANALYST_PROMPT_VERSION:-}
+      - RANKING_PROMPT_VERSION=${RANKING_PROMPT_VERSION:-}
+      - FILING_DB_DSN=${FILING_DB_DSN:-postgresql://filing:filing@postgres:5432/filing}
+      - FIXTURES_DIR=/app/fixtures
+      - SEC_USER_AGENT=${SEC_USER_AGENT:-}
+      - SEC_REQUESTS_PER_SECOND=${SEC_REQUESTS_PER_SECOND:-5}
+      - SEC_BACKOFF_SECONDS=${SEC_BACKOFF_SECONDS:-600}
+      - SEC_CALLS_PER_QUESTION=${SEC_CALLS_PER_QUESTION:-4}
+      - CALL_BUDGET=${CALL_BUDGET:-24}
+      - QUESTION_TIMEOUT_SECONDS=${QUESTION_TIMEOUT_SECONDS:-240}
+      - QUESTION_MAX_CHARS=${QUESTION_MAX_CHARS:-500}
+      - FILING_FAULTS_ENABLED=${FILING_FAULTS_ENABLED:-false}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:

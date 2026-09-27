@@ -1,0 +1,42 @@
+{
+ "0": {
+  "cik_str": 1652044,
+  "ticker": "GOOGL",
+  "title": "Alphabet Inc."
+ },
+ "1": {
+  "cik_str": 1559720,
+  "ticker": "ABNB",
+  "title": "Airbnb, Inc."
+ },
+ "2": {
+  "cik_str": 1384905,
+  "ticker": "RNG",
+  "title": "RingCentral, Inc."
+ },
+ "3": {
+  "cik_str": 1445305,
+  "ticker": "WK",
+  "title": "WORKIVA INC"
+ },
+ "4": {
+  "cik_str": 1845338,
+  "ticker": "MNDY",
+  "title": "monday.com Ltd."
+ },
+ "5": {
+  "cik_str": 1866692,
+  "ticker": "AMPL",
+  "title": "Amplitude, Inc."
+ },
+ "6": {
+  "cik_str": 1432133,
+  "ticker": "KLTR",
+  "title": "KALTURA INC"
+ },
+ "7": {
+  "cik_str": 1652044,
+  "ticker": "GOOG",
+  "title": "Alphabet Inc."
+ }
+}

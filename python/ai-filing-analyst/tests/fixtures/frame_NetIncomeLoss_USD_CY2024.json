@@ -1,0 +1,191 @@
+{
+ "taxonomy": "us-gaap",
+ "tag": "NetIncomeLoss",
+ "ccp": "CY2024",
+ "uom": "USD",
+ "label": "Net Income (Loss) Attributable to Parent",
+ "description": "The portion of profit or loss for the period, net of income taxes, which is attributable to the parent.",
+ "pts": 20,
+ "data": [
+  {
+   "accn": "0001573221-26-000036",
+   "cik": 1573221,
+   "entityName": "TheRealReal, Inc.",
+   "loc": "-",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": 134202000000
+  },
+  {
+   "accn": "0001308179-26-000342",
+   "cik": 1652044,
+   "entityName": "Alphabet Inc.",
+   "loc": "-",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": 100118000000
+  },
+  {
+   "accn": "0001437749-26-014193",
+   "cik": 1792849,
+   "entityName": "HighPeak Energy, Inc.",
+   "loc": "-",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": 95069000000
+  },
+  {
+   "accn": "0000320193-25-000079",
+   "cik": 320193,
+   "entityName": "Apple Inc.",
+   "loc": "US-CA",
+   "start": "2023-10-01",
+   "end": "2024-09-28",
+   "val": 93736000000
+  },
+  {
+   "accn": "0001193125-26-083899",
+   "cik": 1067983,
+   "entityName": "BERKSHIRE HATHAWAY INC",
+   "loc": "US-NE",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": 88995000000
+  },
+  {
+   "accn": "0001193125-26-323660",
+   "cik": 789019,
+   "entityName": "MICROSOFT CORPORATION",
+   "loc": "US-WA",
+   "start": "2023-07-01",
+   "end": "2024-06-30",
+   "val": 88136000000
+  },
+  {
+   "accn": "0001193125-26-175062",
+   "cik": 1559720,
+   "entityName": "Airbnb, Inc.",
+   "loc": "-",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": 2648349000
+  },
+  {
+   "accn": "0001653482-26-000085",
+   "cik": 1653482,
+   "entityName": "GITLAB INC.",
+   "loc": "-",
+   "start": "2024-02-01",
+   "end": "2025-01-31",
+   "val": -5227000
+  },
+  {
+   "accn": "0001445305-26-000030",
+   "cik": 1445305,
+   "entityName": "WORKIVA INC.",
+   "loc": "-",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": -55042000
+  },
+  {
+   "accn": "0001683168-26-001931",
+   "cik": 1816554,
+   "entityName": "EVENTIKO INC.",
+   "loc": "US-GA",
+   "start": "2024-05-01",
+   "end": "2025-04-30",
+   "val": -9607
+  },
+  {
+   "accn": "0001683168-26-003879",
+   "cik": 2010982,
+   "entityName": "PALISADES VENTURE, INC.",
+   "loc": "US-CA",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": -9910
+  },
+  {
+   "accn": "0001213900-26-035582",
+   "cik": 2072404,
+   "entityName": "GSR IV Acquisition Corp.",
+   "loc": "US-TX",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": -10117
+  },
+  {
+   "accn": "0001193125-26-161632",
+   "cik": 1832332,
+   "entityName": "Aveanna Healthcare Holdings Inc.",
+   "loc": "-",
+   "start": "2023-12-31",
+   "end": "2024-12-28",
+   "val": -10929
+  },
+  {
+   "accn": "0001304492-26-000029",
+   "cik": 1304492,
+   "entityName": "Anterix Inc.",
+   "loc": "-",
+   "start": "2024-04-01",
+   "end": "2025-03-31",
+   "val": -11372
+  },
+  {
+   "accn": "0001575872-26-000251",
+   "cik": 1418302,
+   "entityName": "Renewable Energy Acquisition Corp.",
+   "loc": "US-MN",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": -11533
+  },
+  {
+   "accn": "0001477932-24-005890",
+   "cik": 1818550,
+   "entityName": "INCORDEX CORP.",
+   "loc": "GB-",
+   "start": "2023-07-01",
+   "end": "2024-06-30",
+   "val": -11682
+  },
+  {
+   "accn": "0000926617-26-000023",
+   "cik": 926617,
+   "entityName": "Aspira Women\u2019s Health Inc.",
+   "loc": "-",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": -13094
+  },
+  {
+   "accn": "0001193125-26-161471",
+   "cik": 1845337,
+   "entityName": "DAY ONE BIOPHARMACEUTICALS, INC.",
+   "loc": "US-CA",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": -95496000000
+  },
+  {
+   "accn": "0001193125-26-275809",
+   "cik": 880807,
+   "entityName": "American Superconductor Corporation",
+   "loc": "-",
+   "start": "2024-04-01",
+   "end": "2025-03-31",
+   "val": -133809000000
+  },
+  {
+   "accn": "0001213900-26-093019",
+   "cik": 1513525,
+   "entityName": "ADIAL PHARMACEUTICALS, INC.",
+   "loc": "-",
+   "start": "2024-01-01",
+   "end": "2024-12-31",
+   "val": -13197000000000
+  }
+ ]
+}

@@ -15,6 +15,7 @@ OpenTelemetry instrumentation examples for Python applications.
 | [ai-content-quality](./ai-content-quality) | FastAPI + LlamaIndex (OpenAI / Gemini / Anthropic) + Promptfoo with eval-driven development, structured output, and GenAI observability |
 | [ai-runbook-assistant](./ai-runbook-assistant) | FastAPI + LangChain/LangGraph + pgvector SRE agent with a custom OTel callback handler against zero-code OpenLLMetry |
 | [ai-kyc-onboarding](./ai-kyc-onboarding) | FastAPI + Pydantic AI + Temporal durable KYC agent on local Ollama, with review waits as spans, trace-correlated logs, application metrics and injected failures |
+| [ai-filing-analyst](./ai-filing-analyst) | FastAPI + Strands Agents filing analyst over SEC XBRL data on local Ollama, with an agent used as a tool, a grounding verifier, trace-correlated logs, application metrics and injected failures |
 
 ## Contributing
 

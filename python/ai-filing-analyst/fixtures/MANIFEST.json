@@ -1,0 +1,55 @@
+{
+  "fetched": "2026-09-26",
+  "source": "SEC EDGAR XBRL APIs",
+  "tickers": {
+    "ABNB": 1559720,
+    "WK": 1445305,
+    "GTLB": 1653482,
+    "FRSH": 1544522,
+    "AMPL": 1866692,
+    "KVYO": 1835830,
+    "MNDY": 1845338
+  },
+  "files": {
+    "company_tickers.json.gz": {
+      "url": "https://www.sec.gov/files/company_tickers.json",
+      "bytes": 216163,
+      "sha256": "044479eae602aca0f1ff02fecd9000efb7e71a98bad4aed791ed7f5bb019fbc7"
+    },
+    "companyfacts/CIK0001559720.json.gz": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001559720.json",
+      "bytes": 84072,
+      "sha256": "b4907661c6fe1eb107dbc535461b71d609d784b5367b5de381b3dcd5dd574951"
+    },
+    "companyfacts/CIK0001445305.json.gz": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001445305.json",
+      "bytes": 169904,
+      "sha256": "45c931baa426ccf3c8c118ca18d12bb430114119ac5c306bcd67bbf5592f038a"
+    },
+    "companyfacts/CIK0001653482.json.gz": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001653482.json",
+      "bytes": 84975,
+      "sha256": "0608b9ef7033ec486984a8ad5a4e81b88375e63f4a7202a4f606d727a04358cf"
+    },
+    "companyfacts/CIK0001544522.json.gz": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001544522.json",
+      "bytes": 81219,
+      "sha256": "0260c35561b8a96bbd2e5663b5928f11ea6d3767c6b52f8f9c2918b14d126426"
+    },
+    "companyfacts/CIK0001866692.json.gz": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001866692.json",
+      "bytes": 64618,
+      "sha256": "22487ceb3c9da81e353f0c4262d3c31b7391ebc0b72e7d0c430a0e699726561e"
+    },
+    "companyfacts/CIK0001835830.json.gz": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001835830.json",
+      "bytes": 47072,
+      "sha256": "d12e6906164e47707e8bd736ce1ec8409aef3b37a964bc5fcfe3450a95e0e3f6"
+    },
+    "companyfacts/CIK0001845338.json.gz": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001845338.json",
+      "bytes": 38048,
+      "sha256": "de2ba6cadfa8b286202bef4ae1447bc1b81d2ebc20733bc7aa937924bacc302b"
+    }
+  }
+}

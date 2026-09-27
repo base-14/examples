@@ -32,6 +32,7 @@ Production-ready examples for integrating OpenTelemetry with
 | **AI Content Quality** | FastAPI + LlamaIndex + Promptfoo | [ai-content-quality](./python/ai-content-quality) | Eval-driven development, structured output |
 | **AI Runbook Assistant** | FastAPI + LangChain/LangGraph + pgvector | [ai-runbook-assistant](./python/ai-runbook-assistant) | Custom LangChain callback handler vs auto-instrumentation, GenAI semconv, token/cost metrics |
 | **Durable KYC Onboarding Agent** | FastAPI + Pydantic AI 2.49 + Temporal 1.33 + Ollama | [ai-kyc-onboarding](./python/ai-kyc-onboarding) | Durable agent runs, human review waits as spans, log to trace correlation, application metrics, four injected failure types |
+| **Filing Analyst Agent** | FastAPI + Strands Agents 1.57 + Ollama | [ai-filing-analyst](./python/ai-filing-analyst) | Agent as a tool, grounded answers checked by a verifier span, log to trace correlation, application metrics, eight injected failure types |
 
 ### Go
 
@@ -351,6 +352,17 @@ the request that sent it, and case logs on the spans they were written under. Sh
 worker crash, a model outage, a sanctions service outage, a budget cap and bad model output.
 
 [View README →](./python/ai-kyc-onboarding/README.md)
+
+### Filing Analyst Agent
+
+Filing analyst on Strands Agents over the SEC's XBRL APIs, with local Ollama models. An analyst agent answers
+questions about a company's reported financials, and a second agent, attached as a tool, ranks the company among
+every filer of a concept. Every figure is cited by the accession number of the filing it came from and checked by a
+verifier before the answer is served. Each question is one trace with its logs on the spans they were written
+under. Ships seventeen scenarios, including SEC outages and throttling, a model outage, a timeout, a budget cap, bad
+model output and an ungrounded answer.
+
+[View README →](./python/ai-filing-analyst/README.md)
 
 ### Symfony
 
