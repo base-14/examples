@@ -1,7 +1,7 @@
 # Flask + PostgreSQL + OpenTelemetry
 
-Production-ready Flask REST API with automatic OpenTelemetry instrumentation, JWT authentication,
-Celery background tasks, and PostgreSQL integration with base14 Scout.
+A Flask REST API with automatic OpenTelemetry instrumentation, JWT authentication, Celery background tasks
+and PostgreSQL, sending telemetry to base14 Scout.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/flask)
 
@@ -31,7 +31,7 @@ guide is
 ## Stack Profile
 
 | Component | Version | EOL Status | Current Version |
-|-----------|---------|------------|-----------------|
+| --- | --- | --- | --- |
 | **Python** | 3.14 | Oct 2030 | 3.14.2 |
 | **Flask** | 3.1 | Stable | 3.1.2 |
 | **SQLAlchemy** | 2.0 | Active | 2.0.45 |
@@ -136,30 +136,30 @@ This script exercises all API endpoints and generates telemetry data.
 
 ### Health
 
-| Method | Endpoint      | Description                      | Auth |
-| ------ | ------------- | -------------------------------- | ---- |
-| `GET`  | `/api/health` | Health check (db, redis, celery) | No   |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Health check (db, redis, celery) | No |
 
 ### Authentication
 
-| Method | Endpoint        | Description               | Auth |
-| ------ | --------------- | ------------------------- | ---- |
-| `POST` | `/api/register` | Register new user         | No   |
-| `POST` | `/api/login`    | Login and get JWT token   | No   |
-| `GET`  | `/api/user`     | Get current user profile  | Yes  |
-| `POST` | `/api/logout`   | Logout                    | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/register` | Register new user | No |
+| `POST` | `/api/login` | Login and get JWT token | No |
+| `GET` | `/api/user` | Get current user profile | Yes |
+| `POST` | `/api/logout` | Logout | Yes |
 
 ### Articles
 
-| Method   | Endpoint                     | Description                  | Auth        |
-| -------- | ---------------------------- | ---------------------------- | ----------- |
-| `GET`    | `/api/articles/`             | List articles (paginated)    | No          |
-| `POST`   | `/api/articles/`             | Create article               | Yes         |
-| `GET`    | `/api/articles/{slug}`       | Get single article           | No          |
-| `PUT`    | `/api/articles/{slug}`       | Update article               | Yes (owner) |
-| `DELETE` | `/api/articles/{slug}`       | Delete article               | Yes (owner) |
-| `POST`   | `/api/articles/{slug}/favorite`   | Favorite article        | Yes         |
-| `DELETE` | `/api/articles/{slug}/favorite`   | Unfavorite article      | Yes         |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/articles/` | List articles (paginated) | No |
+| `POST` | `/api/articles/` | Create article | Yes |
+| `GET` | `/api/articles/{slug}` | Get single article | No |
+| `PUT` | `/api/articles/{slug}` | Update article | Yes (owner) |
+| `DELETE` | `/api/articles/{slug}` | Delete article | Yes (owner) |
+| `POST` | `/api/articles/{slug}/favorite` | Favorite article | Yes |
+| `DELETE` | `/api/articles/{slug}/favorite` | Unfavorite article | Yes |
 
 ## API Examples
 
@@ -256,23 +256,23 @@ Error messages include trace IDs for correlation with telemetry data.
 
 ### Required Environment Variables
 
-| Variable              | Description                | Required |
-| --------------------- | -------------------------- | -------- |
-| `SCOUT_ENDPOINT`      | base14 Scout OTLP endpoint | Yes      |
-| `SCOUT_CLIENT_ID`     | Scout OAuth2 client ID     | Yes      |
-| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes      |
-| `SCOUT_TOKEN_URL`     | Scout OAuth2 token URL     | Yes      |
+| Variable | Description | Required |
+| --- | --- | --- |
+| `SCOUT_ENDPOINT` | base14 Scout OTLP endpoint | Yes |
+| `SCOUT_CLIENT_ID` | Scout OAuth2 client ID | Yes |
+| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes |
+| `SCOUT_TOKEN_URL` | Scout OAuth2 token URL | Yes |
 
 ### Application Environment Variables
 
-| Variable             | Description            | Default                 |
-| -------------------- | ---------------------- | ----------------------- |
-| `FLASK_ENV`          | Environment            | `development`           |
-| `SECRET_KEY`         | Flask secret key       | (required)              |
-| `DATABASE_URL`       | PostgreSQL connection  | (required)              |
-| `REDIS_URL`          | Redis connection       | `redis://localhost:6379/0` |
-| `OTEL_SERVICE_NAME`  | Service name in traces | `flask-postgres-app`    |
-| `OTEL_EXPORTER_*`    | OTLP collector         | `http://collector:4318` |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `FLASK_ENV` | Environment | `development` |
+| `SECRET_KEY` | Flask secret key | (required) |
+| `DATABASE_URL` | PostgreSQL connection | (required) |
+| `REDIS_URL` | Redis connection | `redis://localhost:6379/0` |
+| `OTEL_SERVICE_NAME` | Service name in traces | `flask-postgres-app` |
+| `OTEL_EXPORTER_*` | OTLP collector | `http://collector:4318` |
 
 ## Telemetry Data
 
@@ -304,7 +304,7 @@ All spans share: otelTraceID: 59e443df8f7614a5b21c11d8c8f83a8d
 ### Metrics
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `http.server.request.duration` | Histogram | Request duration in seconds by method, route, status (sample count gives request rate) |
 | `auth.login.attempts` | Counter | Login attempts by status (success/failed) |
 | `articles.created` | Counter | Articles created by author |
@@ -352,7 +352,8 @@ CeleryInstrumentor().instrument()
 LoggingInstrumentor().instrument(set_logging_format=True)
 ```
 
-For Celery workers, telemetry is initialized per-worker process via `worker_process_init` signal in `app/jobs/celery.py`.
+For Celery workers, telemetry is initialized per-worker process via `worker_process_init` signal in
+`app/jobs/celery.py`.
 
 ### Custom Spans
 
@@ -400,39 +401,39 @@ This ensures PII is redacted before data leaves the collector.
 
 ### Users Table
 
-| Column        | Type         | Description         |
-| ------------- | ------------ | ------------------- |
-| id            | INTEGER      | Primary key         |
-| email         | VARCHAR(255) | Unique email        |
-| password_hash | VARCHAR(255) | Hashed password     |
-| name          | VARCHAR(255) | Display name        |
-| bio           | TEXT         | User bio            |
-| image         | VARCHAR(500) | Avatar URL          |
-| created_at    | TIMESTAMP    | Creation time       |
-| updated_at    | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | INTEGER | Primary key |
+| email | VARCHAR(255) | Unique email |
+| password_hash | VARCHAR(255) | Hashed password |
+| name | VARCHAR(255) | Display name |
+| bio | TEXT | User bio |
+| image | VARCHAR(500) | Avatar URL |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Articles Table
 
-| Column          | Type         | Description         |
-| --------------- | ------------ | ------------------- |
-| id              | INTEGER      | Primary key         |
-| slug            | VARCHAR(255) | Unique URL slug     |
-| title           | VARCHAR(255) | Article title       |
-| description     | TEXT         | Brief description   |
-| body            | TEXT         | Article content     |
-| author_id       | INTEGER      | FK to users         |
-| favorites_count | INTEGER      | Cached favorite cnt |
-| created_at      | TIMESTAMP    | Creation time       |
-| updated_at      | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | INTEGER | Primary key |
+| slug | VARCHAR(255) | Unique URL slug |
+| title | VARCHAR(255) | Article title |
+| description | TEXT | Brief description |
+| body | TEXT | Article content |
+| author_id | INTEGER | FK to users |
+| favorites_count | INTEGER | Cached favorite cnt |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Favorites Table
 
-| Column     | Type      | Description         |
-| ---------- | --------- | ------------------- |
-| id         | INTEGER   | Primary key         |
-| user_id    | INTEGER   | FK to users         |
-| article_id | INTEGER   | FK to articles      |
-| created_at | TIMESTAMP | Creation time       |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | INTEGER | Primary key |
+| user_id | INTEGER | FK to users |
+| article_id | INTEGER | FK to articles |
+| created_at | TIMESTAMP | Creation time |
 
 ## Project Structure
 
@@ -528,14 +529,14 @@ docker compose down -v
 
 ## Access Services
 
-| Service        | URL                            | Purpose             |
-| -------------- | ------------------------------ | ------------------- |
-| Flask API      | <http://localhost:8000>        | Main application    |
-| Health Check   | <http://localhost:8000/api/health> | Service health  |
-| PostgreSQL     | `localhost:5432`               | Database            |
-| Redis          | `localhost:6379`               | Job queue backend   |
-| OTel Collector | <http://localhost:4318>        | Telemetry ingestion |
-| OTel Health    | <http://localhost:13133>       | Collector health    |
+| Service | URL | Purpose |
+| --- | --- | --- |
+| Flask API | <http://localhost:8000> | Main application |
+| Health Check | <http://localhost:8000/api/health> | Service health |
+| PostgreSQL | `localhost:5432` | Database |
+| Redis | `localhost:6379` | Job queue backend |
+| OTel Collector | <http://localhost:4318> | Telemetry ingestion |
+| OTel Health | <http://localhost:13133> | Collector health |
 
 ## Troubleshooting
 
@@ -607,4 +608,3 @@ After starting the application and generating some traffic:
 - [OpenTelemetry Python](https://opentelemetry.io/docs/languages/python/)
 - [Celery Documentation](https://docs.celeryq.dev/)
 - [base14 Scout Documentation](https://docs.base14.io)
-

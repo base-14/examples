@@ -1,9 +1,9 @@
 # FastAPI + Celery + PostgreSQL + OpenTelemetry
 
-FastAPI + Celery reference application demonstrating **OpenTelemetry
-auto-instrumentation** and **unified observability** with base14 Scout.
+A FastAPI and Celery application with OpenTelemetry auto-instrumentation,
+sending telemetry from the API and its workers to base14 Scout.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/celery)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/celery)
 
 ## How to instrument FastAPI and Celery with OpenTelemetry
 
@@ -34,7 +34,7 @@ the worker, and SQL comments on queries through the SQLAlchemy instrumentor's
 ## Stack Profile
 
 | Component | Version | Status |
-| --------- | ------- | ------ |
+| --- | --- | --- |
 | **Python** | 3.14 | Active |
 | **FastAPI** | 0.124+ | Stable |
 | **Celery** | 5.6+ | Stable |

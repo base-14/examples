@@ -2,7 +2,7 @@
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nextjs/)
 
-A production-ready REST API built with Next.js 16, MongoDB, and OpenTelemetry.
+A REST API built with Next.js 16, MongoDB and OpenTelemetry.
 
 ## How to instrument Next.js with OpenTelemetry
 
@@ -117,7 +117,7 @@ npm run test:api
 ## Environment Variables
 
 | Variable | Description | Default |
-|----------|-------------|---------|
+| --- | --- | --- |
 | `NODE_ENV` | Environment | `development` |
 | `PORT` | Server port | `3000` |
 | `MONGODB_URI` | MongoDB connection string | - |

@@ -1,6 +1,7 @@
 # Go Echo + PostgreSQL + OpenTelemetry
 
-A production-ready Go REST API demonstrating Echo framework with GORM ORM, Asynq background jobs, and comprehensive OpenTelemetry instrumentation with base14 Scout.
+A Go REST API on Echo with GORM, Asynq background jobs and OpenTelemetry instrumentation, sending telemetry to base14
+Scout.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
 
@@ -22,7 +23,7 @@ into Asynq background jobs. The full guide is
 ## Stack Profile
 
 | Component | Version | EOL Status | Current Version |
-|-----------|---------|------------|-----------------|
+| --- | --- | --- | --- |
 | **Go** | 1.27.1 | Aug 2027 | Latest stable |
 | **Echo** | 4.15 | Active | Latest v4 |
 | **GORM** | 1.31 | Active | ORM with auto-migrations |
@@ -39,7 +40,8 @@ Asynq for reliable background jobs, and comprehensive OpenTelemetry instrumentat
 
 ### GORM Service Pattern
 
-This example uses a **Service Layer with GORM ORM** pattern. Services interact directly with GORM models without an additional repository abstraction layer.
+This example uses a **Service Layer with GORM ORM** pattern. Services interact directly with GORM models without an
+additional repository abstraction layer.
 
 **Pattern Characteristics:**
 
@@ -169,30 +171,30 @@ This script exercises all API endpoints and generates telemetry data.
 
 ### Health
 
-| Method | Endpoint      | Description                      | Auth |
-| ------ | ------------- | -------------------------------- | ---- |
-| `GET`  | `/api/health` | Health check (db, redis) | No   |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Health check (db, redis) | No |
 
 ### Authentication
 
-| Method | Endpoint        | Description               | Auth |
-| ------ | --------------- | ------------------------- | ---- |
-| `POST` | `/api/register` | Register new user         | No   |
-| `POST` | `/api/login`    | Login and get JWT token   | No   |
-| `GET`  | `/api/user`     | Get current user profile  | Yes  |
-| `POST` | `/api/logout`   | Logout (stateless)        | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/register` | Register new user | No |
+| `POST` | `/api/login` | Login and get JWT token | No |
+| `GET` | `/api/user` | Get current user profile | Yes |
+| `POST` | `/api/logout` | Logout (stateless) | Yes |
 
 ### Articles
 
-| Method   | Endpoint                     | Description                  | Auth        |
-| -------- | ---------------------------- | ---------------------------- | ----------- |
-| `GET`    | `/api/articles`              | List articles (paginated)    | Optional    |
-| `POST`   | `/api/articles`              | Create article               | Yes         |
-| `GET`    | `/api/articles/:slug`        | Get single article           | Optional    |
-| `PUT`    | `/api/articles/:slug`        | Update article               | Yes (owner) |
-| `DELETE` | `/api/articles/:slug`        | Delete article               | Yes (owner) |
-| `POST`   | `/api/articles/:slug/favorite`   | Favorite article (async notification) | Yes |
-| `DELETE` | `/api/articles/:slug/favorite`   | Unfavorite article       | Yes         |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/articles` | List articles (paginated) | Optional |
+| `POST` | `/api/articles` | Create article | Yes |
+| `GET` | `/api/articles/:slug` | Get single article | Optional |
+| `PUT` | `/api/articles/:slug` | Update article | Yes (owner) |
+| `DELETE` | `/api/articles/:slug` | Delete article | Yes (owner) |
+| `POST` | `/api/articles/:slug/favorite` | Favorite article (async notification) | Yes |
+| `DELETE` | `/api/articles/:slug/favorite` | Unfavorite article | Yes |
 
 ## API Examples
 
@@ -260,25 +262,25 @@ Error messages include trace IDs for correlation with telemetry data.
 
 ### Required Environment Variables
 
-| Variable              | Description                | Required |
-| --------------------- | -------------------------- | -------- |
-| `SCOUT_ENDPOINT`      | base14 Scout OTLP endpoint | Yes      |
-| `SCOUT_CLIENT_ID`     | Scout OAuth2 client ID     | Yes      |
-| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes      |
-| `SCOUT_TOKEN_URL`     | Scout OAuth2 token URL     | Yes      |
+| Variable | Description | Required |
+| --- | --- | --- |
+| `SCOUT_ENDPOINT` | base14 Scout OTLP endpoint | Yes |
+| `SCOUT_CLIENT_ID` | Scout OAuth2 client ID | Yes |
+| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes |
+| `SCOUT_TOKEN_URL` | Scout OAuth2 token URL | Yes |
 
 ### Application Environment Variables
 
-| Variable             | Description            | Default                 |
-| -------------------- | ---------------------- | ----------------------- |
-| `PORT`               | HTTP server port       | `8080`                  |
-| `ENVIRONMENT`        | Environment name       | `development`           |
-| `DATABASE_URL`       | PostgreSQL connection  | (required)              |
-| `REDIS_URL`          | Redis connection       | `localhost:6379`        |
-| `JWT_SECRET`         | JWT signing secret     | (required)              |
-| `JWT_EXPIRES_IN`     | Token expiration       | `168h`                  |
-| `OTEL_SERVICE_NAME`  | Service name in traces | `go-echo-postgres-api`  |
-| `OTEL_EXPORTER_*`    | OTLP collector         | `http://localhost:4318` |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `PORT` | HTTP server port | `8080` |
+| `ENVIRONMENT` | Environment name | `development` |
+| `DATABASE_URL` | PostgreSQL connection | (required) |
+| `REDIS_URL` | Redis connection | `localhost:6379` |
+| `JWT_SECRET` | JWT signing secret | (required) |
+| `JWT_EXPIRES_IN` | Token expiration | `168h` |
+| `OTEL_SERVICE_NAME` | Service name in traces | `go-echo-postgres-api` |
+| `OTEL_EXPORTER_*` | OTLP collector | `http://localhost:4318` |
 
 ## Telemetry Data
 
@@ -299,24 +301,24 @@ HTTP POST /api/articles/:slug/favorite (parent span)
 
 **Custom Spans:**
 
-| Span Name                  | Description                          |
-| -------------------------- | ------------------------------------ |
-| `user.register`            | User registration                    |
-| `user.login`               | User login                           |
-| `article.create`           | Create article                       |
-| `article.findAll`          | List articles                        |
-| `article.findBySlug`       | Get single article                   |
-| `article.update`           | Update article                       |
-| `article.delete`           | Delete article                       |
-| `article.favorite`         | Favorite article                     |
-| `article.unfavorite`       | Unfavorite article                   |
-| `job.enqueue.notification` | Enqueue background job               |
-| `job.notification`         | Process notification job (worker)    |
+| Span Name | Description |
+| --- | --- |
+| `user.register` | User registration |
+| `user.login` | User login |
+| `article.create` | Create article |
+| `article.findAll` | List articles |
+| `article.findBySlug` | Get single article |
+| `article.update` | Update article |
+| `article.delete` | Delete article |
+| `article.favorite` | Favorite article |
+| `article.unfavorite` | Unfavorite article |
+| `job.enqueue.notification` | Enqueue background job |
+| `job.notification` | Process notification job (worker) |
 
 ### Metrics
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `http.server.request.total` | Counter | HTTP requests by method, route, status |
 | `http.server.request.duration` | Histogram | Request latency in milliseconds |
 | `http.server.active_requests` | Gauge | Current in-flight requests |
@@ -347,39 +349,39 @@ All logs include trace context for correlation:
 
 ### Users Table
 
-| Column        | Type         | Description         |
-| ------------- | ------------ | ------------------- |
-| id            | SERIAL       | Primary key         |
-| email         | VARCHAR(255) | Unique email        |
-| password_hash | VARCHAR(255) | Hashed password     |
-| name          | VARCHAR(255) | Display name        |
-| bio           | TEXT         | User bio            |
-| image         | VARCHAR(500) | Avatar URL          |
-| created_at    | TIMESTAMP    | Creation time       |
-| updated_at    | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | SERIAL | Primary key |
+| email | VARCHAR(255) | Unique email |
+| password_hash | VARCHAR(255) | Hashed password |
+| name | VARCHAR(255) | Display name |
+| bio | TEXT | User bio |
+| image | VARCHAR(500) | Avatar URL |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Articles Table
 
-| Column          | Type         | Description         |
-| --------------- | ------------ | ------------------- |
-| id              | SERIAL       | Primary key         |
-| slug            | VARCHAR(255) | Unique URL slug     |
-| title           | VARCHAR(255) | Article title       |
-| description     | TEXT         | Brief description   |
-| body            | TEXT         | Article content     |
-| author_id       | INTEGER      | FK to users         |
-| favorites_count | INTEGER      | Cached favorite cnt |
-| created_at      | TIMESTAMP    | Creation time       |
-| updated_at      | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | SERIAL | Primary key |
+| slug | VARCHAR(255) | Unique URL slug |
+| title | VARCHAR(255) | Article title |
+| description | TEXT | Brief description |
+| body | TEXT | Article content |
+| author_id | INTEGER | FK to users |
+| favorites_count | INTEGER | Cached favorite cnt |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Favorites Table
 
-| Column     | Type      | Description         |
-| ---------- | --------- | ------------------- |
-| id         | SERIAL    | Primary key         |
-| user_id    | INTEGER   | FK to users         |
-| article_id | INTEGER   | FK to articles      |
-| created_at | TIMESTAMP | Creation time       |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | SERIAL | Primary key |
+| user_id | INTEGER | FK to users |
+| article_id | INTEGER | FK to articles |
+| created_at | TIMESTAMP | Creation time |
 
 ## Project Structure
 
@@ -487,14 +489,14 @@ docker compose down -v
 
 ## Access Services
 
-| Service        | URL                            | Purpose             |
-| -------------- | ------------------------------ | ------------------- |
-| Echo API       | <http://localhost:8080>        | Main application    |
-| Health Check   | <http://localhost:8080/api/health> | Service health  |
-| PostgreSQL     | `localhost:5432`               | Database            |
-| Redis          | `localhost:6379`               | Job queue backend   |
-| OTel Collector | <http://localhost:4318>        | Telemetry ingestion |
-| OTel Health    | <http://localhost:13133>       | Collector health    |
+| Service | URL | Purpose |
+| --- | --- | --- |
+| Echo API | <http://localhost:8080> | Main application |
+| Health Check | <http://localhost:8080/api/health> | Service health |
+| PostgreSQL | `localhost:5432` | Database |
+| Redis | `localhost:6379` | Job queue backend |
+| OTel Collector | <http://localhost:4318> | Telemetry ingestion |
+| OTel Health | <http://localhost:13133> | Collector health |
 
 ## OpenTelemetry Configuration
 
@@ -502,7 +504,7 @@ docker compose down -v
 
 From `go.mod`:
 
-```
+```text
 go.opentelemetry.io/otel v1.39.0
 go.opentelemetry.io/otel/sdk v1.39.0
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.39.0

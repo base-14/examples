@@ -1,8 +1,7 @@
 # Astronomy Shop Mobile
 
-A production-ready Flutter e-commerce app with comprehensive OpenTelemetry
-observability integration. Built to demonstrate mobile observability patterns
-with real-world complexity.
+A Flutter e-commerce app instrumented with OpenTelemetry. It demonstrates
+mobile observability patterns on an app with more than one screen.
 
 ## Features
 
@@ -15,13 +14,14 @@ with real-world complexity.
 - Product Search - API search with local fallback and result caching
 - Recommendations - Cart-based and session-based product recommendations
 
-### Observability
+### Observability Features
 
 - Three OTLP Signals - Traces, metrics, and structured logs exported to any OTLP collector
 - Crash Analytics - Crash vs error classification, crash-free session tracking, force-flush on fatal errors
 - Structured Error Reporting - Stack traces, breadcrumb trails, screen context, and session duration on every error
 - Session Tracking - Unique session correlation across all requests
-- HTTP Instrumentation - Every API call traced with OTel semantic conventions, error logging, and request duration histograms
+- HTTP Instrumentation - Every API call traced with OTel semantic conventions, error logging, and request duration
+  histograms
 - Business Metrics - Conversion funnel and user journey analytics
 - Error Boundaries - Widget-level error catching that chains to the global crash handler
 - Breadcrumb Trail - Last 20 user actions recorded for crash context
@@ -53,9 +53,9 @@ cd opentelemetry-demo
 docker compose -f docker-compose.minimal.yml up -d
 ```
 
-2. Flutter SDK (latest stable version)
+1. Flutter SDK (latest stable version)
 
-3. Chrome browser for web deployment
+2. Chrome browser for web deployment
 
 ### Verify Demo Environment
 
@@ -77,7 +77,7 @@ The app will be available at: <http://localhost:8090>
 
 ### Make Targets
 
-```
+```text
 make run             Run in Chrome at localhost:8090 (web security disabled for local dev)
 make analyze         Run static analysis (flutter analyze)
 make test            Run all tests
@@ -167,7 +167,7 @@ share the same resource attributes and session ID for correlation.
 W3C Trace Context (`traceparent`, `tracestate`) headers are injected on every
 HTTP request to the backend, creating end-to-end distributed traces:
 
-```
+```text
 Flutter (CLIENT span) → Envoy → Frontend → Product Catalog / Cart / Checkout
 ```
 
@@ -180,7 +180,7 @@ Spans follow OTel stable HTTP semantic conventions. Span name is
 `$method $path` (e.g. `GET /api/products`).
 
 | Attribute | Requirement | Emitted |
-|-----------|-------------|---------|
+| --- | --- | --- |
 | `http.request.method` | Required | Always |
 | `url.full` | Required | Always |
 | `url.scheme` | Required | Always |
@@ -197,7 +197,7 @@ Spans follow OTel stable HTTP semantic conventions. Span name is
 Attached to every trace, metric, and log export:
 
 | Attribute | Source |
-|-----------|--------|
+| --- | --- |
 | `service.name` | `.env` SERVICE_NAME |
 | `service.version` | `.env` SERVICE_VERSION |
 | `deployment.environment.name` | `.env` ENVIRONMENT |
@@ -241,7 +241,7 @@ telemetry. HTTP 4xx responses are logged as WARN, 5xx as ERROR.
 ### Error Classification
 
 | Error Source | Severity | Fatal | Trigger |
-|-------------|----------|-------|---------|
+| --- | --- | --- | --- |
 | `FlutterError.onError` (non-silent) | crash | Yes | Unhandled framework error |
 | `FlutterError.onError` (silent) | error | No | Known Flutter warning |
 | `PlatformDispatcher.onError` | crash | Yes | Unhandled platform exception |
@@ -259,7 +259,7 @@ breadcrumb trail is included in both the `error_occurred` span and the
 structured log record.
 
 | Pattern | Source |
-|---------|--------|
+| --- | --- |
 | `navigate:ProductList` | main.dart |
 | `navigate:ProductDetail:{id}` | product_detail_screen.dart |
 | `navigate:Cart` | cart_screen.dart |
@@ -276,7 +276,7 @@ structured log record.
 ### Battery-Aware Sampling
 
 | Battery State | Sampling Rate | Affected Signals |
-|--------------|--------------|-----------------|
+| --- | --- | --- |
 | Normal (>= 20%) | 100% | All events, DEBUG/INFO logs |
 | Low (10–20%) | 50% | Events sampled, DEBUG/INFO logs sampled |
 | Critical (< 10%) | 20% | Events sampled, DEBUG/INFO logs sampled |
@@ -291,7 +291,8 @@ Metrics always accumulate and flush on schedule.
 
 Copy `.env.example` to `.env` and edit as needed:
 
-- `OTLP_ENDPOINT` - OTLP HTTP collector (default: `http://localhost:8080/otlp-http` via Envoy, or `http://localhost:4318` for direct collector)
+- `OTLP_ENDPOINT` - OTLP HTTP collector (default: `http://localhost:8080/otlp-http` via Envoy, or
+  `http://localhost:4318` for direct collector)
 - `OTLP_TRACES_EXPORTER` - Traces path (default: `v1/traces`)
 - `OTLP_METRICS_EXPORTER` - Metrics path (default: `v1/metrics`)
 - `OTLP_LOGS_EXPORTER` - Logs path (default: `v1/logs`)
@@ -323,7 +324,7 @@ Copy `.env.example` to `.env` and edit as needed:
 The OTel Demo ships with an otel-collector on port 4318. Route the Flutter app
 through the Envoy frontend-proxy:
 
-```
+```text
 OTLP_ENDPOINT=http://localhost:8080/otlp-http
 ```
 
@@ -353,7 +354,7 @@ scout-collector:
     - ENVIRONMENT=${ENVIRONMENT}
 ```
 
-2. Configure Scout credentials in `.env`:
+1. Configure Scout credentials in `.env`:
 
 ```bash
 SCOUT_ENDPOINT=https://otel.play.base14.io/<your-org-id>/otlp
@@ -362,13 +363,13 @@ SCOUT_CLIENT_SECRET=your_client_secret
 SCOUT_TOKEN_URL=https://id.b14.dev/realms/<your-org-id>/protocol/openid-connect/token
 ```
 
-3. Point the Flutter app at the Scout collector:
+1. Point the Flutter app at the Scout collector:
 
-```
+```text
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-4. Route the OTel Demo's otel-collector to Scout as well by adding to
+1. Route the OTel Demo's otel-collector to Scout as well by adding to
 `otelcol-config-extras.yml`:
 
 ```yaml

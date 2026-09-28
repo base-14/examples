@@ -48,7 +48,7 @@ else
   [ "$status" = "200" ] || stop "collector not healthy at ${COLLECTOR_HEALTH} (${status})"
   echo "  $(green "PASS") collector healthy"
 
-  finished=$(stat -f %m "$RUN_FILE" 2>/dev/null || stat -c %Y "$RUN_FILE")
+  finished=$(stat -c %Y "$RUN_FILE" 2>/dev/null || stat -f %m "$RUN_FILE")
   wait_seconds=$(( finished + FLUSH_SECONDS - $(date +%s) ))
   if [ "$wait_seconds" -gt 0 ]; then
     echo "  $(dim "waiting ${wait_seconds}s for the last batches to reach the collector")"

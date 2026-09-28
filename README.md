@@ -1,7 +1,7 @@
 # OpenTelemetry Integration Examples
 
-Production-ready examples for integrating OpenTelemetry with
-[Base14 Scout][scout] observability platform.
+OpenTelemetry instrumentation examples for applications and components,
+sending telemetry to [base14 Scout][scout].
 
 ## Available Examples
 
@@ -111,6 +111,18 @@ Production-ready examples for integrating OpenTelemetry with
 | **Scout Collector** | OpenTelemetry Collector | [scout-collector](./scout-collector) | [Guide][doc-collector] |
 | **AWS CloudWatch** | CloudWatch log streaming | [aws-cloudwatch-stream](./aws-cloudwatch-stream) | - |
 | **Load Generator** | Load testing with OTEL | [loadgen](./loadgen) | [README](./loadgen/README.md) |
+
+### Component Rigs
+
+Compose rigs under [components/](./components) that run a piece of software
+you operate, collect its telemetry with the Collector and send it to Scout.
+
+| Component | Collected with | Rig | Documentation |
+| --- | --- | --- | --- |
+| **OpenClaw** | `diagnostics-otel` plugin, OTLP traces, metrics and logs | [openclaw-telemetry](./components/openclaw-telemetry) | [Guide][doc-openclaw] |
+| **SQL Server** | `sqlserverreceiver` | [sqlserver-telemetry](./components/sqlserver-telemetry) | [Guide][doc-sqlserver] |
+| **SNMP devices** | `snmpreceiver` | [snmp-telemetry](./components/snmp-telemetry) | [Guide][doc-snmp] |
+| **Azure AKS** | OpenTelemetry Operator | [azure-aks-operator-telemetry](./components/azure-aks-operator-telemetry) | [Guide][doc-aks] |
 
 ### Mobile Applications
 
@@ -413,3 +425,7 @@ See [LICENSE](./LICENSE) for details.
 [scout]: https://base14.io/scout
 [doc-collector]: https://docs.base14.io/category/opentelemetry-collector-setup
 [doc-apps]: https://docs.base14.io/category/app-instrumentation
+[doc-openclaw]: https://docs.base14.io/instrument/component/collecting-openclaw-telemetry
+[doc-sqlserver]: https://docs.base14.io/instrument/component/collecting-sqlserver-telemetry
+[doc-snmp]: https://docs.base14.io/instrument/component/collecting-snmp-telemetry
+[doc-aks]: https://docs.base14.io/instrument/infra/azure/collecting-azure-aks-telemetry

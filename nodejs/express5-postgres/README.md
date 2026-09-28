@@ -1,7 +1,7 @@
 # Express 5 + PostgreSQL + OpenTelemetry
 
-A production-ready example demonstrating Express 5 REST API with TypeScript, PostgreSQL, Redis,
-background jobs, WebSockets, and comprehensive OpenTelemetry instrumentation for end-to-end observability.
+An Express 5 REST API in TypeScript with PostgreSQL, Redis, background jobs, WebSockets and OpenTelemetry
+instrumentation from the HTTP request to the database.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/express)
 
@@ -26,20 +26,21 @@ guide is
 
 ## Stack Profile
 
-| Component         | Version  | EOL Status | Notes                          |
-| ----------------- | -------- | ---------- | ------------------------------ |
-| **Node.js**       | 24.x     | Apr 2027   | LTS release                    |
-| **TypeScript**    | 5.x      | Current    | Strict mode enabled            |
-| **Express**       | 5.x      | Active     | Latest major version           |
-| **PostgreSQL**    | 18       | Nov 2029   | Alpine variant                 |
-| **Redis**         | 8.x      | Active     | For BullMQ job queue           |
-| **Drizzle ORM**   | 0.38.x   | Active     | Type-safe ORM with migrations  |
-| **BullMQ**        | 5.x      | Active     | Background job processing      |
-| **Socket.io**     | 4.x      | Active     | Real-time WebSocket events     |
-| **OpenTelemetry** | 0.57.x   | Latest     | SDK Node + auto-instrumentation|
+| Component | Version | EOL Status | Notes |
+| --- | --- | --- | --- |
+| **Node.js** | 24.x | Apr 2027 | LTS release |
+| **TypeScript** | 5.x | Current | Strict mode enabled |
+| **Express** | 5.x | Active | Latest major version |
+| **PostgreSQL** | 18 | Nov 2029 | Alpine variant |
+| **Redis** | 8.x | Active | For BullMQ job queue |
+| **Drizzle ORM** | 0.38.x | Active | Type-safe ORM with migrations |
+| **BullMQ** | 5.x | Active | Background job processing |
+| **Socket.io** | 4.x | Active | Real-time WebSocket events |
+| **OpenTelemetry** | 0.57.x | Latest | SDK Node + auto-instrumentation |
 
-**Why This Stack**: Demonstrates Express 5 with TypeScript for modern Node.js development, PostgreSQL for relational data,
-Redis/BullMQ for background jobs, Socket.io for real-time updates, and OpenTelemetry for complete observability across all components.
+**Why This Stack**: Demonstrates Express 5 with TypeScript for modern Node.js development, PostgreSQL for relational
+data, Redis/BullMQ for background jobs, Socket.io for real-time updates, and OpenTelemetry for complete observability
+across all components.
 
 ## What's Instrumented
 
@@ -151,47 +152,47 @@ This script:
 
 ### Health
 
-| Method | Endpoint      | Description  | Auth |
-| ------ | ------------- | ------------ | ---- |
-| `GET`  | `/api/health` | Health check | No   |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Health check | No |
 
 ### Authentication
 
-| Method | Endpoint             | Description      | Auth |
-| ------ | -------------------- | ---------------- | ---- |
-| `POST` | `/api/auth/register` | Register user    | No   |
-| `POST` | `/api/auth/login`    | Login user       | No   |
-| `GET`  | `/api/auth/me`       | Get current user | Yes  |
-| `POST` | `/api/auth/logout`   | Logout user      | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/register` | Register user | No |
+| `POST` | `/api/auth/login` | Login user | No |
+| `GET` | `/api/auth/me` | Get current user | Yes |
+| `POST` | `/api/auth/logout` | Logout user | Yes |
 
 ### Articles
 
-| Method   | Endpoint                      | Description              | Auth |
-| -------- | ----------------------------- | ------------------------ | ---- |
-| `GET`    | `/api/articles`               | List articles            | No   |
-| `POST`   | `/api/articles`               | Create new article       | Yes  |
-| `GET`    | `/api/articles/:slug`         | Get single article       | No   |
-| `PUT`    | `/api/articles/:slug`         | Update article (owner)   | Yes  |
-| `DELETE` | `/api/articles/:slug`         | Delete article (owner)   | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/articles` | List articles | No |
+| `POST` | `/api/articles` | Create new article | Yes |
+| `GET` | `/api/articles/:slug` | Get single article | No |
+| `PUT` | `/api/articles/:slug` | Update article (owner) | Yes |
+| `DELETE` | `/api/articles/:slug` | Delete article (owner) | Yes |
 
 ### Favorites
 
-| Method   | Endpoint                         | Description         | Auth |
-| -------- | -------------------------------- | ------------------- | ---- |
-| `POST`   | `/api/articles/:slug/favorite`   | Favorite an article | Yes  |
-| `DELETE` | `/api/articles/:slug/favorite`   | Unfavorite article  | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/articles/:slug/favorite` | Favorite an article | Yes |
+| `DELETE` | `/api/articles/:slug/favorite` | Unfavorite article | Yes |
 
 ## WebSocket Events
 
 Connect to `ws://localhost:8000` with a JWT token for real-time updates:
 
-| Event                | Direction     | Description                |
-| -------------------- | ------------- | -------------------------- |
-| `subscribe:articles` | Client→Server | Subscribe to updates       |
-| `article:created`    | Server→Client | New article created        |
-| `article:updated`    | Server→Client | Article updated            |
-| `article:deleted`    | Server→Client | Article deleted            |
-| `article:favorited`  | Server→Client | Article favorited          |
+| Event | Direction | Description |
+| --- | --- | --- |
+| `subscribe:articles` | Client→Server | Subscribe to updates |
+| `article:created` | Server→Client | New article created |
+| `article:updated` | Server→Client | Article updated |
+| `article:deleted` | Server→Client | Article deleted |
+| `article:favorited` | Server→Client | Article favorited |
 
 ## Error Response Format
 
@@ -210,26 +211,26 @@ Error messages include trace IDs for correlation with telemetry data.
 
 ### Required Environment Variables
 
-| Variable              | Description                | Required |
-| --------------------- | -------------------------- | -------- |
-| `SCOUT_ENDPOINT`      | base14 Scout OTLP endpoint | Yes      |
-| `SCOUT_CLIENT_ID`     | Scout OAuth2 client ID     | Yes      |
-| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes      |
-| `SCOUT_TOKEN_URL`     | Scout OAuth2 token URL     | Yes      |
+| Variable | Description | Required |
+| --- | --- | --- |
+| `SCOUT_ENDPOINT` | base14 Scout OTLP endpoint | Yes |
+| `SCOUT_CLIENT_ID` | Scout OAuth2 client ID | Yes |
+| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes |
+| `SCOUT_TOKEN_URL` | Scout OAuth2 token URL | Yes |
 
 ### Application Environment Variables
 
-| Variable             | Description            | Default                 |
-| -------------------- | ---------------------- | ----------------------- |
-| `NODE_ENV`           | Environment            | `development`           |
-| `PORT`               | Application port       | `8000`                  |
-| `LOG_LEVEL`          | Logging level          | `info`                  |
-| `DATABASE_URL`       | PostgreSQL connection  | (required)              |
-| `REDIS_URL`          | Redis connection       | `redis://localhost:6379`|
-| `JWT_SECRET`         | JWT signing secret     | (required)              |
-| `JWT_EXPIRES_IN`     | JWT token expiration   | `7d`                    |
-| `OTEL_SERVICE_NAME`  | Service name in traces | `express5-postgres-app` |
-| `OTEL_EXPORTER_*`    | OTLP collector         | `http://collector:4318` |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `NODE_ENV` | Environment | `development` |
+| `PORT` | Application port | `8000` |
+| `LOG_LEVEL` | Logging level | `info` |
+| `DATABASE_URL` | PostgreSQL connection | (required) |
+| `REDIS_URL` | Redis connection | `redis://localhost:6379` |
+| `JWT_SECRET` | JWT signing secret | (required) |
+| `JWT_EXPIRES_IN` | JWT token expiration | `7d` |
+| `OTEL_SERVICE_NAME` | Service name in traces | `express5-postgres-app` |
+| `OTEL_EXPORTER_*` | OTLP collector | `http://collector:4318` |
 
 ## Telemetry Data
 
@@ -252,22 +253,22 @@ Error messages include trace IDs for correlation with telemetry data.
 
 **Custom Business Spans**:
 
-| Span Name               | Description                          |
-| ----------------------- | ------------------------------------ |
-| `auth.register`         | User registration                    |
-| `auth.login`            | User login                           |
-| `auth.getProfile`       | Get user profile                     |
-| `article.create`        | Create article                       |
-| `article.findAll`       | List articles                        |
-| `article.findBySlug`    | Get single article                   |
-| `article.update`        | Update article                       |
-| `article.delete`        | Delete article                       |
-| `article.favorite`      | Favorite article                     |
-| `article.unfavorite`    | Unfavorite article                   |
-| `job.enqueue`           | Enqueue background job               |
-| `job.process`           | Process background job (worker)      |
-| `notification.send`     | Send notification                    |
-| `websocket.emit`        | Emit WebSocket event                 |
+| Span Name | Description |
+| --- | --- |
+| `auth.register` | User registration |
+| `auth.login` | User login |
+| `auth.getProfile` | Get user profile |
+| `article.create` | Create article |
+| `article.findAll` | List articles |
+| `article.findBySlug` | Get single article |
+| `article.update` | Update article |
+| `article.delete` | Delete article |
+| `article.favorite` | Favorite article |
+| `article.unfavorite` | Unfavorite article |
+| `job.enqueue` | Enqueue background job |
+| `job.process` | Process background job (worker) |
+| `notification.send` | Send notification |
+| `websocket.emit` | Emit WebSocket event |
 
 **Custom Attributes**:
 
@@ -325,39 +326,39 @@ Log attributes include `trace.id` and `span.id` for correlation.
 
 ### Users Table
 
-| Column        | Type         | Description         |
-| ------------- | ------------ | ------------------- |
-| id            | SERIAL       | Primary key         |
-| email         | VARCHAR(255) | Unique email        |
-| password_hash | VARCHAR(255) | Hashed password     |
-| name          | VARCHAR(255) | Display name        |
-| bio           | TEXT         | User bio            |
-| image         | VARCHAR(500) | Avatar URL          |
-| created_at    | TIMESTAMP    | Creation time       |
-| updated_at    | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | SERIAL | Primary key |
+| email | VARCHAR(255) | Unique email |
+| password_hash | VARCHAR(255) | Hashed password |
+| name | VARCHAR(255) | Display name |
+| bio | TEXT | User bio |
+| image | VARCHAR(500) | Avatar URL |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Articles Table
 
-| Column          | Type         | Description         |
-| --------------- | ------------ | ------------------- |
-| id              | SERIAL       | Primary key         |
-| slug            | VARCHAR(255) | Unique URL slug     |
-| title           | VARCHAR(255) | Article title       |
-| description     | TEXT         | Brief description   |
-| body            | TEXT         | Article content     |
-| author_id       | INTEGER      | FK to users         |
-| favorites_count | INTEGER      | Cached favorite cnt |
-| created_at      | TIMESTAMP    | Creation time       |
-| updated_at      | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | SERIAL | Primary key |
+| slug | VARCHAR(255) | Unique URL slug |
+| title | VARCHAR(255) | Article title |
+| description | TEXT | Brief description |
+| body | TEXT | Article content |
+| author_id | INTEGER | FK to users |
+| favorites_count | INTEGER | Cached favorite cnt |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Favorites Table
 
-| Column     | Type      | Description         |
-| ---------- | --------- | ------------------- |
-| id         | SERIAL    | Primary key         |
-| user_id    | INTEGER   | FK to users         |
-| article_id | INTEGER   | FK to articles      |
-| created_at | TIMESTAMP | Creation time       |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | SERIAL | Primary key |
+| user_id | INTEGER | FK to users |
+| article_id | INTEGER | FK to articles |
+| created_at | TIMESTAMP | Creation time |
 
 ## Project Structure
 
@@ -440,14 +441,14 @@ docker compose up --build app
 
 ### Access Services
 
-| Service        | URL                            | Purpose             |
-| -------------- | ------------------------------ | ------------------- |
-| Express API    | <http://localhost:8000>        | Main application    |
-| Health Check   | <http://localhost:8000/api/health> | Service health  |
-| PostgreSQL     | `localhost:5432`               | Database            |
-| Redis          | `localhost:6379`               | Job queue backend   |
-| OTel Collector | <http://localhost:4318>        | Telemetry ingestion |
-| OTel Health    | <http://localhost:13133>       | Collector health    |
+| Service | URL | Purpose |
+| --- | --- | --- |
+| Express API | <http://localhost:8000> | Main application |
+| Health Check | <http://localhost:8000/api/health> | Service health |
+| PostgreSQL | `localhost:5432` | Database |
+| Redis | `localhost:6379` | Job queue backend |
+| OTel Collector | <http://localhost:4318> | Telemetry ingestion |
+| OTel Health | <http://localhost:13133> | Collector health |
 
 ## OpenTelemetry Configuration
 
@@ -576,4 +577,3 @@ span.end();
 - [BullMQ Documentation](https://docs.bullmq.io/)
 - [Socket.io Documentation](https://socket.io/docs/)
 - [base14 Scout Documentation](https://docs.base14.io/)
-

@@ -1,6 +1,6 @@
-# Rust Axum + PostgreSQL + OpenTelemetry Example
+# Rust Axum + PostgreSQL + OpenTelemetry
 
-A production-ready Rust web application demonstrating full OpenTelemetry instrumentation with Axum, SQLx, and PostgreSQL-native background jobs.
+A Rust web application on Axum with SQLx, PostgreSQL-native background jobs and OpenTelemetry instrumentation.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/axum)
 
@@ -26,7 +26,7 @@ separate PostgreSQL-backed background worker binary. The full guide is
 ## Stack Profile
 
 | Component | Version | Status | Notes |
-|-----------|---------|--------|-------|
+| --- | --- | --- | --- |
 | **Rust** | 1.98.1 | Active | Edition 2024 |
 | **Axum** | 0.8.8 | Active | Tower-based async web framework |
 | **SQLx** | 0.8.6 | Active | Async PostgreSQL with compile-time queries |
@@ -125,7 +125,7 @@ docker compose up -d --build
 ## API Endpoints
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
+| --- | --- | --- | --- |
 | GET | /api/health | No | Health check with DB ping |
 | POST | /api/register | No | Register new user |
 | POST | /api/login | No | Login, returns JWT |
@@ -168,7 +168,7 @@ curl -X POST http://localhost:8080/api/articles \
 
 ## Project Structure
 
-```
+```text
 rust/axum-postgres/
 ├── Cargo.toml              # Dependencies
 ├── Makefile                # Build tasks
@@ -213,7 +213,7 @@ All operations are instrumented with distributed tracing:
 Custom business metrics exported via OTLP:
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `http.requests.total` | Counter | Total HTTP requests |
 | `http.request.duration` | Histogram | HTTP request duration (ms) |
 | `articles.created` | Counter | Total articles created |
@@ -229,14 +229,14 @@ Custom business metrics exported via OTLP:
 ## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| --- | --- | --- |
 | `PORT` | 8080 | API server port |
 | `DATABASE_URL` | - | PostgreSQL connection string |
 | `JWT_SECRET` | - | JWT signing secret |
 | `JWT_EXPIRES_IN_HOURS` | 168 | Token expiry in hours |
 | `ENVIRONMENT` | development | Environment name |
 | `OTEL_SERVICE_NAME` | rust-axum-postgres | Service name for telemetry |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | http://localhost:4317 | OTLP gRPC endpoint |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | <http://localhost:4317> | OTLP gRPC endpoint |
 
 ## Development
 
@@ -265,7 +265,8 @@ cargo run
 
 ## Background Jobs
 
-The application uses a PostgreSQL-native job queue with the `SKIP LOCKED` pattern for reliable, distributed job processing.
+The application uses a PostgreSQL-native job queue with the `SKIP LOCKED` pattern for reliable, distributed job
+processing.
 
 ### Job Queue Features
 
@@ -296,7 +297,7 @@ docker build -f Dockerfile.worker -t rust-axum-worker .
 ### Services
 
 | Service | Port | Description |
-|---------|------|-------------|
+| --- | --- | --- |
 | api | 8080 | Main API server |
 | worker | - | Background job processor |
 | postgres | 5432 | PostgreSQL database |

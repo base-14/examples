@@ -1,6 +1,7 @@
 # Quarkus + PostgreSQL + OpenTelemetry
 
-Production-ready Quarkus REST API with built-in OpenTelemetry instrumentation, JWT authentication, and PostgreSQL integration with base14 Scout.
+A Quarkus REST API with built-in OpenTelemetry instrumentation, JWT authentication and PostgreSQL, sending telemetry to
+base14 Scout.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/quarkus)
 
@@ -23,7 +24,7 @@ traced end to end. The full guide is
 ## Stack Profile
 
 | Component | Version | EOL Status | Current Version |
-|-----------|---------|------------|-----------------|
+| --- | --- | --- | --- |
 | **Java** | 21 | Sep 2028 | LTS release |
 | **Quarkus** | 3.31 | Active | 3.31.3 |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
@@ -48,7 +49,8 @@ which include background job processing, this example intentionally omits asynch
    demonstrates OTEL instrumentation that works seamlessly in both JVM and native modes
 2. **Unique Value Proposition**: While other examples demonstrate async patterns (BullMQ, Celery, Asynq, River),
    Quarkus showcases reactive programming, native compilation, and built-in OTEL support
-3. **Educational Clarity**: Simplifies the example to focus on Quarkus-specific features without the complexity of job queue integration
+3. **Educational Clarity**: Simplifies the example to focus on Quarkus-specific features without the complexity of job
+   queue integration
 
 **For Async Job Patterns**: See other examples in this repository:
 
@@ -161,31 +163,31 @@ This script exercises all API endpoints and generates telemetry data.
 
 ### Health
 
-| Method | Endpoint      | Description             | Auth |
-| ------ | ------------- | ----------------------- | ---- |
-| `GET`  | `/api/health` | Custom health check     | No   |
-| `GET`  | `/q/health`   | Quarkus SmallRye health | No   |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Custom health check | No |
+| `GET` | `/q/health` | Quarkus SmallRye health | No |
 
 ### Authentication
 
-| Method | Endpoint        | Description               | Auth |
-| ------ | --------------- | ------------------------- | ---- |
-| `POST` | `/api/register` | Register new user         | No   |
-| `POST` | `/api/login`    | Login and get JWT token   | No   |
-| `GET`  | `/api/user`     | Get current user profile  | Yes  |
-| `POST` | `/api/logout`   | Logout                    | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/register` | Register new user | No |
+| `POST` | `/api/login` | Login and get JWT token | No |
+| `GET` | `/api/user` | Get current user profile | Yes |
+| `POST` | `/api/logout` | Logout | Yes |
 
 ### Articles
 
-| Method   | Endpoint                     | Description                  | Auth        |
-| -------- | ---------------------------- | ---------------------------- | ----------- |
-| `GET`    | `/api/articles`              | List articles (paginated)    | No          |
-| `POST`   | `/api/articles`              | Create article               | Yes         |
-| `GET`    | `/api/articles/{slug}`       | Get single article           | No          |
-| `PUT`    | `/api/articles/{slug}`       | Update article               | Yes (owner) |
-| `DELETE` | `/api/articles/{slug}`       | Delete article               | Yes (owner) |
-| `POST`   | `/api/articles/{slug}/favorite`   | Favorite article        | Yes         |
-| `DELETE` | `/api/articles/{slug}/favorite`   | Unfavorite article      | Yes         |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/articles` | List articles (paginated) | No |
+| `POST` | `/api/articles` | Create article | Yes |
+| `GET` | `/api/articles/{slug}` | Get single article | No |
+| `PUT` | `/api/articles/{slug}` | Update article | Yes (owner) |
+| `DELETE` | `/api/articles/{slug}` | Delete article | Yes (owner) |
+| `POST` | `/api/articles/{slug}/favorite` | Favorite article | Yes |
+| `DELETE` | `/api/articles/{slug}/favorite` | Unfavorite article | Yes |
 
 ## API Examples
 
@@ -254,24 +256,24 @@ Error responses include trace IDs for correlation with telemetry data.
 
 ### Required Environment Variables
 
-| Variable              | Description                | Required |
-| --------------------- | -------------------------- | -------- |
-| `SCOUT_ENDPOINT`      | base14 Scout OTLP endpoint | Yes      |
-| `SCOUT_CLIENT_ID`     | Scout OAuth2 client ID     | Yes      |
-| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes      |
-| `SCOUT_TOKEN_URL`     | Scout OAuth2 token URL     | Yes      |
+| Variable | Description | Required |
+| --- | --- | --- |
+| `SCOUT_ENDPOINT` | base14 Scout OTLP endpoint | Yes |
+| `SCOUT_CLIENT_ID` | Scout OAuth2 client ID | Yes |
+| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes |
+| `SCOUT_TOKEN_URL` | Scout OAuth2 token URL | Yes |
 
 ### Application Environment Variables
 
-| Variable             | Description            | Default                 |
-| -------------------- | ---------------------- | ----------------------- |
-| `ENVIRONMENT`        | Deployment environment | `development`           |
-| `DB_HOST`            | PostgreSQL host        | `localhost`             |
-| `DB_PORT`            | PostgreSQL port        | `5432`                  |
-| `DB_NAME`            | Database name          | `quarkus_app`           |
-| `DB_USER`            | Database user          | `postgres`              |
-| `DB_PASSWORD`        | Database password      | `postgres`              |
-| `OTEL_EXPORTER_*`    | OTLP collector         | `http://localhost:4318` |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `ENVIRONMENT` | Deployment environment | `development` |
+| `DB_HOST` | PostgreSQL host | `localhost` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `DB_NAME` | Database name | `quarkus_app` |
+| `DB_USER` | Database user | `postgres` |
+| `DB_PASSWORD` | Database password | `postgres` |
+| `OTEL_EXPORTER_*` | OTLP collector | `http://localhost:4318` |
 
 ### Quarkus OpenTelemetry Configuration
 
@@ -315,7 +317,7 @@ public Article createArticle(CreateArticleDto dto, User author) {
 ### Metrics
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `http.server.requests` | Counter | HTTP requests by method, route, status |
 | `http.server.duration` | Histogram | Request latency |
 | `jvm.memory.used` | Gauge | JVM memory usage |
@@ -336,39 +338,39 @@ All logs include `traceId` and `spanId` for correlation:
 
 ### Users Table
 
-| Column        | Type         | Description         |
-| ------------- | ------------ | ------------------- |
-| id            | BIGSERIAL    | Primary key         |
-| email         | VARCHAR(255) | Unique email        |
-| password_hash | VARCHAR(255) | Hashed password     |
-| name          | VARCHAR(255) | Display name        |
-| bio           | TEXT         | User bio            |
-| image         | VARCHAR(500) | Avatar URL          |
-| created_at    | TIMESTAMP    | Creation time       |
-| updated_at    | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | BIGSERIAL | Primary key |
+| email | VARCHAR(255) | Unique email |
+| password_hash | VARCHAR(255) | Hashed password |
+| name | VARCHAR(255) | Display name |
+| bio | TEXT | User bio |
+| image | VARCHAR(500) | Avatar URL |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Articles Table
 
-| Column          | Type         | Description         |
-| --------------- | ------------ | ------------------- |
-| id              | BIGSERIAL    | Primary key         |
-| slug            | VARCHAR(255) | Unique URL slug     |
-| title           | VARCHAR(255) | Article title       |
-| description     | TEXT         | Brief description   |
-| body            | TEXT         | Article content     |
-| author_id       | BIGINT       | FK to users         |
-| favorites_count | INTEGER      | Cached favorite cnt |
-| created_at      | TIMESTAMP    | Creation time       |
-| updated_at      | TIMESTAMP    | Last update         |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | BIGSERIAL | Primary key |
+| slug | VARCHAR(255) | Unique URL slug |
+| title | VARCHAR(255) | Article title |
+| description | TEXT | Brief description |
+| body | TEXT | Article content |
+| author_id | BIGINT | FK to users |
+| favorites_count | INTEGER | Cached favorite cnt |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update |
 
 ### Favorites Table
 
-| Column     | Type      | Description         |
-| ---------- | --------- | ------------------- |
-| id         | BIGSERIAL | Primary key         |
-| user_id    | BIGINT    | FK to users         |
-| article_id | BIGINT    | FK to articles      |
-| created_at | TIMESTAMP | Creation time       |
+| Column | Type | Description |
+| --- | --- | --- |
+| id | BIGSERIAL | Primary key |
+| user_id | BIGINT | FK to users |
+| article_id | BIGINT | FK to articles |
+| created_at | TIMESTAMP | Creation time |
 
 ## Project Structure
 
@@ -473,14 +475,14 @@ make docker-build   # Rebuild images
 
 ## Access Services
 
-| Service        | URL                            | Purpose             |
-| -------------- | ------------------------------ | ------------------- |
-| Quarkus API    | <http://localhost:8080>        | Main application    |
-| Dev UI         | <http://localhost:8080/q/dev>  | Development console |
-| Health Check   | <http://localhost:8080/api/health> | Service health  |
-| PostgreSQL     | `localhost:5432`               | Database            |
-| OTel Collector | <http://localhost:4318>        | Telemetry ingestion |
-| OTel Health    | <http://localhost:13133>       | Collector health    |
+| Service | URL | Purpose |
+| --- | --- | --- |
+| Quarkus API | <http://localhost:8080> | Main application |
+| Dev UI | <http://localhost:8080/q/dev> | Development console |
+| Health Check | <http://localhost:8080/api/health> | Service health |
+| PostgreSQL | `localhost:5432` | Database |
+| OTel Collector | <http://localhost:4318> | Telemetry ingestion |
+| OTel Health | <http://localhost:13133> | Collector health |
 
 ## Troubleshooting
 
@@ -572,4 +574,3 @@ After starting the application and generating some traffic:
 - [OpenTelemetry Java](https://opentelemetry.io/docs/languages/java/)
 - [Quarkus Native Compilation](https://quarkus.io/guides/building-native-image)
 - [base14 Scout Documentation](https://docs.base14.io)
-

@@ -4,7 +4,7 @@ Go-based parking lot management system with OpenTelemetry instrumentation.
 Features both CLI and HTTP REST API interfaces with custom metrics and
 distributed tracing via base14 Scout.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
 
 ## How to instrument Go Chi with OpenTelemetry
 
@@ -59,7 +59,7 @@ Service name: `go-parking-lot-otel` (configurable)
 ## Dependencies
 
 | Package | Purpose |
-| ------- | ------- |
+| --- | --- |
 | go.opentelemetry.io/otel | Core OpenTelemetry SDK |
 | go.opentelemetry.io/otel/exporters/otlp/otlptracehttp | OTLP trace exporter |
 | go.opentelemetry.io/otel/exporters/otlp/otlpmetrichttp | OTLP metric exporter |
@@ -129,7 +129,7 @@ https://your-tenant.base14.io
 ### Environment Variables
 
 | Variable | Description | Default |
-| -------- | ----------- | ------- |
+| --- | --- | --- |
 | `APP_ENV` | Application environment | `development` |
 | `APP_PORT` | HTTP server port | `8080` |
 | `OTEL_SERVICE_NAME` | Service name | `go-parking-lot-otel` |

@@ -1,9 +1,9 @@
 # Spring Boot with OpenTelemetry - Java Agent Approach
 
-Spring Boot 3.5.9 application with OpenTelemetry instrumentation using the
+Spring Boot 3.5.16 application with OpenTelemetry instrumentation using the
 **Java Agent** approach.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives#java-agent-approach)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives#java-agent-approach)
 
 ## How to instrument Spring Boot with the OpenTelemetry Java agent
 
@@ -20,7 +20,8 @@ Spring Boot 3.5.9 application with OpenTelemetry instrumentation using the
 This example adds Spring Data MongoDB operation spans, controller-level spans enabled with
 `OTEL_INSTRUMENTATION_SPRING_WEBMVC_CONTROLLER_ENABLED=true`, and per-library toggles through
 `OTEL_INSTRUMENTATION_*_ENABLED` variables. The full guide is
-[Spring Boot OpenTelemetry Alternatives](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives/).
+[Spring Boot OpenTelemetry
+Alternatives](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives/).
 
 ## Instrumentation Approach
 
@@ -129,7 +130,7 @@ The OpenTelemetry Collector requires Base14 Scout credentials to export
 telemetry data. Set these before running `docker-compose up`:
 
 | Variable | Required | Description |
-| -------- | -------- | ----------- |
+| --- | --- | --- |
 | `SCOUT_ENDPOINT` | Yes | Base14 Scout OTLP endpoint |
 | `SCOUT_CLIENT_ID` | Yes | OAuth2 client ID from Base14 Scout |
 | `SCOUT_CLIENT_SECRET` | Yes | OAuth2 client secret from Base14 Scout |
@@ -153,7 +154,7 @@ for obtaining credentials.
 Java Agent uses **environment variables only** for configuration:
 
 | Variable | Default | Description |
-| -------- | ------- | ----------- |
+| --- | --- | --- |
 | `OTEL_SERVICE_NAME` | `java-spring-boot-otel-mongodb` | Service identifier |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | OTLP protocol |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` | Collector URL |
@@ -179,7 +180,7 @@ environment=dev
 ### Application Endpoints
 
 | Method | Endpoint | Description |
-| ------ | -------- | ----------- |
+| --- | --- | --- |
 | `GET` | `/users/` | List all users |
 | `POST` | `/users/saveUser` | Create user |
 | `PUT` | `/users/{id}` | Update user |
@@ -199,7 +200,7 @@ curl http://localhost:8080/users/
 ### Actuator Endpoints
 
 | Endpoint | Purpose |
-| -------- | ------- |
+| --- | --- |
 | `/actuator/health` | Health status |
 | `/actuator/metrics` | Metrics list |
 | `/actuator/prometheus` | Prometheus format |
@@ -329,7 +330,7 @@ environment:
 ## Technology Stack
 
 | Component | Version |
-| --------- | ------- |
+| --- | --- |
 | Spring Boot | 3.5.9 |
 | OpenTelemetry Java Agent | 2.23.0 |
 | MongoDB | 7.0 |

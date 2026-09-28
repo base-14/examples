@@ -1,0 +1,65 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otel/config.yaml"]
+    # Must hold a whole drive run of debug output for scripts/verify-scout.sh.
+    logging:
+      driver: json-file
+      options: {max-size: "200m", max-file: "5"}
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel/config.yaml:ro
+    # The gateway reaches OTLP on the compose network, so 4318 stays unpublished.
+    ports:
+      - "${COLLECTOR_HEALTH_PORT:-13133}:13133"
+      - "${COLLECTOR_METRICS_PORT:-8888}:8888"
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
+
+  # The gateway needs a writable state directory, and its config file lives there.
+  openclaw-config:
+    image: ghcr.io/openclaw/openclaw:2026.9.6
+    user: root
+    entrypoint: ["sh", "-c", "cp /config/openclaw.json /home/node/.openclaw/openclaw.json && chown -R node:node /home/node/.openclaw"]
+    volumes:
+      - ./config/openclaw.json:/config/openclaw.json:ro
+      - openclaw-state:/home/node/.openclaw
+
+  openclaw-gateway:
+    image: ghcr.io/openclaw/openclaw:2026.9.6
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
+    init: true
+    environment:
+      HOME: /home/node
+      OPENCLAW_HOME: /home/node
+      OPENCLAW_STATE_DIR: /home/node/.openclaw
+      OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
+      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-openclaw-rig-token}
+      OLLAMA_API_KEY: ollama-local
+      OTEL_SEMCONV_STABILITY_OPT_IN: gen_ai_latest_experimental
+      TZ: UTC
+    volumes:
+      - openclaw-state:/home/node/.openclaw
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Loopback only: the gateway token has a default and the agent can run tools.
+    ports:
+      - "127.0.0.1:18789:18789"
+    depends_on:
+      openclaw-config:
+        condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "dist/docker-healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  openclaw-state:

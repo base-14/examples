@@ -6,7 +6,7 @@ Provision an AKS cluster, install cert-manager + the OpenTelemetry Operator
 (Python, Node.js, Java, Go-eBPF) via a single `Instrumentation` CR.
 
 Customer-facing guide:
-<https://docs.base14.io/instrument/infra/azure/aks/>
+<https://docs.base14.io/instrument/infra/azure/collecting-azure-aks-telemetry>
 
 > **Cost:** 1 × `Standard_B4s_v2` ≈ $0.17/hr at single-node steady state; budget ~$1 for a short demo. **Always tear down when done.**
 

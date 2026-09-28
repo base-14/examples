@@ -1,8 +1,7 @@
 # Hono + PostgreSQL + OpenTelemetry
 
-A production-ready example demonstrating Hono REST API with TypeScript,
-PostgreSQL, Redis, background jobs (BullMQ), and comprehensive OpenTelemetry
-instrumentation for end-to-end observability.
+A Hono REST API in TypeScript with PostgreSQL, Redis, BullMQ background jobs
+and OpenTelemetry instrumentation from the HTTP request to the database.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/hono)
 
@@ -29,17 +28,17 @@ records with trace correlation and a Prometheus `/metrics` endpoint. The full gu
 
 ## Stack Profile
 
-| Component         | Version  | Status | Notes                           |
-| ----------------- | -------- | ------ | ------------------------------- |
-| **Node.js**       | 24.x     | Active | Latest LTS                      |
-| **TypeScript**    | 5.x      | Latest | Strict mode enabled             |
-| **Hono**          | 4.x      | Latest | Ultrafast web framework         |
-| **PostgreSQL**    | 18       | Active | Alpine variant                  |
-| **Redis**         | 8.x      | Active | For BullMQ job queue            |
-| **Drizzle ORM**   | 0.45.x   | Latest | Type-safe SQL                   |
-| **BullMQ**        | 5.x      | Active | Background job processing       |
-| **Pino**          | 10.x     | Active | Fast JSON logging               |
-| **OpenTelemetry** | 0.212.0  | Latest | SDK Node + auto-instrumentation |
+| Component | Version | Status | Notes |
+| --- | --- | --- | --- |
+| **Node.js** | 24.x | Active | Latest LTS |
+| **TypeScript** | 5.x | Latest | Strict mode enabled |
+| **Hono** | 4.x | Latest | Ultrafast web framework |
+| **PostgreSQL** | 18 | Active | Alpine variant |
+| **Redis** | 8.x | Active | For BullMQ job queue |
+| **Drizzle ORM** | 0.45.x | Latest | Type-safe SQL |
+| **BullMQ** | 5.x | Active | Background job processing |
+| **Pino** | 10.x | Active | Fast JSON logging |
+| **OpenTelemetry** | 0.212.0 | Latest | SDK Node + auto-instrumentation |
 
 **Why This Stack**: Demonstrates Hono with TypeScript for ultrafast, edge-ready
 APIs, PostgreSQL with Drizzle ORM for type-safe database access, Redis/BullMQ
@@ -160,55 +159,55 @@ This script:
 
 ### Health & Metrics
 
-| Method | Endpoint   | Description        | Auth |
-| ------ | ---------- | ------------------ | ---- |
-| `GET`  | `/health`  | Health check       | No   |
-| `GET`  | `/metrics` | Prometheus metrics | No   |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Health check | No |
+| `GET` | `/metrics` | Prometheus metrics | No |
 
 ### Authentication
 
-| Method | Endpoint        | Description   | Auth |
-| ------ | --------------- | ------------- | ---- |
-| `POST` | `/api/register` | Register user | No   |
-| `POST` | `/api/login`    | Login user    | No   |
-| `GET`  | `/api/user`     | Get profile   | Yes  |
-| `PUT`  | `/api/user`     | Update profile| Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/register` | Register user | No |
+| `POST` | `/api/login` | Login user | No |
+| `GET` | `/api/user` | Get profile | Yes |
+| `PUT` | `/api/user` | Update profile | Yes |
 
 ### Articles
 
-| Method   | Endpoint                       | Description        | Auth     |
-| -------- | ------------------------------ | ------------------ | -------- |
-| `GET`    | `/api/articles`                | List articles      | Optional |
-| `POST`   | `/api/articles`                | Create article     | Yes      |
-| `GET`    | `/api/articles/:slug`          | Get article        | Optional |
-| `PUT`    | `/api/articles/:slug`          | Update (owner)     | Yes      |
-| `DELETE` | `/api/articles/:slug`          | Delete (owner)     | Yes      |
-| `POST`   | `/api/articles/:slug/favorite` | Favorite article   | Yes      |
-| `DELETE` | `/api/articles/:slug/favorite` | Unfavorite article | Yes      |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/articles` | List articles | Optional |
+| `POST` | `/api/articles` | Create article | Yes |
+| `GET` | `/api/articles/:slug` | Get article | Optional |
+| `PUT` | `/api/articles/:slug` | Update (owner) | Yes |
+| `DELETE` | `/api/articles/:slug` | Delete (owner) | Yes |
+| `POST` | `/api/articles/:slug/favorite` | Favorite article | Yes |
+| `DELETE` | `/api/articles/:slug/favorite` | Unfavorite article | Yes |
 
 ## Configuration
 
 ### Required Environment Variables
 
-| Variable              | Description                | Required |
-| --------------------- | -------------------------- | -------- |
-| `SCOUT_ENDPOINT`      | base14 Scout OTLP endpoint | Yes      |
-| `SCOUT_CLIENT_ID`     | Scout OAuth2 client ID     | Yes      |
-| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes      |
-| `SCOUT_TOKEN_URL`     | Scout OAuth2 token URL     | Yes      |
+| Variable | Description | Required |
+| --- | --- | --- |
+| `SCOUT_ENDPOINT` | base14 Scout OTLP endpoint | Yes |
+| `SCOUT_CLIENT_ID` | Scout OAuth2 client ID | Yes |
+| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes |
+| `SCOUT_TOKEN_URL` | Scout OAuth2 token URL | Yes |
 
 ### Application Environment Variables
 
-| Variable                     | Description            | Default                     |
-| ---------------------------- | ---------------------- | --------------------------- |
-| `NODE_ENV`                   | Environment            | `development`               |
-| `PORT`                       | Application port       | `3000`                      |
-| `DATABASE_URL`               | PostgreSQL connection  | (required)                  |
-| `REDIS_URL`                  | Redis connection       | `redis://localhost:6379`    |
-| `JWT_SECRET`                 | JWT signing secret     | (required)                  |
-| `JWT_EXPIRES_IN`             | JWT token expiration   | `7d`                        |
-| `OTEL_SERVICE_NAME`          | Service name in traces | `hono-postgres-app`         |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`| OTLP collector         | `http://localhost:4318`     |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `NODE_ENV` | Environment | `development` |
+| `PORT` | Application port | `3000` |
+| `DATABASE_URL` | PostgreSQL connection | (required) |
+| `REDIS_URL` | Redis connection | `redis://localhost:6379` |
+| `JWT_SECRET` | JWT signing secret | (required) |
+| `JWT_EXPIRES_IN` | JWT token expiration | `7d` |
+| `OTEL_SERVICE_NAME` | Service name in traces | `hono-postgres-app` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector | `http://localhost:4318` |
 
 ## Telemetry Data
 
@@ -231,18 +230,18 @@ This script:
 
 **Custom Business Spans**:
 
-| Span Name                  | Description                    |
-| -------------------------- | ------------------------------ |
-| `user.register`            | User registration              |
-| `user.login`               | User login                     |
-| `article.create`           | Create article                 |
-| `article.update`           | Update article                 |
-| `article.delete`           | Delete article                 |
-| `article.favorite`         | Favorite article               |
-| `article.unfavorite`       | Unfavorite article             |
-| `job.enqueue.*`            | Enqueue background job         |
-| `job.article-created`      | Process article-created job    |
-| `job.article-favorited`    | Process article-favorited job  |
+| Span Name | Description |
+| --- | --- |
+| `user.register` | User registration |
+| `user.login` | User login |
+| `article.create` | Create article |
+| `article.update` | Update article |
+| `article.delete` | Delete article |
+| `article.favorite` | Favorite article |
+| `article.unfavorite` | Unfavorite article |
+| `job.enqueue.*` | Enqueue background job |
+| `job.article-created` | Process article-created job |
+| `job.article-favorited` | Process article-favorited job |
 
 **Custom Attributes**:
 
@@ -313,15 +312,15 @@ docker compose up --build app worker
 
 ### Access Services
 
-| Service        | URL                         | Purpose             |
-| -------------- | --------------------------- | ------------------- |
-| Hono API       | <http://localhost:3000>     | Main application    |
-| Health Check   | <http://localhost:3000/health> | Service health   |
-| Metrics        | <http://localhost:3000/metrics> | Prometheus metrics |
-| PostgreSQL     | `localhost:5433`            | Database            |
-| Redis          | `localhost:6379`            | Job queue backend   |
-| OTel Collector | <http://localhost:4318>     | Telemetry ingestion |
-| OTel Health    | <http://localhost:13133>    | Collector health    |
+| Service | URL | Purpose |
+| --- | --- | --- |
+| Hono API | <http://localhost:3000> | Main application |
+| Health Check | <http://localhost:3000/health> | Service health |
+| Metrics | <http://localhost:3000/metrics> | Prometheus metrics |
+| PostgreSQL | `localhost:5433` | Database |
+| Redis | `localhost:6379` | Job queue backend |
+| OTel Collector | <http://localhost:4318> | Telemetry ingestion |
+| OTel Health | <http://localhost:13133> | Collector health |
 
 ## OpenTelemetry Configuration
 

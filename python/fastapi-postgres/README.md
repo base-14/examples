@@ -3,7 +3,7 @@
 FastAPI application with automatic OpenTelemetry instrumentation,
 JWT authentication, and PostgreSQL integration with base14 Scout.
 
-> 📚 [Full Documentation](
+> [Full Documentation](
 > <https://docs.base14.io/instrument/apps/auto-instrumentation/fast-api>)
 
 ## How to instrument FastAPI with OpenTelemetry
@@ -29,7 +29,7 @@ tracing. The full guide is
 ## Stack Profile
 
 | Component | Version | EOL Status | Current Version |
-| --------- | ------- | ---------- | --------------- |
+| --- | --- | --- | --- |
 | **Python** | 3.14 | Active | 3.14.7 |
 | **FastAPI** | 0.128.0 | Stable | 0.128.0 |
 | **PostgreSQL** | 18 | Active | 18.1 |
@@ -64,7 +64,7 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 ## Technology Stack
 
 | Component | Package | Version |
-| --------- | ------- | ------- |
+| --- | --- | --- |
 | Python | python | 3.14 |
 | FastAPI | fastapi[all] | 0.128.0 |
 | PostgreSQL Driver | psycopg2-binary | 2.9.10 |
@@ -165,7 +165,7 @@ The OpenTelemetry Collector requires base14 Scout credentials to export
 telemetry data:
 
 | Variable | Required | Description |
-| -------- | -------- | ----------- |
+| --- | --- | --- |
 | `SCOUT_ENDPOINT` | Yes | base14 Scout OTLP endpoint |
 | `SCOUT_CLIENT_ID` | Yes | OAuth2 client ID from base14 Scout |
 | `SCOUT_CLIENT_SECRET` | Yes | OAuth2 client secret from base14 Scout |
@@ -176,7 +176,7 @@ telemetry data:
 See `.env.example` for all available configuration options:
 
 | Variable | Default | Description |
-| -------- | ------- | ----------- |
+| --- | --- | --- |
 | `DB_HOSTNAME` | `postgres` | PostgreSQL hostname |
 | `DB_PORT` | `5432` | PostgreSQL port |
 | `DB_PASSWORD` | Required | PostgreSQL password |
@@ -205,7 +205,7 @@ environment=development
 ### Application Endpoints
 
 | Method | Endpoint | Description | Auth Required |
-| ------ | -------- | ----------- | ------------- |
+| --- | --- | --- | --- |
 | `GET` | `/` | Root endpoint | No |
 | `POST` | `/users` | Create user | No |
 | `GET` | `/users/{id}` | Get user by ID | Yes |

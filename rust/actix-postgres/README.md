@@ -1,6 +1,6 @@
-# Rust Actix Web + PostgreSQL + OpenTelemetry Example
+# Rust Actix Web + PostgreSQL + OpenTelemetry
 
-A production-ready Rust web application demonstrating full OpenTelemetry instrumentation with Actix Web, SQLx, and PostgreSQL-native background jobs.
+A Rust web application on Actix Web with SQLx, PostgreSQL-native background jobs and OpenTelemetry instrumentation.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/actix-web)
 
@@ -24,7 +24,7 @@ background worker binary. The full guide is
 ## Stack Profile
 
 | Component | Version | Status | Notes |
-|-----------|---------|--------|-------|
+| --- | --- | --- | --- |
 | **Rust** | 1.98.1 | Active | Edition 2024 |
 | **Actix Web** | 4.12 | Active | High-performance async web framework |
 | **SQLx** | 0.8.6 | Active | Async PostgreSQL with compile-time queries |
@@ -125,7 +125,7 @@ docker compose up -d --build
 ## API Endpoints
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
+| --- | --- | --- | --- |
 | GET | /api/health | No | Health check with DB ping |
 | POST | /api/register | No | Register new user |
 | POST | /api/login | No | Login, returns JWT |
@@ -169,7 +169,7 @@ curl -X POST http://localhost:8080/api/articles \
 
 ## Project Structure
 
-```
+```text
 rust/actix-postgres/
 ├── Cargo.toml              # Dependencies
 ├── Makefile                # Build tasks
@@ -217,7 +217,7 @@ All operations are instrumented with distributed tracing:
 Custom business metrics exported via OTLP:
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `http.requests.total` | Counter | Total HTTP requests |
 | `http.request.duration` | Histogram | HTTP request duration (ms) |
 | `articles.created` | Counter | Total articles created |
@@ -233,20 +233,21 @@ Custom business metrics exported via OTLP:
 ### Collector Configuration
 
 The OTel Collector is configured with a `filter/noisy` processor to drop low-value spans:
+
 - `pg-pool.connect` spans from connection pool management
 - Bare HTTP method spans (e.g., `GET`, `POST`) that duplicate framework-level route spans
 
 ## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| --- | --- | --- |
 | `PORT` | 8080 | API server port |
 | `DATABASE_URL` | - | PostgreSQL connection string |
 | `JWT_SECRET` | - | JWT signing secret |
 | `JWT_EXPIRES_IN_HOURS` | 168 | Token expiry in hours |
 | `ENVIRONMENT` | development | Environment name |
 | `OTEL_SERVICE_NAME` | actix-postgres | Service name for telemetry |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | http://localhost:4317 | OTLP gRPC endpoint |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | <http://localhost:4317> | OTLP gRPC endpoint |
 
 ## Development
 
@@ -275,7 +276,8 @@ cargo run
 
 ## Background Jobs
 
-The application uses a PostgreSQL-native job queue with the `SKIP LOCKED` pattern for reliable, distributed job processing without requiring Redis.
+The application uses a PostgreSQL-native job queue with the `SKIP LOCKED` pattern for reliable, distributed job
+processing without requiring Redis.
 
 ### Job Queue Features
 
@@ -296,7 +298,7 @@ The application uses a PostgreSQL-native job queue with the `SKIP LOCKED` patter
 This example mirrors the `rust/axum-postgres` implementation with Actix Web-specific patterns:
 
 | Aspect | Axum | Actix Web |
-|--------|------|-----------|
+| --- | --- | --- |
 | State | `State<AppState>` extractor | `web::Data<T>` (wraps Arc) |
 | Routing | `Router::new().route()` | `web::ServiceConfig` with `.route()` |
 | Extractors | `FromRequestParts` trait | `FromRequest` trait |
@@ -319,7 +321,7 @@ docker build -f Dockerfile.worker -t actix-postgres-worker .
 ### Services
 
 | Service | Port | Description |
-|---------|------|-------------|
+| --- | --- | --- |
 | api | 8080 | Main API server |
 | worker | - | Background job processor |
 | postgres | 5432 | PostgreSQL database |
@@ -365,19 +367,6 @@ pub async fn create(&self, author_id: i32, input: CreateArticleInput) -> AppResu
     Ok(response)
 }
 ```
-
-## Actix Web vs Axum
-
-This example mirrors the `rust/axum-postgres` implementation with Actix Web-specific patterns:
-
-| Aspect | Axum | Actix Web |
-|--------|------|-----------|
-| State | `State<AppState>` extractor | `web::Data<T>` (wraps Arc) |
-| Routing | `Router::new().route()` | `web::ServiceConfig` with `.route()` |
-| Extractors | `FromRequestParts` trait | `FromRequest` trait |
-| HTTP tracing | `tower-http` TraceLayer | `tracing-actix-web::TracingLogger` |
-| Error response | `IntoResponse` trait | `ResponseError` trait |
-| Server | `axum::serve()` | `HttpServer::new().bind().run()` |
 
 ## Database Schema
 

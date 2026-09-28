@@ -1,9 +1,9 @@
 # Spring Boot with OpenTelemetry
 
-Spring Boot 3.5.9 application with OpenTelemetry instrumentation using the
+Spring Boot 3.5.16 application with OpenTelemetry instrumentation using the
 **OpenTelemetry SDK Integration** approach.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
 
 ## How to instrument Spring Boot with OpenTelemetry
 
@@ -87,7 +87,7 @@ The OpenTelemetry Collector requires Base14 Scout credentials to export
 telemetry data. Set these before running `docker-compose up`:
 
 | Variable | Required | Description |
-| -------- | -------- | ----------- |
+| --- | --- | --- |
 | `SCOUT_ENDPOINT` | Yes | Base14 Scout OTLP endpoint |
 | `SCOUT_CLIENT_ID` | Yes | OAuth2 client ID from Base14 Scout |
 | `SCOUT_CLIENT_SECRET` | Yes | OAuth2 client secret from Base14 Scout |
@@ -109,7 +109,7 @@ for obtaining credentials.
 ### Application Environment Variables (compose.yaml)
 
 | Variable | Default |
-| -------- | ------- |
+| --- | --- |
 | `SPRING_APPLICATION_NAME` | `java-spring-boot-otel` |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` |
@@ -131,7 +131,7 @@ environment=dev
 ### Application Endpoints
 
 | Method | Endpoint | Description |
-| ------ | -------- | ----------- |
+| --- | --- | --- |
 | `GET` | `/users/` | List all users |
 | `POST` | `/users/saveUser` | Create user |
 | `PUT` | `/users/{id}` | Update user |
@@ -151,7 +151,7 @@ curl http://localhost:8080/users/
 ### Actuator Endpoints
 
 | Endpoint | Purpose |
-| -------- | ------- |
+| --- | --- |
 | `/actuator/health` | Health status |
 | `/actuator/metrics` | Metrics list |
 | `/actuator/prometheus` | Prometheus format |
@@ -275,7 +275,7 @@ logging.level.io.opentelemetry=DEBUG
 ## Technology Stack
 
 | Component | Version |
-| --------- | ------- |
+| --- | --- |
 | Spring Boot | 3.5.9 |
 | OpenTelemetry Instrumentation | 2.28.1 |
 | OpenTelemetry SDK | managed by instrumentation BOM |

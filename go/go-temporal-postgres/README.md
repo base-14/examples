@@ -1,10 +1,12 @@
-# Go Temporal + PostgreSQL + OpenTelemetry Example
+# Go Temporal + PostgreSQL + OpenTelemetry
 
-A comprehensive Go example demonstrating business-level decision making with Temporal workflows and full OpenTelemetry instrumentation. This example showcases Base14 Scout's value for workflow observability - enabling teams to trace business decisions, identify bottlenecks, and perform root cause analysis on order processing failures.
+A Go order-processing example on Temporal workflows with OpenTelemetry instrumentation. Each workflow's
+business decisions are traced, so bottlenecks and failed orders can be followed in base14 Scout.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go)
-
-> **Note:** This is a demonstration application optimized for learning and telemetry exploration. See [Production Considerations](#production-considerations) for guidance on hardening for real-world use.
+>
+> **Note:** This is a demonstration application optimized for learning and telemetry exploration. See
+> [Production Considerations](#production-considerations) for guidance on hardening for real-world use.
 
 ## How to instrument Go Temporal with OpenTelemetry
 
@@ -60,7 +62,7 @@ Microservices architecture with each domain running as an independent Temporal w
 ## Decision Paths
 
 | Path | Trigger | Outcome |
-|------|---------|---------|
+| --- | --- | --- |
 | Auto-Approve | Risk score ≤ 80, stock available, payment success | Order completed |
 | Manual Review | Risk score > 80 | Awaits human signal |
 | Backorder | Insufficient stock | Order placed on hold |
@@ -102,7 +104,7 @@ make run-worker
 ## API Endpoints
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| --- | --- | --- |
 | GET | /api/health | Health check |
 | GET | /api/products | List products |
 | GET | /api/products/:id | Get product |
@@ -169,7 +171,7 @@ docker compose run --rm loadgen --count 100 --rps 10 --workers 10
 Each worker supports configurable failure rates and latency for realistic testing:
 
 | Worker | Env Vars | Defaults |
-|--------|----------|----------|
+| --- | --- | --- |
 | fraud-worker | `FRAUD_FAILURE_RATE`, `FRAUD_LATENCY_MIN_MS`, `FRAUD_LATENCY_MAX_MS` | 1%, 10-100ms |
 | inventory-worker | `INVENTORY_FAILURE_RATE`, `INVENTORY_OUT_OF_STOCK_FAILURE_RATE`, `INVENTORY_LATENCY_*` | 1%, 5% OOS, 5-50ms |
 | payment-worker | `PAYMENT_FAILURE_RATE`, `PAYMENT_DECLINE_FAILURE_RATE`, `PAYMENT_LATENCY_*` | 2%, 5% decline, 50-200ms |
@@ -227,7 +229,7 @@ Import the pre-built Grafana dashboards into Scout (uses ClickHouse datasource):
 **Dashboard Panels:**
 
 | Dashboard | Panels |
-|-----------|--------|
+| --- | --- |
 | Order Fulfillment Overview | Total Orders, Approved/Backordered/Failed stats, Order Throughput, Decision Path Distribution, Orders by Customer Tier, Processing Latency (p50/p90/p99), Fraud Risk Score Distribution, Payment/Rejection Failures by Reason |
 | Service Performance | Service Health (API + 5 services), Span Rate by Service, Span Latency p95, Activity Latency, Errors by Service, Error Rate |
 | Revenue Analytics | Total Revenue, Average Order Value, Lost Revenue (Failed), Revenue Over Time, Avg Order Value Over Time, Revenue by Customer Tier, Order Value Distribution, High Value Orders stats, Orders by Value Range |
@@ -235,7 +237,7 @@ Import the pre-built Grafana dashboards into Scout (uses ClickHouse datasource):
 ## Service URLs
 
 | Service | URL |
-|---------|-----|
+| --- | --- |
 | API | <http://localhost:8080> |
 | Temporal UI | <http://localhost:8088> |
 | OTel Collector Health | <http://localhost:13133> |
@@ -271,7 +273,7 @@ Import the pre-built Grafana dashboards into Scout (uses ClickHouse datasource):
 ## Stack
 
 | Component | Version |
-|-----------|---------|
+| --- | --- |
 | Go | 1.25.7 |
 | Temporal SDK | 1.39.0 |
 | Echo | 4.15.0 |
@@ -281,12 +283,13 @@ Import the pre-built Grafana dashboards into Scout (uses ClickHouse datasource):
 
 ## Production Considerations
 
-This example prioritizes **clarity and observability** over production hardening. Before deploying similar patterns to production, consider the following:
+This example prioritizes **clarity and observability** over production hardening. Before deploying similar patterns to
+production, consider the following:
 
 ### Security
 
 | Area | Current State | Production Recommendation |
-|------|---------------|---------------------------|
+| --- | --- | --- |
 | Authentication | None | Add JWT/OAuth2 with proper validation |
 | Input validation | Basic | Add comprehensive validation (e.g., `go-playground/validator`) |
 | Rate limiting | None | Add per-client rate limiting |
@@ -296,7 +299,7 @@ This example prioritizes **clarity and observability** over production hardening
 ### Database
 
 | Area | Current State | Production Recommendation |
-|------|---------------|---------------------------|
+| --- | --- | --- |
 | Migrations | GORM AutoMigrate | Use versioned migrations (`golang-migrate`) |
 | Connection pooling | Default settings | Configure pool size, timeouts, and idle connections |
 | Money fields | `float64` | Use `decimal` type for monetary precision |
@@ -305,14 +308,14 @@ This example prioritizes **clarity and observability** over production hardening
 ### Observability
 
 | Area | Current State | Production Recommendation |
-|------|---------------|---------------------------|
+| --- | --- | --- |
 | Metric cardinality | Some high-cardinality attributes | Move `order_id`, `trace_id` to exemplars only |
 | Error handling | Basic | Add structured domain errors with retry classification |
 
 ### Temporal
 
 | Area | Current State | Production Recommendation |
-|------|---------------|---------------------------|
+| --- | --- | --- |
 | Activity heartbeats | Not configured | Add `HeartbeatTimeout` for long-running activities |
 | Workflow versioning | Not used | Add versioning for safe workflow updates |
 | Timeouts | Basic | Configure `WorkflowExecutionTimeout`, `WorkflowRunTimeout` |
@@ -320,12 +323,13 @@ This example prioritizes **clarity and observability** over production hardening
 ### Infrastructure
 
 | Area | Current State | Production Recommendation |
-|------|---------------|---------------------------|
+| --- | --- | --- |
 | Health checks | Basic liveness | Add readiness probes with dependency checks |
 | Graceful shutdown | Basic | Ensure proper drain of in-flight requests |
 | Circuit breakers | None | Add for external service calls |
 
-These simplifications are intentional to keep the example focused on demonstrating Temporal workflow patterns and OpenTelemetry instrumentation.
+These simplifications are intentional to keep the example focused on demonstrating Temporal workflow patterns and
+OpenTelemetry instrumentation.
 
 ## Resources
 

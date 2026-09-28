@@ -1,6 +1,7 @@
-# .NET 10 ASP.NET Core + Azure SQL Edge + OpenTelemetry Example
+# ASP.NET Core + Azure SQL Edge + OpenTelemetry
 
-A production-ready ASP.NET Core 9 REST API demonstrating full OpenTelemetry instrumentation with Minimal APIs, Entity Framework Core, and Azure SQL Edge.
+An ASP.NET Core REST API on .NET 10 with OpenTelemetry instrumentation for Minimal APIs, Entity Framework Core and Azure
+SQL Edge.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/dotnet)
 
@@ -24,7 +25,7 @@ and a separately instrumented background worker. The full guide is
 ## Stack Profile
 
 | Component | Version | Status | Notes |
-|-----------|---------|--------|-------|
+| --- | --- | --- | --- |
 | **.NET SDK** | 10.0 | LTS | Latest stable |
 | **ASP.NET Core** | 10.0 | LTS | Minimal APIs |
 | **C#** | 14 | Active | Latest language version |
@@ -122,7 +123,7 @@ docker compose up -d --build
 ## API Endpoints
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
+| --- | --- | --- | --- |
 | GET | /api/health | No | Health check with DB ping |
 | POST | /api/register | No | Register new user |
 | POST | /api/login | No | Login, returns JWT |
@@ -166,7 +167,7 @@ curl -X POST http://localhost:8080/api/articles \
 
 ## Project Structure
 
-```
+```text
 csharp/dotnet-sqlserver/
 ├── Makefile                # Build tasks
 ├── compose.yaml             # Docker stack
@@ -209,7 +210,7 @@ All operations are instrumented with distributed tracing:
 Custom business metrics exported via OTLP:
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `http.requests.total` | Counter | Total HTTP requests |
 | `http.request.duration` | Histogram | HTTP request duration (ms) |
 | `users.registered` | Counter | Total users registered |
@@ -227,7 +228,7 @@ Custom business metrics exported via OTLP:
 ## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| --- | --- | --- |
 | `ASPNETCORE_HTTP_PORTS` | 8080 | API server port |
 | `ConnectionStrings__DefaultConnection` | - | SQL Server connection string |
 | `Jwt__Secret` | - | JWT signing secret (min 32 chars) |
@@ -235,7 +236,7 @@ Custom business metrics exported via OTLP:
 | `Jwt__Audience` | dotnet-sqlserver-api | JWT audience |
 | `Jwt__ExpirationHours` | 168 | Token expiry in hours |
 | `OTEL_SERVICE_NAME` | dotnet-sqlserver | Service name for telemetry |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | http://localhost:4317 | OTLP gRPC endpoint |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | <http://localhost:4317> | OTLP gRPC endpoint |
 
 ## Development
 
@@ -261,7 +262,8 @@ dotnet run --project src/Api
 
 ## Background Jobs
 
-The application uses a SQL Server-native job queue with the `READPAST` hint (equivalent to PostgreSQL's `SKIP LOCKED`) for reliable, distributed job processing.
+The application uses a SQL Server-native job queue with the `READPAST` hint (equivalent to PostgreSQL's `SKIP LOCKED`)
+for reliable, distributed job processing.
 
 ### Job Queue Features
 
@@ -294,7 +296,7 @@ docker build -f Dockerfile.worker -t dotnet-sqlserver-worker .
 ### Services
 
 | Service | Port | Description |
-|---------|------|-------------|
+| --- | --- | --- |
 | api | 8080 | Main API server |
 | worker | - | Background job processor |
 | sqlserver | 1433 | Azure SQL Edge |

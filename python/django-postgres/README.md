@@ -1,8 +1,9 @@
 # Django + PostgreSQL + OpenTelemetry
 
-Django REST API with automatic OpenTelemetry instrumentation, JWT authentication, Celery background tasks, and PostgreSQL integration with base14 Scout.
+Django REST API with automatic OpenTelemetry instrumentation, JWT authentication, Celery background tasks, and
+PostgreSQL integration with base14 Scout.
 
-> 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/django)
+> [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/django)
 
 ## How to instrument Django with OpenTelemetry
 
@@ -29,7 +30,7 @@ processor. The full guide is
 ## Stack Profile
 
 | Component | Version | EOL Status | Current Version |
-|-----------|---------|------------|-----------------|
+| --- | --- | --- | --- |
 | **Python** | 3.14 | Oct 2030 | 3.14.2 |
 | **Django** | 5.2 LTS | Apr 2028 | 5.2.9 |
 | **Django REST Framework** | 3.16 | Stable | 3.16.1 |
@@ -71,7 +72,7 @@ and comprehensive OpenTelemetry instrumentation for full observability.
 ## Technology Stack
 
 | Component | Package | Version |
-|-----------|---------|---------|
+| --- | --- | --- |
 | Python | python | 3.14 |
 | Django | django | 5.2.9 |
 | REST Framework | djangorestframework | 3.16.1 |
@@ -152,7 +153,7 @@ curl http://localhost:8000/api/health
 ### Authentication
 
 | Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| --- | --- | --- | --- |
 | POST | `/api/register` | Register new user | No |
 | POST | `/api/login` | Login and get JWT token | No |
 | GET | `/api/user` | Get current user profile | Yes |
@@ -161,7 +162,7 @@ curl http://localhost:8000/api/health
 ### Articles
 
 | Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
+| --- | --- | --- | --- |
 | GET | `/api/articles/` | List articles (paginated) | No |
 | POST | `/api/articles/` | Create article | Yes |
 | GET | `/api/articles/{slug}` | Get single article | No |
@@ -173,7 +174,7 @@ curl http://localhost:8000/api/health
 ### System
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| --- | --- | --- |
 | GET | `/api/health` | Health check (db, redis) |
 
 ## API Examples
@@ -263,7 +264,8 @@ Distributed traces capture the full request lifecycle:
 - ✅ Celery task execution with job context
 - ✅ Custom business spans (auth, CRUD, favorites)
 
-**Distributed Tracing Example** - `POST /api/articles/` creates an article and triggers a Celery task, all correlated by the same trace ID:
+**Distributed Tracing Example** - `POST /api/articles/` creates an article and triggers a Celery task, all correlated by
+the same trace ID:
 
 ```text
 App (django-postgres-celery-app):
@@ -281,7 +283,7 @@ All spans share: otelTraceID: 59e443df8f7614a5b21c11d8c8f83a8d
 ### Metrics
 
 | Metric | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `http.server.request.duration` | Histogram | Request duration in seconds by method, route, status (sample count gives request rate) |
 | `auth.login.attempts` | Counter | Login attempts by status (success/failed) |
 | `articles.created` | Counter | Articles created by author |
@@ -383,7 +385,7 @@ This ensures PII is redacted before data leaves the collector, without requiring
 ### Users Table
 
 | Column | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | id | BIGSERIAL | Primary key |
 | email | VARCHAR(255) | Unique email |
 | password | VARCHAR(128) | Hashed password |
@@ -396,7 +398,7 @@ This ensures PII is redacted before data leaves the collector, without requiring
 ### Articles Table
 
 | Column | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | id | BIGSERIAL | Primary key |
 | slug | VARCHAR(255) | Unique URL slug |
 | title | VARCHAR(255) | Article title |
@@ -410,7 +412,7 @@ This ensures PII is redacted before data leaves the collector, without requiring
 ### Favorites Table
 
 | Column | Type | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | id | BIGSERIAL | Primary key |
 | user_id | BIGINT | FK to users |
 | article_id | BIGINT | FK to articles |

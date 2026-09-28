@@ -1,8 +1,8 @@
 # NestJS + PostgreSQL + OpenTelemetry
 
-A production-ready example demonstrating NestJS REST API with TypeScript,
-PostgreSQL, Redis, background jobs, WebSockets, and comprehensive
-OpenTelemetry instrumentation for end-to-end observability.
+A NestJS REST API in TypeScript with PostgreSQL, Redis, background jobs,
+WebSockets and OpenTelemetry instrumentation from the HTTP request to the
+database.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nestjs)
 
@@ -30,17 +30,17 @@ Prometheus `/metrics` endpoint alongside OTLP metrics. The full guide is
 
 ## Stack Profile
 
-| Component         | Version  | Status | Notes                           |
-| ----------------- | -------- | ------ | ------------------------------- |
-| **Node.js**       | 24.x     | Active | Latest                          |
-| **TypeScript**    | 5.x      | Latest | Strict mode enabled             |
-| **NestJS**        | 11.x     | Latest | Latest stable                   |
-| **PostgreSQL**    | 18       | Active | Alpine variant                  |
-| **Redis**         | 8.x      | Active | For BullMQ job queue            |
-| **TypeORM**       | 0.3.x    | Active | NestJS native integration       |
-| **BullMQ**        | 5.x      | Active | Background job processing       |
-| **Socket.io**     | 4.x      | Active | Real-time WebSocket events      |
-| **OpenTelemetry** | 0.208.0  | Latest | SDK Node + auto-instrumentation |
+| Component | Version | Status | Notes |
+| --- | --- | --- | --- |
+| **Node.js** | 24.x | Active | Latest |
+| **TypeScript** | 5.x | Latest | Strict mode enabled |
+| **NestJS** | 11.x | Latest | Latest stable |
+| **PostgreSQL** | 18 | Active | Alpine variant |
+| **Redis** | 8.x | Active | For BullMQ job queue |
+| **TypeORM** | 0.3.x | Active | NestJS native integration |
+| **BullMQ** | 5.x | Active | Background job processing |
+| **Socket.io** | 4.x | Active | Real-time WebSocket events |
+| **OpenTelemetry** | 0.208.0 | Latest | SDK Node + auto-instrumentation |
 
 **Why This Stack**: Demonstrates NestJS with TypeScript for enterprise-grade
 architecture, PostgreSQL for relational data, Redis/BullMQ for background
@@ -170,48 +170,48 @@ This script:
 
 ### Health
 
-| Method | Endpoint      | Description  | Auth |
-| ------ | ------------- | ------------ | ---- |
-| `GET`  | `/api/health` | Health check | No   |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Health check | No |
 
 ### Authentication
 
-| Method | Endpoint             | Description      | Auth |
-| ------ | -------------------- | ---------------- | ---- |
-| `POST` | `/api/auth/register` | Register user    | No   |
-| `POST` | `/api/auth/login`    | Login user       | No   |
-| `GET`  | `/api/auth/me`       | Get current user | Yes  |
-| `POST` | `/api/auth/logout`   | Logout user      | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/register` | Register user | No |
+| `POST` | `/api/auth/login` | Login user | No |
+| `GET` | `/api/auth/me` | Get current user | Yes |
+| `POST` | `/api/auth/logout` | Logout user | Yes |
 
 ### Articles
 
-| Method   | Endpoint                    | Description             | Auth |
-| -------- | --------------------------- | ----------------------- | ---- |
-| `GET`    | `/api/articles`             | List articles           | No   |
-| `POST`   | `/api/articles`             | Create new article      | Yes  |
-| `GET`    | `/api/articles/:id`         | Get single article      | No   |
-| `PUT`    | `/api/articles/:id`         | Update article (owner)  | Yes  |
-| `DELETE` | `/api/articles/:id`         | Delete article (owner)  | Yes  |
-| `POST`   | `/api/articles/:id/publish` | Publish article (async) | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/articles` | List articles | No |
+| `POST` | `/api/articles` | Create new article | Yes |
+| `GET` | `/api/articles/:id` | Get single article | No |
+| `PUT` | `/api/articles/:id` | Update article (owner) | Yes |
+| `DELETE` | `/api/articles/:id` | Delete article (owner) | Yes |
+| `POST` | `/api/articles/:id/publish` | Publish article (async) | Yes |
 
 ### Favorites
 
-| Method   | Endpoint                     | Description         | Auth |
-| -------- | ---------------------------- | ------------------- | ---- |
-| `POST`   | `/api/articles/:id/favorite` | Favorite an article | Yes  |
-| `DELETE` | `/api/articles/:id/favorite` | Unfavorite article  | Yes  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/articles/:id/favorite` | Favorite an article | Yes |
+| `DELETE` | `/api/articles/:id/favorite` | Unfavorite article | Yes |
 
 ## WebSocket Events
 
 Connect to `ws://localhost:3000` with a JWT token for real-time updates:
 
-| Event                | Direction     | Description                |
-| -------------------- | ------------- | -------------------------- |
-| `subscribe:articles` | Client→Server | Subscribe to updates       |
-| `article:created`    | Server→Client | New article created        |
-| `article:updated`    | Server→Client | Article updated            |
-| `article:published`  | Server→Client | Article published          |
-| `article:deleted`    | Server→Client | Article deleted            |
+| Event | Direction | Description |
+| --- | --- | --- |
+| `subscribe:articles` | Client→Server | Subscribe to updates |
+| `article:created` | Server→Client | New article created |
+| `article:updated` | Server→Client | Article updated |
+| `article:published` | Server→Client | Article published |
+| `article:deleted` | Server→Client | Article deleted |
 
 ## Error Response Format
 
@@ -241,25 +241,25 @@ Error codes: `RESOURCE_NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`,
 
 ### Required Environment Variables
 
-| Variable              | Description                | Required |
-| --------------------- | -------------------------- | -------- |
-| `SCOUT_ENDPOINT`      | base14 Scout OTLP endpoint | Yes      |
-| `SCOUT_CLIENT_ID`     | Scout OAuth2 client ID     | Yes      |
-| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes      |
-| `SCOUT_TOKEN_URL`     | Scout OAuth2 token URL     | Yes      |
+| Variable | Description | Required |
+| --- | --- | --- |
+| `SCOUT_ENDPOINT` | base14 Scout OTLP endpoint | Yes |
+| `SCOUT_CLIENT_ID` | Scout OAuth2 client ID | Yes |
+| `SCOUT_CLIENT_SECRET` | Scout OAuth2 client secret | Yes |
+| `SCOUT_TOKEN_URL` | Scout OAuth2 token URL | Yes |
 
 ### Application Environment Variables
 
-| Variable             | Description            | Default                 |
-| -------------------- | ---------------------- | ----------------------- |
-| `NODE_ENV`           | Environment            | `development`           |
-| `APP_PORT`           | Application port       | `3000`                  |
-| `DATABASE_URL`       | PostgreSQL connection  | (required)              |
-| `REDIS_URL`          | Redis connection       | `redis://localhost:6379`|
-| `JWT_SECRET`         | JWT signing secret     | (required)              |
-| `JWT_EXPIRES_IN`     | JWT token expiration   | `7d`                    |
-| `OTEL_SERVICE_NAME`  | Service name in traces | `nestjs-postgres-app`   |
-| `OTEL_EXPORTER_*`    | OTLP collector         | `http://collector:4318` |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `NODE_ENV` | Environment | `development` |
+| `APP_PORT` | Application port | `3000` |
+| `DATABASE_URL` | PostgreSQL connection | (required) |
+| `REDIS_URL` | Redis connection | `redis://localhost:6379` |
+| `JWT_SECRET` | JWT signing secret | (required) |
+| `JWT_EXPIRES_IN` | JWT token expiration | `7d` |
+| `OTEL_SERVICE_NAME` | Service name in traces | `nestjs-postgres-app` |
+| `OTEL_EXPORTER_*` | OTLP collector | `http://collector:4318` |
 
 ## Telemetry Data
 
@@ -282,23 +282,23 @@ Error codes: `RESOURCE_NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`,
 
 **Custom Business Spans**:
 
-| Span Name               | Description                          |
-| ----------------------- | ------------------------------------ |
-| `auth.register`         | User registration                    |
-| `auth.login`            | User login                           |
-| `auth.getProfile`       | Get user profile                     |
-| `article.create`        | Create article                       |
-| `article.findAll`       | List articles                        |
-| `article.findOne`       | Get single article                   |
-| `article.update`        | Update article                       |
-| `article.delete`        | Delete article                       |
-| `article.publish`       | Initiate publish (HTTP)              |
-| `job.process`           | Background job processing (Consumer) |
-| `article.publish.update`| Update article in database           |
-| `notification.send`     | Send notification                    |
-| `websocket.emit`        | Emit WebSocket event                 |
-| `article.favorite`      | Favorite article                     |
-| `article.unfavorite`    | Unfavorite article                   |
+| Span Name | Description |
+| --- | --- |
+| `auth.register` | User registration |
+| `auth.login` | User login |
+| `auth.getProfile` | Get user profile |
+| `article.create` | Create article |
+| `article.findAll` | List articles |
+| `article.findOne` | Get single article |
+| `article.update` | Update article |
+| `article.delete` | Delete article |
+| `article.publish` | Initiate publish (HTTP) |
+| `job.process` | Background job processing (Consumer) |
+| `article.publish.update` | Update article in database |
+| `notification.send` | Send notification |
+| `websocket.emit` | Emit WebSocket event |
+| `article.favorite` | Favorite article |
+| `article.unfavorite` | Unfavorite article |
 
 **Custom Attributes**:
 
@@ -419,14 +419,14 @@ docker compose up --build app
 
 ### Access Services
 
-| Service        | URL                                | Purpose             |
-| -------------- | ---------------------------------- | ------------------- |
-| NestJS API     | <http://localhost:3000>            | Main application    |
-| Health Check   | <http://localhost:3000/api/health> | Service health      |
-| PostgreSQL     | `localhost:5432`                   | Database            |
-| Redis          | `localhost:6379`                   | Job queue backend   |
-| OTel Collector | <http://localhost:4318>            | Telemetry ingestion |
-| OTel Health    | <http://localhost:13133>           | Collector health    |
+| Service | URL | Purpose |
+| --- | --- | --- |
+| NestJS API | <http://localhost:3000> | Main application |
+| Health Check | <http://localhost:3000/api/health> | Service health |
+| PostgreSQL | `localhost:5432` | Database |
+| Redis | `localhost:6379` | Job queue backend |
+| OTel Collector | <http://localhost:4318> | Telemetry ingestion |
+| OTel Health | <http://localhost:13133> | Collector health |
 
 ## Troubleshooting
 
@@ -492,4 +492,3 @@ docker compose up --build app
 - [BullMQ Documentation](https://docs.bullmq.io/)
 - [Socket.io Documentation](https://socket.io/docs/)
 - [base14 Scout Documentation](https://docs.base14.io/)
-
