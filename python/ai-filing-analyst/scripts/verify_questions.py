@@ -28,16 +28,13 @@ HTTP_OK = 200
 SCOUT_EXPORTER = "otlp_http/b14"
 SIGNALS = ("spans", "log_records", "metric_points")
 OUTCOME = "base14.filing.outcome"
-STRANDS_SPAN_PREFIXES = ("invoke_agent", "execute_event_loop_cycle", "chat", "execute_tool")
-TRACE_ATTRIBUTES = (
-    "gen_ai.conversation.id",
+QUESTION_ATTRIBUTES = (
     QUESTION_ID,
     "base14.filing.ticker",
     "base14.filing.cik",
     "base14.filing.fixture_date",
-    "base14.prompt.version",
-    "base14.gen_ai.model.digest",
 )
+AGENT_ATTRIBUTES = ("base14.prompt.version", "base14.gen_ai.model.digest")
 CHAT_ATTRIBUTES = (
     "gen_ai.usage.input_tokens",
     "gen_ai.usage.output_tokens",
@@ -51,6 +48,7 @@ APPLICATION_METRICS = (
     "base14.filing.facts.loaded",
     "base14.filing.rankings",
 )
+GEN_AI_CLIENT_METRICS = ("gen_ai.client.operation.duration", "gen_ai.client.token.usage")
 # Ollama reports no prompt cache usage, so Strands records no cache token metrics.
 STRANDS_METRICS = (
     "strands.event_loop.cycle_count",
@@ -66,6 +64,85 @@ STRANDS_METRICS = (
     "strands.tool.error_count",
     "strands.tool.duration",
 )
+
+
+@dataclass(frozen=True)
+class Profile:
+    """What one framework emits. `question_spans` carry the question's attributes;
+    `agent_spans` also carry the agent's prompt version, model digest, provider and server.
+    `wrapper` is the span a framework puts between the server span and the analyst's
+    `invoke_agent`, if any. `conversation` is where the conversation ID is the question ID:
+    every question span, the analyst's spans only, or nowhere. `model_failure_span` is the span
+    that fails when the model is unreachable, if the framework opens one. The analyst may run
+    twice for one question, when a run that ends in text gets a reminder to call the answer
+    tool."""
+
+    question_spans: tuple[str, ...]
+    agent_spans: tuple[str, ...]
+    model_span: str
+    metrics: tuple[str, ...]
+    wrapper: str | None = None
+    conversation: str | None = "all"
+    tool_status: bool = False
+    answer_tool_span: str | None = None
+    model_failure_span: str | None = "chat"
+    server_on_model_spans: bool = True
+
+
+PROFILES = {
+    "strands": Profile(
+        question_spans=("invoke_agent", "execute_event_loop_cycle", "chat", "execute_tool"),
+        agent_spans=("invoke_agent", "execute_event_loop_cycle", "chat", "execute_tool"),
+        model_span="chat",
+        metrics=STRANDS_METRICS,
+        tool_status=True,
+        answer_tool_span="execute_tool FilingAnswer",
+    ),
+    "adk": Profile(
+        question_spans=(
+            "invocation",
+            "invoke_agent",
+            "call_llm",
+            "generate_content",
+            "execute_tool",
+        ),
+        agent_spans=("invoke_agent", "generate_content"),
+        model_span="generate_content",
+        metrics=(
+            *GEN_AI_CLIENT_METRICS,
+            "gen_ai.execute_tool.duration",
+            "gen_ai.invoke_agent.duration",
+            "gen_ai.invoke_agent.inference_calls",
+            "gen_ai.invoke_agent.tool_calls",
+        ),
+        wrapper="invocation",
+        conversation="analyst",
+        model_failure_span="call_llm",
+    ),
+    "maf": Profile(
+        question_spans=("invoke_agent", "chat", "execute_tool"),
+        agent_spans=("invoke_agent", "chat"),
+        model_span="chat",
+        metrics=(*GEN_AI_CLIENT_METRICS, "agent_framework.function.invocation.duration"),
+        conversation=None,
+        model_failure_span=None,
+        server_on_model_spans=False,
+    ),
+    "openai-agents": Profile(
+        question_spans=("invoke_workflow", "invoke_agent", "chat", "execute_tool"),
+        agent_spans=("invoke_agent", "chat"),
+        model_span="chat",
+        metrics=(
+            *GEN_AI_CLIENT_METRICS,
+            "gen_ai.execute_tool.duration",
+            "gen_ai.invoke_agent.duration",
+            "gen_ai.invoke_workflow.duration",
+        ),
+        wrapper="invoke_workflow",
+        conversation=None,
+        model_failure_span=None,
+    ),
+}
 
 
 @dataclass
@@ -124,6 +201,7 @@ class Question:
     result: dict[str, Any]
     trace: Trace
     index: int
+    profile: Profile
 
     @property
     def last(self) -> bool:
@@ -174,57 +252,100 @@ def check_common(report: Report, question: Question, outcome: str | None) -> Spa
     return server
 
 
+def _starts(span: Span, prefixes: tuple[str, ...]) -> bool:
+    return span.name.startswith(prefixes)
+
+
+def is_model_span(span: Span, profile: Profile) -> bool:
+    return span.name == profile.model_span or span.name.startswith(f"{profile.model_span} ")
+
+
+def analyst_run(trace: Trace, analyst: Span) -> list[Span]:
+    """The analyst's spans, without the ranking agent's."""
+    ranking = trace.one(RANKING_SPAN)
+    inner = {span.span_id for span in trace.under(ranking)} if ranking else set()
+    if ranking is not None:
+        inner.add(ranking.span_id)
+    return [s for s in [analyst, *trace.under(analyst)] if s.span_id not in inner]
+
+
 def check_agent_run(report: Report, question: Question, server: Span) -> Span | None:
-    trace = question.trace
-    analyst = trace.one(ANALYST_SPAN)
+    trace, profile = question.trace, question.profile
+    analysts = trace.named(ANALYST_SPAN)
+
+    def under_server(analyst: Span) -> bool:
+        parent = trace.parent(analyst)
+        return parent is not None and (
+            parent.span_id == server.span_id
+            or (
+                parent.name.startswith(profile.wrapper or SERVER_SPAN)
+                and parent.parent_id == server.span_id
+            )
+        )
+
     report.check(
         "invoke_agent analyst under the server span",
-        analyst is not None and analyst.parent_id == server.span_id,
+        bool(analysts) and all(under_server(analyst) for analyst in analysts),
     )
-    if analyst is None:
+    if not analysts:
         return None
-    strands = [
-        s for s in [analyst, *trace.under(analyst)] if s.name.startswith(STRANDS_SPAN_PREFIXES)
-    ]
+    analyst = analysts[0]
+    run = [s for s in trace.under(server) if _starts(s, profile.question_spans)]
+    agents = [s for s in run if _starts(s, profile.agent_spans)]
     missing = sorted(
         {
             f"{span.name}:{key}"
-            for span in strands
-            for key in TRACE_ATTRIBUTES
+            for span in run
+            for key in QUESTION_ATTRIBUTES
+            if key not in span.attributes
+        }
+        | {
+            f"{span.name}:{key}"
+            for span in agents
+            for key in AGENT_ATTRIBUTES
             if key not in span.attributes
         }
     )
+    report.check("question attributes on the agent run", not missing, ", ".join(missing[:5]))
+    if profile.conversation is not None:
+        spans = (
+            run
+            if profile.conversation == "all"
+            else [s for analyst in analysts for s in analyst_run(trace, analyst)]
+        )
+        spans = [s for s in spans if _starts(s, profile.agent_spans)]
+        report.check(
+            f"conversation ID is the question ID on the {profile.conversation} spans",
+            all(
+                span.attributes.get("gen_ai.conversation.id") == question.question_id
+                for span in spans
+            ),
+        )
+    model_spans = [span for span in run if is_model_span(span, profile)]
     report.check(
-        "trace attributes on both agents and their children", not missing, ", ".join(missing[:5])
-    )
-    report.check(
-        "conversation ID is the question ID",
-        all(
-            span.attributes.get("gen_ai.conversation.id") == question.question_id
-            for span in strands
-        ),
-    )
-    report.check(
-        "provider and server name Ollama on every Strands span",
+        "provider Ollama on every model span"
+        + (", with its server" if profile.server_on_model_spans else ""),
         all(
             span.attributes.get("gen_ai.provider.name") == "ollama"
-            and span.attributes.get("server.address")
-            and span.attributes.get("server.port")
-            for span in strands
+            and (
+                not profile.server_on_model_spans
+                or (span.attributes.get("server.address") and span.attributes.get("server.port"))
+            )
+            for span in model_spans
         ),
     )
     report.check(
         "model digests read from Ollama",
         all(
             span.attributes.get("base14.gen_ai.model.digest") not in (None, "unknown")
-            for span in strands
+            for span in agents
         ),
     )
-    # A chat that never reached the model has no usage to report.
-    chats = [span for span in strands if span.name == "chat" and span.status != ERROR]
-    bare = [key for span in chats for key in CHAT_ATTRIBUTES if key not in span.attributes]
+    # A model call that never reached the model has no usage to report.
+    completed = [span for span in model_spans if span.status != ERROR]
+    bare = [key for span in completed for key in CHAT_ATTRIBUTES if key not in span.attributes]
     report.check(
-        "tokens and cost on every completed chat span",
+        "tokens and cost on every completed model span",
         not bare,
         str(sorted(set(bare))),
     )
@@ -251,16 +372,19 @@ def check_ranking(report: Report, question: Question, server: Span) -> None:
     ranking = trace.one(RANKING_SPAN)
     report.check(
         "invoke_agent ranking under execute_tool rank_among_filers",
-        tool is not None and ranking is not None and ranking.parent_id == tool.span_id,
+        tool is not None and ranking is not None and ranking in trace.under(tool),
     )
     if ranking is None:
         return
-    analyst = trace.one(ANALYST_SPAN)
+    analysts = trace.named(ANALYST_SPAN)
     report.check(
         "ranking agent carries its own digest",
-        analyst is not None
-        and ranking.attributes.get("base14.gen_ai.model.digest")
-        != analyst.attributes.get("base14.gen_ai.model.digest"),
+        bool(analysts)
+        and all(
+            ranking.attributes.get("base14.gen_ai.model.digest")
+            != analyst.attributes.get("base14.gen_ai.model.digest")
+            for analyst in analysts
+        ),
     )
     frames = [s for s in trace.under(ranking) if s.name == "execute_tool frame_values"]
     report.check("execute_tool frame_values under the ranking agent", len(frames) >= 1)
@@ -310,11 +434,14 @@ def check_sec_down(report: Report, question: Question, server: Span) -> None:
 def check_sec_unreachable(report: Report, question: Question, server: Span) -> None:
     trace = question.trace
     tools = trace.named("execute_tool frame_values")
+    tool_status = question.profile.tool_status
     report.check(
-        "execute_tool frame_values failed with gen_ai.tool.status error",
+        "execute_tool frame_values failed"
+        + (" with gen_ai.tool.status error" if tool_status else ""),
         bool(tools)
         and all(
-            tool.status == ERROR and tool.attributes.get("gen_ai.tool.status") == "error"
+            tool.status == ERROR
+            and (not tool_status or tool.attributes.get("gen_ai.tool.status") == "error")
             for tool in tools
         ),
     )
@@ -324,8 +451,11 @@ def check_sec_unreachable(report: Report, question: Question, server: Span) -> N
         len(calls) == 4 and all(call.status == ERROR for call in calls),
         str(len(calls)),
     )
-    analyst = trace.one(ANALYST_SPAN)
-    report.check("the analyst kept running", analyst is not None and analyst.status != ERROR)
+    analysts = trace.named(ANALYST_SPAN)
+    report.check(
+        "the analyst kept running",
+        bool(analysts) and all(analyst.status != ERROR for analyst in analysts),
+    )
     report.check("SEC failure logged at ERROR", trace.logged("ERROR", "failed after"))
 
 
@@ -368,34 +498,47 @@ def check_ungrounded_answer(report: Report, question: Question, server: Span) ->
 
 
 def check_model_unavailable(report: Report, question: Question, server: Span) -> None:
-    chats = question.trace.named("chat")
+    failure_span = question.profile.model_failure_span
     analyst = question.trace.one(ANALYST_SPAN)
-    report.check(
-        "error chat and invoke_agent spans",
-        bool(chats)
-        and chats[0].status == ERROR
-        and analyst is not None
-        and analyst.status == ERROR,
-    )
+    if failure_span is None:
+        report.check("error invoke_agent span", analyst is not None and analyst.status == ERROR)
+    else:
+        chats = [
+            span
+            for span in question.trace.spans
+            if span.name == failure_span or span.name.startswith(f"{failure_span} ")
+        ]
+        report.check(
+            f"error {failure_span} and invoke_agent spans",
+            bool(chats)
+            and chats[0].status == ERROR
+            and analyst is not None
+            and analyst.status == ERROR,
+        )
     report.check("run failure logged at ERROR", question.trace.logged("ERROR", "Run failed"))
 
 
 def check_tight_budget(report: Report, question: Question, server: Span) -> None:
-    analyst = question.trace.one(ANALYST_SPAN)
+    """The stop can land on the reminder run, when the spent budget turned the answer tool
+    away."""
     report.check(
         "invoke_agent analyst failed with BudgetExceeded",
-        analyst is not None
-        and analyst.status == ERROR
-        and str(analyst.attributes.get("error.type", "")).endswith("BudgetExceeded"),
+        any(
+            analyst.status == ERROR
+            and str(analyst.attributes.get("error.type", "")).endswith("BudgetExceeded")
+            for analyst in question.trace.named(ANALYST_SPAN)
+        ),
     )
     report.check("budget logged at WARNING", question.trace.logged("WARN", "Call budget"))
 
 
 def check_bad_output(report: Report, question: Question, server: Span) -> None:
     trace = question.trace
-    answers = [span for span in trace.named("execute_tool FilingAnswer") if span.status == ERROR]
-    report.check("one failed execute_tool FilingAnswer span", len(answers) == 1, str(len(answers)))
-    report.check("validation retry logged at WARNING", trace.logged("WARN", "failed validation"))
+    answer_tool_span = question.profile.answer_tool_span
+    if answer_tool_span is not None:
+        answers = [span for span in trace.named(answer_tool_span) if span.status == ERROR]
+        report.check(f"one failed {answer_tool_span} span", len(answers) == 1, str(len(answers)))
+    report.check("validation failure logged at WARNING", trace.logged("WARN", "failed validation"))
     report.check("run failure logged at ERROR", trace.logged("ERROR", "Run failed"))
 
 
@@ -446,9 +589,11 @@ def verify_question(report: Report, question: Question) -> None:
         scenario_check(report, question, server)
 
 
-def verify_metrics(report: Report, telemetry: Telemetry, outcomes: set[str]) -> None:
+def verify_metrics(
+    report: Report, telemetry: Telemetry, outcomes: set[str], profile: Profile
+) -> None:
     emitted = {point.metric for point in telemetry.data_points}
-    for name in (*APPLICATION_METRICS, *STRANDS_METRICS):
+    for name in (*APPLICATION_METRICS, *profile.metrics):
         report.check(name, name in emitted)
     recorded = {
         str(point.attributes.get(OUTCOME))
@@ -510,7 +655,10 @@ def main(argv: list[str]) -> int:
         telemetry = parse(lines)
     prometheus_text = paths[2].read_text() if len(paths) > 2 else ""
     report = Report()
+    framework = str(run.get("framework") or "strands")
+    profile = PROFILES[framework]
     print("=== Harness run ===")
+    print(f"  framework {framework}")
     ran = [result["scenario"] for result in run["scenarios"]]
     missing = [name for name in ALL_SCENARIOS if name not in ran]
     if allow_partial:
@@ -526,10 +674,13 @@ def main(argv: list[str]) -> int:
             report.check("one trace with its server span", trace is not None)
             if trace is None:
                 continue
-            verify_question(report, Question(result["scenario"], question_id, result, trace, index))
+            verify_question(
+                report, Question(result["scenario"], question_id, result, trace, index, profile)
+            )
             counts.append((result["scenario"], question_id, len(trace.spans), len(trace.logs)))
     print("\n=== Metrics ===")
-    verify_metrics(report, telemetry, {str(result["outcome"]) for result in run["scenarios"]})
+    outcomes = {str(result["outcome"]) for result in run["scenarios"]}
+    verify_metrics(report, telemetry, outcomes, profile)
     print(f"\n=== Scout exporter ({SCOUT_EXPORTER}) ===")
     verify_exporter(report, telemetry, prometheus_text, run.get("collector_self_metrics_at_start"))
     print("\n=== Spans and logs per question ===")

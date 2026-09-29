@@ -32,7 +32,10 @@ services:
       - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
 
   api:
-    build: .
+    build:
+      context: .
+      args:
+        FILING_FRAMEWORK: ${FILING_FRAMEWORK:-strands}
     ports:
       - "8000:8000"
     volumes:
@@ -54,6 +57,7 @@ services:
       - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-true}
       - OTEL_PYTHON_LOG_CORRELATION=${OTEL_PYTHON_LOG_CORRELATION:-true}
       # Application settings.
+      - FILING_FRAMEWORK=${FILING_FRAMEWORK:-strands}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - ANALYST_MODEL=${ANALYST_MODEL:-qwen3.5:9B}
       - RANKING_MODEL=${RANKING_MODEL:-gemma4:e2b}

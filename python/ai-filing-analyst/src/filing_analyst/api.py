@@ -12,18 +12,17 @@ from typing import TYPE_CHECKING, Any, Protocol
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
-from strands.types.exceptions import StructuredOutputException
 
 from filing_analyst.agents import (
     MODEL_FAULTS,
     RANKING_UNAVAILABLE,
     AgentConfig,
-    ModelFactory,
+    BadOutput,
+    Framework,
     QuestionRequest,
     QuestionTimedOut,
     frames_fetch_failed,
     placed_frames,
-    run_question,
 )
 from filing_analyst.app_metrics import (
     OUTCOME_ATTRIBUTE,
@@ -74,7 +73,7 @@ class Services:
     cache: CompanyFactsCache
     sec: SecClient
     agents: AgentConfig
-    models: ModelFactory
+    framework: Framework
 
 
 class QuestionBody(BaseModel):
@@ -162,7 +161,7 @@ async def _run(
 ) -> FilingAnswer:
     context = ToolContext(facts=services.store, sec=services.sec, cik=request.cik)
     try:
-        return await run_question(request, services.agents, context, collector, services.models)
+        return await services.framework.run(request, services.agents, context, collector)
     except BudgetExceeded as error:
         raise Refused(504, Outcome.BUDGET, "budget", str(error)) from error
     except QuestionTimedOut as error:
@@ -170,7 +169,7 @@ async def _run(
     except ConnectionError as error:
         logger.error("Run failed for question %s: %s", request.question_id, error)
         raise Refused(502, Outcome.ERROR, "model_unavailable", str(error)) from error
-    except StructuredOutputException as error:
+    except BadOutput as error:
         logger.error("Run failed for question %s: %s", request.question_id, error)
         raise Refused(502, Outcome.ERROR, "bad_output", str(error)) from error
     except Exception as error:

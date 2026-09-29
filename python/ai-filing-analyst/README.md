@@ -1,41 +1,74 @@
 # AI Filing Analyst
 
-A service that answers questions about a US-listed company's reported financials, built on Strands Agents with local
-Ollama models. An analyst agent looks up figures, computes ratios and, for a ranking question, calls a second agent
-that places the company among every filer of a concept. Every figure in an answer is a fact the company filed with
-the SEC, cited by the accession number of the filing it came from, and a verifier checks that before the answer is
-served. The data comes from the SEC's XBRL APIs, which need no key. Each question is one trace, with trace-correlated
-logs and application metrics exported to base14 Scout.
+A service that answers questions about a US-listed company's reported financials, with local Ollama models. The same
+service runs on one of four agent frameworks, picked by `FILING_FRAMEWORK`: Strands Agents (the default), Google ADK,
+Microsoft Agent Framework or the OpenAI Agents SDK. An analyst agent looks up figures, computes ratios and, for a
+ranking question, calls a second agent that places the company among every filer of a concept. Every figure in an answer
+is a fact the company filed with the SEC, cited by the accession number of the filing it came from, and a verifier
+checks that before the answer is served. The data comes from the SEC's XBRL APIs, which need no key. Each question is
+one trace, with trace-correlated logs and application metrics exported to base14 Scout.
 
-**Stack**: Python 3.14 · FastAPI 0.141 · Strands Agents 1.57 · PostgreSQL 18 · Ollama (local models) ·
-OpenTelemetry SDK 1.45 · base14 Scout
+**Stack**: Python 3.14 · FastAPI 0.141 · Strands Agents 1.57, Google ADK 2.10, Microsoft Agent Framework 1.19 or
+OpenAI Agents SDK 0.22 · PostgreSQL 18 · Ollama (local models) · OpenTelemetry SDK 1.45 (1.42 with ADK) · base14 Scout
 
 One of the [Python examples](../README.md) in base14's [OpenTelemetry examples](../../README.md) repository. For a
 durable agent on Temporal, read [ai-kyc-onboarding](../ai-kyc-onboarding) (Pydantic AI). Other links are under
 [References](#references).
 
-## How to instrument a Strands agent with OpenTelemetry
+## How to instrument the agent with OpenTelemetry
 
-All of it lives in `src/filing_analyst/telemetry.py`. `main.py` calls `configure_telemetry` at startup, before any
-agent is built.
+The shared part lives in `src/filing_analyst/telemetry.py`. `main.py` calls `configure_telemetry` at startup, before
+the framework is loaded.
 
-1. Install `strands-agents[otel,ollama]`, `opentelemetry-sdk`, the OTLP HTTP exporter and the FastAPI, psycopg,
-   httpx and logging instrumentations, as pinned in `pyproject.toml`.
+1. Install `opentelemetry-sdk`, the OTLP HTTP exporter and the FastAPI, psycopg, httpx and logging
+   instrumentations, as pinned in `pyproject.toml`, plus the framework's extra.
 2. Build a `TracerProvider` with a `BatchSpanProcessor` around the OTLP span exporter, and a `MeterProvider` with a
-   `PeriodicExportingMetricReader` around the OTLP metric exporter. Set both as the global providers. Strands reads
-   the global providers when it first needs them, so its spans and `strands.*` metrics carry this resource.
-   `StrandsTelemetry` is not used, because it installs a meter provider with its own resource.
-3. Strands does not export logs. Build a `LoggerProvider` with the OTLP log exporter and add a `LoggingHandler` for
-   it to the root logger. Every record then carries the trace ID and span ID of the span it was written under.
-4. Build each `Agent` per request and pass `trace_attributes`. Strands copies them onto every span of that agent's
-   run, which is how the question ID and ticker reach `invoke_agent`, `chat` and `execute_tool`. Strands applies them
-   after its own attributes, so the example also sets `gen_ai.provider.name` to `ollama` and adds `server.address`
-   and `server.port` there.
-5. Set `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental` so Strands emits the current GenAI semantic
-   conventions. Strands reads it once, when its tracer is first built.
-6. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` and the other standard variables as `.env.example` and
-   `compose.yaml` ship them. The SDK and the exporters read them. The example adds no variables of its own for
-   telemetry.
+   `PeriodicExportingMetricReader` around the OTLP metric exporter. Set both as the global providers. Every
+   framework here reads the global providers, so its spans and metrics carry this resource.
+3. Build a `LoggerProvider` with the OTLP log exporter and add a `LoggingHandler` for it to the root logger. Every
+   record then carries the trace ID and span ID of the span it was written under.
+4. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` and the other standard variables as `.env.example` and
+   `compose.yaml` ship them. The resource also carries `base14.filing.framework`, the framework in use.
+
+Each adapter in `src/filing_analyst/frameworks/` then does what its framework needs.
+
+### Strands Agents
+
+- Install `strands-agents[otel,ollama]`. `StrandsTelemetry` is not used, because it installs a meter provider with
+  its own resource.
+- Build each `Agent` per request and pass `trace_attributes`. Strands copies them onto every span of that agent's
+  run, which is how the question ID and ticker reach `invoke_agent`, `chat` and `execute_tool`. Strands applies them
+  after its own attributes, so the adapter also sets `gen_ai.provider.name` to `ollama` and adds `server.address` and
+  `server.port` there.
+- Set `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental` so Strands emits the current GenAI semantic
+  conventions. Strands reads it once, when its tracer is first built.
+
+### Google ADK
+
+- Install `google-adk`, which reaches Ollama through LiteLLM with the `ollama_chat/` model prefix. ADK caps
+  OpenTelemetry at 1.42, so this extra pins the SDK at 1.42.1 and the instrumentations at 0.63b1.
+- ADK emits its spans and `gen_ai.*` metrics through the global providers with no setup.
+- ADK has no per-agent trace attributes. `AgentRunAttributesProcessor` in `telemetry.py` adds the question's
+  attributes to each GenAI span as it starts, from a context variable the adapter sets around the run.
+- The session ID is the question ID, which ADK records as `gen_ai.conversation.id`.
+
+### Microsoft Agent Framework
+
+- Install `agent-framework-core` and `agent-framework-ollama`.
+- Call `enable_instrumentation` once at startup. `enable_sensitive_data` follows
+  `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`.
+- `AgentRunAttributesProcessor` adds the question's attributes, as for ADK.
+
+### OpenAI Agents SDK
+
+- Install `openai-agents`, `opentelemetry-instrumentation-genai-openai-agents` and
+  `opentelemetry-instrumentation-genai-openai`. The models reach Ollama through its OpenAI-compatible `/v1` endpoint.
+- Call `OpenAIAgentsInstrumentor().instrument(disable_openai_trace_export=True)`. It replaces the SDK's trace
+  processors with its own, so the SDK's exporter to OpenAI is removed. `OpenAIInstrumentor().instrument()` adds the
+  model-call spans.
+- The model-call spans report the provider as `openai`. The exporter in `telemetry.py` sets `gen_ai.provider.name` to
+  `ollama` on every model-call span, for every framework.
+- `AgentRunAttributesProcessor` adds the question's attributes, as for ADK.
 
 ## Prerequisites
 
@@ -64,6 +97,14 @@ in your shell, to export to Scout.
 
 This starts Postgres, the collector and the `api` service on port 8000. Postgres is on host port 5433. At startup the
 API loads the SEC ticker list into Postgres and reads each model's digest from Ollama.
+
+To run on another framework, set `FILING_FRAMEWORK` to `adk`, `maf` or `openai-agents` in `.env`, or pass it to
+`make docker-up`, and rebuild. The image installs that framework only.
+
+```bash
+make docker-up FRAMEWORK=adk
+curl -s http://localhost:8000/health | jq .framework
+```
 
 Ask a question:
 
@@ -122,24 +163,28 @@ curl -s "http://localhost:8000/companies/KVYO/facts?concept=revenue" | jq '.rows
    - `compute_ratio` computes one of six ratios in Python from stored facts: `net_margin`, `operating_margin`,
      `gross_margin`, `revenue_growth`, `current_ratio` and `liabilities_to_assets`. The model never does the
      arithmetic.
-   - `rank_among_filers` is the ranking agent, attached with Strands' `as_tool`. It runs on the smaller model with one
-     tool, `frame_values`, which fetches one SEC frame and returns the company's value and rank, the filer count, the
-     median and the five largest filers.
-5. The analyst returns a typed `FilingAnswer` through Strands' `structured_output_model`.
+   - `rank_among_filers` is the ranking agent, attached with the framework's agent-as-tool (`as_tool` in Strands, MAF
+     and OpenAI Agents, `AgentTool` in ADK). It runs on the smaller model with one tool, `frame_values`, which
+     fetches one SEC frame and returns the company's value and rank, the filer count, the median and the five
+     largest filers.
+5. The analyst returns a typed `FilingAnswer` by calling an answer tool: Strands' `structured_output_model`, ADK's
+   `set_model_response` from `output_schema`, and a `FilingAnswer` function tool on MAF and OpenAI Agents. A run that
+   ends in text on MAF or OpenAI Agents gets one reminder to call it, as Strands does.
 6. The verifier checks the answer against the tool results of this run: every figure must have come back from a tool
-   with the same fiscal year and accession number, and every number in the answer text must be in the figures. An answer that fails is not
-   served.
+   with the same fiscal year and accession number, and every number in the answer text must be in the figures. An
+   answer that fails is not served.
 
-A hook on the analyst settles what it reads from the ranking agent, whatever the smaller model wrote. When the frame
-placed the company, the hook appends the frame's facts as `frame_values` returned them: the frame, what it admits,
-the rank, the filer count, the value and the accession number. When the frames fetch fails, it replaces the reply
-with a fixed line saying the ranking is unavailable. The API adds a caveat for either case: which frame the ranking
-is among, or that the ranking is unavailable.
+A hook on the ranking tool settles what the analyst reads from the ranking agent, whatever the smaller model wrote.
+When the frame placed the company, the hook appends the frame's facts as `frame_values` returned them: the frame,
+what it admits, the rank, the filer count, the value and the accession number. When the frames fetch fails, it
+replaces the reply with a fixed line saying the ranking is unavailable. The API adds a caveat for either case: which
+frame the ranking is among, or that the ranking is unavailable.
 
-The two budgets are per question. The call budget counts model and tool calls across both agents with a Strands
-hook, `CALL_BUDGET` in total. The wall-clock budget, `QUESTION_TIMEOUT_SECONDS`, sets Strands' `cancel_signal`. Strands reads
-the signal between stream chunks, cycles and tools, so a model call or tool that stalls is cancelled outright two
-seconds later.
+The two budgets are per question. The call budget counts model and tool calls across both agents, `CALL_BUDGET` in
+total, through the framework's hooks: Strands hooks, ADK callbacks, MAF middleware and OpenAI Agents run hooks. The
+wall-clock budget, `QUESTION_TIMEOUT_SECONDS`, sets Strands' `cancel_signal`, which Strands reads between stream
+chunks, cycles and tools, so a model call or tool that stalls is cancelled outright two seconds later. The other
+adapters cancel the run task at the deadline.
 
 ## Endpoints
 
@@ -190,6 +235,12 @@ to `.harness/last-run.json`.
 A fault is chosen per question in the `fault` field of `POST /questions`. `sec_blocked` runs last, because the
 back-off refuses every new company until it ends.
 
+The trace column describes Strands. The other frameworks differ in two scenarios. `model_unavailable` raises in the
+framework's hook before the model call, so ADK has an error `call_llm` span with no `generate_content` child, and MAF
+and OpenAI Agents have no model span, only the error `invoke_agent`. For `bad_output`,
+the answer tool succeeds and the rewritten answer fails validation after the run, with a WARN validation line. On
+OpenAI Agents, a budget stop that turns the answer tool away lands on the reminder run's `invoke_agent analyst`.
+
 Then check the telemetry the run produced:
 
 ```bash
@@ -200,8 +251,9 @@ scripts/verify-scout.sh --allow-partial   # after running a subset
 It reads the collector's `debug` output and self-metrics for the run and checks, per question: one trace under
 `POST /questions` with the outcome the harness saw, `error.type` on every span with error status, every log line on
 an exported span and carrying the question ID, both agents nested as described below with the trace attributes on
-every Strands span, tokens and cost on each completed `chat` span, and each scenario's failure shape. It also checks
-that every application and Strands metric has data points, and that the Scout exporter sent spans, log records and
+every GenAI span, tokens and cost on each completed model span, and each scenario's failure shape. It reads the
+framework from the run file and checks that framework's span names and metrics. It also checks that every
+application and framework metric has data points, and that the Scout exporter sent spans, log records and
 metric points with no failures. Do not restart the collector between the run and the verification, since its
 self-metrics reset on restart.
 
@@ -210,10 +262,12 @@ self-metrics reset on restart.
 The API exports traces, metrics and logs over OTLP HTTP to the collector, as the service `ai-filing-analyst`. Each
 process gets a fresh `service.instance.id`.
 
+The resource carries `base14.filing.framework`, so runs on different frameworks can be told apart in Scout.
+
 ### The trace of one question
 
-This is the ranking question. The psycopg `SELECT` and `INSERT` spans and the ASGI `http receive` and `http send`
-spans are elided.
+This is the ranking question on Strands. The psycopg `SELECT` and `INSERT` spans and the ASGI `http receive` and
+`http send` spans are elided.
 
 ```text
 POST /questions                                base14.filing.question_id, ticker, outcome, sec_calls
@@ -240,6 +294,41 @@ company's own figure, which adds a cycle with `chat` and `execute_tool query_fac
 On a company's first question the facts load sits under `POST /questions`, before `invoke_agent analyst`: a `GET`
 companyfacts span when the facts come from the SEC, and the psycopg spans of the upsert either way.
 
+The same question on the other frameworks:
+
+```text
+Google ADK                                     Microsoft Agent Framework
+POST /questions                                POST /questions
+|-- invocation                                 |-- invoke_agent analyst
+|   `-- invoke_agent analyst                   |   |-- chat qwen3.5:9B
+|       |-- call_llm                           |   |-- execute_tool rank_among_filers
+|       |   `-- generate_content ...           |   |   `-- invoke_agent ranking
+|       |-- execute_tool rank_among_filers     |   |       |-- chat gemma4:e2b
+|       |   `-- invocation                     |   |       `-- execute_tool frame_values
+|       |       `-- invoke_agent ranking       |   |-- chat qwen3.5:9B
+|       |           |-- call_llm               |   `-- execute_tool FilingAnswer
+|       |           `-- execute_tool frame_... `-- filing.verify_answer
+|       `-- execute_tool set_model_response
+`-- filing.verify_answer
+
+OpenAI Agents SDK
+POST /questions
+|-- invoke_workflow Agent workflow
+|   `-- invoke_agent analyst
+|       |-- chat qwen3.5:9B
+|       |-- execute_tool rank_among_filers
+|       |   `-- invoke_agent ranking
+|       |       |-- chat gemma4:e2b
+|       |       `-- execute_tool frame_values
+|       |-- chat qwen3.5:9B
+|       `-- execute_tool FilingAnswer
+`-- filing.verify_answer
+```
+
+ADK names its model spans `generate_content ollama_chat/<model>`, after the LiteLLM route. On MAF and OpenAI Agents
+an analyst run that ends in text gets one reminder to call `FilingAnswer`, which adds a second `invoke_agent analyst`
+(on OpenAI Agents, a second `invoke_workflow`) under the server span.
+
 ### Hand-written spans
 
 One, `filing.verify_answer`, around the verifier. Strands, FastAPI, httpx and psycopg cover every other step.
@@ -251,16 +340,23 @@ All under `base14.`, since semconv owns `gen_ai.*`.
 | Span | Attributes |
 | --- | --- |
 | `POST /questions` | `base14.filing.question_id`, `base14.filing.ticker`, `base14.filing.outcome`, `base14.filing.sec_calls`. |
-| Every Strands span of both agents | `gen_ai.provider.name` (`ollama`), `server.address` and `server.port` from `OLLAMA_BASE_URL`, `gen_ai.conversation.id` set to the question ID, `base14.filing.question_id`, `base14.filing.ticker`, `base14.filing.cik`, `base14.filing.fixture_date`, `base14.prompt.version`, `base14.gen_ai.model.digest`. The ranking agent carries its own prompt version and digest. |
+| Every GenAI span of both agents | `base14.filing.question_id`, `base14.filing.ticker`, `base14.filing.cik`, `base14.filing.fixture_date`. On Strands every span also carries `gen_ai.provider.name` (`ollama`), `server.address` and `server.port` from `OLLAMA_BASE_URL`, and `gen_ai.conversation.id` set to the question ID. |
+| `invoke_agent` and model spans | `base14.prompt.version`, `base14.gen_ai.model.digest`. The ranking agent carries its own prompt version and digest. On Strands every span of the agent carries them. |
 | `filing.verify_answer` | `base14.filing.figure_count`, `base14.filing.citations_verified`, and `base14.filing.rejection_reason` on a rejection. |
 | SEC `GET` spans | `base14.sec.endpoint` (`companyfacts` or `frames`), `base14.sec.attempt`. |
-| `chat` | `base14.gen_ai.cost`, `base14.gen_ai.cost.simulated`. |
+| Model spans (`chat`, `generate_content`) | `base14.gen_ai.cost`, `base14.gen_ai.cost.simulated`, and `gen_ai.provider.name` set to `ollama`. |
 | Any span with error status | `error.type`. |
 
 Strands records the exception on a failed span but sets no `error.type`, so `CostAndErrorAttributingSpanExporter` in
 `telemetry.py` adds it on the way to the OTLP exporter: from the first recorded exception, then from the HTTP status
-code, then `_OTHER`. Strands wraps event loop failures in `EventLoopException`, and the exporter reports the cause
-instead. The same exporter computes the cost.
+code, then `_OTHER`. A recorded exception also replaces an `_OTHER` that an instrumentation set. Strands wraps event
+loop failures in `EventLoopException`, and the exporter reports the cause instead. The same exporter computes the
+cost, and sets `gen_ai.provider.name` to `ollama` on model spans, since LiteLLM and the OpenAI instrumentation report
+their own names.
+
+On ADK, MAF and OpenAI Agents, `AgentRunAttributesProcessor` in `telemetry.py` adds the question's attributes to each
+GenAI span as it starts. The adapter sets them in a context variable around the run, and the processor picks the
+agent's prompt version and digest from the span's agent name or model.
 
 `base14.gen_ai.model.digest` is read from Ollama at startup, because a model tag can point at new weights.
 `base14.prompt.version` is the timestamp prefix of the prompt file.
@@ -268,7 +364,8 @@ instead. The same exporter computes the cost.
 ### GenAI spans
 
 Strands emits `invoke_agent <agent>` per run, `execute_event_loop_cycle` per model turn, `chat` per model call and
-`execute_tool <tool>` per tool call. The keys worth knowing:
+`execute_tool <tool>` per tool call. ADK adds `invocation` per run and `call_llm` around each model call. OpenAI
+Agents adds `invoke_workflow` per run. The keys worth knowing, as Strands records them:
 
 - `gen_ai.agent.name` is `analyst` or `ranking`, and `gen_ai.agent.tools` lists the agent's tools.
 - `gen_ai.request.model` is the Ollama tag.
@@ -299,7 +396,8 @@ the span it was logged on, and every line written for a question carries `base14
 | `Concept ... resolved to no 10-K facts for CIK ...` | WARN | `execute_tool query_facts` |
 | `SEC <endpoint> attempt ... failed with ...; retrying` | WARN | The server span or the tool span that made the call. |
 | `SEC back-off in force; question refused for CIK ...` | WARN | `POST /questions` |
-| `Structured output failed validation, retrying: ...` | WARN | `execute_tool FilingAnswer` |
+| `Structured output failed validation, retrying: ...` | WARN | `execute_tool FilingAnswer`, on Strands. |
+| `Structured output failed validation: ...` | WARN | `POST /questions`, on the other frameworks. |
 | `Call budget of ... spent: ...` | WARN | The call that went over. |
 | `Question ... passed its ... second budget after ...` | WARN | `POST /questions` |
 | `Answer rejected by the verifier: <reason>` | WARN | `POST /questions` |
@@ -326,23 +424,34 @@ Defined in `src/filing_analyst/app_metrics.py`.
 | `base14.filing.facts.loaded` | counter, `{fact}` | None. |
 | `base14.filing.rankings` | counter, `{ranking}` | `base14.filing.outcome` |
 
-### Strands metrics
+### Framework metrics
 
-Strands records its own metrics through the global meter provider: `strands.event_loop.cycle_count`,
-`strands.event_loop.start_cycle`, `strands.event_loop.end_cycle`, `strands.event_loop.cycle_duration`,
-`strands.event_loop.latency`, `strands.event_loop.input.tokens`, `strands.event_loop.output.tokens`,
-`strands.model.time_to_first_token`, `strands.tool.call_count`, `strands.tool.success_count`,
-`strands.tool.error_count` and `strands.tool.duration`. The FastAPI and httpx instrumentations add `http.server.*`
-and `http.client.duration`.
+Each framework records its own metrics through the global meter provider:
+
+| Framework | Metrics |
+| --- | --- |
+| Strands | `strands.event_loop.cycle_count`, `strands.event_loop.start_cycle`, `strands.event_loop.end_cycle`, `strands.event_loop.cycle_duration`, `strands.event_loop.latency`, `strands.event_loop.input.tokens`, `strands.event_loop.output.tokens`, `strands.model.time_to_first_token`, `strands.tool.call_count`, `strands.tool.success_count`, `strands.tool.error_count`, `strands.tool.duration`. |
+| ADK | `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`, `gen_ai.execute_tool.duration`, `gen_ai.invoke_agent.duration`, `gen_ai.invoke_agent.inference_calls`, `gen_ai.invoke_agent.tool_calls`. |
+| MAF | `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`, `agent_framework.function.invocation.duration`. |
+| OpenAI Agents | `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`, `gen_ai.execute_tool.duration`, `gen_ai.invoke_agent.duration`, `gen_ai.invoke_workflow.duration`. |
+
+The FastAPI and httpx instrumentations add `http.server.*` and `http.client.duration`.
 
 ### Content capture
 
-`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` is `true` in `.env.example` and `compose.yaml`. Strands then
-records system instructions, messages, tool arguments and tool results on its spans. Strands does not read that
-variable, so when it is `false`, `telemetry.py` appends `gen_ai_unredacted_attributes=` to
-`OTEL_SEMCONV_STABILITY_OPT_IN` before the first agent is built, which makes Strands redact all of them. Token counts
-and the other attributes are recorded either way. `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` (4096) caps each attribute
-value, since tool results can be long.
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` is `true` in `.env.example` and `compose.yaml`. Each framework
+then records system instructions, messages, tool arguments and tool results. Token counts and the other attributes
+are recorded either way.
+
+- Strands does not read the variable. When it is `false`, `telemetry.py` appends `gen_ai_unredacted_attributes=` to
+  `OTEL_SEMCONV_STABILITY_OPT_IN` before the first agent is built, which makes Strands redact all of them.
+- ADK reads it for its GenAI events. Its own spans follow `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS`, which the adapter
+  sets to match.
+- MAF records content only with `enable_sensitive_data`, which the adapter sets from the variable.
+- The OpenAI instrumentations take a mode rather than `true`. The adapter maps `true` to `SPAN_ONLY` and `false` to
+  `NO_CONTENT` before instrumenting.
+
+`OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` (4096) caps each attribute value, since tool results can be long.
 
 ## SEC data
 
@@ -395,6 +504,7 @@ environment, so host runs take the defaults in `src/filing_analyst/config.py` un
 
 | Variable | `.env.example` | Notes |
 | --- | --- | --- |
+| `FILING_FRAMEWORK` | `strands` | `strands`, `adk`, `maf` or `openai-agents`. Also the Docker build argument that picks the extra to install. |
 | `SEC_USER_AGENT` | a placeholder | Required. Your organisation's name and a contact email. |
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Use `http://localhost:11434` on the host. |
 | `ANALYST_MODEL` | `qwen3.5:9B` | The analyst agent. |
@@ -428,7 +538,10 @@ Dockerfile's `uvicorn` command binds the API to port 8000.
 
 ## Known gaps
 
-What Strands 1.57.1 emits on its own, and what this example had to add or cannot fix:
+Checked on 2026-09-29 against the versions in `uv.lock`. Each list says what the framework emits on its own, and what
+this example had to add or cannot fix.
+
+### Strands Agents 1.57.1
 
 - **`gen_ai.provider.name` is `strands-agents`**, not the model provider, and no span carries `server.address` or
   `server.port`. The example overrides both through `trace_attributes`.
@@ -442,6 +555,52 @@ What Strands 1.57.1 emits on its own, and what this example had to add or cannot
 - **A tool hook that raises loses the tool span.** Strands opens `execute_tool` before `BeforeToolCallEvent` and does
   not end it if a hook raises. The call budget cancels the tool through `cancel_tool` instead, and stops the run at
   the next model call.
+
+### Google ADK 2.10.0
+
+- **OpenTelemetry is capped at 1.42.1.** ADK pins the API and SDK, so this framework's environment runs an older
+  OpenTelemetry than the other three.
+- **The model name carries the LiteLLM route.** `gen_ai.request.model` reads `ollama_chat/qwen3.5:9B`, and the
+  metrics report the provider as `ollama_chat`. ADK's spans have no provider; the exporter sets `ollama` on
+  model-call spans only.
+- **Failed agent and model spans have no `error.type`.** They have error status and the exception; the metrics carry
+  `error.type`. The exporter here takes the type from the exception.
+- **The ranking agent has its own conversation ID.** ADK runs the agent tool in a new session, so its spans carry
+  that session's UUID rather than the question ID.
+- **A failed tool has `error.type` `TOOL_ERROR`** and no `gen_ai.tool.status`.
+- **Content capture has its own switch.** ADK records content on its spans unless
+  `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS` is false. The adapter sets it from
+  `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`.
+- **`set_model_response` is listed first.** ADK puts its answer tool ahead of the agent's tools, and with its schema
+  first the model passes years it assumes to `query_facts`. The model callback moves it to the end of the list.
+- **`bad_output` is applied after the run.** `set_model_response` succeeds, and validation fails on the rewritten
+  answer.
+
+### Microsoft Agent Framework 1.19.0
+
+- **`chat` spans have `server.address` `Unknown`.** The Ollama client does not report its host.
+- **`invoke_agent` reports the provider as `microsoft.agent_framework`.** The exporter sets `ollama` on model-call
+  spans only, so the agent spans keep it.
+- **`response_format` cannot be used with tools on Ollama.** Ollama applies the schema to every call, so the model
+  cannot call a tool. The analyst answers through the `FilingAnswer` tool instead.
+- **`agent-framework-ollama` is a beta.** It pins `ollama` below 0.5.4.
+- **`bad_output` is applied after the run.** `FilingAnswer` succeeds, and validation fails on the rewritten answer.
+
+### OpenAI Agents SDK 0.22.3
+
+- **The instrumentation sets `error.type` `_OTHER`** on a failed `invoke_agent`, with no exception. The run hooks
+  record the exception on the span, and the exporter here takes the type from it.
+- **Model-call spans report the provider as `openai`** for Ollama's `/v1` endpoint. The exporter sets `ollama`.
+- **Strict tool schemas are off.** A strict schema marks every parameter required, and the model then fills an
+  optional year with the text `None`. The tools are registered with `strict_mode=False`.
+- **`output_type` cannot be used with tools on Ollama**, for the same reason as MAF's `response_format`.
+- **Content capture takes a mode, not `true`.** The adapter maps
+  `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY` or `NO_CONTENT`.
+- **The SDK's own trace export is off.** The instrumentor replaces it, so no trace goes to OpenAI.
+- **`bad_output` is applied after the run.** `FilingAnswer` succeeds, and validation fails on the rewritten answer.
+
+### On every framework
+
 - **Frames repeat filers' tagging errors.** A frame is what each company tagged, so a mis-scaled filing can lead the
   five largest filers.
 - **Cost on local models is zero.** Neither model has a row in `_shared/pricing.json`.
@@ -449,14 +608,18 @@ What Strands 1.57.1 emits on its own, and what this example had to add or cannot
 ## Development
 
 ```bash
-make dev                # uv sync --all-extras, for pytest, ruff and mypy
-make check              # ruff, ruff format --check, mypy, and the unit tests
-make test-integration   # the Postgres store and advisory lock tests, against Postgres on localhost:5433
-make run                # the API on the host, port 8000
+make dev                      # one framework's extra and the dev tools, in .venv-strands
+make check                    # ruff, ruff format --check, mypy, and the unit tests, on Strands
+make check FRAMEWORK=adk      # the same on one framework, in .venv-adk
+make check-all                # the same on all four
+make test-integration         # the Postgres store and advisory lock tests, against Postgres on localhost:5433
+make run FRAMEWORK=maf        # the API on the host, port 8000
 ```
 
-The unit tests run the agents on a scripted model and the SEC client on a mock transport, so they need no Ollama and
-no network. `make test-integration` needs the stack up.
+The framework extras conflict, since ADK needs an older OpenTelemetry than the OpenAI Agents instrumentation, so each
+framework gets its own virtual environment, `.venv-<framework>`. The unit tests run each adapter on a scripted model
+and the SEC client on a mock transport, so they need no Ollama and no network. Tests for a framework that is not
+installed are skipped. `make test-integration` needs the stack up.
 
 ## Troubleshooting
 
@@ -490,10 +653,16 @@ ai-filing-analyst/
 |-- src/filing_analyst/
 |   |-- main.py                  FastAPI app and startup
 |   |-- api.py                   question handling, refusals, server span attributes
-|   |-- agents.py                the two agents and how a question runs
-|   |-- budget.py                the call budget hook
+|   |-- agents.py                what the adapters share: prompts, ranking report, answer tool, errors
+|   |-- frameworks/
+|   |   |-- strands.py           Strands hooks and agents
+|   |   |-- strands_faults.py    the model wrapper that injects faults on Strands
+|   |   |-- adk.py               ADK callbacks and agents, LiteLLM to Ollama
+|   |   |-- maf.py               Agent Framework middleware and agents
+|   |   `-- openai_agents.py     OpenAI Agents run hooks and agents, Ollama's /v1 endpoint
+|   |-- budget.py                the call budget shared by both agents
 |   |-- tools.py                 query_facts, compute_ratio, frame_values
-|   |-- verifier.py              the grounding check
+|   |-- verifier.py              the grounding check and the tool result collector
 |   |-- sec_client.py            rate limit, retries, back-off, SEC faults
 |   |-- loader.py                loads a company's facts from the cache or the SEC
 |   |-- model_faults.py          model faults for the scenarios

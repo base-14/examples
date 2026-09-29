@@ -13,5 +13,7 @@ if [[ -z "${SEC_USER_AGENT:-}" && -f .env ]]; then
   export SEC_USER_AGENT
 fi
 
-uv run python -m scripts.fetch_fixtures
-uv run python -m filing_analyst.fixtures check
+# The SEC client needs OpenTelemetry, which each framework extra installs; Strands is enough.
+export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-.venv-strands}"
+uv run --extra strands python -m scripts.fetch_fixtures
+uv run --extra strands python -m filing_analyst.fixtures check

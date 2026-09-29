@@ -53,3 +53,4 @@ htmlcov/
 
 # Scenario harness results
 .harness/
+.venv-*/

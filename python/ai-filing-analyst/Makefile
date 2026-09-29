@@ -1,53 +1,70 @@
-.PHONY: install dev build check lint format typecheck test test-integration clean run docker-build docker-up docker-down fetch-fixtures check-fixtures outdated
+.PHONY: install dev build check check-all lint format typecheck test test-integration clean run docker-build docker-up docker-down fetch-fixtures check-fixtures outdated
+
+# Each framework is its own uv extra with its own OpenTelemetry pins, so each gets its own
+# virtual environment: make check FRAMEWORK=adk uses .venv-adk.
+FRAMEWORK ?= strands
+FRAMEWORKS := strands adk maf openai-agents
+ADAPTERS := strands adk maf openai_agents
+ADAPTER := $(subst -,_,$(FRAMEWORK))
+empty :=
+space := $(empty) $(empty)
+OTHER_ADAPTERS := $(subst $(space),|,$(filter-out $(ADAPTER),$(ADAPTERS)))
+UV_ENV := UV_PROJECT_ENVIRONMENT=.venv-$(FRAMEWORK)
+UV_RUN := $(UV_ENV) uv run --extra $(FRAMEWORK) --extra dev
 
 install:
-	uv sync
+	$(UV_ENV) uv sync --extra $(FRAMEWORK) --extra dev
 
 build: install
 
-dev:
-	uv sync --all-extras
+dev: install
 
 check: lint typecheck test
 
+check-all:
+	@for framework in $(FRAMEWORKS); do \
+		$(MAKE) --no-print-directory check FRAMEWORK=$$framework || exit 1; \
+	done
+
 lint:
-	uv run ruff check src tests scripts
-	uv run ruff format --check src tests scripts
+	$(UV_RUN) ruff check src tests scripts
+	$(UV_RUN) ruff format --check src tests scripts
 
 format:
-	uv run ruff check --fix src tests scripts
-	uv run ruff format src tests scripts
+	$(UV_RUN) ruff check --fix src tests scripts
+	$(UV_RUN) ruff format src tests scripts
 
 typecheck:
-	uv run mypy src scripts
+	$(UV_RUN) mypy src scripts --exclude 'frameworks/($(OTHER_ADAPTERS))(_faults)?\.py$$'
 
 test:
-	uv run pytest -m "not integration"
+	$(UV_RUN) pytest -m "not integration"
 
 test-integration:
-	uv run pytest -m integration
+	$(UV_RUN) pytest -m integration
 
 fetch-fixtures:
 	./scripts/fetch-fixtures.sh
 
 check-fixtures:
-	uv run python -m filing_analyst.fixtures check
+	$(UV_RUN) python -m filing_analyst.fixtures check
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov __pycache__
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 run:
-	uv run uvicorn filing_analyst.main:app --reload --host 0.0.0.0 --port 8000
+	FILING_FRAMEWORK=$(FRAMEWORK) $(UV_RUN) uvicorn filing_analyst.main:app --reload --host 0.0.0.0 --port 8000
 
 docker-build:
-	docker build -t ai-filing-analyst .
+	docker build --build-arg FILING_FRAMEWORK=$(FRAMEWORK) -t ai-filing-analyst:$(FRAMEWORK) .
 
+# Without FRAMEWORK on the command line, Compose takes FILING_FRAMEWORK from the shell or .env.
 docker-up:
-	docker compose up -d --build
+	$(if $(filter command line,$(origin FRAMEWORK)),FILING_FRAMEWORK=$(FRAMEWORK) )docker compose up -d --build
 
 docker-down:
 	docker compose down -v
 
 outdated:
-	uv pip list --outdated
+	$(UV_ENV) uv pip list --outdated

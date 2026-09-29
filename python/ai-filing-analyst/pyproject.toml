@@ -21,11 +21,15 @@ classifiers = [
 dependencies = [
     "fastapi==0.141.1",
     "uvicorn[standard]==0.54.0",
-    "strands-agents[otel,ollama]==1.57.1",
     "httpx==0.28.1",
     "psycopg[binary]==3.3.6",
     "pydantic==2.13.5",
     "pyyaml==6.0.3",
+]
+
+[project.optional-dependencies]
+strands = [
+    "strands-agents[otel,ollama]==1.57.1",
     "opentelemetry-sdk==1.45.0",
     "opentelemetry-api==1.45.0",
     "opentelemetry-exporter-otlp-proto-http==1.45.0",
@@ -34,8 +38,40 @@ dependencies = [
     "opentelemetry-instrumentation-httpx==0.66b0",
     "opentelemetry-instrumentation-logging==0.66b0",
 ]
-
-[project.optional-dependencies]
+adk = [
+    "google-adk==2.10.0",
+    "litellm==1.103.0",
+    "opentelemetry-sdk==1.42.1",
+    "opentelemetry-api==1.42.1",
+    "opentelemetry-exporter-otlp-proto-http==1.42.1",
+    "opentelemetry-instrumentation-fastapi==0.63b1",
+    "opentelemetry-instrumentation-psycopg==0.63b1",
+    "opentelemetry-instrumentation-httpx==0.63b1",
+    "opentelemetry-instrumentation-logging==0.63b1",
+]
+maf = [
+    "agent-framework-core==1.19.0",
+    "agent-framework-ollama==1.0.0b260813",
+    "opentelemetry-sdk==1.45.0",
+    "opentelemetry-api==1.45.0",
+    "opentelemetry-exporter-otlp-proto-http==1.45.0",
+    "opentelemetry-instrumentation-fastapi==0.66b0",
+    "opentelemetry-instrumentation-psycopg==0.66b0",
+    "opentelemetry-instrumentation-httpx==0.66b0",
+    "opentelemetry-instrumentation-logging==0.66b0",
+]
+openai-agents = [
+    "openai-agents==0.22.3",
+    "opentelemetry-instrumentation-genai-openai-agents==1.2b0",
+    "opentelemetry-instrumentation-genai-openai==1.2b0",
+    "opentelemetry-sdk==1.45.0",
+    "opentelemetry-api==1.45.0",
+    "opentelemetry-exporter-otlp-proto-http==1.45.0",
+    "opentelemetry-instrumentation-fastapi==0.66b0",
+    "opentelemetry-instrumentation-psycopg==0.66b0",
+    "opentelemetry-instrumentation-httpx==0.66b0",
+    "opentelemetry-instrumentation-logging==0.66b0",
+]
 dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
@@ -52,6 +88,16 @@ Repository = "https://github.com/base-14/examples"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "strands" },
+        { extra = "adk" },
+        { extra = "maf" },
+        { extra = "openai-agents" },
+    ],
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/filing_analyst"]

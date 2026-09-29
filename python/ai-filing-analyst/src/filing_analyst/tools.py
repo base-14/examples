@@ -1,16 +1,15 @@
-"""The agents' tools: plain functions over stored facts and the SEC frames API, and the
-Strands tools that bind them to one request's company."""
+"""The agents' tools: plain functions over stored facts and the SEC frames API, and the bound
+functions that tie them to one request's company. Every framework builds its tools from the
+bound functions, their names and their docstrings."""
 
+import functools
 import logging
 import statistics
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Protocol
-
-from strands import tool
-from strands.tools.decorator import DecoratedFunctionTool
 
 from filing_analyst.concepts import ALIASES, ArgumentError, Concept, check_year, resolve_concept
 
@@ -18,6 +17,7 @@ from filing_analyst.concepts import ALIASES, ArgumentError, Concept, check_year,
 if TYPE_CHECKING:
     from filing_analyst.facts import FactRow
     from filing_analyst.sec_client import SecClient
+    from filing_analyst.verifier import ToolResultCollector
 
 
 MAX_ROWS = 12
@@ -241,28 +241,53 @@ class ToolContext:
     cik: int
 
 
-def analyst_tools(context: ToolContext) -> list[DecoratedFunctionTool[..., dict[str, Any]]]:
-    concepts = ", ".join(ALIASES)
+type BoundTool = Callable[..., dict[str, Any]]
 
-    @tool(name="query_facts")
+
+@dataclass(frozen=True)
+class BoundTools:
+    analyst: list[BoundTool]
+    ranking: list[BoundTool]
+
+
+QUERY_FACTS_DOC = """Look up a reported figure for the company from its annual 10-K filings.
+
+Returns up to twelve rows, newest first, each with the value, unit, period, fiscal year, form
+and accession number. Cite the accession number for every figure you use. When a figure was
+reported in several filings, the latest filed value is returned. Known concept names:
+{concepts}.
+
+Args:
+    concept: A concept name such as revenue, net_income, operating_income or total_assets, or
+        an exact us-gaap tag.
+    fiscal_year_from: First fiscal year to include, optional.
+    fiscal_year_to: Last fiscal year to include, optional.
+"""
+
+
+def _recorded(name: str, run: BoundTool, collector: ToolResultCollector) -> BoundTool:
+    """Name the function as the tool and record its result, or its failure, in the collector."""
+    run.__name__ = run.__qualname__ = name
+
+    @functools.wraps(run)
+    def call(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        try:
+            result = run(*args, **kwargs)
+        except Exception:
+            collector.fail(name)
+            raise
+        collector.record(name, result)
+        return result
+
+    return call
+
+
+def bound_tools(context: ToolContext, collector: ToolResultCollector) -> BoundTools:
     def query_facts_tool(
         concept: str, fiscal_year_from: int | None = None, fiscal_year_to: int | None = None
     ) -> dict[str, Any]:
-        """Look up a reported figure for the company from its annual 10-K filings.
-
-        Returns up to twelve rows, newest first, each with the value, unit, period, fiscal year,
-        form and accession number. Cite the accession number for every figure you use. When a
-        figure was reported in several filings, the latest filed value is returned.
-
-        Args:
-            concept: A concept name such as revenue, net_income, operating_income or
-                total_assets, or an exact us-gaap tag.
-            fiscal_year_from: First fiscal year to include, optional.
-            fiscal_year_to: Last fiscal year to include, optional.
-        """
         return query_facts(context.facts, context.cik, concept, fiscal_year_from, fiscal_year_to)
 
-    @tool(name="compute_ratio")
     def compute_ratio_tool(ratio: str, fiscal_year: int | None = None) -> dict[str, Any]:
         """Compute a financial ratio for the company from its 10-K figures.
 
@@ -277,12 +302,6 @@ def analyst_tools(context: ToolContext) -> list[DecoratedFunctionTool[..., dict[
         """
         return compute_ratio(context.facts, context.cik, ratio, fiscal_year)
 
-    query_facts_tool.tool_spec["description"] += f" Known concept names: {concepts}."
-    return [query_facts_tool, compute_ratio_tool]
-
-
-def ranking_tools(context: ToolContext) -> list[DecoratedFunctionTool[..., dict[str, Any]]]:
-    @tool(name="frame_values")
     def frame_values_tool(concept: str, year: int) -> dict[str, Any]:
         """Rank the company among every SEC filer reporting a concept for one calendar year.
 
@@ -296,4 +315,11 @@ def ranking_tools(context: ToolContext) -> list[DecoratedFunctionTool[..., dict[
         """
         return frame_values(context.sec, context.cik, concept, year)
 
-    return [frame_values_tool]
+    query_facts_tool.__doc__ = QUERY_FACTS_DOC.format(concepts=", ".join(ALIASES))
+    return BoundTools(
+        analyst=[
+            _recorded("query_facts", query_facts_tool, collector),
+            _recorded("compute_ratio", compute_ratio_tool, collector),
+        ],
+        ranking=[_recorded("frame_values", frame_values_tool, collector)],
+    )

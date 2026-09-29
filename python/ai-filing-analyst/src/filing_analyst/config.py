@@ -5,6 +5,8 @@ from pathlib import Path
 
 
 PLACEHOLDER_USER_AGENT = "Your Company Name your.email@example.com"
+FRAMEWORK_VARIABLE = "FILING_FRAMEWORK"
+DEFAULT_FRAMEWORK = "strands"
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
@@ -14,6 +16,7 @@ class SettingsError(ValueError):
 
 @dataclass(frozen=True)
 class Settings:
+    framework: str
     ollama_base_url: str
     analyst_model: str
     ranking_model: str
@@ -48,8 +51,13 @@ def _sec_user_agent() -> str:
     return value
 
 
+def framework_name() -> str:
+    return os.environ.get(FRAMEWORK_VARIABLE, DEFAULT_FRAMEWORK).strip().lower()
+
+
 def get_settings() -> Settings:
     return Settings(
+        framework=framework_name(),
         ollama_base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
         analyst_model=os.environ.get("ANALYST_MODEL", "qwen3.5:9B"),
         ranking_model=os.environ.get("RANKING_MODEL", "gemma4:e2b"),

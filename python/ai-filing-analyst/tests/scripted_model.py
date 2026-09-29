@@ -2,7 +2,6 @@ import asyncio
 import copy
 import json
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass
 from typing import Any
 
 from strands.models.model import Model
@@ -10,25 +9,11 @@ from strands.types.content import Messages
 from strands.types.streaming import StreamEvent
 from strands.types.tools import ToolSpec
 
-
-@dataclass(frozen=True)
-class Call:
-    name: str
-    input: dict[str, Any]
+from tests.agent_support import Call, Say, Stall, Turn
 
 
-@dataclass(frozen=True)
-class Say:
-    text: str
-
-
-@dataclass(frozen=True)
-class Stall:
-    """A model call that never returns and never reads the cancel signal, like a hung server."""
-
-
-type Turn = Call | Say | Stall
-
+ANALYST_MODEL = "qwen3.5:9B"
+RANKING_MODEL = "gemma4:e2b"
 USAGE = {"inputTokens": 120, "outputTokens": 30, "totalTokens": 150}
 
 
@@ -88,3 +73,14 @@ def tool_results(model: ScriptedModel) -> list[dict[str, Any]]:
         for block in message["content"]
         if "toolResult" in block
     ]
+
+
+class Scripts:
+    """One scripted analyst and one scripted ranking model per question, from turn lists."""
+
+    def __init__(self, analyst: list[Any], ranking: list[Any] | None = None) -> None:
+        self.analyst = ScriptedModel(ANALYST_MODEL, analyst)
+        self.ranking = ScriptedModel(RANKING_MODEL, ranking or [])
+
+    def __call__(self, model_id: str) -> ScriptedModel:
+        return self.analyst if model_id == ANALYST_MODEL else self.ranking

@@ -1,19 +1,13 @@
 """A call budget shared by both agents of one question.
 
-Strands' native `limits` count one agent and end the run without error status. This hook counts
-model and tool calls across the analyst and the ranking agent. Past the limit, a model call raises,
-which ends `invoke_agent` with error status. A tool call is cancelled instead, because Strands
-never ends the `execute_tool` span when a tool hook raises; the next model call raises.
+Each framework's hooks call `count_model` before a model call and `count_tool` before a tool
+call, across the analyst and the ranking agent. Past the limit, `count_model` raises, which ends
+`invoke_agent` with error status. `count_tool` returns the stop instead, so the hook can cancel
+the tool in the way its framework allows; the next model call raises.
 """
 
 import logging
 import threading
-from typing import Any
-
-from opentelemetry import trace
-from strands.hooks import BeforeModelCallEvent, BeforeToolCallEvent, HookProvider, HookRegistry
-
-from filing_analyst.telemetry import ERROR_TYPE_ATTRIBUTE
 
 
 logger = logging.getLogger(__name__)
@@ -32,7 +26,7 @@ class BudgetExceeded(Exception):
 BUDGET_ERROR_TYPE = f"{BudgetExceeded.__module__}.{BudgetExceeded.__qualname__}"
 
 
-class CallBudget(HookProvider):
+class CallBudget:
     def __init__(self, limit: int) -> None:
         self.limit = limit
         self.model_calls = 0
@@ -40,20 +34,13 @@ class CallBudget(HookProvider):
         self.exceeded: BudgetExceeded | None = None
         self._lock = threading.Lock()
 
-    def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
-        registry.add_callback(BeforeModelCallEvent, self._on_model_call)
-        registry.add_callback(BeforeToolCallEvent, self._on_tool_call)
-
-    def _on_model_call(self, event: BeforeModelCallEvent) -> None:
+    def count_model(self) -> None:
         exceeded = self._count(model=True)
         if exceeded is not None:
             raise exceeded
 
-    def _on_tool_call(self, event: BeforeToolCallEvent) -> None:
-        exceeded = self._count(model=False)
-        if exceeded is not None:
-            trace.get_current_span().set_attribute(ERROR_TYPE_ATTRIBUTE, BUDGET_ERROR_TYPE)
-            event.cancel_tool = str(exceeded)
+    def count_tool(self) -> BudgetExceeded | None:
+        return self._count(model=False)
 
     def _count(self, *, model: bool) -> BudgetExceeded | None:
         """The first stop is sticky. The ranking agent runs as a tool, and a tool's failure goes

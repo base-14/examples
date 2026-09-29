@@ -1,8 +1,8 @@
 """Tracer, meter and logger providers for the API, and the attributes the exporter derives.
 
-`configure_telemetry` runs before any agent is built. Strands reads the global tracer and meter
-providers lazily, so its spans and `strands.*` metrics carry this resource. `StrandsTelemetry` is
-not used, because it would install a meter provider with its own resource.
+`configure_telemetry` runs before any agent is built. Every framework reads the global tracer
+and meter providers, so its spans and metrics carry this resource. `StrandsTelemetry` is not used,
+because it would install a meter provider with its own resource.
 """
 
 from __future__ import annotations
@@ -16,10 +16,12 @@ import uuid
 from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
 
 from fastapi import FastAPI
+from opentelemetry import context as otel_context
 from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.attributes import BoundedAttributes
@@ -31,7 +33,7 @@ from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.logging.constants import DEFAULT_LOGGING_FORMAT
 from opentelemetry.instrumentation.logging.handler import LoggingHandler
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
-from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs import LoggerProvider, LogRecordProcessor, ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
@@ -41,10 +43,12 @@ from opentelemetry.sdk.resources import (
     OTELResourceDetector,
     Resource,
 )
-from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.sdk.util import BoundedList
 from opentelemetry.trace import StatusCode
+
+from filing_analyst.config import framework_name
 
 
 FALLBACK_SERVICE_NAME = "ai-filing-analyst"
@@ -55,8 +59,21 @@ SEMCONV_OPT_IN_VARIABLE = "OTEL_SEMCONV_STABILITY_OPT_IN"
 UNREDACTED_TOKEN_PREFIX = "gen_ai_unredacted_attributes="
 REDACT_ALL_TOKEN = UNREDACTED_TOKEN_PREFIX
 
-CHAT_OPERATION_NAME = "chat"
+MODEL_CALL_OPERATIONS = frozenset({"chat", "generate_content", "text_completion"})
+MODEL_PROVIDER = "ollama"
+FRAMEWORK_ATTRIBUTE = "base14.filing.framework"
+GEN_AI_SPAN_PREFIXES = (
+    "invoke_agent",
+    "invoke_workflow",
+    "invocation",
+    "call_llm",
+    "chat",
+    "generate_content",
+    "execute_tool",
+)
 GEN_AI_OPERATION_ATTRIBUTE = "gen_ai.operation.name"
+GEN_AI_PROVIDER_ATTRIBUTE = "gen_ai.provider.name"
+GEN_AI_AGENT_NAME_ATTRIBUTE = "gen_ai.agent.name"
 GEN_AI_REQUEST_MODEL_ATTRIBUTE = "gen_ai.request.model"
 GEN_AI_INPUT_TOKENS_ATTRIBUTE = "gen_ai.usage.input_tokens"
 GEN_AI_OUTPUT_TOKENS_ATTRIBUTE = "gen_ai.usage.output_tokens"
@@ -117,7 +134,7 @@ def _as_token_count(value: object) -> int:
 
 
 def _cost_attributes(attributes: Mapping[str, object]) -> dict[str, DerivedValue]:
-    if attributes.get(GEN_AI_OPERATION_ATTRIBUTE) != CHAT_OPERATION_NAME:
+    if attributes.get(GEN_AI_OPERATION_ATTRIBUTE) not in MODEL_CALL_OPERATIONS:
         return {}
     model = attributes.get(GEN_AI_REQUEST_MODEL_ATTRIBUTE)
     if model is None:
@@ -131,8 +148,11 @@ def _cost_attributes(attributes: Mapping[str, object]) -> dict[str, DerivedValue
 
 
 def _error_type_attributes(span: ReadableSpan) -> dict[str, DerivedValue]:
+    """An instrumentation's `_OTHER` gives way to a recorded exception, which names the type."""
     attributes = span.attributes or {}
-    if ERROR_TYPE_ATTRIBUTE in attributes or span.status.status_code != StatusCode.ERROR:
+    if span.status.status_code != StatusCode.ERROR:
+        return {}
+    if attributes.get(ERROR_TYPE_ATTRIBUTE, OTHER_ERROR_TYPE) != OTHER_ERROR_TYPE:
         return {}
     for event in span.events:
         exception_type = (event.attributes or {}).get(EXCEPTION_TYPE_ATTRIBUTE)
@@ -157,9 +177,23 @@ def _root_cause_type(stacktrace: str, fallback: str) -> str:
     return root.removeprefix("builtins.") or fallback
 
 
-def _with_derived_attributes(span: ReadableSpan) -> ReadableSpan:
+def _provider_attributes(
+    attributes: Mapping[str, object], provider: str | None
+) -> dict[str, DerivedValue]:
+    if provider is None or attributes.get(GEN_AI_OPERATION_ATTRIBUTE) not in MODEL_CALL_OPERATIONS:
+        return {}
+    if attributes.get(GEN_AI_PROVIDER_ATTRIBUTE) == provider:
+        return {}
+    return {GEN_AI_PROVIDER_ATTRIBUTE: provider}
+
+
+def _with_derived_attributes(span: ReadableSpan, provider: str | None = None) -> ReadableSpan:
     attributes = span.attributes or {}
-    derived = {**_cost_attributes(attributes), **_error_type_attributes(span)}
+    derived = {
+        **_cost_attributes(attributes),
+        **_error_type_attributes(span),
+        **_provider_attributes(attributes, provider),
+    }
     if not derived:
         return span
     merged = BoundedAttributes(attributes={**attributes, **derived})
@@ -187,18 +221,23 @@ def _with_derived_attributes(span: ReadableSpan) -> ReadableSpan:
 class CostAndErrorAttributingSpanExporter(SpanExporter):
     """Adds derived attributes to spans on their way to the wrapped exporter.
 
-    `chat` spans get their cost and the simulated flag. Spans with error status and no
+    Model call spans get their cost and the simulated flag. With `provider` set, they also get
+    that `gen_ai.provider.name`, for frameworks that report the client library in place of the
+    server it reached, or no provider at all. Spans with error status and no
     `error.type` get it from their first recorded exception, because Strands records the
     exception but sets no `error.type`. A failed span with no exception takes its HTTP status
     code, and any other takes the semconv fallback `_OTHER`. A finished span's attributes are frozen, so each changed
     span is rebuilt, keeping its drop counts.
     """
 
-    def __init__(self, wrapped: SpanExporter) -> None:
+    def __init__(self, wrapped: SpanExporter, provider: str | None = None) -> None:
         self._wrapped = wrapped
+        self._provider = provider
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-        return self._wrapped.export([_with_derived_attributes(span) for span in spans])
+        return self._wrapped.export(
+            [_with_derived_attributes(span, self._provider) for span in spans]
+        )
 
     def shutdown(self) -> None:
         self._wrapped.shutdown()
@@ -231,8 +270,10 @@ SERVICE_INSTANCE = str(uuid.uuid4())
 def build_resource() -> Resource:
     """`Resource.create` reads `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES`. When neither
     names the service, `ai-filing-analyst` replaces the SDK's `unknown_service`. The instance ID
-    is fresh per process."""
-    resource = Resource.create({SERVICE_INSTANCE_ID: SERVICE_INSTANCE})
+    is fresh per process, and `base14.filing.framework` names the agent framework in use."""
+    resource = Resource.create(
+        {SERVICE_INSTANCE_ID: SERVICE_INSTANCE, FRAMEWORK_ATTRIBUTE: framework_name()}
+    )
     if OTELResourceDetector().detect().attributes.get(SERVICE_NAME):
         return resource
     return resource.merge(Resource({SERVICE_NAME: FALLBACK_SERVICE_NAME}))
@@ -247,6 +288,7 @@ def build_tracer_provider(
     `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` itself; the batch processor reads the `OTEL_BSP_*`
     variables."""
     provider = TracerProvider(resource=resource)
+    provider.add_span_processor(AgentRunAttributesProcessor())
     provider.add_span_processor(processor(exporter))
     return provider
 
@@ -257,8 +299,70 @@ def build_meter_provider(reader: MetricReader, resource: Resource) -> MeterProvi
 
 def build_logger_provider(exporter: LogRecordExporter, resource: Resource) -> LoggerProvider:
     provider = LoggerProvider(resource=resource)
+    provider.add_log_record_processor(QuestionIdLogProcessor())
     provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
     return provider
+
+
+type AttributeValue = str | int
+
+
+@dataclass(frozen=True)
+class AgentRunAttributes:
+    """The attributes of one question's agent run. `question` goes on every GenAI span of the
+    run; `by_agent` and `by_model` add an agent's prompt version and model digest to the spans
+    that name that agent or that model when they start."""
+
+    question: Mapping[str, AttributeValue]
+    by_agent: Mapping[str, Mapping[str, AttributeValue]] = field(default_factory=dict)
+    by_model: Mapping[str, Mapping[str, AttributeValue]] = field(default_factory=dict)
+
+
+_agent_run: ContextVar[AgentRunAttributes | None] = ContextVar("agent_run", default=None)
+
+
+@contextmanager
+def agent_run_attributes(run: AgentRunAttributes) -> Iterator[None]:
+    token = _agent_run.set(run)
+    try:
+        yield
+    finally:
+        _agent_run.reset(token)
+
+
+def _bare_model(model: str) -> str:
+    """LiteLLM names a model with its route, such as `ollama_chat/qwen3.5:9B`."""
+    return model.rsplit("/", 1)[-1]
+
+
+def _agent_or_model(
+    run: AgentRunAttributes, span_name: str, attributes: Mapping[str, object]
+) -> Mapping[str, AttributeValue]:
+    """The agent's or model's attributes, found from the span's attributes or, when the
+    framework sets those after the span starts, from its name, such as `invoke_agent analyst`
+    or `generate_content ollama_chat/qwen3.5:9B`."""
+    named = span_name.split(" ", 1)[1] if " " in span_name else ""
+    for agent in (attributes.get(GEN_AI_AGENT_NAME_ATTRIBUTE), named):
+        if isinstance(agent, str) and agent in run.by_agent:
+            return run.by_agent[agent]
+    for model in (attributes.get(GEN_AI_REQUEST_MODEL_ATTRIBUTE), named):
+        if isinstance(model, str) and _bare_model(model) in run.by_model:
+            return run.by_model[_bare_model(model)]
+    return {}
+
+
+class AgentRunAttributesProcessor(SpanProcessor):
+    """Adds the question's attributes to the GenAI spans of frameworks that have no per-agent
+    trace attributes. An attribute the framework already set when the span started is kept."""
+
+    def on_start(self, span: Span, parent_context: otel_context.Context | None = None) -> None:
+        run = _agent_run.get()
+        if run is None or not span.name.startswith(GEN_AI_SPAN_PREFIXES):
+            return
+        attributes = span.attributes or {}
+        added: dict[str, AttributeValue] = dict(run.question)
+        added.update(_agent_or_model(run, span.name, attributes))
+        span.set_attributes({key: value for key, value in added.items() if key not in attributes})
 
 
 _question_id: ContextVar[str | None] = ContextVar("question_id", default=None)
@@ -288,6 +392,24 @@ class QuestionIdFilter(logging.Filter):
         return exported
 
 
+class QuestionIdLogProcessor(LogRecordProcessor):
+    """Adds the question ID to log records that frameworks emit straight to the logger
+    provider, such as GenAI inference events, which the logging filter never sees."""
+
+    def on_emit(self, log_record: ReadWriteLogRecord) -> None:
+        question_id = _question_id.get()
+        record = log_record.log_record
+        attributes = dict(record.attributes or {})
+        if question_id is not None and QUESTION_ID_ATTRIBUTE not in attributes:
+            record.attributes = {**attributes, QUESTION_ID_ATTRIBUTE: question_id}
+
+    def shutdown(self) -> None:
+        return None
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+
 def install_logging(provider: LoggerProvider) -> None:
     """Route standard logging into `provider`. The example's loggers log at INFO, and each
     record written for a question carries its ID as an attribute."""
@@ -302,19 +424,21 @@ def install_logging(provider: LoggerProvider) -> None:
 def correlate_console_logs() -> None:
     """With `OTEL_PYTHON_LOG_CORRELATION=true`, console log lines carry the trace and span ID.
     The logging instrumentation adds them to each record, and a console handler prints them in
-    its default format. Its own `basicConfig` is not used, because it does nothing once the root
-    logger has the OTLP handler, and its own OTLP handler stays off for the same reason."""
+    its default format. The console handler goes on the root logger first, so the
+    instrumentation's own `basicConfig` does nothing. Contrib 0.63b1, which ADK pins, injects the
+    IDs only with `set_logging_format`; later releases also take `inject_trace_context`. Its own
+    OTLP handler stays off, because the root logger already has one."""
     if os.environ.get(LOG_CORRELATION_VARIABLE, "false").strip().lower() != "true":
         return
-    LoggingInstrumentor().instrument(
-        set_logging_format=False,
-        inject_trace_context=True,
-        enable_log_auto_instrumentation=False,
-    )
     console = logging.StreamHandler()
     console.name = CONSOLE_HANDLER_NAME
     console.setFormatter(logging.Formatter(DEFAULT_LOGGING_FORMAT))
     logging.getLogger().addHandler(console)
+    LoggingInstrumentor().instrument(
+        set_logging_format=True,
+        inject_trace_context=True,
+        enable_log_auto_instrumentation=False,
+    )
 
 
 def instrument_libraries() -> None:
@@ -329,7 +453,9 @@ def configure_telemetry() -> None:
     apply_content_capture_setting()
     resource = build_resource()
     trace.set_tracer_provider(
-        build_tracer_provider(CostAndErrorAttributingSpanExporter(OTLPSpanExporter()), resource)
+        build_tracer_provider(
+            CostAndErrorAttributingSpanExporter(OTLPSpanExporter(), MODEL_PROVIDER), resource
+        )
     )
     metrics.set_meter_provider(
         build_meter_provider(PeriodicExportingMetricReader(OTLPMetricExporter()), resource)

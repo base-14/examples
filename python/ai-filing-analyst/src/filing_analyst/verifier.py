@@ -8,13 +8,10 @@ applied. Signs are ignored, since a text says "a loss of $55 million" for -55,04
 dates, counts under one hundred and accession numbers in the text are not checked.
 """
 
-import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
-
-from strands.hooks import AfterToolCallEvent, HookProvider, HookRegistry
 
 
 if TYPE_CHECKING:
@@ -53,31 +50,21 @@ class Verdict:
     citations_verified: int
 
 
-class ToolResultCollector(HookProvider):
-    """Collects the JSON results of the grounding tools for one request. Registered on both
-    agents, because the ranking agent's `frame_values` calls run inside its own agent."""
+class ToolResultCollector:
+    """Collects the results of the grounding tools for one request. The tools record into it
+    themselves, so it holds the ranking agent's `frame_values` results as well."""
 
     def __init__(self) -> None:
         self.results: list[dict[str, Any]] = []
         self.failed_tools: set[str] = set()
 
-    def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
-        registry.add_callback(AfterToolCallEvent, self.collect)
+    def record(self, name: str, result: dict[str, Any]) -> None:
+        if name in GROUNDING_TOOLS and "error" not in result:
+            self.results.append(result)
 
-    def collect(self, event: AfterToolCallEvent) -> None:
-        name = event.tool_use["name"]
-        if name not in GROUNDING_TOOLS:
-            return
-        if event.result["status"] != "success":
+    def fail(self, name: str) -> None:
+        if name in GROUNDING_TOOLS:
             self.failed_tools.add(name)
-            return
-        for block in event.result["content"]:
-            try:
-                parsed = json.loads(block.get("text", ""))
-            except ValueError:
-                continue
-            if isinstance(parsed, dict) and "error" not in parsed:
-                self.results.append(parsed)
 
 
 def _close(a: float, b: float, tolerance: float = 1e-9) -> bool:

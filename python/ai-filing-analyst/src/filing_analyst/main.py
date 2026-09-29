@@ -7,10 +7,11 @@ from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 
 from filing_analyst import health
-from filing_analyst.agents import AgentConfig, ollama_models
+from filing_analyst.agents import AgentConfig
 from filing_analyst.api import QuestionBody, Services, answer_question, stored_facts
 from filing_analyst.config import Settings, get_settings
 from filing_analyst.fixtures import TICKERS_NAME, FactsCache, read_tickers
+from filing_analyst.frameworks import load_framework
 from filing_analyst.model_digests import read_model_digests
 from filing_analyst.prompts import PROMPTS_DIR, load_prompt
 from filing_analyst.sec_client import SecClient
@@ -49,7 +50,7 @@ def build_services(settings: Settings) -> Services:
             fixture_date=health.fixture_date(settings.fixtures_dir),
             ollama_base_url=settings.ollama_base_url,
         ),
-        models=ollama_models(settings.ollama_base_url, settings.ollama_think),
+        framework=load_framework(settings),
     )
 
 
@@ -93,6 +94,7 @@ def create_app(
                 "status": "ok",
                 "facts": facts,
                 "fixture_date": health.fixture_date(settings.fixtures_dir),
+                "framework": settings.framework,
             }
         )
 

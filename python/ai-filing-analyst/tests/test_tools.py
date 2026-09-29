@@ -1,3 +1,4 @@
+import inspect
 import json
 from datetime import date
 from typing import get_args
@@ -12,13 +13,13 @@ from filing_analyst.tools import (
     MAX_ROWS,
     RATIOS,
     ToolContext,
-    analyst_tools,
+    bound_tools,
     compute_ratio,
     fiscal_year_of,
     frame_values,
     query_facts,
-    ranking_tools,
 )
+from filing_analyst.verifier import ToolResultCollector
 from tests.sec_support import FakeClock, RecordingHandler, sec_client
 from tests.tools_support import (
     AIRBNB,
@@ -258,33 +259,37 @@ class TestFrameValues:
             frame_values(sec_client(frames(), FakeClock()), AIRBNB, "net_income", 2024)
 
 
-class TestToolSpecs:
-    def test_the_analyst_and_ranking_tools_carry_their_names_and_docs(
-        self, facts: MemoryFacts
-    ) -> None:
+class TestBoundTools:
+    def test_the_tools_carry_their_names_docs_and_arguments(self, facts: MemoryFacts) -> None:
         context = ToolContext(facts=facts, sec=sec_client(frames(), FakeClock()), cik=WORKIVA)
-        specs = {
-            t.tool_spec["name"]: t.tool_spec
-            for t in [*analyst_tools(context), *ranking_tools(context)]
-        }
-        assert set(specs) == {"query_facts", "compute_ratio", "frame_values"}
-        assert {t.tool_name for t in [*analyst_tools(context), *ranking_tools(context)]} == set(
-            specs
-        )
-        assert "total_liabilities" in specs["query_facts"]["description"]
-        for spec in specs.values():
-            assert len(spec["description"]) > 80
-        assert set(specs["query_facts"]["inputSchema"]["json"]["properties"]) == {
+        tools = bound_tools(context, ToolResultCollector())
+        by_name = {t.__name__: t for t in [*tools.analyst, *tools.ranking]}
+        assert [t.__name__ for t in tools.analyst] == ["query_facts", "compute_ratio"]
+        assert [t.__name__ for t in tools.ranking] == ["frame_values"]
+        assert "total_liabilities" in (by_name["query_facts"].__doc__ or "")
+        assert list(inspect.signature(by_name["query_facts"]).parameters) == [
             "concept",
             "fiscal_year_from",
             "fiscal_year_to",
-        }
+        ]
 
-    def test_a_tool_runs_against_the_request_company(self, facts: MemoryFacts) -> None:
+    def test_a_tool_runs_against_the_request_company_and_records(self, facts: MemoryFacts) -> None:
         context = ToolContext(facts=facts, sec=sec_client(frames(), FakeClock()), cik=WORKIVA)
-        query = next(t for t in analyst_tools(context) if t.tool_spec["name"] == "query_facts")
+        collector = ToolResultCollector()
+        query = bound_tools(context, collector).analyst[0]
         result = query("net_income", 2019, 2019)
         assert result["rows"][0]["value"] == -47479000
+        assert collector.results == [result]
+
+    def test_a_failed_tool_is_named_and_raises(self) -> None:
+        context = ToolContext(
+            facts=MemoryFacts.of(), sec=sec_client(frames(), FakeClock()), cik=AIRBNB
+        )
+        collector = ToolResultCollector()
+        frame = bound_tools(context, collector).ranking[0]
+        with sec_question_scope(cap=4, fault="sec_unreachable"), pytest.raises(SecUnavailable):
+            frame("net_income", 2024)
+        assert collector.failed_tools == {"frame_values"}
 
 
 def test_the_answer_accepts_only_ratios_compute_ratio_knows() -> None:

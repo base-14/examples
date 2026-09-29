@@ -1,21 +1,27 @@
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from fastapi import FastAPI
 
-from filing_analyst.agents import AgentConfig
+from filing_analyst.agents import AgentConfig, Framework, QuestionRequest
 from filing_analyst.api import Services
 from filing_analyst.config import Settings
 from filing_analyst.facts import FactRow, FactSource, parse_company_facts
 from filing_analyst.prompts import load_prompt
 from filing_analyst.store import Company
-from tests.scripted_model import ScriptedModel
 from tests.sec_support import FakeClock, RecordingHandler, sec_client
 from tests.test_tools import FRAME
 from tests.tools_support import AIRBNB, AMPLITUDE, MONDAY, WORKIVA, recorded
+
+
+if TYPE_CHECKING:
+    from filing_analyst.answer import FilingAnswer
+    from filing_analyst.tools import ToolContext
+    from filing_analyst.verifier import ToolResultCollector
+    from tests.scripted_model import Scripts
 
 
 PROMPTS = Path(__file__).parents[1] / "prompts"
@@ -83,19 +89,9 @@ def sec_responses(request: httpx.Request) -> httpx.Response:
     return httpx.Response(404)
 
 
-class Scripts:
-    """One scripted analyst and one scripted ranking model per question, from turn lists."""
-
-    def __init__(self, analyst: list[Any], ranking: list[Any] | None = None) -> None:
-        self.analyst = ScriptedModel(ANALYST_MODEL, analyst)
-        self.ranking = ScriptedModel(RANKING_MODEL, ranking or [])
-
-    def __call__(self, model_id: str) -> ScriptedModel:
-        return self.analyst if model_id == ANALYST_MODEL else self.ranking
-
-
 def settings(**changes: Any) -> Settings:
     fields: dict[str, Any] = {
+        "framework": "strands",
         "ollama_base_url": "http://ollama.invalid:11434",
         "analyst_model": ANALYST_MODEL,
         "ranking_model": RANKING_MODEL,
@@ -116,17 +112,38 @@ def settings(**changes: Any) -> Settings:
     return Settings(**{**fields, **changes})
 
 
+class NoFramework:
+    """For tests that never reach an agent."""
+
+    name = "none"
+
+    async def run(
+        self,
+        request: QuestionRequest,
+        config: AgentConfig,
+        context: ToolContext,
+        collector: ToolResultCollector,
+    ) -> FilingAnswer:
+        raise AssertionError("no agent run expected")
+
+
 class Rig:
     """The services an app runs on in tests: memory store and cache, a mock SEC transport on
-    a fake clock, and scripted models."""
+    a fake clock, and a framework, by default Strands on scripted models."""
 
-    def __init__(self, scripts: Scripts | None = None, **setting_changes: Any) -> None:
+    def __init__(
+        self,
+        scripts: Scripts | None = None,
+        framework: Framework | None = None,
+        **setting_changes: Any,
+    ) -> None:
         self.settings = settings(**setting_changes)
         self.store = MemoryStore(loaded=[WORKIVA])
         self.cache = MemoryCache([MONDAY, AIRBNB])
         self.clock = FakeClock()
         self.sec = RecordingHandler(sec_responses)
-        self.scripts = scripts or Scripts([])
+        self.scripts = scripts
+        self.framework = framework
 
     def services(self, app_settings: Settings) -> Services:
         return Services(
@@ -143,8 +160,14 @@ class Rig:
                 fixture_date="2026-09-26",
                 ollama_base_url="http://ollama.test:11434",
             ),
-            models=self.scripts,
+            framework=self.framework or self._strands(),
         )
+
+    def _strands(self) -> Framework:
+        from filing_analyst.frameworks.strands import StrandsFramework
+        from tests.scripted_model import Scripts
+
+        return StrandsFramework(self.scripts or Scripts([]))
 
     def app(self) -> FastAPI:
         from filing_analyst import main

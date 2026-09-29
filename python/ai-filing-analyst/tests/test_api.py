@@ -10,11 +10,12 @@ from opentelemetry.trace import StatusCode
 
 from filing_analyst.agents import RANKING_UNAVAILABLE
 from filing_analyst.telemetry import QuestionIdFilter, instrument_fastapi_app, question_logging
-from tests.api_support import KALTURA, Rig, Scripts
+from tests.agent_support import LOOKUP, Call, Say
+from tests.api_support import KALTURA, Rig
 from tests.metric_capture import captured_metrics, total
-from tests.scripted_model import Call, Say, tool_results
+from tests.scripted_model import Scripts, tool_results
 from tests.span_capture import captured_spans, named
-from tests.test_agents import ANSWER, LOOKUP
+from tests.test_framework_strands import ANSWER
 
 
 EMPTY_ANSWER = Call(

@@ -1,10 +1,7 @@
-import json
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
-from strands.hooks import AfterToolCallEvent
 
 from filing_analyst.answer import Figure, FilingAnswer, RatioUsed
 from filing_analyst.verifier import ToolResultCollector, verify_answer
@@ -180,51 +177,20 @@ def test_an_accession_number_must_have_the_sec_shape() -> None:
         revenue_figure(accession="0001445305-26")
 
 
-def _event(name: str, result: dict[str, Any]) -> AfterToolCallEvent:
-    return AfterToolCallEvent(
-        agent=MagicMock(),
-        selected_tool=None,
-        tool_use={"toolUseId": "t-1", "name": name, "input": {}},
-        invocation_state={},
-        result=result,  # type: ignore[arg-type]
-    )
-
-
 class TestCollector:
-    def test_json_tool_results_are_collected(self) -> None:
+    def test_grounding_tool_results_are_collected(self) -> None:
         collector = ToolResultCollector()
-        collector.collect(
-            _event(
-                "query_facts",
-                {
-                    "toolUseId": "t-1",
-                    "status": "success",
-                    "content": [{"text": json.dumps(QUERY_RESULT)}],
-                },
-            )
-        )
+        collector.record("query_facts", QUERY_RESULT)
         assert collector.results == [QUERY_RESULT]
 
-    def test_errors_text_and_the_answer_tool_are_skipped(self) -> None:
+    def test_error_results_and_other_tools_are_skipped(self) -> None:
         collector = ToolResultCollector()
-        collector.collect(
-            _event(
-                "query_facts", {"toolUseId": "t", "status": "error", "content": [{"text": "boom"}]}
-            )
-        )
-        collector.collect(
-            _event(
-                "rank_among_filers",
-                {
-                    "toolUseId": "t",
-                    "status": "success",
-                    "content": [{"text": "Workiva ranks low."}],
-                },
-            )
-        )
-        collector.collect(
-            _event(
-                "FilingAnswer", {"toolUseId": "t", "status": "success", "content": [{"text": "{}"}]}
-            )
-        )
+        collector.record("query_facts", {"error": "invalid_concept"})
+        collector.record("FilingAnswer", {"answer": "x"})
         assert collector.results == []
+
+    def test_failed_grounding_tools_are_named(self) -> None:
+        collector = ToolResultCollector()
+        collector.fail("frame_values")
+        collector.fail("rank_among_filers")
+        assert collector.failed_tools == {"frame_values"}

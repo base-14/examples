@@ -296,6 +296,10 @@ main() {
     echo "  collector self-metrics not reachable at ${COLLECTOR_METRICS}; verify-scout.sh will fail the send counts"
   fi
 
+  local framework
+  framework=$(curl -sf --max-time 10 "${BASE_URL}/health" | jq -r '.framework // "strands"')
+  echo "  $(dim "framework: ${framework}")"
+
   mkdir -p "$RESULTS_DIR"
   RUN_LINES=$(mktemp)
   local run_started run_started_at
@@ -312,9 +316,10 @@ main() {
     --arg self_metrics_at_start "$self_metrics_at_start" \
     --argjson self_metrics_recorded "$self_metrics_recorded" \
     --argjson total_seconds "$total_seconds" \
+    --arg framework "$framework" \
     --arg analyst_model "$(docker compose exec -T api printenv ANALYST_MODEL 2>/dev/null || true)" \
     --arg ranking_model "$(docker compose exec -T api printenv RANKING_MODEL 2>/dev/null || true)" \
-    '{started_at: $started_at, total_seconds: $total_seconds,
+    '{started_at: $started_at, total_seconds: $total_seconds, framework: $framework,
       collector_self_metrics_at_start: (if $self_metrics_recorded then $self_metrics_at_start else null end),
       analyst_model: ($analyst_model | rtrimstr("\r")), ranking_model: ($ranking_model | rtrimstr("\r")),
       passed: all(.[]; .passed), scenarios: .}' "$RUN_LINES" > "$RESULTS_FILE"

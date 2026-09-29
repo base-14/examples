@@ -4,14 +4,14 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.api_support import Rig
+from tests.api_support import NoFramework, Rig
 
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
     monkeypatch.setenv("SEC_USER_AGENT", "Example Co ops@example.com")
     monkeypatch.setenv("FIXTURES_DIR", str(tmp_path))
-    return TestClient(Rig(fixtures_dir=tmp_path).app())
+    return TestClient(Rig(framework=NoFramework(), fixtures_dir=tmp_path).app())
 
 
 def test_health_reports_fact_count_and_fixture_date(
@@ -22,7 +22,12 @@ def test_health_reports_fact_count_and_fixture_date(
     with client:
         response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "facts": 0, "fixture_date": "2026-09-26"}
+    assert response.json() == {
+        "status": "ok",
+        "facts": 0,
+        "fixture_date": "2026-09-26",
+        "framework": "strands",
+    }
 
 
 def test_health_without_a_manifest_reports_no_fixture_date(
@@ -52,5 +57,5 @@ def test_app_refuses_to_start_without_a_user_agent(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("SEC_USER_AGENT", raising=False)
     from filing_analyst.config import SettingsError
 
-    with pytest.raises(SettingsError), TestClient(Rig().app()):
+    with pytest.raises(SettingsError), TestClient(Rig(framework=NoFramework()).app()):
         pass

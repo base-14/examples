@@ -6,12 +6,11 @@ import pytest
 from fastapi.testclient import TestClient
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import Status, StatusCode
-from strands.telemetry.tracer import Tracer
-from strands.types.exceptions import EventLoopException
 
 from filing_analyst import telemetry
 from filing_analyst.telemetry import (
@@ -22,10 +21,12 @@ from filing_analyst.telemetry import (
     CostAndErrorAttributingSpanExporter,
     QuestionIdFilter,
     apply_content_capture_setting,
+    build_logger_provider,
     build_resource,
     build_tracer_provider,
     correlate_console_logs,
     install_logging,
+    question_logging,
 )
 
 
@@ -116,6 +117,8 @@ class TestErrorType:
     def test_the_strands_event_loop_wrapper_gives_way_to_its_cause(
         self, exported: tuple[TracerProvider, InMemorySpanExporter]
     ) -> None:
+        exceptions = pytest.importorskip("strands.types.exceptions")
+        EventLoopException = exceptions.EventLoopException
         provider, memory = exported
         with provider.get_tracer("test").start_as_current_span(
             "invoke_agent analyst", record_exception=False, set_status_on_exception=False
@@ -164,6 +167,16 @@ class TestErrorType:
             span.set_status(Status(StatusCode.ERROR))
         assert (_only_span(memory).attributes or {})["error.type"] == "_OTHER"
 
+    def test_a_recorded_exception_replaces_an_instrumentation_fallback(
+        self, exported: tuple[TracerProvider, InMemorySpanExporter]
+    ) -> None:
+        provider, memory = exported
+        with provider.get_tracer("test").start_as_current_span("invoke_agent analyst") as span:
+            span.record_exception(ConnectionError("refused"))
+            span.set_attribute("error.type", "_OTHER")
+            span.set_status(Status(StatusCode.ERROR))
+        assert (_only_span(memory).attributes or {})["error.type"] == "ConnectionError"
+
     def test_a_successful_span_gets_no_error_type(
         self, exported: tuple[TracerProvider, InMemorySpanExporter]
     ) -> None:
@@ -211,12 +224,13 @@ class TestContentCapture:
         monkeypatch: pytest.MonkeyPatch,
         exported: tuple[TracerProvider, InMemorySpanExporter],
     ) -> None:
+        tracing = pytest.importorskip("strands.telemetry.tracer")
         provider, memory = exported
         monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false")
         monkeypatch.setenv("OTEL_SEMCONV_STABILITY_OPT_IN", "gen_ai_latest_experimental")
         apply_content_capture_setting()
         with patch("strands.telemetry.tracer.trace_api.get_tracer_provider", return_value=provider):
-            tracer = Tracer()
+            tracer = tracing.Tracer()
         span = tracer.start_model_invoke_span(
             messages=[{"role": "user", "content": [{"text": "workiva revenue orion-9"}]}],
             model_id="qwen3.5:9B",
@@ -281,6 +295,19 @@ class TestSdkDisabled:
         assert response.status_code == 200
         assert response.json()["facts"] == 3
         set_tracer.assert_called_once()
+
+
+def test_records_emitted_straight_to_the_provider_carry_the_question_id() -> None:
+    exporter = InMemoryLogRecordExporter()
+    provider = build_logger_provider(exporter, build_resource())
+    logger = provider.get_logger("framework")
+    with question_logging("q-log-1"):
+        logger.emit(body="inference event")
+    logger.emit(body="outside a question")
+    provider.force_flush()
+    inside, outside = (log.log_record for log in exporter.get_finished_logs())
+    assert (inside.attributes or {})["base14.filing.question_id"] == "q-log-1"
+    assert "base14.filing.question_id" not in (outside.attributes or {})
 
 
 def test_attribute_truncation_warnings_are_not_exported() -> None:

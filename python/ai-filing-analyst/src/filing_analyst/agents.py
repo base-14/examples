@@ -1,35 +1,29 @@
-"""The two agents of one question: the analyst, and the ranking agent it calls as a tool.
+"""What every framework's adapter shares: the question and its configuration, the ranking
+report, the attributes of one question, and the errors an adapter raises.
 
-Both are built per request, so their `trace_attributes` carry the question and the conversation
-starts clean. One call budget and one tool result collector are shared by both.
+An adapter builds two agents per question: the analyst, and the ranking agent it calls as the
+`rank_among_filers` tool. One call budget and one tool result collector are shared by both.
 """
 
-import asyncio
+import json
 import logging
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any, Protocol
 from urllib.parse import urlsplit
 
-from strands import Agent
-from strands.agent.conversation_manager import SlidingWindowConversationManager
-from strands.hooks import AfterToolCallEvent, HookProvider, HookRegistry
-from strands.models.model import Model
-from strands.models.ollama import OllamaModel
-from strands.types.exceptions import EventLoopException, StructuredOutputException
-from strands.types.tools import ToolResultContent
+from pydantic import BaseModel, BeforeValidator, Field, ValidationError
 
-from filing_analyst.answer import FilingAnswer
+from filing_analyst.answer import Figure, FilingAnswer, RatioUsed
 from filing_analyst.app_metrics import OUTCOME_ATTRIBUTE, RANKINGS, Outcome
-from filing_analyst.budget import CallBudget
 from filing_analyst.model_digests import UNKNOWN_DIGEST
-from filing_analyst.model_faults import FaultInjectingModel, ModelFault
-from filing_analyst.tools import ToolContext, analyst_tools, ranking_tools
+from filing_analyst.model_faults import ModelFault, faulted_answer
+from filing_analyst.telemetry import AgentRunAttributes
 
 
 if TYPE_CHECKING:
     from filing_analyst.prompts import Prompt
+    from filing_analyst.tools import ToolContext
     from filing_analyst.verifier import ToolResultCollector
 
 
@@ -40,23 +34,23 @@ RANKING_TOOL_DESCRIPTION = (
     "Rank the company among every SEC filer that reported a concept for one calendar year. "
     "Pass the company name, the concept (such as net_income or revenue) and the year."
 )
-WINDOW_SIZE = 16
 PROVIDER_NAME = "ollama"
 FRAMES_TOOL = "frame_values"
 RANKING_UNAVAILABLE = "The ranking is unavailable because the SEC frames data could not be fetched."
 OLLAMA_DEFAULT_PORT = 11434
 TEMPERATURE = 0.1
 TIMEOUT_GRACE_SECONDS = 2.0
-ANSWER_TOOL = FilingAnswer.__name__
 MODEL_FAULTS = frozenset(ModelFault)
-
-type ModelFactory = Callable[[str], Model]
 
 logger = logging.getLogger(__name__)
 
 
 class QuestionTimedOut(Exception):
     pass
+
+
+class BadOutput(Exception):
+    """The analyst ended without a typed answer that passes validation."""
 
 
 @dataclass(frozen=True)
@@ -82,44 +76,29 @@ class QuestionRequest:
     timeout_seconds: float
 
 
-def ollama_models(host: str, think: bool) -> ModelFactory:
-    def build(model_id: str) -> Model:
-        return OllamaModel(
-            host=host,
-            model_id=model_id,
-            temperature=TEMPERATURE,
-            additional_args={"think": think},
-        )
+class Framework(Protocol):
+    """Runs one question and returns the typed answer. Raises `BudgetExceeded`,
+    `QuestionTimedOut`, `BadOutput` or `ConnectionError` for those outcomes."""
 
-    return build
+    name: str
 
-
-def _log_answer_retry(event: AfterToolCallEvent) -> None:
-    if event.tool_use["name"] == ANSWER_TOOL and event.result["status"] == "error":
-        detail = " ".join(block.get("text", "") for block in event.result["content"])
-        logger.warning("Structured output failed validation, retrying: %s", detail[:500])
+    async def run(
+        self,
+        request: QuestionRequest,
+        config: AgentConfig,
+        context: ToolContext,
+        collector: ToolResultCollector,
+    ) -> FilingAnswer: ...
 
 
-class RankingCounter(HookProvider):
-    """Counts each call to the ranking agent by outcome: answered when a frame placed the
-    company, not_available when none did, error when the call failed."""
+def question_prompt(request: QuestionRequest) -> str:
+    return f"Company: {request.company_name} ({request.ticker}).\nQuestion: {request.question}"
 
-    def __init__(self, collector: ToolResultCollector) -> None:
-        self._collector = collector
 
-    def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
-        registry.add_callback(AfterToolCallEvent, self.count)
-
-    def count(self, event: AfterToolCallEvent) -> None:
-        if event.tool_use["name"] != RANKING_TOOL_NAME:
-            return
-        if event.result["status"] == "error":
-            outcome = Outcome.ERROR
-        elif placed_frames(self._collector):
-            outcome = Outcome.ANSWERED
-        else:
-            outcome = Outcome.NOT_AVAILABLE
-        RANKINGS.add(1, {OUTCOME_ATTRIBUTE: str(outcome)})
+def analyst_instructions(config: AgentConfig, finish_rule: str) -> str:
+    """The analyst prompt ends with the rule for returning the answer, which each framework
+    words for its own answer mechanism."""
+    return f"{config.analyst_prompt.system}\n- {finish_rule}"
 
 
 def frames_fetch_failed(collector: ToolResultCollector) -> bool:
@@ -144,141 +123,141 @@ def frame_facts(frame: dict[str, Any]) -> str:
     )
 
 
-class RankingReport(HookProvider):
-    """Settles what the analyst reads from the ranking agent. A failed frames fetch replaces the
-    reply with a fixed line, and a placed company gets the frame's facts appended as the tool
-    returned them. The small model's wording varies and can drop the frame or the accession."""
-
-    def __init__(self, collector: ToolResultCollector) -> None:
-        self._collector = collector
-
-    def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
-        registry.add_callback(AfterToolCallEvent, self.report)
-
-    def report(self, event: AfterToolCallEvent) -> None:
-        if event.tool_use["name"] != RANKING_TOOL_NAME:
-            return
-        content: list[ToolResultContent]
-        if frames_fetch_failed(self._collector):
-            content = [{"text": RANKING_UNAVAILABLE}]
-        elif placed := placed_frames(self._collector):
-            content = [*event.result["content"], {"text": frame_facts(placed[-1])}]
-        else:
-            return
-        event.result = {
-            "toolUseId": event.result["toolUseId"],
-            "status": event.result["status"],
-            "content": content,
-        }
+def count_ranking(collector: ToolResultCollector, *, failed: bool) -> None:
+    """Counts each call to the ranking agent by outcome: answered when a frame placed the
+    company, not_available when none did, error when the call failed."""
+    if failed:
+        outcome = Outcome.ERROR
+    elif placed_frames(collector):
+        outcome = Outcome.ANSWERED
+    else:
+        outcome = Outcome.NOT_AVAILABLE
+    RANKINGS.add(1, {OUTCOME_ATTRIBUTE: str(outcome)})
 
 
-def _attributes(
-    request: QuestionRequest, config: AgentConfig, prompt: Prompt, model_id: str
-) -> dict[str, str | int]:
-    """Strands applies these after its own attributes, so they replace its
-    `gen_ai.provider.name` of `strands-agents` and add the server it never records."""
+def settled_ranking_reply(collector: ToolResultCollector, reply: str) -> str | None:
+    """What the analyst reads from the ranking agent, or None to keep its reply. A failed frames
+    fetch replaces the reply with a fixed line, and a placed company gets the frame's facts
+    appended as the tool returned them. The small model's wording varies and can drop the frame
+    or the accession."""
+    if frames_fetch_failed(collector):
+        return RANKING_UNAVAILABLE
+    if placed := placed_frames(collector):
+        return f"{reply}\n{frame_facts(placed[-1])}"
+    return None
+
+
+def server_attributes(config: AgentConfig) -> dict[str, str | int]:
     server = urlsplit(config.ollama_base_url)
     return {
-        "gen_ai.provider.name": PROVIDER_NAME,
         "server.address": server.hostname or "",
         "server.port": server.port or OLLAMA_DEFAULT_PORT,
+    }
+
+
+def question_attributes(request: QuestionRequest, config: AgentConfig) -> dict[str, str | int]:
+    return {
         "gen_ai.conversation.id": request.question_id,
         "base14.filing.question_id": request.question_id,
         "base14.filing.ticker": request.ticker,
         "base14.filing.cik": request.cik,
         "base14.filing.fixture_date": config.fixture_date or "unknown",
+    }
+
+
+def agent_attributes(config: AgentConfig, prompt: Prompt, model_id: str) -> dict[str, str | int]:
+    return {
         "base14.prompt.version": prompt.version,
         "base14.gen_ai.model.digest": config.digests.get(model_id, UNKNOWN_DIGEST),
     }
 
 
-def build_analyst(
-    request: QuestionRequest,
-    config: AgentConfig,
-    context: ToolContext,
-    collector: ToolResultCollector,
-    budget: CallBudget,
-    models: ModelFactory,
-) -> Agent:
-    ranking = Agent(
-        name=RANKING_NAME,
-        model=models(config.ranking_model),
-        tools=list(ranking_tools(context)),
-        system_prompt=config.ranking_prompt.system,
-        hooks=[budget, collector],
-        trace_attributes=_attributes(request, config, config.ranking_prompt, config.ranking_model),
-        conversation_manager=SlidingWindowConversationManager(window_size=WINDOW_SIZE),
-        callback_handler=None,
+def run_attributes(request: QuestionRequest, config: AgentConfig) -> AgentRunAttributes:
+    analyst = {
+        **agent_attributes(config, config.analyst_prompt, config.analyst_model),
+        **server_attributes(config),
+    }
+    ranking = {
+        **agent_attributes(config, config.ranking_prompt, config.ranking_model),
+        **server_attributes(config),
+    }
+    return AgentRunAttributes(
+        question=question_attributes(request, config),
+        by_agent={ANALYST_NAME: analyst, RANKING_NAME: ranking},
+        by_model={config.analyst_model: analyst, config.ranking_model: ranking},
     )
-    model = models(config.analyst_model)
-    if request.fault in MODEL_FAULTS:
-        model = FaultInjectingModel(model, ModelFault(request.fault), ANSWER_TOOL)
-    analyst = Agent(
-        name=ANALYST_NAME,
-        model=model,
-        tools=[
-            *analyst_tools(context),
-            ranking.as_tool(name=RANKING_TOOL_NAME, description=RANKING_TOOL_DESCRIPTION),
-        ],
-        structured_output_model=FilingAnswer,
-        system_prompt=config.analyst_prompt.system,
-        hooks=[budget, collector, RankingCounter(collector), RankingReport(collector)],
-        trace_attributes=_attributes(request, config, config.analyst_prompt, config.analyst_model),
-        conversation_manager=SlidingWindowConversationManager(window_size=WINDOW_SIZE),
-        callback_handler=None,
-    )
-    analyst.add_hook(_log_answer_retry, AfterToolCallEvent)
-    return analyst
 
 
-async def run_question(
-    request: QuestionRequest,
-    config: AgentConfig,
-    context: ToolContext,
-    collector: ToolResultCollector,
-    models: ModelFactory,
-) -> FilingAnswer:
-    """Run the analyst under the call budget and the wall-clock budget. The wall-clock budget
-    sets Strands' cancel signal, which ends the run with a cancelled stop reason and no error
-    status; this raises `QuestionTimedOut` for it. Strands reads the signal only between stream
-    chunks, cycles and tools, so a model call or tool that stalls is cancelled outright after
-    `TIMEOUT_GRACE_SECONDS` more. Strands wraps a failure inside its event loop
-    in `EventLoopException`; the cause is raised instead, so callers map it by type."""
-    budget = CallBudget(request.call_budget)
-    analyst = build_analyst(request, config, context, collector, budget, models)
-    prompt = f"Company: {request.company_name} ({request.ticker}).\nQuestion: {request.question}"
-    cancel = threading.Event()
-    timer = threading.Timer(request.timeout_seconds, cancel.set)
-    timer.daemon = True
-    timer.start()
+ANSWER_TOOL = FilingAnswer.__name__
+ANSWER_FINISH_RULE = f"Finish by calling the {ANSWER_TOOL} tool."
+ANSWER_REMINDER = f"You did not call the {ANSWER_TOOL} tool. Call it now with your answer."
+
+
+class AnswerSink:
+    """Holds the arguments of the analyst's `FilingAnswer` call, for adapters whose framework
+    has no structured output that works alongside tools on Ollama."""
+
+    def __init__(self) -> None:
+        self.answer: dict[str, Any] | None = None
+
+
+def _decoded_list(value: Any) -> Any:
+    """Smaller models sometimes send a list argument as its JSON text, such as `"[]"`, or a
+    single item on its own."""
+    if not isinstance(value, str):
+        return value
+    if value.strip().startswith("["):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    return [value]
+
+
+# Type aliases, so the validator survives frameworks that keep only `Field` from `Annotated`.
+type FigureList = Annotated[list[Figure], BeforeValidator(_decoded_list)]
+type RatioList = Annotated[list[RatioUsed], BeforeValidator(_decoded_list)]
+type TextList = Annotated[list[str], BeforeValidator(_decoded_list)]
+
+
+def _plain(item: BaseModel | dict[str, Any]) -> dict[str, Any]:
+    """Some frameworks pass nested arguments as models, others as dicts."""
+    return item.model_dump() if isinstance(item, BaseModel) else item
+
+
+def answer_tool(sink: AnswerSink) -> Callable[..., str]:
+    fields = FilingAnswer.model_fields
+
+    def record(
+        answer: Annotated[str, Field(description=fields["answer"].description)],
+        figures: Annotated[FigureList, Field(description=fields["figures"].description)],
+        ratios: Annotated[RatioList | None, Field(description=fields["ratios"].description)] = None,
+        caveats: Annotated[
+            TextList | None, Field(description=fields["caveats"].description)
+        ] = None,
+    ) -> str:
+        sink.answer = {
+            "answer": answer,
+            "figures": [_plain(figure) for figure in figures],
+            "ratios": [_plain(ratio) for ratio in ratios or []],
+            "caveats": caveats or [],
+        }
+        return "Answer recorded."
+
+    record.__name__ = ANSWER_TOOL
+    record.__doc__ = FilingAnswer.__doc__
+    return record
+
+
+def typed_answer(final: str | dict[str, Any] | None, fault: str | None) -> FilingAnswer:
+    """Validate the analyst's final output, after rewriting it for an injected `bad_output`
+    or `ungrounded_answer` fault."""
+    if not final:
+        raise BadOutput("The analyst returned no typed answer.")
     try:
-        result = await asyncio.wait_for(
-            analyst.invoke_async(prompt, cancel_signal=cancel),
-            timeout=request.timeout_seconds + TIMEOUT_GRACE_SECONDS,
-        )
-    except TimeoutError:
-        logger.warning(
-            "Question %s stalled past its %.0f second budget",
-            request.question_id,
-            request.timeout_seconds,
-        )
-        raise QuestionTimedOut(f"no answer within {request.timeout_seconds} seconds") from None
-    except EventLoopException as failure:
-        if isinstance(failure.__cause__, Exception):
-            raise failure.__cause__ from None
-        raise
-    finally:
-        timer.cancel()
-    if result.stop_reason == "cancelled":
-        logger.warning(
-            "Question %s passed its %.0f second budget after %d model and %d tool calls",
-            request.question_id,
-            request.timeout_seconds,
-            budget.model_calls,
-            budget.tool_calls,
-        )
-        raise QuestionTimedOut(f"no answer within {request.timeout_seconds} seconds")
-    answer = result.structured_output
-    if not isinstance(answer, FilingAnswer):
-        raise StructuredOutputException("The analyst returned no typed answer.")
-    return answer
+        answer = json.loads(final) if isinstance(final, str) else final
+        injected = ModelFault(fault) if fault in MODEL_FAULTS else None
+        return FilingAnswer.model_validate(faulted_answer(injected, answer))
+    except (ValueError, ValidationError) as error:
+        logger.warning("Structured output failed validation: %s", str(error)[:500])
+        raise BadOutput(str(error)) from error
