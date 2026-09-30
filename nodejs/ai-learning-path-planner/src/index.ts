@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { loadConfig } from "./config.js";
 import { CorpusStore, loadArtifact } from "./corpus/store.js";
+import { logger } from "./log.js";
 import { PlanStore } from "./plans/store.js";
 import { corpusRoutes } from "./routes/corpus.js";
 import { health } from "./routes/health.js";
@@ -30,12 +31,13 @@ app.route("/", uiRoutes());
 
 app.notFound((c) => c.json({ error: "not found" }, 404));
 app.onError((err, c) => {
-  console.error("Unhandled error", err);
+  logger.error({ err }, "unhandled error");
   return c.json({ error: "internal server error" }, 500);
 });
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(
-    `ai-learning-path-planner listening on port ${info.port}, provider ${config.llmProvider}`,
+  logger.info(
+    { port: info.port, provider: config.llmProvider },
+    "ai-learning-path-planner listening",
   );
 });

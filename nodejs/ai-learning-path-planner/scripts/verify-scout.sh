@@ -489,6 +489,22 @@ log_has() {
     fi
 }
 
+# Asserts a log record with the given body carries the given trace id, so the record was
+# emitted inside the request's span and not merely at the same time.
+log_record_in_trace() {
+    local label="$1" body="$2" trace="$3"
+    if awk -v b="Body: Str($body)" -v t="Trace ID: $trace" '
+/^LogRecord #/ { matched = 0; next }
+index($0, b) > 0 { matched = 1; next }
+matched && index($0, t) > 0 { found = 1 }
+END { exit found ? 0 : 1 }
+' "$LOGS_FILE"; then
+        ok "$label"
+    else
+        bad "$label - no \"$body\" record with trace id $trace"
+    fi
+}
+
 log_lacks() {
     local label="$1" pattern="$2"
     if grep -qF -- "$pattern" "$LOGS_FILE"; then
@@ -816,6 +832,9 @@ span_attribute_in_trace "gen_ai.usage.input_tokens on the chat span"  "$PLAN_TRA
 span_attribute_in_trace "gen_ai.usage.output_tokens on the chat span" "$PLAN_TRACE" "chat " "gen_ai.usage.output_tokens"
 span_attribute_in_trace "gen_ai.agent.name on the operation span" "$PLAN_TRACE" "invoke_agent " "gen_ai.agent.name: Str(lead)"
 span_attribute_in_trace "gen_ai.usage.input_tokens on the operation span too" "$PLAN_TRACE" "invoke_agent " "gen_ai.usage.input_tokens"
+span_attribute_in_trace "gen_ai.conversation.id on the operation span, the plan id" "$PLAN_TRACE" "invoke_agent " "gen_ai.conversation.id: Str($PLAN_ID)"
+span_attribute_in_trace "gen_ai.conversation.id on the chat span"                  "$PLAN_TRACE" "chat "         "gen_ai.conversation.id: Str($PLAN_ID)"
+span_attribute_in_trace "gen_ai.provider.name is ollama on the chat span"          "$PLAN_TRACE" "chat "         "gen_ai.provider.name: Str(ollama)"
 
 echo "  $(dim "--- the base14.* attributes ---")"
 span_attribute_in_trace "base14.plan.id on the operation span, matching the run"  "$PLAN_TRACE" "invoke_agent " "base14.plan.id: Str($PLAN_ID)"
@@ -852,6 +871,10 @@ echo "  $(dim "--- the noise filter, which only the collector can confirm ---")"
 # A YAML assertion cannot tell a condition that works from one that never fires.
 log_lacks "no /health span reached the exporter; filter/noisy dropped them" "url.path: Str(/health)"
 
+echo "  $(dim "--- logs, exported through the pino instrumentation ---")"
+log_record_in_trace "the plan accepted record carries the run's trace id" "plan accepted" "$PLAN_TRACE"
+log_record_in_trace "the plan finished record carries the run's trace id" "plan finished" "$PLAN_TRACE"
+
 echo "  $(dim "--- content capture, off by default ---")"
 # base14.subtopic is excluded, and only that. It is an attribute this service records on
 # purpose, asserted present a few checks above, and its value is a subtopic the lead model
@@ -867,7 +890,8 @@ fi
 
 # --- 4. Metrics ------------------------------------------------------------
 #
-# Six instruments, one point each, tagged. The Node metric reader exports on a 60s
+# Six instruments from the app, one point each, tagged, plus the two GenAI client
+# metrics the collector derives from chat spans. The Node metric reader exports on a 60s
 # period, so these land up to a minute after the runs finish.
 echo ""
 heading "=== 4. Metrics ==="
@@ -908,6 +932,16 @@ metric_point_tagged "base14.gen_ai.tool_definition.tokens tagged role=lead" \
     "base14.gen_ai.tool_definition.tokens" "role: Str(lead)"
 metric_point_tagged "base14.gen_ai.tool_definition.tokens tagged role=researcher" \
     "base14.gen_ai.tool_definition.tokens" "role: Str(researcher)"
+
+echo "  $(dim "--- the GenAI client metrics the collector derives from chat spans ---")"
+log_has "gen_ai.client.operation.duration" "Name: gen_ai.client.operation.duration"
+log_has "gen_ai.client.token.usage"        "Name: gen_ai.client.token.usage"
+metric_point_tagged "gen_ai.client.token.usage tagged gen_ai.token.type=input" \
+    "gen_ai.client.token.usage" "gen_ai.token.type: Str(input)"
+metric_point_tagged "gen_ai.client.token.usage tagged gen_ai.token.type=output" \
+    "gen_ai.client.token.usage" "gen_ai.token.type: Str(output)"
+metric_point_tagged "gen_ai.client.operation.duration tagged gen_ai.provider.name=ollama" \
+    "gen_ai.client.operation.duration" "gen_ai.provider.name: Str(ollama)"
 
 echo "  $(dim "--- the values the tags are there to separate ---")"
 # A decline researches nothing, so its fan-out is zero rather than absent. Asserted on

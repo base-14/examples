@@ -6,6 +6,7 @@ import type { Config } from "../config.ts";
 import { costOf } from "../llm/cost.js";
 
 export const ATTR_PLAN_ID = "base14.plan.id";
+export const ATTR_CONVERSATION_ID = "gen_ai.conversation.id";
 export const ATTR_AGENT_ROLE = "base14.agent.role";
 export const ATTR_SUBTOPIC = "base14.subtopic";
 export const ATTR_TOOL_CATALOGUE = "base14.tool.catalogue";
@@ -46,7 +47,12 @@ export const enrichSpan: EnrichSpan = ({ runtimeContext }) => {
   const attributes: Attributes = {};
   const { planId, agentRole, toolCatalogue, subtopic } = runtimeContext;
 
-  if (typeof planId === "string") attributes[ATTR_PLAN_ID] = planId;
+  // One plan is one conversation. The GenAI attribute is what Scout and the agent guides
+  // group on; base14.plan.id stays for the example's own queries and the cost total.
+  if (typeof planId === "string") {
+    attributes[ATTR_PLAN_ID] = planId;
+    attributes[ATTR_CONVERSATION_ID] = planId;
+  }
   if (typeof agentRole === "string") attributes[ATTR_AGENT_ROLE] = agentRole;
   if (typeof toolCatalogue === "string") attributes[ATTR_TOOL_CATALOGUE] = toolCatalogue;
   if (typeof subtopic === "string") attributes[ATTR_SUBTOPIC] = subtopic;
@@ -152,6 +158,32 @@ export class PlanCostSpanProcessor implements SpanProcessor {
     const planId = stringAttribute(attributes, ATTR_PLAN_ID);
     if (planId !== undefined && attributes[ATTR_OPERATION_NAME] === AGENT_OPERATION) {
       addRunCost(planId, cost.usd);
+    }
+  }
+
+  forceFlush(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  shutdown(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+const ATTR_PROVIDER_NAME = "gen_ai.provider.name";
+const OLLAMA_PROVIDER_PREFIX = "ollama.";
+
+// @ai-sdk/otel maps well-known provider ids onto the GenAI provider names and passes the
+// rest through, so Ollama arrives as the AI SDK provider id, `ollama.responses` or
+// `ollama.chat`. Registered before the exporting processor, like the cost processor, so the
+// exported span and the metrics the collector derives from it carry `ollama`.
+export class ProviderNameSpanProcessor implements SpanProcessor {
+  onStart(): void {}
+
+  onEnd(span: ReadableSpan): void {
+    const provider = stringAttribute(span.attributes, ATTR_PROVIDER_NAME);
+    if (provider?.startsWith(OLLAMA_PROVIDER_PREFIX)) {
+      span.attributes[ATTR_PROVIDER_NAME] = "ollama";
     }
   }
 

@@ -2,16 +2,21 @@ import { readFileSync } from "node:fs";
 import { register } from "node:module";
 import { OpenTelemetry } from "@ai-sdk/otel";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { NodeSDK, metrics as sdkMetrics } from "@opentelemetry/sdk-node";
+import { NodeSDK, logs as sdkLogs, metrics as sdkMetrics } from "@opentelemetry/sdk-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { registerTelemetry } from "ai";
 import { loadConfig } from "./config.js";
 import { assertPriceModelIsKnown } from "./llm/cost.js";
-import { enrichSpan, PlanCostSpanProcessor } from "./telemetry/enrich.js";
+import {
+  enrichSpan,
+  PlanCostSpanProcessor,
+  ProviderNameSpanProcessor,
+} from "./telemetry/enrich.js";
 
 // Loaded with `node --import`, so this runs before the app's first import. Under ESM the HTTP
 // server span is missing entirely unless the loader hook is registered before anything imports
@@ -37,12 +42,16 @@ const sdk = new NodeSDK({
     [ATTR_SERVICE_VERSION]: version,
   }),
   spanProcessors: [
+    new ProviderNameSpanProcessor(),
     new PlanCostSpanProcessor(config),
     new BatchSpanProcessor(new OTLPTraceExporter()),
   ],
   metricReader: new sdkMetrics.PeriodicExportingMetricReader({
     exporter: new OTLPMetricExporter(),
   }),
+  // The pino instrumentation in the auto-instrumentations sends every record here, with the
+  // active trace and span id. @ai-sdk/otel itself emits no logs.
+  logRecordProcessors: [new sdkLogs.BatchLogRecordProcessor({ exporter: new OTLPLogExporter() })],
   instrumentations: [getNodeAutoInstrumentations()],
 });
 

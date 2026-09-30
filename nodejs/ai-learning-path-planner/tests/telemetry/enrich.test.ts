@@ -23,6 +23,7 @@ import { PlanStore } from "../../src/plans/store.ts";
 import { plansRoutes } from "../../src/routes/plans.ts";
 import {
   ATTR_AGENT_ROLE,
+  ATTR_CONVERSATION_ID,
   ATTR_COST,
   ATTR_COST_SIMULATED,
   ATTR_PLAN_ID,
@@ -30,6 +31,7 @@ import {
   ATTR_TOOL_CATALOGUE,
   enrichSpan,
   PlanCostSpanProcessor,
+  ProviderNameSpanProcessor,
   takeRunCostUsd,
 } from "../../src/telemetry/enrich.ts";
 import { newRunCounters, recordPlan, toolDefinitionTokens } from "../../src/telemetry/metrics.ts";
@@ -186,7 +188,7 @@ function ancestorIds(span: ReadableSpan, all: ReadableSpan[]): string[] {
 }
 
 describe("enrichSpan", () => {
-  it("maps the runtime context onto the four base14 span attributes", () => {
+  it("maps the runtime context onto the base14 attributes and the conversation id", () => {
     const attributes = enrichSpan({
       spanType: "operation",
       operationId: "ai.generateText",
@@ -201,6 +203,7 @@ describe("enrichSpan", () => {
 
     expect(attributes).toEqual({
       [ATTR_PLAN_ID]: "plan-1",
+      [ATTR_CONVERSATION_ID]: "plan-1",
       [ATTR_AGENT_ROLE]: "researcher",
       [ATTR_TOOL_CATALOGUE]: "full",
       [ATTR_SUBTOPIC]: "sampling",
@@ -939,5 +942,22 @@ describe("recordPlan: the reasons the service writes are tagged, not read as the
     );
 
     expect([...GAP_REASON_TAGS].sort()).toEqual([...recorded].sort());
+  });
+});
+
+describe("ProviderNameSpanProcessor", () => {
+  function endSpanWithProvider(provider: string): unknown {
+    const span = { attributes: { "gen_ai.provider.name": provider } } as unknown as ReadableSpan;
+    new ProviderNameSpanProcessor().onEnd(span);
+    return span.attributes["gen_ai.provider.name"];
+  }
+
+  it("names an Ollama provider id as ollama", () => {
+    expect(endSpanWithProvider("ollama.responses")).toBe("ollama");
+    expect(endSpanWithProvider("ollama.chat")).toBe("ollama");
+  });
+
+  it("leaves a provider the AI SDK already mapped alone", () => {
+    expect(endSpanWithProvider("openai")).toBe("openai");
   });
 });

@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
+    env: { LOG_LEVEL: "silent" },
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

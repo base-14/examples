@@ -35,7 +35,7 @@ service:
   extensions: [oauth2client, health_check]
   pipelines:
     traces:
-      exporters: [otlp_http/b14, debug]
+      exporters: [otlp_http/b14, debug, signal_to_metrics]
     metrics:
       exporters: [otlp_http/b14, debug]
     logs:

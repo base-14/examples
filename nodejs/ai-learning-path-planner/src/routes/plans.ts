@@ -9,6 +9,7 @@ import {
 } from "../agents/lead.js";
 import type { Config } from "../config.ts";
 import type { CorpusStore } from "../corpus/store.ts";
+import { logger } from "../log.js";
 import { type PlanGap, SERVICE_GAP_REASONS } from "../plans/schema.js";
 import type { PlanStore } from "../plans/store.ts";
 import { takeRunCostUsd } from "../telemetry/enrich.js";
@@ -108,11 +109,16 @@ export function plansRoutes(deps: PlansRouteDeps): Hono {
       c,
       async (s) => {
         await s.writeln(JSON.stringify({ event: "accepted", id, topic }));
+        logger.info({ planId: id, declined }, "plan accepted");
 
         const outcome = await runLeadPlan(agent, { topic }, deps.store);
         deps.plans.complete(id, outcome);
 
         record(outcome.status, outcome.plan.gaps);
+        logger.info(
+          { planId: id, status: outcome.status, gaps: outcome.plan.gaps.length },
+          "plan finished",
+        );
 
         await s.writeln(
           JSON.stringify({ event: "plan", id, status: outcome.status, plan: outcome.plan }),
@@ -134,6 +140,7 @@ export function plansRoutes(deps: PlansRouteDeps): Hono {
         };
         deps.plans.complete(id, outcome);
         record("failed", outcome.plan.gaps);
+        logger.error({ planId: id, err }, "plan failed");
         await s.writeln(JSON.stringify({ event: "error", id, message: err.message }));
       },
     );

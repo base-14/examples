@@ -96,7 +96,10 @@ describe("the collector starts without base14 credentials", () => {
   const local = parse(read("config/otel-collector.yaml")) as {
     extensions: Record<string, unknown>;
     exporters: Record<string, unknown>;
-    service: { extensions: string[]; pipelines: Record<string, { exporters: string[] }> };
+    service: {
+      extensions: string[];
+      pipelines: Record<string, { exporters: string[]; receivers: string[] }>;
+    };
   };
   const scout = parse(read("config/otel-collector-scout.yaml")) as {
     extensions: Record<string, unknown>;
@@ -113,17 +116,26 @@ describe("the collector starts without base14 credentials", () => {
     expect(read("config/otel-collector.yaml")).not.toContain("${env:SCOUT_CLIENT_ID}");
   });
 
+  // Traces also feed the connector that derives the GenAI client metrics. Its output
+  // enters the metrics pipeline, so it reaches debug, and Scout, from there.
+  const withConnector = (pipeline: string, exporters: string[]): string[] =>
+    pipeline === "traces" ? [...exporters, "signal_to_metrics"] : exporters;
+
   it("exports every pipeline to debug alone, which is what make verify reads", () => {
-    for (const pipeline of Object.values(local.service.pipelines)) {
-      expect(pipeline.exporters).toEqual(["debug"]);
+    for (const [name, pipeline] of Object.entries(local.service.pipelines)) {
+      expect(pipeline.exporters).toEqual(withConnector(name, ["debug"]));
     }
   });
 
   it("keeps the Scout exporter in the second file, on every pipeline", () => {
     expect(Object.keys(scout.extensions)).toContain("oauth2client");
-    for (const pipeline of Object.values(scout.service.pipelines)) {
-      expect(pipeline.exporters).toEqual(["otlp_http/b14", "debug"]);
+    for (const [name, pipeline] of Object.entries(scout.service.pipelines)) {
+      expect(pipeline.exporters).toEqual(withConnector(name, ["otlp_http/b14", "debug"]));
     }
+  });
+
+  it("derives the GenAI client metrics from traces into the metrics pipeline", () => {
+    expect(local.service.pipelines.metrics.receivers).toContain("signal_to_metrics");
   });
 
   it("adds that file to the collector's command only when SCOUT_CLIENT_ID is set", () => {
