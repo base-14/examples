@@ -28,6 +28,7 @@ from filing_analyst.telemetry import (
     install_logging,
     question_logging,
 )
+from tests.api_support import NoFramework, Rig
 
 
 OTEL_VARS = (
@@ -289,7 +290,7 @@ class TestSdkDisabled:
             patch.object(telemetry.metrics, "set_meter_provider"),
             patch.object(telemetry, "set_logger_provider"),
             patch.object(telemetry, "instrument_libraries"),
-            TestClient(create_app()) as client,
+            TestClient(create_app(services=Rig(framework=NoFramework()).services)) as client,
         ):
             response = client.get("/health")
         assert response.status_code == 200
