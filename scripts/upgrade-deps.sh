@@ -434,7 +434,7 @@ guard_major_bump() {
 
   local after crossed
   after=$(lock_majors "$eco" "$lockfile")
-  crossed=$(awk 'NR==FNR{b[$1]=$2; next} ($1 in b) && b[$1]!=$2 {print $1}' \
+  crossed=$(awk 'NR==FNR{b[$1]=1; pair[$1" "$2]=1; next} ($1 in b) && !(($1" "$2) in pair) {print $1}' \
             <(printf '%s\n' "$before") <(printf '%s\n' "$after") | sort -u)
   [[ -z "$crossed" ]] && return 0
 
@@ -451,7 +451,7 @@ retry_holding_majors() {
     python)
       local holds=()
       for p in $crossed; do
-        maj=$(lock_majors python uv.lock | awk -v p="$p" '$1==p{print $2}')
+        maj=$(lock_majors python uv.lock | awk -v p="$p" '$1==p{print $2}' | sort -n | tail -1)
         [[ -n "$maj" ]] && holds+=(--upgrade-package "${p}<$((maj+1))")
       done
       uv lock --upgrade "${holds[@]}" >/dev/null 2>&1 ;;
