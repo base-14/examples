@@ -51,6 +51,6 @@
     "@types/pg": "8.23.1",
     "bun-types": "1.4.2",
     "typescript": "6.0.3",
-    "vitest": "4.1.11"
+    "vitest": "5.0.3"
   }
 }
