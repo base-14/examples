@@ -43,5 +43,8 @@
     "typescript": "7.0.2",
     "vitest": "5.0.2",
     "yaml": "2.9.1"
+  },
+  "overrides": {
+    "@grpc/grpc-js": ">=1.14.5"
   }
 }

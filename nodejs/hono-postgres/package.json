@@ -55,7 +55,7 @@
     "zod": "^4.6.5"
   },
   "overrides": {
-    "@grpc/grpc-js": ">=1.14.4",
+    "@grpc/grpc-js": ">=1.14.5",
     "flatted": ">=3.4.2",
     "@grpc/proto-loader": {
       "protobufjs": ">=8.6.6"
@@ -64,7 +64,7 @@
     "@opentelemetry/core": ">=2.8.0",
     "uuid": ">=14.0.0",
     "esbuild": "^0.28.1",
-    "brace-expansion": ">=5.0.9",
+    "brace-expansion": ">=5.0.12",
     "postcss": ">=8.5.18",
     "minimatch": ">=10.2.5"
   },
