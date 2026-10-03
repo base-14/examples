@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
-	"go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -24,7 +24,7 @@ func Init(serviceName, environment string) {
 	stdoutHandler := traceContextHandler{
 		Handler: slog.NewJSONHandler(os.Stdout, opts),
 	}
-	otelHandler := otelslog.NewHandler(serviceName, otelslog.WithLoggerProvider(global.GetLoggerProvider()))
+	otelHandler := otelslog.NewHandler(serviceName, otelslog.WithLoggerProvider(otel.GetLoggerProvider()))
 
 	combined := multiHandler{handlers: []slog.Handler{stdoutHandler, otelHandler}}
 

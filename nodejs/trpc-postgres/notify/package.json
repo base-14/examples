@@ -14,10 +14,10 @@
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.222.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.222.0",
     "@opentelemetry/sdk-node": "^0.222.0",
-    "pino": "^10.3.1"
+    "pino": "^10.4.0"
   },
   "devDependencies": {
-    "@types/node": "^24.19.0",
+    "@types/node": "^24.19.1",
     "typescript": "^6.0.3"
   },
   "overrides": {

@@ -20,11 +20,11 @@
     "@prisma/client": "^7.10.0",
     "@prisma/instrumentation": "^7.10.0",
     "@trpc/server": "^11.19.0",
-    "pino": "^10.3.1",
+    "pino": "^10.4.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^24.19.0",
+    "@types/node": "^24.19.1",
     "prisma": "^7.10.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"

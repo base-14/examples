@@ -9,7 +9,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -97,7 +96,7 @@ func Init(ctx context.Context, serviceName, otlpEndpoint string) (*Telemetry, er
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
 		sdklog.WithResource(res),
 	)
-	global.SetLoggerProvider(lp)
+	otel.SetLoggerProvider(lp)
 
 	tracer = tp.Tracer(serviceName)
 	meter = mp.Meter(serviceName)
