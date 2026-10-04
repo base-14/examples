@@ -815,14 +815,28 @@ echo "  $(dim "--- the planned run, all on $PLAN_TRACE ---")"
 # POST /plans is not asserted as the trace root: this script sets its own traceparent
 # on the request, so the server span has a remote parent that is never exported. What
 # the example claims is the shape below it, and that is what is asserted.
+# The two frameworks name and nest the per-model-call span differently, and Mastra sets an
+# explicit Ok status where the AI SDK leaves a successful span Unset.
+FRAMEWORK=$(app_baseline_setting PLANNER_FRAMEWORK)
+if [ "$FRAMEWORK" = "mastra" ]; then
+    STEP_SPAN="agent_step "
+    STEP_PARENT="model_generation "
+    AGENT_STATUS="Ok"
+else
+    STEP_SPAN="step "
+    STEP_PARENT="invoke_agent "
+    AGENT_STATUS="Unset"
+fi
+echo "  $(dim "--- agent framework: ${FRAMEWORK:-ai-sdk} ---")"
+
 span_of_kind_in_trace "POST /plans, the run's server span" "$PLAN_TRACE" "Server" "POST"
 span_in_trace         "invoke_agent, the lead's operation span" "$PLAN_TRACE" "invoke_agent "
-span_in_trace         "step, one per model call"                "$PLAN_TRACE" "step "
+span_in_trace         "${STEP_SPAN% }, one per model call"      "$PLAN_TRACE" "$STEP_SPAN"
 span_in_trace         "chat, the model call itself"             "$PLAN_TRACE" "chat "
 span_parent_in_trace  "invoke_agent sits under the server span" "$PLAN_TRACE" "invoke_agent " "POST"
-span_parent_in_trace  "step sits under invoke_agent"            "$PLAN_TRACE" "step " "invoke_agent "
-span_parent_in_trace  "chat sits under step"                    "$PLAN_TRACE" "chat " "step "
-span_status_in_trace  "the lead's operation span is not in error" "$PLAN_TRACE" "invoke_agent " "Unset"
+span_parent_in_trace  "${STEP_SPAN% } sits under ${STEP_PARENT% }" "$PLAN_TRACE" "$STEP_SPAN" "$STEP_PARENT"
+span_parent_in_trace  "chat sits under ${STEP_SPAN% }"          "$PLAN_TRACE" "chat " "$STEP_SPAN"
+span_status_in_trace  "the lead's operation span is not in error" "$PLAN_TRACE" "invoke_agent " "$AGENT_STATUS"
 
 echo "  $(dim "--- gen_ai.* on the model calls ---")"
 span_attribute_in_trace "gen_ai.operation.name on the chat span"  "$PLAN_TRACE" "chat " "gen_ai.operation.name: Str(chat)"
@@ -831,19 +845,24 @@ span_attribute_in_trace "gen_ai.response.model on the chat span"  "$PLAN_TRACE" 
 span_attribute_in_trace "gen_ai.usage.input_tokens on the chat span"  "$PLAN_TRACE" "chat " "gen_ai.usage.input_tokens"
 span_attribute_in_trace "gen_ai.usage.output_tokens on the chat span" "$PLAN_TRACE" "chat " "gen_ai.usage.output_tokens"
 span_attribute_in_trace "gen_ai.agent.name on the operation span" "$PLAN_TRACE" "invoke_agent " "gen_ai.agent.name: Str(lead)"
-span_attribute_in_trace "gen_ai.usage.input_tokens on the operation span too" "$PLAN_TRACE" "invoke_agent " "gen_ai.usage.input_tokens"
+# Mastra puts usage, and so cost, on the chat spans only.
+if [ "$FRAMEWORK" != "mastra" ]; then
+    span_attribute_in_trace "gen_ai.usage.input_tokens on the operation span too" "$PLAN_TRACE" "invoke_agent " "gen_ai.usage.input_tokens"
+fi
 span_attribute_in_trace "gen_ai.conversation.id on the operation span, the plan id" "$PLAN_TRACE" "invoke_agent " "gen_ai.conversation.id: Str($PLAN_ID)"
 span_attribute_in_trace "gen_ai.conversation.id on the chat span"                  "$PLAN_TRACE" "chat "         "gen_ai.conversation.id: Str($PLAN_ID)"
 span_attribute_in_trace "gen_ai.provider.name is ollama on the chat span"          "$PLAN_TRACE" "chat "         "gen_ai.provider.name: Str(ollama)"
 
 echo "  $(dim "--- the base14.* attributes ---")"
 span_attribute_in_trace "base14.plan.id on the operation span, matching the run"  "$PLAN_TRACE" "invoke_agent " "base14.plan.id: Str($PLAN_ID)"
-span_attribute_in_trace "base14.plan.id on the step span"                         "$PLAN_TRACE" "step "         "base14.plan.id: Str($PLAN_ID)"
+span_attribute_in_trace "base14.plan.id on the ${STEP_SPAN% } span"               "$PLAN_TRACE" "$STEP_SPAN"    "base14.plan.id: Str($PLAN_ID)"
 span_attribute_in_trace "base14.plan.id on the chat span"                         "$PLAN_TRACE" "chat "         "base14.plan.id: Str($PLAN_ID)"
 span_attribute_in_trace "base14.agent.role is lead on the operation span"         "$PLAN_TRACE" "invoke_agent " "base14.agent.role: Str(lead)"
 span_attribute_in_trace "base14.tool.catalogue on the chat span"                  "$PLAN_TRACE" "chat "         "base14.tool.catalogue: Str($(app_baseline_setting TOOL_CATALOGUE))"
 span_attribute_positive_in_trace "base14.gen_ai.cost is non-zero on the chat span"      "$PLAN_TRACE" "chat "         "base14.gen_ai.cost"
-span_attribute_positive_in_trace "base14.gen_ai.cost is non-zero on the operation span" "$PLAN_TRACE" "invoke_agent " "base14.gen_ai.cost"
+if [ "$FRAMEWORK" != "mastra" ]; then
+    span_attribute_positive_in_trace "base14.gen_ai.cost is non-zero on the operation span" "$PLAN_TRACE" "invoke_agent " "base14.gen_ai.cost"
+fi
 span_attribute_in_trace "base14.gen_ai.cost.simulated is true on the chat span"   "$PLAN_TRACE" "chat "         "base14.gen_ai.cost.simulated: Bool(true)"
 
 echo "  $(dim "--- the fan-out: researcher spans and tool spans ---")"
@@ -851,7 +870,7 @@ echo "  $(dim "--- the fan-out: researcher spans and tool spans ---")"
 # comes first and the researcher's own operation span hangs under it. Asserted in that
 # order so a failure says which half is missing.
 span_in_trace         "execute_tool research_subtopic, the fan-out itself" "$PLAN_TRACE" "execute_tool research_subtopic"
-span_parent_in_trace  "execute_tool sits under a step"                     "$PLAN_TRACE" "execute_tool " "step "
+span_parent_in_trace  "execute_tool sits under a ${STEP_SPAN% }"            "$PLAN_TRACE" "execute_tool " "$STEP_SPAN"
 span_attribute_in_trace "a researcher operation span, by base14.agent.role" "$PLAN_TRACE" "invoke_agent " "base14.agent.role: Str(researcher)"
 span_attribute_in_trace "base14.subtopic on a researcher span"              "$PLAN_TRACE" "invoke_agent " "base14.subtopic"
 span_parent_in_trace  "the researcher's operation span sits under the tool span" "$PLAN_TRACE" "invoke_agent " "execute_tool research_subtopic"
@@ -989,7 +1008,7 @@ else
     echo ""
     echo "  $(dim "In the Scout UI, or in that JSON, this run should show:")"
     echo "    [ ] one trace rooted at the POST /plans server span."
-    echo "    [ ] invoke_agent under it, step under invoke_agent, chat under step."
+    echo "    [ ] invoke_agent under it, ${STEP_SPAN% } under ${STEP_PARENT% }, chat under ${STEP_SPAN% }."
     echo "    [ ] base14.plan.id equal to $PLAN_ID on every agent span."
     echo "    [ ] base14.agent.role lead on the lead spans, researcher on the fan-out."
     echo "    [ ] base14.gen_ai.cost with base14.gen_ai.cost.simulated true."

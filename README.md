@@ -17,7 +17,7 @@ sending telemetry to [base14 Scout][scout].
 | **tRPC** | tRPC 11 + TypeScript 6 + Prisma 7 + PostgreSQL 18 | [trpc-postgres](./nodejs/trpc-postgres) | OTel Node SDK, distributed tracing, tRPC-to-REST bridge |
 | **Express (Legacy)** | Express + TypeScript + MongoDB | [express-typescript-mongodb](./nodejs/express-typescript-mongodb) | MongoDB integration, Redis |
 | **AI Contract Analyzer** | Bun + Hono + Vercel AI SDK | [ai-contract-analyzer](./nodejs/ai-contract-analyzer) | GenAI observability, OpenLLMetry, multi-provider |
-| **AI Learning Path Planner** | Node.js 26 + Hono 4 + Vercel AI SDK 7 + Ollama | [ai-learning-path-planner](./nodejs/ai-learning-path-planner) | Lead agent with researcher subagents, fan-out cost per run, deferred vs full tool catalogue |
+| **AI Learning Path Planner** | Node.js 26 + Hono 4 + Vercel AI SDK 7 or Mastra 1 + Ollama | [ai-learning-path-planner](./nodejs/ai-learning-path-planner) | Lead agent with researcher subagents, fan-out cost per run, deferred vs full tool catalogue |
 
 ### Python
 
@@ -325,10 +325,12 @@ linked spans plus a histogram. Ships a six-scenario error matrix showing where e
 Node.js 26 and Vercel AI SDK 7 on local Ollama models. A lead agent breaks a topic into subtopics and calls one
 researcher subagent per subtopic over base14's own docs and examples corpus, and every step of the finished plan cites
 a corpus path. Records a cost per run under fan-out and the token cost of the tool definitions each agent carries, so
-the deferred and full tool catalogues can be compared on the same request.
+the deferred and full tool catalogues can be compared on the same request. `PLANNER_FRAMEWORK=mastra` runs the same
+agents on Mastra 1 through `@mastra/otel-bridge`.
 
 [View README →](./nodejs/ai-learning-path-planner/README.md) ·
-[Guide](https://docs.base14.io/guides/ai-observability/agent-observability/)
+[Guide](https://docs.base14.io/guides/ai-observability/agent-observability/) ·
+[Mastra guide](https://docs.base14.io/instrument/apps/auto-instrumentation/mastra/)
 
 ### Go stdlib net/http
 

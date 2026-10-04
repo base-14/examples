@@ -228,6 +228,7 @@ describe("the run cost accumulator", () => {
 
     function endAgentSpan(planId: string): void {
       processor.onEnd({
+        instrumentationScope: { name: "ai" },
         attributes: {
           "gen_ai.operation.name": "invoke_agent",
           "gen_ai.request.model": "gemma4:e2b",
@@ -259,6 +260,7 @@ describe("the run cost accumulator", () => {
 
     function endAgentSpan(planId: string): void {
       processor.onEnd({
+        instrumentationScope: { name: "ai" },
         attributes: {
           "gen_ai.operation.name": "invoke_agent",
           "gen_ai.request.model": "gemma4:e2b",

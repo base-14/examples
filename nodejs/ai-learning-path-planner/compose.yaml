@@ -12,6 +12,7 @@ services:
       - "3000:3000"
     environment:
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      PLANNER_FRAMEWORK: ${PLANNER_FRAMEWORK:-ai-sdk}
       # Ollama runs on the HOST, not in Compose, so the container reaches it
       # through host.docker.internal.
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/api}

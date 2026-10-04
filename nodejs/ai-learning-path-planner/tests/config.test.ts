@@ -8,6 +8,7 @@ describe("loadConfig", () => {
 
     expect(config.port).toBe(3000);
     expect(config.llmProvider).toBe("ollama");
+    expect(config.plannerFramework).toBe("ai-sdk");
     expect(config.ollamaBaseUrl).toBe("http://localhost:11434/api");
     expect(config.ollamaNumCtx).toBe(16384);
     expect(config.modelSmall).toBe("gemma4:e2b");
@@ -26,6 +27,7 @@ describe("loadConfig", () => {
     const config = loadConfig({
       PORT: "8080",
       LLM_PROVIDER: "anthropic",
+      PLANNER_FRAMEWORK: "mastra",
       OLLAMA_BASE_URL: "http://example.internal:11434/api",
       OLLAMA_NUM_CTX: "8192",
       MODEL_SMALL: "small-model",
@@ -41,6 +43,7 @@ describe("loadConfig", () => {
     expect(config).toEqual({
       port: 8080,
       llmProvider: "anthropic",
+      plannerFramework: "mastra",
       ollamaBaseUrl: "http://example.internal:11434/api",
       ollamaNumCtx: 8192,
       modelSmall: "small-model",
@@ -158,5 +161,19 @@ describe("loadConfig: PRICE_MODEL on the Ollama path", () => {
 
   it("still lets PRICE_MODEL be set explicitly", () => {
     expect(loadConfig({ PRICE_MODEL: "gpt-4o" }).priceModel).toBe("gpt-4o");
+  });
+});
+
+describe("PLANNER_FRAMEWORK", () => {
+  it("selects the Mastra agents when set to mastra", () => {
+    expect(loadConfig({ PLANNER_FRAMEWORK: "mastra" }).plannerFramework).toBe("mastra");
+  });
+
+  it("falls back to the AI SDK agents when present but empty", () => {
+    expect(loadConfig({ PLANNER_FRAMEWORK: "" }).plannerFramework).toBe("ai-sdk");
+  });
+
+  it("rejects a framework the service does not have", () => {
+    expect(() => loadConfig({ PLANNER_FRAMEWORK: "langgraph" })).toThrow();
   });
 });

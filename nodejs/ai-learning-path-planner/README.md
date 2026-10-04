@@ -7,14 +7,16 @@ corpus. `POST /plans` runs a lead agent that breaks the topic into subtopics, ca
 subtopic, and shapes what comes back into a plan whose every step cites a corpus path. OpenTelemetry records the
 fan-out: one trace per request, a cost per run, and the token cost of the tool definitions each agent carries.
 
-**Stack**: Node.js 26 · Hono 4 · Vercel AI SDK 7 · Ollama (local models) · OpenTelemetry · base14 Scout
+**Stack**: Node.js 26 · Hono 4 · Vercel AI SDK 7 or Mastra 1 · Ollama (local models) · OpenTelemetry · base14 Scout
 
 One of the [Node.js examples](../README.md) in base14's [OpenTelemetry examples](../../README.md) repository. For a
 single-agent Vercel AI SDK pipeline without the fan-out, read [ai-contract-analyzer](../ai-contract-analyzer). The
 guides behind this example are
 [AI Agent Observability](https://docs.base14.io/guides/ai-observability/agent-observability/) and
-[Vercel AI SDK Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/vercel-ai-sdk/). Other
-links are under [References](#references).
+[Vercel AI SDK Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/vercel-ai-sdk/). The
+Mastra variant is covered by
+[Mastra Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/mastra/). Other links are under
+[References](#references).
 
 ## How to instrument a Vercel AI SDK agent with OpenTelemetry
 
@@ -45,7 +47,7 @@ The full guide is
 - base14 Scout credentials, optional. Without them the collector keeps everything local and the example still
   runs end to end, `make verify` included; see [Scout export](#scout-export).
 - Memory. The two models are about 13.5 GB together, and at the shipped `OLLAMA_NUM_CTX` of 16384 `qwen3.5:9B` is
-  resident at roughly 5.9 GB. Comfortable on 18 GB, tight on 16 GB, unusable on 8 GB.
+  resident at roughly 5.9 GB. An 18 GB machine has room for it, 16 GB is tight and 8 GB is not enough.
 
 No LLM provider key is needed. Ollama runs on the host and every model call goes to it.
 
@@ -132,11 +134,11 @@ A run ends in one of three statuses.
 - `planned`. The lead researched at least one subtopic and the plan has at least one step.
 - `declined`. The corpus has no coverage of the topic at all, so nothing was researched and no model was called.
   Answered 422. A declined run takes a few hundredths of a second and costs nothing.
-- `failed`. Four different things, and the gap reason is what tells them apart. `service_error`: the run threw
-  before the lead returned, usually because the model was unreachable. `no_tool_call`: the lead answered in prose
-  and called no tool. `no_research`: the lead used its tools but researched no subtopic. No gap reason of any of
-  those three: the lead researched, and the plan it shaped came back with no steps. Only the first is an
-  infrastructure number, so do not read the failure rate as one. See [Known gaps](#known-gaps).
+- `failed`. One of four cases, and the gap reason says which. `service_error`: the run threw before the lead
+  returned, usually because the model was unreachable. `no_tool_call`: the lead answered in prose and called no
+  tool. `no_research`: the lead used its tools but researched no subtopic. None of those three: the lead
+  researched, and the plan it shaped came back with no steps. Only `service_error` is an infrastructure failure,
+  so the failure rate is not an infrastructure measure. See [Known gaps](#known-gaps).
 
 ## Configuration
 
@@ -152,6 +154,7 @@ they turn the export off rather than stopping anything.
 | `MODEL_SMALL` | `gemma4:e2b` | Researcher subagents. |
 | `MODEL_LARGE` | `qwen3.5:9B` | The lead agent and escalation. |
 | `PRICE_MODEL` | unset, resolved to `gpt-5-nano` | Price row borrowed for local token counts. See [Cost](#cost). |
+| `PLANNER_FRAMEWORK` | `ai-sdk` | `mastra` runs the same agents on Mastra. See [Running on Mastra](#running-on-mastra). |
 | `TOOL_CATALOGUE` | `deferred` | `full` sends all nine tools to both agents, for the measurement. |
 | `MAX_SUBTOPICS` | `8` | Caps the fan-out. |
 | `MAX_ESCALATIONS` | `2` | Caps escalations from the small tier to the large one, per run. |
@@ -254,19 +257,18 @@ default `deferred` catalogue each role sees only its own.
 | `fetch_example_file` | researcher | Returns the full text of one file at any corpus path, an example file or a docs page. Caps at 24,000 characters. |
 
 A researcher whose findings mostly fail citation validation escalates once to the large model, capped by
-`MAX_ESCALATIONS`. Failing that it returns a gap rather than a guess. Every citation in the finished plan is checked
+`MAX_ESCALATIONS`. If that fails as well, it returns a gap. Every citation in the finished plan is checked
 against the index; a step that still cites a path the corpus does not have is dropped and recorded as a gap.
 
 `search_docs`, `get_related` and `list_examples` return at most 20 entries, and `fetch_example_file` at most 24,000
-characters. A capped result says so in the result itself, so the model is told it saw part of something rather than
-being left to assume it saw all of it.
+characters. A capped result says so in the result itself, so the model knows it saw only part of the content.
 
-Two things about the loop are worth stating plainly, because both are easy to describe wrongly.
+Two properties of the loop:
 
-- **The harness holds the agent to its contract, not the provider.** While the lead has researched nothing, the
-  step is required to call a tool. Ollama accepts `tool_choice` and ignores it, whatever request shape it arrives
-  in, so the requirement has teeth only because the AI SDK enforces it client-side and throws
-  `ToolChoiceViolationError`. `prepareStep` in `src/agents/lead.ts` sends both halves.
+- **The AI SDK enforces the tool requirement, not the provider.** While the lead has researched nothing, each step
+  must call a tool. Ollama accepts `tool_choice` and ignores it in every request shape. The AI SDK checks the step
+  client-side and throws `ToolChoiceViolationError`. `prepareStep` in `src/agents/lead.ts` sets `toolChoice` and
+  adds an instruction that tells the model to call a tool.
 - **The tool loop carries no response format.** A response format alongside tool definitions suppresses tool calls
   on this provider, so both the lead and the researchers run their loops unconstrained and shape their output in a
   separate call afterwards. That separate call is why there are two `invoke_agent` spans per agent.
@@ -312,8 +314,8 @@ read `url.path`. `gen_ai.agent.name` carries the telemetry `functionId`, not the
 `lead`, `lead-plan`, `researcher` and `researcher-findings`.
 
 Concurrent researcher spans parent to the `execute_tool research_subtopic` span that started them. Their spans
-overlap, but on one Ollama instance the calls serialise, so their durations stack. The fan-out is what the example
-exists to measure; it is not a wall clock win.
+overlap, but one Ollama instance serves the calls one at a time, so their durations add up. The example measures the
+fan-out. The fan-out does not shorten a run.
 
 ### Attributes this example adds
 
@@ -373,7 +375,7 @@ temporality.
 
 `base14.gen_ai.tool_definition.tokens` is an estimate, not a token count. No tokeniser is available for a local
 Ollama model, so the value is the serialised tool definitions' character count divided by four, with the `$schema`
-URL dropped because the provider never receives it. Quote the divisor whenever you quote the number.
+URL dropped because the provider never receives it. State the divisor when you report the number.
 
 ### Logs
 
@@ -384,16 +386,15 @@ run writes `plan accepted` and `plan finished` records, or `plan failed` with th
 
 ### Cost
 
-A local model has no price row, so the service borrows one and says so. With `PRICE_MODEL` unset it uses
-`gpt-5-nano` at 0.05 and 0.40 USD per million input and output tokens: the cheapest input rate of the 79 non-zero
-rows in `_shared/pricing.json`, and the closest stand-in that table has for a small local model.
+A local model has no price row, so the service borrows one and marks the cost as simulated. With `PRICE_MODEL` unset
+it uses `gpt-5-nano` at 0.05 and 0.40 USD per million input and output tokens: the cheapest input rate of the 79
+non-zero rows in `_shared/pricing.json`, and the closest stand-in that table has for a small local model.
 
-Which row is cheapest depends on the workload, so the weighting is worth stating. This one is heavily
-input-weighted: tool definitions and accumulated tool results are re-sent on every step, so a planned run spends
-roughly seventeen input tokens for every output token. `gemini-2.0-flash-lite` at 0.075 and 0.30 is cheaper on the
-sum of the two rates, but overtakes `gpt-5-nano` only below four input tokens to one output, which is not the ratio
-this service produces. Every cost computed this way carries `base14.gen_ai.cost.simulated=true` on the span. These
-are not bills.
+Which row is cheapest depends on the workload. This one is heavily input-weighted: tool definitions and accumulated
+tool results are re-sent on every step, so a planned run spends roughly seventeen input tokens for every output
+token. `gemini-2.0-flash-lite` at 0.075 and 0.30 is cheaper on the sum of the two rates, but overtakes `gpt-5-nano`
+only below four input tokens to one output, which is not the ratio this service produces. Every cost computed this
+way is simulated and carries `base14.gen_ai.cost.simulated=true` on the span.
 
 On those rates a planned run costs a few thousandths of a dollar and a declined run costs nothing.
 
@@ -405,7 +406,7 @@ generated", at the cost of VRAM.
 
 ## Deferred against the full tool catalogue
 
-`TOOL_CATALOGUE` is the lever this example measures. On `deferred` each agent's model sees only its own tools, four
+`TOOL_CATALOGUE` is the setting this example measures. On `deferred` each agent's model sees only its own tools, four
 for the lead and five for the researcher. On `full` both see all nine. Tool definitions are re-sent on every step of
 the loop, so the difference is paid once per model call.
 
@@ -422,8 +423,50 @@ It runs the same request under each setting and prints the difference. A represe
 | Tool definition estimate, researcher | 361 | 650 | +289 |
 | Run cost, USD | 0.00257010 | 0.00273470 | not attributable |
 
-The first-call figure is the one to quote, and it is stable. Whole-run totals move with the model's step count,
-which varies from run to run, so they are too noisy to attribute to the catalogue.
+Compare the two settings on the first-call figure, which is stable. Whole-run totals move with the model's step
+count, which varies from run to run, so they cannot be attributed to the catalogue.
+
+## Running on Mastra
+
+Set `PLANNER_FRAMEWORK=mastra` to run the lead and the researchers on [Mastra](https://mastra.ai) agents. The
+routes, tools, corpus, plan logic, metrics and logs are the same. Only the agent loop and its spans change. The full
+guide is [Mastra OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/mastra/).
+
+```bash
+PLANNER_FRAMEWORK=mastra docker compose up -d --build
+PLANNER_FRAMEWORK=mastra make test-api
+PLANNER_FRAMEWORK=mastra make verify
+```
+
+- `src/agents/mastra.ts` builds the lead and the researchers as Mastra `Agent`s behind the interface
+  `runLeadPlan` already takes. They use the same instructions, the same AI SDK tools and the same Ollama model
+  objects.
+- `src/telemetry/mastra.ts` creates one `Mastra` instance with `@mastra/otel-bridge`. The bridge creates Mastra's
+  spans on the OpenTelemetry SDK that `src/telemetry.ts` starts, so they join the request's trace and pass
+  through the same span processors and exporter. Mastra is loaded only in this mode.
+- Mastra has no hook at span creation. The plan id, role and subtopic travel in the OpenTelemetry context, and
+  `MastraPlanSpanProcessor` in `src/telemetry/plan-context.ts` writes them onto each Mastra span as the same
+  `base14.*` and `gen_ai.conversation.id` attributes.
+- Mastra passes a required tool choice to the provider and does not enforce it, so the lead checks for a prose
+  answer itself and fails the run with the same `no_tool_call` gap.
+
+What differs in the trace:
+
+|  | AI SDK | Mastra |
+| --- | --- | --- |
+| Agent, model call and tool spans | `invoke_agent`, `chat`, `execute_tool` | the same names |
+| Span per model step | `step`, under `invoke_agent` | `agent_step`, under `model_generation`, under `invoke_agent` |
+| Extra spans | none | `model_chunk` under each `chat`, `processor_run` under each `agent_step` |
+| Token usage and cost | on `chat` and on `invoke_agent` | on `chat` only |
+| Status of a successful span | `Unset` | `Ok` |
+| Instrumentation scope | `ai` | `@mastra/otel-bridge` |
+
+Mastra records prompts, responses, tool arguments and results on its spans by default. With
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` unset, the agents pass `hideInput` and `hideOutput`, and
+`MastraPlanSpanProcessor` removes the content attributes those two leave behind.
+
+Mastra sends anonymous usage analytics to its maintainers unless `MASTRA_TELEMETRY_DISABLED` is set. The example
+sets it to `1` when it is unset.
 
 ## Scout export
 
@@ -444,19 +487,19 @@ command: --config=/etc/otel-collector.yaml ${SCOUT_CLIENT_ID:+--config=/etc/otel
 `${VAR:+...}` expands to nothing when the variable is empty or unset, so with no credentials the collector is
 started with one `--config` and never loads the Scout half. With credentials it gets both, and the collector
 deep-merges them: maps are joined and lists are replaced, so each pipeline keeps the receivers and processors from
-the local file and gains the second exporter. One file rather than two full copies, so the span filter and the
-pipelines cannot drift apart between the two modes.
+the local file and gains the second exporter. The Scout file holds only the additions, so the span filter and the
+pipelines are the same in both modes.
 
 `.env.example` ships the four values empty and the stack runs that way. Fill all four in to export. Do not fill in
-placeholders: a made-up value passes the collector's own validation, so the collector would start, look healthy,
-and silently fail every export against a tenant that does not exist. The four go together, which is why none of
-them has a non-empty fallback in `compose.yaml`: with `SCOUT_CLIENT_ID` set but the endpoint or the token URL
-empty, the collector stops at startup rather than exporting somewhere wrong.
+placeholders. A made-up value passes the collector's own validation, so the collector starts and reports healthy
+while every export fails. The four go together, which is why none of them has a non-empty fallback in
+`compose.yaml`: with `SCOUT_CLIENT_ID` set but the endpoint or the token URL empty, the collector stops at startup
+rather than exporting somewhere wrong.
 
-Every assertion in `make verify` reads the collector's `debug` exporter, which shows what the app produced before
-it was exported, so the verification never depends on anything reaching Scout, and it does not depend on having an
-account either. With `SCOUT_CLIENT_ID`, `SCOUT_CLIENT_SECRET` and `SCOUT_TOKEN_URL` set in the shell that runs it,
-the script prints a checklist for verifying the hosted side by hand.
+Every assertion in `make verify` reads the collector's `debug` exporter, which shows what the app produced before it
+was exported, so the verification needs neither a Scout account nor a working export. With `SCOUT_CLIENT_ID`,
+`SCOUT_CLIENT_SECRET` and `SCOUT_TOKEN_URL` set in the shell that runs it, the script prints a checklist for
+verifying the hosted side by hand.
 
 ## Known gaps
 
@@ -478,15 +521,16 @@ The example's own gaps:
 
 - **Retrieval is lexical.** An inverted index over titles, keywords, descriptions and headings, weighted in that
   order. No embeddings, no reranking. A subtopic phrased in words the corpus does not use will not be found.
-- **A plan is only as good as the corpus.** The corpus is a fixed snapshot committed as `data/corpus.json.gz`, so a
-  topic base14 has not documented produces a decline or a plan full of gaps, not a plan from general knowledge.
+- **Plans come only from the corpus.** The corpus is a fixed snapshot committed as `data/corpus.json.gz`, so a
+  topic base14 has not documented produces a decline or a plan with gaps. The agents do not answer from general
+  knowledge.
 - **Cost on a local model is simulated.** The rates are borrowed from a hosted price row, as above. Every span of a
   local run carries `base14.gen_ai.cost.simulated=true`.
 - **The plan store is in memory and bounded.** It holds 1024 completed runs and evicts the least recently
   completed, so a busy service loses the oldest ids. There is no persistence either, so every `GET /plans/{id}`
   returns 404 after the process restarts.
-- **Plans are thin.** One to five weeks and one to seven steps. Citations are real and gaps are recorded honestly,
-  but `gemma4:e2b` returns few findings per subtopic.
+- **Plans are short.** One to five weeks and one to seven steps. Citations are checked and gaps are recorded, but
+  `gemma4:e2b` returns few findings per subtopic.
 - **A lead that never calls a tool is reported `failed`.** Roughly one run in ten ends this way, with a
   `no_tool_call` gap. There is no third outcome inside the loop, so a run that researched nothing is a failure
   rather than an empty plan. `scripts/verify-scout.sh` retries it up to three times and prints the attempt count.
@@ -499,7 +543,7 @@ The example's own gaps:
 
 ```bash
 npm install
-npm run check          # typecheck, build, lint, 204 unit tests in 17 files
+npm run check          # typecheck, build, lint, 231 unit tests in 20 files
 npm run test           # the unit tests alone
 npm run test:api       # the endpoints, against a running service
 make verify            # spans, attributes and the six instruments, against the collector
@@ -533,6 +577,8 @@ they need Ollama and the stack up, and they take several minutes.
   timelines, handoffs and tool calls.
 - [Vercel AI SDK Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/vercel-ai-sdk/), for
   the SDK's own spans and metrics.
+- [Mastra Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/mastra/), for the spans of
+  the Mastra variant and its known gaps.
 - [LLM Observability](https://docs.base14.io/guides/ai-observability/llm-observability/), for token, cost and
   latency signals.
 - [Node.js Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/nodejs/), for the HTTP and
@@ -541,6 +587,7 @@ they need Ollama and the stack up, and they take several minutes.
   your Scout tenant.
 - [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/).
 - [Vercel AI SDK, agents and tool loops](https://sdk.vercel.ai/docs).
+- [Mastra OtelBridge](https://mastra.ai/docs/observability/tracing/bridges/otel).
 
 Other agent examples in this repository: [agent-rebooking](../../csharp/agent-rebooking) (C#, human approval gates
 and MCP) and [ai-runbook-assistant](../../python/ai-runbook-assistant) (Python, LangChain callback handler against

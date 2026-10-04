@@ -17,6 +17,7 @@ import {
   PlanCostSpanProcessor,
   ProviderNameSpanProcessor,
 } from "./telemetry/enrich.js";
+import { MastraPlanSpanProcessor } from "./telemetry/plan-context.js";
 
 // Loaded with `node --import`, so this runs before the app's first import. Under ESM the HTTP
 // server span is missing entirely unless the loader hook is registered before anything imports
@@ -42,6 +43,8 @@ const sdk = new NodeSDK({
     [ATTR_SERVICE_VERSION]: version,
   }),
   spanProcessors: [
+    // Acts on Mastra's spans only, so it is inert under PLANNER_FRAMEWORK=ai-sdk.
+    new MastraPlanSpanProcessor(config.captureMessageContent),
     new ProviderNameSpanProcessor(),
     new PlanCostSpanProcessor(config),
     new BatchSpanProcessor(new OTLPTraceExporter()),

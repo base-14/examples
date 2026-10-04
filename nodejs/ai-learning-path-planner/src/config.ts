@@ -25,6 +25,7 @@ const DEFAULT_PORT = 3000;
 const ConfigSchema = z.object({
   port: z.coerce.number().int().positive().default(DEFAULT_PORT),
   llmProvider: z.enum(["ollama", "openai", "anthropic"]).default("ollama"),
+  plannerFramework: z.enum(["ai-sdk", "mastra"]).default("ai-sdk"),
   ollamaBaseUrl: z.string().default(DEFAULT_OLLAMA_BASE_URL),
   ollamaNumCtx: z.coerce.number().int().positive().default(DEFAULT_OLLAMA_NUM_CTX),
   modelSmall: z.string().default("gemma4:e2b"),
@@ -56,6 +57,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const config = ConfigSchema.parse({
     port: unset(env.PORT),
     llmProvider: unset(env.LLM_PROVIDER),
+    plannerFramework: unset(env.PLANNER_FRAMEWORK),
     ollamaBaseUrl: unset(env.OLLAMA_BASE_URL),
     ollamaNumCtx: unset(env.OLLAMA_NUM_CTX),
     modelSmall: unset(env.MODEL_SMALL),

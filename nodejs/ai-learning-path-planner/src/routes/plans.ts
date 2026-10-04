@@ -74,7 +74,12 @@ export function plansRoutes(deps: PlansRouteDeps): Hono {
     // A new lead agent per request: it closes over the MAX_SUBTOPICS and MAX_ESCALATIONS
     // counters, which reset nowhere else. Built outside the stream callback so the failure
     // path, which has no outcome to read, still has the counters in scope.
-    const agent = buildLeadAgent({
+    // Imported on demand, so the default path never loads Mastra.
+    const build =
+      deps.config.plannerFramework === "mastra"
+        ? (await import("../agents/mastra.js")).buildMastraLeadAgent
+        : buildLeadAgent;
+    const agent = build({
       store: deps.store,
       config: deps.config,
       model: deps.model,

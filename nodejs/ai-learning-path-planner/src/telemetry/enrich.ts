@@ -21,6 +21,10 @@ const ATTR_OUTPUT_TOKENS = "gen_ai.usage.output_tokens";
 const ATTR_CACHE_READ_TOKENS = "gen_ai.usage.cache_read.input_tokens";
 
 const AGENT_OPERATION = "invoke_agent";
+const CHAT_OPERATION = "chat";
+
+// The instrumentation scope of every span @mastra/otel-bridge creates.
+export const MASTRA_SCOPE = "@mastra/otel-bridge";
 
 // The only channel enrichSpan can read from: it fires at span creation and is told nothing
 // about the call. A researcher is built per subtopic, so the subtopic rides along here.
@@ -39,7 +43,9 @@ export const PLAN_RUNTIME_CONTEXT_KEYS = {
   subtopic: true,
 } as const;
 
-export const enrichSpan: EnrichSpan = ({ runtimeContext }) => {
+export function planAttributes(
+  runtimeContext: Record<string, unknown> | undefined,
+): Attributes | undefined {
   if (runtimeContext === undefined) {
     return undefined;
   }
@@ -58,7 +64,9 @@ export const enrichSpan: EnrichSpan = ({ runtimeContext }) => {
   if (typeof subtopic === "string") attributes[ATTR_SUBTOPIC] = subtopic;
 
   return attributes;
-};
+}
+
+export const enrichSpan: EnrichSpan = ({ runtimeContext }) => planAttributes(runtimeContext);
 
 const runCosts = new Map<string, number>();
 
@@ -155,8 +163,15 @@ export class PlanCostSpanProcessor implements SpanProcessor {
     attributes[ATTR_COST] = cost.usd;
     attributes[ATTR_COST_SIMULATED] = cost.simulated;
 
+    // The AI SDK puts a run's whole usage on its invoke_agent span. Mastra puts usage on the
+    // chat spans only, so those are what a Mastra run's cost is summed from.
     const planId = stringAttribute(attributes, ATTR_PLAN_ID);
-    if (planId !== undefined && attributes[ATTR_OPERATION_NAME] === AGENT_OPERATION) {
+    const operation = attributes[ATTR_OPERATION_NAME];
+    const fromMastra = span.instrumentationScope.name === MASTRA_SCOPE;
+    const carriesRunUsage = fromMastra
+      ? operation === CHAT_OPERATION
+      : operation === AGENT_OPERATION;
+    if (planId !== undefined && carriesRunUsage) {
       addRunCost(planId, cost.usd);
     }
   }

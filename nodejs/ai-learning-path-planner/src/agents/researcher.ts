@@ -49,7 +49,7 @@ export interface ResearcherAgentDeps {
   planId?: string;
 }
 
-const RESEARCHER_INSTRUCTIONS =
+export const RESEARCHER_INSTRUCTIONS =
   "You research one subtopic of a learning plan against base14's documentation and " +
   "examples corpus. Use search_docs to find candidate documents, then outline and " +
   "fetch_section to read them, and list_examples and fetch_example_file for runnable " +
@@ -57,7 +57,7 @@ const RESEARCHER_INSTRUCTIONS =
   "note per document you actually read: the corpus path, the heading, and one sentence " +
   "on what it shows. Do not mention a path you have not read.";
 
-const FINDINGS_INSTRUCTIONS =
+export const FINDINGS_INSTRUCTIONS =
   "You turn research notes into structured findings for one subtopic. Report one finding " +
   "per corpus path that appears in the notes, with the heading it came from and a one " +
   "sentence note on what it shows. Report nothing that is not in the notes.";
@@ -65,7 +65,7 @@ const FINDINGS_INSTRUCTIONS =
 // TOOL_CATALOGUE=full puts research_subtopic's definition in front of a researcher too, so the
 // catalogue difference is measurable on both roles. A working implementation here would let a
 // researcher build researchers, so this placeholder keeps the definition and declines the call.
-function researchSubtopicPlaceholder() {
+export function researchSubtopicPlaceholder() {
   return tool({
     description: RESEARCH_SUBTOPIC_DESCRIPTION,
     inputSchema: RESEARCH_SUBTOPIC_INPUT_SCHEMA,
@@ -158,7 +158,7 @@ interface DocumentRef {
 // Prose does not reliably carry the paths it came from, and given only prose the shaping call
 // invents citations that all fail validateCitation. So the paths are read back off the tool
 // calls the loop made: a record of what it opened rather than a claim about it.
-function documentsOpened(toolCalls: { input: unknown }[]): DocumentRef[] {
+export function documentsOpened(toolCalls: { input: unknown }[]): DocumentRef[] {
   const refs = new Map<string, DocumentRef>();
 
   for (const call of toolCalls) {
@@ -173,7 +173,7 @@ function documentsOpened(toolCalls: { input: unknown }[]): DocumentRef[] {
   return [...refs.values()];
 }
 
-function findingsPrompt(subtopic: string, notes: string, opened: DocumentRef[]): string {
+export function findingsPrompt(subtopic: string, notes: string, opened: DocumentRef[]): string {
   const trimmed = notes.trim();
   return (
     `Subtopic: ${subtopic}.\n\n` +

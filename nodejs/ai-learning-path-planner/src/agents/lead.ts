@@ -30,7 +30,7 @@ import { fetchSectionTool } from "../tools/fetch-section.js";
 import { getRelatedTool } from "../tools/get-related.js";
 import { listExamplesTool } from "../tools/list-examples.js";
 import { outlineTool } from "../tools/outline.js";
-import { researchSubtopicTool } from "../tools/research-subtopic.js";
+import { type ResearchSubtopicDeps, researchSubtopicTool } from "../tools/research-subtopic.js";
 import { searchDocsTool } from "../tools/search-docs.js";
 import { buildResearcherAgent } from "./researcher.js";
 
@@ -52,7 +52,7 @@ export interface LeadAgentDeps {
 
 // The loop gathers, the shaping call writes. Splitting the instructions the same way keeps the
 // loop from trying to emit a plan on a step that still has tools in front of it.
-const LEAD_INSTRUCTIONS =
+export const LEAD_INSTRUCTIONS =
   "You research a topic against base14's documentation and examples corpus so a learning " +
   "plan can be written from what you find. Break the topic into a small number of focused " +
   "subtopics and call research_subtopic once per subtopic to gather cited findings. Use " +
@@ -64,12 +64,12 @@ const LEAD_INSTRUCTIONS =
 
 // Added on any early step that has researched nothing, withdrawn once one has. A directive
 // true on step one and false on step six does not belong in the system prompt.
-const LEAD_NUDGE =
+export const LEAD_NUDGE =
   "You have not researched any subtopic yet, so this step must be a tool call rather than " +
   "a written answer. Call corpus_map or check_coverage if you still have to decide which " +
   "subtopics to research, and call research_subtopic as soon as you have one.";
 
-const PLAN_INSTRUCTIONS =
+export const PLAN_INSTRUCTIONS =
   "You turn researched findings into a multi-week learning plan for one topic, as " +
   "structured output. Give each week one subtopic and order the weeks so earlier weeks " +
   "come first. Every step cites a corpus path that appears in the findings you were given " +
@@ -78,10 +78,33 @@ const PLAN_INSTRUCTIONS =
 
 // Long enough for the lead to survey the corpus before it has to research, short enough that
 // it still ends the loop itself afterwards.
-const NUDGED_STEPS = 6;
+export const NUDGED_STEPS = 6;
 
-function hasResearched(steps: { toolCalls: { toolName: string }[] }[]): boolean {
+export function hasResearched(steps: { toolCalls: { toolName: string }[] }[]): boolean {
   return steps.some((step) => step.toolCalls.some((call) => call.toolName === "research_subtopic"));
+}
+
+// All nine tools, for either framework. Only the researcher behind research_subtopic differs.
+export function leadTools(
+  deps: LeadAgentDeps,
+  buildResearcher: ResearchSubtopicDeps["buildResearcher"],
+) {
+  return {
+    corpus_map: corpusMapTool(deps.store),
+    check_coverage: checkCoverageTool(deps.store),
+    get_related: getRelatedTool(deps.store),
+    research_subtopic: researchSubtopicTool({
+      store: deps.store,
+      config: deps.config,
+      counters: deps.run?.counters,
+      buildResearcher,
+    }),
+    search_docs: searchDocsTool(deps.store),
+    outline: outlineTool(deps.store),
+    fetch_section: fetchSectionTool(deps.store),
+    list_examples: listExamplesTool(deps.store),
+    fetch_example_file: fetchExampleFileTool(deps.store),
+  };
 }
 
 // A new lead agent per request. The MAX_SUBTOPICS and MAX_ESCALATIONS counters live in the
@@ -96,32 +119,17 @@ export function buildLeadAgent(deps: LeadAgentDeps) {
           toolCatalogue: deps.config.toolCatalogue,
         };
 
-  const tools = {
-    corpus_map: corpusMapTool(deps.store),
-    check_coverage: checkCoverageTool(deps.store),
-    get_related: getRelatedTool(deps.store),
-    research_subtopic: researchSubtopicTool({
+  const tools = leadTools(deps, (opts) =>
+    buildResearcherAgent({
       store: deps.store,
       config: deps.config,
-      counters: deps.run?.counters,
-      buildResearcher: (opts) =>
-        buildResearcherAgent({
-          store: deps.store,
-          config: deps.config,
-          telemetry: deps.telemetry,
-          planId: deps.run?.planId,
-          subtopic: opts.subtopic,
-          tier: opts.tier,
-          model:
-            opts.tier === "small" ? deps.researcherModels?.small : deps.researcherModels?.large,
-        }),
+      telemetry: deps.telemetry,
+      planId: deps.run?.planId,
+      subtopic: opts.subtopic,
+      tier: opts.tier,
+      model: opts.tier === "small" ? deps.researcherModels?.small : deps.researcherModels?.large,
     }),
-    search_docs: searchDocsTool(deps.store),
-    outline: outlineTool(deps.store),
-    fetch_section: fetchSectionTool(deps.store),
-    list_examples: listExamplesTool(deps.store),
-    fetch_example_file: fetchExampleFileTool(deps.store),
-  };
+  );
 
   const model = deps.model ?? selectModel("large", deps.config);
   const providerOptions = providerOptionsFor(deps.config);
@@ -185,6 +193,22 @@ export function buildLeadAgent(deps: LeadAgentDeps) {
 }
 
 export type LeadAgent = ReturnType<typeof buildLeadAgent>;
+
+// Thrown by a lead whose framework does not enforce a required tool call itself. runLeadPlan
+// treats it like the AI SDK's ToolChoiceViolationError.
+export class RequiredToolCallMissing extends Error {}
+
+// What runLeadPlan needs from a lead agent, whichever framework built it.
+export interface LeadLoopResult {
+  text: string;
+  toolResults: { toolName: string; output: unknown }[];
+  steps: { toolCalls: { toolName: string }[] }[];
+}
+
+export interface LeadRunner {
+  loop: { generate(options: { prompt: string }): Promise<LeadLoopResult> };
+  shaper: { generate(options: { prompt: string }): Promise<{ output: Plan }> };
+}
 
 export interface LeadRequest {
   topic: string;
@@ -329,7 +353,7 @@ function outcomeFor(plan: Plan, researched: boolean): LeadOutcome {
 }
 
 export async function runLeadPlan(
-  agent: LeadAgent,
+  agent: LeadRunner,
   request: LeadRequest,
   store: CorpusStore,
 ): Promise<LeadOutcome> {
@@ -352,11 +376,14 @@ export async function runLeadPlan(
   // The SDK throws when a step required to call a tool answers in prose, which is the only way
   // the requirement has teeth on Ollama. Caught here because the throw can only happen while
   // nothing has been researched: a failed outcome carries metrics and a gap, a throw neither.
-  let loop: Awaited<ReturnType<typeof agent.loop.generate>>;
+  let loop: LeadLoopResult;
   try {
     loop = await agent.loop.generate({ prompt: `Topic: ${request.topic}` });
   } catch (error) {
-    if (!ToolChoiceViolationError.isInstance(error)) {
+    if (
+      !ToolChoiceViolationError.isInstance(error) &&
+      !(error instanceof RequiredToolCallMissing)
+    ) {
       throw error;
     }
     return {

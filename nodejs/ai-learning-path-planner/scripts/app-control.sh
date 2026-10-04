@@ -89,6 +89,8 @@ app_control_init() {
     APP_BASELINE=(
         "OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-$default_base_url}"
         "TOOL_CATALOGUE=${TOOL_CATALOGUE:-deferred}"
+        # Kept across restarts, so a run started on Mastra stays on Mastra.
+        "PLANNER_FRAMEWORK=${PLANNER_FRAMEWORK:-ai-sdk}"
         # Left empty so the service applies its own default. Naming a row here would measure
         # a cost the shipped configuration never produces. A borrowed rate carries
         # base14.gen_ai.cost.simulated=true; it is a stand-in, not a bill.
