@@ -1,0 +1,3 @@
+# Codex's prompt and tool definitions do not fit Ollama's default context.
+FROM qwen3.5:9B
+PARAMETER num_ctx 32768

@@ -1,0 +1,12 @@
+# Codex configuration for the rig. scripts/drive.sh copies it to CODEX_HOME.
+model = "qwen3.5-32k"
+model_provider = "ollama"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[otel]
+environment = "dev"
+log_user_prompt = false
+exporter = { otlp-http = { endpoint = "http://localhost:4318/v1/logs", protocol = "binary" } }
+trace_exporter = { otlp-http = { endpoint = "http://localhost:4318/v1/traces", protocol = "binary" } }
+metrics_exporter = { otlp-http = { endpoint = "http://localhost:4318/v1/metrics", protocol = "binary" } }

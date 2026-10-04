@@ -121,6 +121,7 @@ you operate, collect its telemetry with the Collector and send it to Scout.
 | --- | --- | --- | --- |
 | **OpenClaw** | `diagnostics-otel` plugin, OTLP traces, metrics and logs | [openclaw-telemetry](./components/openclaw-telemetry) | [Guide][doc-openclaw] |
 | **Claude Code** | Built-in telemetry set by environment variables, OTLP traces, metrics and logs, for the CLI and the Claude Agent SDK | [claude-code-telemetry](./components/claude-code-telemetry) | [Guide][doc-claude-code] |
+| **Codex CLI** | Built-in `[otel]` config, OTLP traces, metrics and logs | [codex-telemetry](./components/codex-telemetry) | [Guide][doc-codex] |
 | **SQL Server** | `sqlserverreceiver` | [sqlserver-telemetry](./components/sqlserver-telemetry) | [Guide][doc-sqlserver] |
 | **SNMP devices** | `snmpreceiver` | [snmp-telemetry](./components/snmp-telemetry) | [Guide][doc-snmp] |
 | **Azure AKS** | OpenTelemetry Operator | [azure-aks-operator-telemetry](./components/azure-aks-operator-telemetry) | [Guide][doc-aks] |
@@ -428,6 +429,7 @@ See [LICENSE](./LICENSE) for details.
 [doc-apps]: https://docs.base14.io/category/app-instrumentation
 [doc-openclaw]: https://docs.base14.io/instrument/component/collecting-openclaw-telemetry
 [doc-claude-code]: https://docs.base14.io/instrument/component/collecting-claude-code-telemetry
+[doc-codex]: https://docs.base14.io/instrument/component/collecting-codex-telemetry
 [doc-sqlserver]: https://docs.base14.io/instrument/component/collecting-sqlserver-telemetry
 [doc-snmp]: https://docs.base14.io/instrument/component/collecting-snmp-telemetry
 [doc-aks]: https://docs.base14.io/instrument/infra/azure/collecting-azure-aks-telemetry

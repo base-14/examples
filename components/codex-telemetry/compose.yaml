@@ -1,0 +1,22 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otel/config.yaml"]
+    # Must hold a whole drive run of debug output for scripts/verify-scout.sh.
+    logging:
+      driver: json-file
+      options: {max-size: "200m", max-file: "5"}
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel/config.yaml:ro
+    # Codex runs on the host, so OTLP is published on loopback.
+    ports:
+      - "127.0.0.1:${COLLECTOR_OTLP_GRPC_PORT:-4317}:4317"
+      - "127.0.0.1:${COLLECTOR_OTLP_HTTP_PORT:-4318}:4318"
+      - "${COLLECTOR_HEALTH_PORT:-13133}:13133"
+      - "${COLLECTOR_METRICS_PORT:-8888}:8888"
+    environment:
+      - SCOUT_CLIENT_ID=${SCOUT_CLIENT_ID:-unset}
+      - SCOUT_CLIENT_SECRET=${SCOUT_CLIENT_SECRET:-unset}
+      - SCOUT_TOKEN_URL=${SCOUT_TOKEN_URL:-https://auth.base14.io/oauth/token}
+      - SCOUT_ENDPOINT=${SCOUT_ENDPOINT:-https://collector.base14.io}
+      - SCOUT_ENVIRONMENT=${SCOUT_ENVIRONMENT:-development}
