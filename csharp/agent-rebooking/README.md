@@ -2,12 +2,12 @@
 
 > [Full Documentation](https://docs.base14.io/guides/ai-observability/agent-approval-gates/)
 
-A travel disruption agent on .NET 10 and Microsoft Agent Framework 1.21. A triage agent hands off
+A travel disruption agent on .NET 10 and Microsoft Agent Framework 1.23. A triage agent hands off
 to a rebooking agent, the rebooking tools come from an in-process MCP server, and a rebooking over
 a price limit waits for a human before it runs. One trace covers the handoff, the MCP client and
 server, the database work and the approval.
 
-**Stack**: .NET 10 · ASP.NET Core · Microsoft Agent Framework 1.21 · Model Context Protocol 2.2 ·
+**Stack**: .NET 10 · ASP.NET Core · Microsoft Agent Framework 1.23 · Model Context Protocol 2.2 ·
 PostgreSQL 18 · Ollama (local model) · OpenTelemetry · base14 Scout
 
 The model runs on a local Ollama. Telemetry goes to an OpenTelemetry Collector, which forwards it
@@ -86,7 +86,7 @@ app reaches it through `host.docker.internal:11434`.
    builder, and the tests call it too, so a source that stops being registered also stops being
    asserted on.
 2. Wrap each agent with `UseOpenTelemetry`. `Agents/AgentSetup.cs` builds both agents with
-   `.AsBuilder().UseOpenTelemetry(configure: ...).Build()`. At 1.21.0 the agent-level call also
+   `.AsBuilder().UseOpenTelemetry(configure: ...).Build()`. At 1.23.0 the agent-level call also
    activates chat-client telemetry under the same source, so `invoke_agent`, `chat` and
    `execute_tool` spans all come from that one call.
 3. Register `Experimental.ModelContextProtocol` before the MCP session opens. The MCP C# SDK checks
@@ -111,14 +111,14 @@ app reaches it through `host.docker.internal:11434`.
 | --- | --- | --- |
 | .NET SDK | 10.0.400 | `global.json` and `.tool-versions`. |
 | ASP.NET Core | 10.0 | Minimal APIs. |
-| `Microsoft.Agents.AI.Workflows` | 1.21.0 | Handoff builder. |
-| `Microsoft.Agents.AI.OpenAI` | 1.21.0 | OpenAI provider. |
-| `Microsoft.Agents.AI.Anthropic` | 1.21.0-preview.260911.1 | Prerelease, exact pin. |
+| `Microsoft.Agents.AI.Workflows` | 1.23.0 | Handoff builder. |
+| `Microsoft.Agents.AI.OpenAI` | 1.23.0 | OpenAI provider. |
+| `Microsoft.Agents.AI.Anthropic` | 1.23.0-preview.260928.1 | Prerelease, exact pin. |
 | `Microsoft.Extensions.AI` | 10.10.0 | `ApprovalRequiredAIFunction`, chat telemetry. |
 | `ModelContextProtocol` | 2.2.0 | Client, server and in-process transport. |
-| `OllamaSharp` | 5.4.30 | Default provider path. |
+| `OllamaSharp` | 5.5.0 | Default provider path. |
 | `Npgsql` | 10.0.3 | Tool storage. |
-| `OpenTelemetry.*` | 1.18.0 | SDK, OTLP exporter, ASP.NET Core, HttpClient, Runtime. |
+| `OpenTelemetry.*` | 1.19.x | SDK, OTLP exporter, ASP.NET Core, HttpClient, Runtime. |
 | PostgreSQL | `postgres:18` | Published on host port **5433**. |
 | OTel Collector contrib | 0.161.0 | oauth2client, otlp_http to Scout, debug to stdout. |
 | Ollama model | `qwen3.5:9b` | On the host, not in Compose. |
@@ -313,7 +313,7 @@ body, so the function-invoking chat client never runs it. Read the handoff from 
 tool.
 
 **The injected handoff tool is named `handoff_to_1`**, a one-based counter over the source agent's
-targets. The framework's documentation says `handoff_to_<agent_id>`, which is not what 1.21.0 emits.
+targets. The framework's documentation says `handoff_to_<agent_id>`, which is not what 1.23.0 emits.
 It appears in `toolCalls` on `GET /runs/{runId}`.
 
 **There is no separate MCP client span for `tools/call`.** The C# SDK finds the outer `execute_tool`
@@ -421,7 +421,7 @@ deployment.environment.name: <SCOUT_ENVIRONMENT>
 environment: <SCOUT_ENVIRONMENT>
 telemetry.sdk.name: opentelemetry
 telemetry.sdk.language: dotnet
-telemetry.sdk.version: 1.18.0
+telemetry.sdk.version: 1.19.1
 ```
 
 Both `deployment.environment.name` and `environment` are set, by the app and again by the collector's
@@ -445,7 +445,7 @@ Both `deployment.environment.name` and `environment` are set, by the app and aga
 | `dns.lookup.duration` | `System.Net.NameResolution`. |
 | `dotnet.*` | .NET runtime instrumentation. |
 
-There is no `gen_ai.execute_tool.duration` instrument at 1.21.0, so the MCP client duration is not
+There is no `gen_ai.execute_tool.duration` instrument at 1.23.0, so the MCP client duration is not
 double counted.
 
 `base14.gen_ai.cost`, `base14.gen_ai.retry.count` and `base14.gen_ai.fallback.count` are emitted by
@@ -475,7 +475,7 @@ triage agent span and absent from both rebooking agent spans. Why it differs by 
 ### Workflow spans
 
 `Microsoft.Agents.AI.Workflows` is deliberately not registered. Its spans are gated behind
-`WorkflowBuilder.WithOpenTelemetry`, which the handoff builder does not expose at 1.21.0, so
+`WorkflowBuilder.WithOpenTelemetry`, which the handoff builder does not expose at 1.23.0, so
 registering the source would add a name that can never produce a span.
 
 ## Error matrix

@@ -102,7 +102,7 @@ sending telemetry to [base14 Scout][scout].
 | **ASP.NET Core** | .NET 10 + EF Core + Azure SQL Edge | [dotnet-sqlserver](./csharp/dotnet-sqlserver) | Minimal APIs, rate limiting, auto-instrumentation |
 | **ASP.NET Core zero-code** | .NET 8.0.22 + Microsoft.Data.SqlClient + Azure SQL Edge | [dotnet8-sqlserver-hello](./csharp/dotnet8-sqlserver-hello) | OpenTelemetry.AutoInstrumentation 1.17.0, no telemetry code, env-var configuration |
 | **.NET Aspire** | .NET Aspire 13.2 + ASP.NET Core 10 + EF Core 10 + PostgreSQL 18 | [aspire-postgres](./csharp/aspire-postgres) | ServiceDefaults pattern, custom ActivitySource and Meter, two-service distributed tracing, Aspire and Compose run modes |
-| **Approval-Gated Agent** | .NET 10 + Microsoft Agent Framework 1.21 + MCP 2.2 + PostgreSQL 18 | [agent-rebooking](./csharp/agent-rebooking) | Agent handoff, in-process MCP client and server, human approval as spans and a histogram, six-scenario error matrix |
+| **Approval-Gated Agent** | .NET 10 + Microsoft Agent Framework 1.23 + MCP 2.2 + PostgreSQL 18 | [agent-rebooking](./csharp/agent-rebooking) | Agent handoff, in-process MCP client and server, human approval as spans and a histogram, six-scenario error matrix |
 
 ### Infrastructure & Integrations
 
@@ -312,7 +312,7 @@ code.
 
 ### Approval-Gated Rebooking Agent
 
-Travel disruption agent on .NET 10 and Microsoft Agent Framework 1.21. A triage agent hands off to a rebooking agent,
+Travel disruption agent on .NET 10 and Microsoft Agent Framework 1.23. A triage agent hands off to a rebooking agent,
 tools come from an in-process MCP server, and a rebooking over a price limit waits for a human before it runs. One trace
 covers the handoff, the MCP client and server, the Postgres queries and the approval; the approval wait is two short
 linked spans plus a histogram. Ships a six-scenario error matrix showing where each failure lands.
