@@ -5,10 +5,10 @@ set -euo pipefail 2>/dev/null || set -eu
 # verify-scout.sh - End-to-end telemetry verification for ai-runbook-assistant
 #
 # Sends a diagnosis request, then inspects the OTel Collector debug logs to
-# confirm the expected GenAI-semconv span tree, attributes, and metrics arrived.
-# Run it once per instrumentation mode:
-#   INSTRUMENTATION_MODE=callback docker compose up -d --build && ./scripts/verify-scout.sh
-#   INSTRUMENTATION_MODE=auto     docker compose up -d --build && ./scripts/verify-scout.sh
+# confirm the expected GenAI-semconv span tree, attributes, and metrics arrived:
+#   docker compose up -d --build && ./scripts/verify-scout.sh
+# Set OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=span_only for both the
+# stack and this script to check that captured content is scrubbed.
 #
 # With SCOUT_* blank the export to Scout fails (harmless) but the debug exporter
 # still logs every span, so this script passes without Scout credentials.
@@ -20,7 +20,7 @@ set -euo pipefail 2>/dev/null || set -eu
 
 BASE_URL="${API_URL:-http://localhost:8000}"
 COLLECTOR_HEALTH="${COLLECTOR_HEALTH_URL:-http://localhost:13133}"
-MODE="${INSTRUMENTATION_MODE:-callback}"
+CAPTURE="$(echo "${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-no_content}" | tr '[:upper:]' '[:lower:]')"
 PASS=0
 FAIL=0
 WARN=0
@@ -61,7 +61,7 @@ warn_log() {
 echo ""
 echo "$(cyan "=============================================")"
 echo "$(cyan "  Telemetry Verification - Base14 Scout")"
-echo "$(cyan "  ai-runbook-assistant  [mode: ${MODE}]")"
+echo "$(cyan "  ai-runbook-assistant  [content capture: ${CAPTURE}]")"
 echo "$(cyan "=============================================")"
 
 # --- 1. Prerequisites ------------------------------------------------------
@@ -126,19 +126,38 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     [ "$CLEANUP_LOGS" = "1" ] && rm -f "$LOGS_FILE"
   else
     echo "  $(dim "--- Span tree ---")"
-    if [ "$MODE" = "callback" ]; then
-      # Custom handler → GenAI-semconv span names
-      check_log "Span: invoke_agent runbook_assistant" "invoke_agent runbook_assistant" "$LOGS_FILE"
-      check_log "Span: chat {model} (semconv name)"    "Name *: chat "                   "$LOGS_FILE"
-      check_log "Span kind: Client on chat spans"      "Kind *: Client"                  "$LOGS_FILE"
-      check_log "Span: execute_tool {name}"            "Name *: execute_tool "           "$LOGS_FILE"
-      warn_log  "Span: retrieval runbooks"             "Name *: retrieval runbooks"      "$LOGS_FILE"
-      warn_log  "Span: embeddings {model}"             "Name *: embeddings "             "$LOGS_FILE"
+    check_log "Span: invoke_agent runbook_assistant" "invoke_agent runbook_assistant" "$LOGS_FILE"
+    check_log "Span: chat {model}"                   "Name *: chat "                   "$LOGS_FILE"
+    check_log "Span kind: Client on chat spans"      "Kind *: Client"                  "$LOGS_FILE"
+    check_log "Span: execute_tool {name}"            "Name *: execute_tool "           "$LOGS_FILE"
+    warn_log  "Span: retrieval"                      "Name *: retrieval"               "$LOGS_FILE"
+    warn_log  "Span: embeddings {model}"             "Name *: embeddings "             "$LOGS_FILE"
+
+    # Every chat span comes from the LangChain instrumentation, and no chat span
+    # is the child of another: a model wrapped in another model would double them.
+    CHAT_REPORT=$(awk '
+      /ScopeSpans #/{spans=1} /ScopeMetrics #|ScopeLogs #/{spans=0}
+      spans && /InstrumentationScope/{scope=$2}
+      spans && /^ *Parent ID *:/{parent=$NF}
+      spans && /^ *ID *:/{id=$NF}
+      spans && /Name *: chat /{chat[id]=1; parents[id]=parent; scopes[scope]++}
+      END{
+        nested=0; for (c in chat) if (parents[c] in chat) nested++
+        for (s in scopes) printf "scope %s %d\n", s, scopes[s]
+        printf "nested %d\n", nested
+      }' "$LOGS_FILE")
+    if echo "$CHAT_REPORT" | grep -q "^scope " && ! echo "$CHAT_REPORT" | grep "^scope " | grep -qv "opentelemetry.instrumentation.genai.langchain"; then
+      echo "  $(green "PASS") Every chat span comes from the LangChain instrumentation"; PASS=$((PASS + 1))
     else
-      # OpenLLMetry (auto) → ChatOllama.chat naming + traceloop.* attrs
-      check_log "Span: ChatOllama.chat (OpenLLMetry)" "ChatOllama.chat"                  "$LOGS_FILE"
-      warn_log  "Attr: traceloop.* association"       "traceloop"                        "$LOGS_FILE"
+      echo "  $(red "FAIL") chat spans from other scopes, or none:"; echo "$CHAT_REPORT" | sed 's/^/      /'; FAIL=$((FAIL + 1))
     fi
+    if echo "$CHAT_REPORT" | grep -q "^nested 0$"; then
+      echo "  $(green "PASS") No chat span nested inside another"; PASS=$((PASS + 1))
+    else
+      echo "  $(red "FAIL") chat spans nested inside chat spans: $(echo "$CHAT_REPORT" | grep ^nested)"; FAIL=$((FAIL + 1))
+    fi
+    check_log "Attr: gen_ai.agent.name on invoke_agent" "gen_ai.agent.name: Str(runbook_assistant)" "$LOGS_FILE"
+    warn_log  "Attr: app.retrieval.chunk_count on retrieval" "app.retrieval.chunk_count" "$LOGS_FILE"
 
     echo "  $(dim "--- Required GenAI span attributes ---")"
     warn_log "Attr: gen_ai.operation.name"    "gen_ai.operation.name"    "$LOGS_FILE"
@@ -198,23 +217,22 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Resource: environment (dual-key)"              "> environment: Str(" "$LOGS_FILE"
 
     echo "  $(dim "--- Content capture ---")"
-    if [ "$MODE" = "callback" ]; then
-      # Custom handler: content OFF unless OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true
-      if grep -q "OOMKilled, what do I do" "$LOGS_FILE" 2>/dev/null; then
-        echo "  $(red "FAIL") prompt content leaked (capture should be OFF by default)"; FAIL=$((FAIL + 1))
-      else
-        echo "  $(green "PASS") no prompt content in spans (capture OFF by default)"; PASS=$((PASS + 1))
-      fi
-    else
-      # OpenLLMetry captures prompt/completion content BY DEFAULT - this is the
-      # documented contrast with the custom handler. Disable with
-      # TRACELOOP_TRACE_CONTENT=false. We assert the default behaviour here.
-      if grep -qE "gen_ai.prompt|gen_ai.completion|gen_ai.input.messages|OOMKilled, what do I do" "$LOGS_FILE" 2>/dev/null; then
-        echo "  $(green "PASS") OpenLLMetry captures content by default (set TRACELOOP_TRACE_CONTENT=false to disable)"; PASS=$((PASS + 1))
-      else
-        echo "  $(yellow "WARN") expected OpenLLMetry default content capture not observed"; WARN=$((WARN + 1))
-      fi
-    fi
+    case "$CAPTURE" in
+      span_only|span_and_event)
+        if grep -q "gen_ai.input.messages" "$LOGS_FILE" 2>/dev/null; then
+          echo "  $(green "PASS") prompt content captured on spans (${CAPTURE})"; PASS=$((PASS + 1))
+        else
+          echo "  $(red "FAIL") ${CAPTURE} is set but no gen_ai.input.messages on any span"; FAIL=$((FAIL + 1))
+        fi
+        ;;
+      *)
+        if grep -q "OOMKilled, what do I do" "$LOGS_FILE" 2>/dev/null; then
+          echo "  $(red "FAIL") prompt content leaked (capture is ${CAPTURE})"; FAIL=$((FAIL + 1))
+        else
+          echo "  $(green "PASS") no prompt content in spans (capture is ${CAPTURE})"; PASS=$((PASS + 1))
+        fi
+        ;;
+    esac
     [ "$CLEANUP_LOGS" = "1" ] && rm -f "$LOGS_FILE"
   fi
 fi

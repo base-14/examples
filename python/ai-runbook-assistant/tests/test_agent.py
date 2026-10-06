@@ -1,41 +1,22 @@
-from typing import Any
+from langchain.agents import create_agent
 
-from langchain_core.language_models.fake_chat_models import FakeListChatModel
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,
-)
+from runbook_assistant.agent import AGENT_NAME, run_diagnosis
+from runbook_assistant.tools import query_metrics
+from tests.scripted_model import ScriptedChatModel, answer
 
 
-class _ToolBindingFakeModel(FakeListChatModel):
-    """FakeListChatModel that accepts bind_tools (the base raises
-    NotImplementedError). It ignores the tools and returns a plain answer, so
-    create_agent runs one model step and the agent loop ends - enough to assert
-    the callback emits the root invoke_agent span without a real provider."""
-
-    def bind_tools(self, tools: Any, **kwargs: Any) -> Any:
-        return self
-
-
-def test_callback_produces_invoke_agent_span_with_fake_model():
-    provider = TracerProvider()
-    exporter = InMemorySpanExporter()
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
-    tracer = provider.get_tracer("test")
-
-    from langchain.agents import create_agent
-
-    from runbook_assistant.telemetry.callback import OTelCallbackHandler
-    from runbook_assistant.tools import query_metrics
-
-    model = _ToolBindingFakeModel(responses=["checkout CPU is high; see runbook."])
-    agent = create_agent(model=model, tools=[query_metrics])
-    handler = OTelCallbackHandler(tracer=tracer, agent_name="runbook_assistant")
-
-    agent.invoke(
-        {"messages": [{"role": "user", "content": "why is checkout slow?"}]},
-        config={"callbacks": [handler]},
+def test_run_produces_a_named_invoke_agent_span(span_exporter):
+    model = ScriptedChatModel(
+        provider="ollama",
+        model="qwen3.5:9B",
+        script=[answer("checkout CPU is high; see runbook.", 10, 5)],
     )
-    names = [s.name for s in exporter.get_finished_spans()]
-    assert "invoke_agent runbook_assistant" in names
+    agent = create_agent(model=model, tools=[query_metrics], name=AGENT_NAME)
+
+    run_diagnosis(agent, "why is checkout slow?", conversation_id="conv-1")
+
+    agent_span = next(
+        s for s in span_exporter.get_finished_spans() if s.name == f"invoke_agent {AGENT_NAME}"
+    )
+    assert agent_span.attributes["gen_ai.agent.name"] == AGENT_NAME
+    assert agent_span.attributes["gen_ai.conversation.id"] == "conv-1"

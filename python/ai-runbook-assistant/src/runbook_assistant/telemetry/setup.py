@@ -1,7 +1,8 @@
-"""OpenTelemetry bootstrap: providers, exporters, base auto-instrumentation.
+"""OpenTelemetry bootstrap: providers, exporters and instrumentation.
 
-Import and call setup_telemetry() BEFORE creating the FastAPI app. The
-instrumentation MODE (auto vs callback) is dispatched here based on settings.
+Import and call setup_telemetry() BEFORE creating the FastAPI app. LangChain is
+traced by the OpenTelemetry GenAI LangChain instrumentation, and the spans it
+creates are enriched by `telemetry/genai_spans.py`.
 """
 
 import logging
@@ -11,6 +12,7 @@ from opentelemetry import _logs, metrics, trace
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.genai.langchain import LangChainInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -23,6 +25,12 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from runbook_assistant.config import get_settings
+from runbook_assistant.db import database_endpoint
+from runbook_assistant.telemetry.genai_spans import (
+    DataSource,
+    GenAISpanExporter,
+    RunAttributesProcessor,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -54,9 +62,17 @@ def setup_telemetry(engine: Any = None) -> tuple[trace.Tracer, metrics.Meter]:
 
     resource = build_resource()
 
+    address, port = database_endpoint(s.database_url)
     trace_provider = TracerProvider(resource=resource)
     trace_provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{s.otel_exporter_otlp_endpoint}/v1/traces"))
+        RunAttributesProcessor(DataSource(id=s.data_source_id, address=address, port=port))
+    )
+    trace_provider.add_span_processor(
+        BatchSpanProcessor(
+            GenAISpanExporter(
+                OTLPSpanExporter(endpoint=f"{s.otel_exporter_otlp_endpoint}/v1/traces")
+            )
+        )
     )
     trace.set_tracer_provider(trace_provider)
 
@@ -83,13 +99,9 @@ def setup_telemetry(engine: Any = None) -> tuple[trace.Tracer, metrics.Meter]:
     if engine is not None:
         SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
 
-    if s.instrumentation_mode == "auto":
-        from runbook_assistant.telemetry.auto import enable_auto_instrumentation
-
-        enable_auto_instrumentation()
-        logger.info("LangChain instrumentation: auto (OpenLLMetry)")
-    else:
-        logger.info("LangChain instrumentation: %s", s.instrumentation_mode)
+    # LangChain: invoke_agent, chat, execute_tool and retrieval spans, and the
+    # gen_ai.client.* metrics, from LangChain's callbacks.
+    LangChainInstrumentor().instrument()  # type: ignore[no-untyped-call]
 
     return (
         trace.get_tracer(s.otel_service_name),

@@ -1,21 +1,33 @@
 import pytest
 from opentelemetry import metrics, trace
+from opentelemetry.instrumentation.genai.langchain import LangChainInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from runbook_assistant.telemetry.genai_spans import (
+    DataSource,
+    GenAISpanExporter,
+    RunAttributesProcessor,
+)
 
-# Registered at import, before any test module builds a handler or a metric
-# instrument, so the global tracer and meter write into these collectors.
+
+# Registered at import, before any test module builds an agent or a metric
+# instrument, so the global tracer and meter write into these collectors, through
+# the same processor and exporter the app uses.
 SPAN_EXPORTER = InMemorySpanExporter()
 METRIC_READER = InMemoryMetricReader()
 
 _tracer_provider = TracerProvider()
-_tracer_provider.add_span_processor(SimpleSpanProcessor(SPAN_EXPORTER))
+_tracer_provider.add_span_processor(
+    RunAttributesProcessor(DataSource(id="runbooks", address="postgres", port=5432))
+)
+_tracer_provider.add_span_processor(SimpleSpanProcessor(GenAISpanExporter(SPAN_EXPORTER)))
 trace.set_tracer_provider(_tracer_provider)
 metrics.set_meter_provider(MeterProvider(metric_readers=[METRIC_READER]))
+LangChainInstrumentor().instrument()
 
 
 def _settings_env_names() -> set[str]:
@@ -51,6 +63,19 @@ def _isolate_settings(monkeypatch):
 def span_exporter() -> InMemorySpanExporter:
     SPAN_EXPORTER.clear()
     return SPAN_EXPORTER
+
+
+@pytest.fixture
+def capture_content(monkeypatch):
+    """Re-instruments with `SPAN_ONLY` capture. The instrumentation reads the variable
+    once, when it is instrumented, so setting it inside a test changes nothing on its own."""
+    monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "SPAN_ONLY")
+    LangChainInstrumentor().uninstrument()
+    LangChainInstrumentor().instrument()
+    yield
+    monkeypatch.delenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT")
+    LangChainInstrumentor().uninstrument()
+    LangChainInstrumentor().instrument()
 
 
 @pytest.fixture

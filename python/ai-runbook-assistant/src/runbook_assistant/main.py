@@ -17,14 +17,12 @@ from pydantic import BaseModel
 from runbook_assistant.agent import build_agent, run_diagnosis
 from runbook_assistant.config import get_settings
 from runbook_assistant.db import (
-    database_endpoint,
     init_db,
     make_engine,
     make_session_factory,
     save_diagnosis,
 )
 from runbook_assistant.errors import SpanStatusMiddleware, unhandled_exception_handler
-from runbook_assistant.telemetry.callback import OTelCallbackHandler
 from runbook_assistant.telemetry.setup import instrument_fastapi, setup_telemetry
 from runbook_assistant.tools import _services
 
@@ -62,19 +60,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     seed_runbooks(store)
     app.state.agent = build_agent(retriever)
 
-    if s.instrumentation_mode == "callback":
-        address, port = database_endpoint(s.database_url)
-        app.state.handler_factory = lambda conversation_id: [
-            OTelCallbackHandler(
-                agent_name="runbook_assistant",
-                data_source_id=s.data_source_id,
-                conversation_id=conversation_id,
-                data_source_address=address,
-                data_source_port=port,
-            )
-        ]
-    else:
-        app.state.handler_factory = lambda _conversation_id: []
     yield
     await engine.dispose()
 
@@ -95,9 +80,8 @@ def create_app() -> FastAPI:
     @app.post("/api/v1/diagnose", response_model=DiagnoseResponse)
     async def diagnose(req: DiagnoseRequest) -> DiagnoseResponse:
         conversation_id = str(uuid.uuid4())
-        callbacks = app.state.handler_factory(conversation_id)
         start = time.perf_counter()
-        answer = run_diagnosis(app.state.agent, req.question, callbacks)
+        answer = run_diagnosis(app.state.agent, req.question, conversation_id)
         duration_ms = int((time.perf_counter() - start) * 1000)
         diagnosis_id = await save_diagnosis(
             app.state.session_factory,

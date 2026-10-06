@@ -4,7 +4,8 @@ from typing import Any
 
 from langchain.agents import create_agent
 
-from runbook_assistant.llm import build_resilient_chat_model
+from runbook_assistant.llm import build_models
+from runbook_assistant.telemetry.genai_spans import RunAttributes, run_attributes
 from runbook_assistant.tools import build_tools
 
 
@@ -18,18 +19,26 @@ SYSTEM_PROMPT = (
 )
 
 
+AGENT_NAME = "runbook_assistant"
+
+
 def build_agent(retriever: Any) -> Any:
+    model, resilience = build_models()
     return create_agent(
-        model=build_resilient_chat_model(),
+        model=model,
         tools=build_tools(retriever),
         system_prompt=SYSTEM_PROMPT,
+        middleware=[resilience],
+        name=AGENT_NAME,
     )
 
 
-def run_diagnosis(agent: Any, question: str, callbacks: list[Any] | None = None) -> str:
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": question}]},
-        config={"callbacks": callbacks or []},
-    )
+def run_diagnosis(agent: Any, question: str, conversation_id: str) -> str:
+    """The instrumentation reads the conversation ID from the run's metadata."""
+    with run_attributes(RunAttributes(conversation_id=conversation_id)):
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": question}]},
+            config={"metadata": {"conversation_id": conversation_id}},
+        )
     messages = result.get("messages", [])
     return messages[-1].content if messages else ""

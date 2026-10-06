@@ -9,7 +9,6 @@ from opentelemetry.trace import SpanKind, StatusCode
 from pydantic import ConfigDict
 
 from runbook_assistant.embeddings import InstrumentedEmbeddings
-from runbook_assistant.telemetry.callback import OTelCallbackHandler
 
 
 class _FakeEmbeddings(Embeddings):
@@ -74,14 +73,14 @@ class _EmbeddingRetriever(BaseRetriever):
 
 
 def test_embeddings_span_is_a_child_of_the_retrieval_span(span_exporter):
-    handler = OTelCallbackHandler(agent_name="runbook_assistant", data_source_id="runbooks")
     retriever = _EmbeddingRetriever(embeddings=_wrap(_FakeEmbeddings()))
 
-    retriever.invoke("disk full", config={"callbacks": [handler]})
+    retriever.invoke("disk full")
 
     spans = span_exporter.get_finished_spans()
     embeddings = next(s for s in spans if s.name.startswith("embeddings "))
-    retrieval = next(s for s in spans if s.name == "retrieval runbooks")
+    retrieval = next(s for s in spans if s.name.startswith("retrieval"))
+    assert retrieval.attributes["gen_ai.data_source.id"] == "runbooks"
     assert embeddings.parent is not None
     assert embeddings.parent.span_id == retrieval.context.span_id
     assert embeddings.context.trace_id == retrieval.context.trace_id

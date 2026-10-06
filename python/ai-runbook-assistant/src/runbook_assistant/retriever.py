@@ -3,6 +3,22 @@
 from pathlib import Path
 from typing import Any
 
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from langchain_core.vectorstores import VectorStoreRetriever
+from opentelemetry import trace
+
+
+class CountingRetriever(VectorStoreRetriever):
+    """Records how many chunks came back on the retrieval span, which is current while it runs."""
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun, **kwargs: Any
+    ) -> list[Document]:
+        docs = super()._get_relevant_documents(query, run_manager=run_manager, **kwargs)
+        trace.get_current_span().set_attribute("app.retrieval.chunk_count", len(docs))
+        return docs
+
 
 def _runbook_dir() -> Path:
     return Path(__file__).parent / "data" / "runbooks"
@@ -28,12 +44,10 @@ def build_retriever(connection_string: str) -> tuple[Any, Any]:
         connection=connection_string,
         use_jsonb=True,
     )
-    return store.as_retriever(search_kwargs={"k": 3}), store
+    return CountingRetriever(vectorstore=store, search_kwargs={"k": 3}), store
 
 
 def seed_runbooks(store: Any) -> int:
-    from langchain_core.documents import Document
-
     docs: list[Document] = []
     for path in sorted(_runbook_dir().glob("*.md")):
         if path.name == "ATTRIBUTION.md":

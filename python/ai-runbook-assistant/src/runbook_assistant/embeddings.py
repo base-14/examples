@@ -14,7 +14,6 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from runbook_assistant.providers import server_endpoint
-from runbook_assistant.telemetry.context import current_retrieval_context
 from runbook_assistant.telemetry.metrics import get_metrics
 
 
@@ -58,7 +57,6 @@ class InstrumentedEmbeddings(Embeddings):
         start = time.perf_counter()
         with self._tracer.start_as_current_span(
             f"embeddings {self._model}",
-            context=current_retrieval_context.get(),
             kind=SpanKind.CLIENT,
             attributes=span_attrs,
         ) as span:

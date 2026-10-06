@@ -6,14 +6,14 @@ custom).
 
 The application is a single SRE runbook agent: per request it invokes a RAG retriever over the runbook corpus, calls SRE
 tools (`search_runbooks`, `query_metrics`, `search_logs`, `get_service_status`), then synthesizes a diagnosis. It emits
-OpenTelemetry GenAI-semconv telemetry through a custom LangChain callback handler. Two dashboards ship with it: an
+OpenTelemetry GenAI-semconv telemetry through the OpenTelemetry LangChain instrumentation. Two dashboards ship with it: an
 **Operational** view for live request health and a **Strategic** view for cost, volume, and efficiency trends.
 
 The span tree for one request looks like this:
 
 ```plain
 invoke_agent runbook_assistant
-├─ retrieval runbooks            (RAG over the runbook corpus)
+├─ retrieval                     (RAG over the runbook corpus)
 ├─ chat {model}                  (reasoning / tool selection)
 ├─ execute_tool {tool}           (search_runbooks | query_metrics | search_logs | get_service_status)
 ├─ chat {model}                  (synthesis)
@@ -105,7 +105,7 @@ invoke_agent runbook_assistant
 ### Span-Tree Exemplar
 
 The Request Performance and Tool & Retrieval rows are best read alongside a single trace in Scout's traceX: open any
-`invoke_agent runbook_assistant` span and expand its `retrieval runbooks`, `chat {model}`, and `execute_tool {tool}`
+`invoke_agent runbook_assistant` span and expand its `retrieval`, `chat {model}`, and `execute_tool {tool}`
 children to see where a slow or failed request spent its time.
 
 ### Operational Thresholds & Alerts
@@ -223,9 +223,9 @@ children to see where a slow or failed request spent its time.
 | Span Name Pattern | Key Attributes |
 |-------------------|----------------|
 | `invoke_agent runbook_assistant` | `gen_ai.operation.name=invoke_agent`, `gen_ai.agent.name`, `gen_ai.conversation.id`, status |
-| `chat {model}` | `gen_ai.operation.name=chat`, `gen_ai.request.model`, `gen_ai.request.temperature`, `gen_ai.request.max_tokens`, `gen_ai.response.model`, `gen_ai.response.id`, `gen_ai.provider.name`, `server.address`, `server.port`, token + `base14.gen_ai.cost_usd` |
-| `execute_tool {tool}` | `gen_ai.operation.name=execute_tool`, `gen_ai.tool.name`, `gen_ai.tool.type=function`, `gen_ai.tool.call.id` |
-| `retrieval runbooks` | `gen_ai.operation.name=retrieval`, `gen_ai.data_source.id=runbooks`, `server.address`, `server.port`, `app.retrieval.chunk_count` |
+| `chat {model}` | `gen_ai.operation.name=chat`, `gen_ai.request.model`, `gen_ai.request.temperature`, `gen_ai.request.max_tokens`, `gen_ai.response.model`, `gen_ai.provider.name`, `gen_ai.conversation.id`, token + `base14.gen_ai.cost_usd` |
+| `execute_tool {tool}` | `gen_ai.operation.name=execute_tool`, `gen_ai.tool.name`, `gen_ai.tool.type=function`, `gen_ai.tool.call.id`, `gen_ai.tool.description` |
+| `retrieval` | `gen_ai.operation.name=retrieval`, `gen_ai.data_source.id=runbooks`, `server.address`, `server.port`, `app.retrieval.chunk_count` |
 | `embeddings {model}` | `gen_ai.operation.name=embeddings`, `gen_ai.request.model`, `gen_ai.provider.name`, `server.address`, `server.port` |
 | SQLAlchemy spans | `db.system=postgresql`, `db.operation` |
 

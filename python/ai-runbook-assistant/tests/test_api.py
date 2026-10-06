@@ -14,7 +14,6 @@ def test_diagnose_returns_answer_and_id(monkeypatch):
     app = main.create_app()
     app.state.agent = object()
     app.state.session_factory = None
-    app.state.handler_factory = lambda _conversation_id: []
 
     client = TestClient(app)
     r = client.post("/api/v1/diagnose", json={"question": "node disk full?"})

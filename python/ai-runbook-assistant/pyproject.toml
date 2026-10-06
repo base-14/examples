@@ -1,12 +1,12 @@
 [project]
 name = "ai-runbook-assistant"
 version = "0.1.0"
-description = "SRE runbook assistant (LangChain + RAG) with OpenTelemetry via callback handlers, observable in Base14 Scout"
+description = "SRE runbook assistant (LangChain + RAG) with the OpenTelemetry GenAI LangChain instrumentation, observable in Base14 Scout"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.14"
 authors = [{ name = "base14", email = "hello@base14.io" }]
-keywords = ["langchain", "opentelemetry", "callback-handler", "sre", "rag", "fastapi", "ai-agents", "base14-scout"]
+keywords = ["langchain", "opentelemetry", "genai-instrumentation", "sre", "rag", "fastapi", "ai-agents", "base14-scout"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: FastAPI",
@@ -44,7 +44,7 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy==0.66b0",
     "opentelemetry-instrumentation-httpx==0.66b0",
     "opentelemetry-instrumentation-logging==0.66b0",
-    "opentelemetry-instrumentation-langchain==0.62.3",
+    "opentelemetry-instrumentation-genai-langchain==1.2b0",
 ]
 
 [project.optional-dependencies]

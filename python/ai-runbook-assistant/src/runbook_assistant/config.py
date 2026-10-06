@@ -8,7 +8,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 LLMProvider = Literal["ollama", "anthropic", "openai", "google"]
-InstrumentationMode = Literal["auto", "callback", "off"]
 
 
 class Settings(BaseSettings):
@@ -23,8 +22,6 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/runbooks"
     )
-
-    instrumentation_mode: InstrumentationMode = "callback"
 
     llm_provider: LLMProvider = "ollama"
     llm_model: str = "qwen3.5:9B"
@@ -46,9 +43,18 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
     scout_environment: str = "development"
 
-    capture_content: bool = Field(
-        default=False, alias="OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
+    capture_content_mode: str = Field(
+        default="no_content", alias="OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
     )
+
+    @property
+    def capture_content(self) -> bool:
+        return self.capture_content_mode.strip().lower() in {
+            "true",
+            "span_only",
+            "event_only",
+            "span_and_event",
+        }
 
 
 @lru_cache
