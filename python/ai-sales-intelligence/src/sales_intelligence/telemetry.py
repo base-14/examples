@@ -6,10 +6,11 @@ exporting to Base14 Scout via OTLP.
 IMPORTANT: Import this module BEFORE creating the FastAPI app.
 
 Instrumentation Strategy:
-- AUTO-INSTRUMENTATION: FastAPI, SQLAlchemy, httpx, logging
-  (These are handled by OTel instrumentors - zero custom code needed)
-- CUSTOM INSTRUMENTATION: GenAI metrics and spans in llm.py
-  (Auto-instrumentation doesn't understand LLM semantics)
+- AUTO-INSTRUMENTATION: FastAPI, SQLAlchemy, httpx, logging, and the OpenTelemetry
+  GenAI instrumentations for the OpenAI, Anthropic and Google Gen AI SDKs, which
+  create the `chat {model}` spans and the gen_ai.client.* metrics
+- CUSTOM INSTRUMENTATION: agent spans in graph.py, and the agent, campaign, provider,
+  cost and PII scrubbing that genai_spans.py adds to the model call spans
 """
 
 import logging
@@ -28,6 +29,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from sales_intelligence.config import get_settings
+from sales_intelligence.genai_spans import GenAISpanExporter, LLMCallAttributesProcessor
 
 
 logger = logging.getLogger(__name__)
@@ -41,18 +43,19 @@ def setup_telemetry(
     This function sets up:
     1. Trace provider with OTLP exporter (for spans)
     2. Meter provider with OTLP exporter (for metrics)
-    3. Auto-instrumentation for FastAPI, SQLAlchemy, httpx, logging
+    3. Auto-instrumentation for FastAPI, SQLAlchemy, httpx, logging and the GenAI SDKs
 
     Auto-instrumentation provides:
     - HTTP spans: All FastAPI requests automatically traced
     - DB spans: All SQLAlchemy queries automatically traced
-    - External HTTP spans: All httpx calls (including LLM APIs) traced
+    - Model call spans: `chat {model}` per OpenAI, Anthropic or Gemini SDK call, with
+      the gen_ai.client.token.usage and gen_ai.client.operation.duration metrics
     - Log correlation: trace_id and span_id added to log records
 
-    Custom instrumentation (in llm.py) adds:
-    - GenAI semantic attributes: model, tokens, cost, provider
-    - GenAI metrics: token usage, operation duration, cost tracking
-    - Business context: agent name, campaign ID for attribution
+    Custom instrumentation adds:
+    - The agent, campaign and provider on model call spans (genai_spans.py)
+    - Cost on model call spans, and PII scrubbing of captured content (genai_spans.py)
+    - Cost, retry, fallback and error counters (llm.py)
 
     Args:
         engine: SQLAlchemy engine for DB instrumentation (optional)
@@ -80,9 +83,12 @@ def setup_telemetry(
 
     # === TRACES ===
     trace_provider = TracerProvider(resource=resource)
+    trace_provider.add_span_processor(LLMCallAttributesProcessor())
     trace_provider.add_span_processor(
         BatchSpanProcessor(
-            OTLPSpanExporter(endpoint=f"{settings.otel_exporter_otlp_endpoint}/v1/traces")
+            GenAISpanExporter(
+                OTLPSpanExporter(endpoint=f"{settings.otel_exporter_otlp_endpoint}/v1/traces")
+            )
         )
     )
     trace.set_tracer_provider(trace_provider)
@@ -98,8 +104,8 @@ def setup_telemetry(
     # === AUTO-INSTRUMENTATION ===
     # These instrumentors add spans automatically without any code changes
 
-    # httpx: Traces all outbound HTTP calls (including LLM API calls)
-    # Benefit: See HTTP-level details (status code, latency) for debugging
+    # httpx: Traces outbound HTTP calls. The OpenAI SDK sends through httpx2, which this
+    # instrumentor does not patch, so OpenAI and Ollama calls get no HTTP client span.
     HTTPXClientInstrumentor().instrument()
 
     # logging: Adds trace_id and span_id to all log records
@@ -110,6 +116,15 @@ def setup_telemetry(
     # Benefit: See query SQL, parameters, and duration in trace waterfall
     if engine:
         SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
+
+    # GenAI: one `chat {model}` span per SDK call, plus the gen_ai.client.* metrics.
+    from opentelemetry.instrumentation.genai.anthropic import AnthropicInstrumentor
+    from opentelemetry.instrumentation.genai.openai import OpenAIInstrumentor
+    from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
+
+    OpenAIInstrumentor().instrument()  # type: ignore[no-untyped-call]
+    AnthropicInstrumentor().instrument()
+    GoogleGenAiSdkInstrumentor().instrument()
 
     logger.info(
         "OpenTelemetry initialized",

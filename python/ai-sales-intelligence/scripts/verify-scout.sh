@@ -234,6 +234,32 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     check_log "Span kind: Client on chat spans"     "Kind *: Client"          "$LOGS_FILE"
     warn_log  "Span: retrieval prospects_fts"       "Name *: retrieval prospects_fts" "$LOGS_FILE"
 
+    # --- Model call spans come from the GenAI instrumentations ---
+    echo "  $(dim "--- Model Call Spans ---")"
+    CHAT_SCOPES=$(awk '/ScopeSpans #/{spans=1} /ScopeMetrics #|ScopeLogs #/{spans=0}
+      spans && /InstrumentationScope/{scope=$2}
+      spans && /Name *: chat /{print scope}' "$LOGS_FILE" | sort | uniq -c)
+    if [ -n "$CHAT_SCOPES" ] && ! echo "$CHAT_SCOPES" | grep -qv "opentelemetry.instrumentation.genai\.\|opentelemetry.instrumentation.google_genai"; then
+      echo "  $(green "PASS") Every chat span comes from a GenAI instrumentation"
+      PASS=$((PASS + 1))
+    else
+      echo "  $(red "FAIL") chat spans from other scopes, a hand-written span or none at all:"
+      echo "$CHAT_SCOPES" | sed 's/^/      /'
+      FAIL=$((FAIL + 1))
+    fi
+    if [ "${LLM_PROVIDER:-ollama}" = "ollama" ]; then
+      check_log "Provider: ollama on chat spans"    "gen_ai.provider.name: Str(ollama)" "$LOGS_FILE"
+      # Spans only: the instrumentation's metric points still say openai.
+      if awk '/ScopeSpans #/{spans=1} /ScopeMetrics #|ScopeLogs #/{spans=0}
+        spans && /gen_ai.provider.name: Str\(openai\)/{found=1} END{exit !found}' "$LOGS_FILE"; then
+        echo "  $(red "FAIL") A chat span says openai; LLMCallAttributesProcessor did not run"
+        FAIL=$((FAIL + 1))
+      else
+        echo "  $(green "PASS") No chat span names Ollama as openai"
+        PASS=$((PASS + 1))
+      fi
+    fi
+
     # --- Required GenAI Span Attributes ---
     echo "  $(dim "--- Required GenAI Span Attributes ---")"
     warn_log  "Attr: gen_ai.operation.name"         "gen_ai.operation.name"   "$LOGS_FILE"

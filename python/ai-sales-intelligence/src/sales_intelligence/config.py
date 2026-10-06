@@ -55,10 +55,6 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
     scout_environment: str = "development"
 
-    # Records prompt and completion content on the GenAI inference event.
-    # Off by default: the content may contain PII.
-    otel_instrumentation_genai_capture_message_content: bool = False
-
     # Feature flags
     otel_enabled: bool = True
 

@@ -11,6 +11,7 @@ import logging
 
 from opentelemetry import metrics, trace
 
+from sales_intelligence.errors import record_item_failure
 from sales_intelligence.llm import get_llm_client
 from sales_intelligence.parsing import extract_json
 from sales_intelligence.prompts import format_prompt
@@ -39,93 +40,93 @@ async def evaluate_agent(state: AgentState) -> AgentState:
     Returns:
         Updated state with evaluation results
     """
-    with tracer.start_as_current_span("agent.evaluate") as span:
-        span.set_attribute("base14.campaign_id", state.campaign_id)
-        span.set_attribute("base14.drafts_count", len(state.drafts))
-        span.set_attribute("base14.quality_threshold", state.quality_threshold)
+    span = trace.get_current_span()
+    span.set_attribute("base14.campaign_id", state.campaign_id)
+    span.set_attribute("base14.drafts_count", len(state.drafts))
+    span.set_attribute("base14.quality_threshold", state.quality_threshold)
 
-        if not state.drafts:
-            logger.info("No drafts to evaluate")
-            return state.model_copy(update={"current_step": "complete"})
+    if not state.drafts:
+        logger.info("No drafts to evaluate")
+        return state.model_copy(update={"current_step": "complete"})
 
-        llm = get_llm_client()
-        evaluations: list[EvaluationResult] = []
-        errors: list[str] = list(state.errors)
+    llm = get_llm_client()
+    evaluations: list[EvaluationResult] = []
+    errors: list[str] = list(state.errors)
 
-        for draft in state.drafts:
-            with tracer.start_as_current_span("evaluate.draft") as espan:
-                espan.set_attribute("base14.prospect_id", draft.prospect_id)
+    for draft in state.drafts:
+        with tracer.start_as_current_span("evaluate.draft") as espan:
+            espan.set_attribute("base14.prospect_id", draft.prospect_id)
 
-                system_prompt = format_prompt("evaluate", "system")
-                user_prompt = format_prompt(
-                    "evaluate",
-                    "user",
-                    subject=draft.subject,
-                    body=draft.body,
+            system_prompt = format_prompt("evaluate", "system")
+            user_prompt = format_prompt(
+                "evaluate",
+                "user",
+                subject=draft.subject,
+                body=draft.body,
+            )
+
+            try:
+                response = await llm.generate(
+                    prompt=user_prompt,
+                    system=system_prompt,
+                    model=llm.model_fast,
+                    agent_name="evaluate",
+                    campaign_id=state.campaign_id,
+                )
+                data = extract_json(response)
+                score = data.get("quality_score", 0)
+                passed = score >= state.quality_threshold
+
+                espan.set_attribute("base14.quality_score", score)
+                espan.set_attribute("base14.passed", passed)
+
+                espan.add_event(
+                    "gen_ai.evaluation.result",
+                    attributes={
+                        "gen_ai.evaluation.name": "email_quality",
+                        "gen_ai.evaluation.score.value": score,
+                        "gen_ai.evaluation.score.label": "passed" if passed else "failed",
+                        "gen_ai.evaluation.explanation": data.get("feedback", "")[:200],
+                    },
                 )
 
-                try:
-                    response = await llm.generate(
-                        prompt=user_prompt,
-                        system=system_prompt,
-                        model=llm.model_fast,
-                        agent_name="evaluate",
-                        campaign_id=state.campaign_id,
+                # Record evaluation metric for dashboards
+                _evaluation_score.record(
+                    score / 100.0,
+                    {
+                        "gen_ai.evaluation.name": "email_quality",
+                        "gen_ai.evaluation.score.label": "passed" if passed else "failed",
+                        "base14.campaign_id": state.campaign_id,
+                    },
+                )
+
+                evaluations.append(
+                    EvaluationResult(
+                        draft_id=draft.prospect_id,
+                        quality_score=score,
+                        passed=passed,
+                        feedback=data.get("feedback", ""),
+                        issues=data.get("issues", []),
                     )
-                    data = extract_json(response)
-                    score = data.get("quality_score", 0)
-                    passed = score >= state.quality_threshold
+                )
+            except json.JSONDecodeError as e:
+                record_item_failure(espan, e)
+                logger.warning("Failed to parse evaluation: %s", e)
+                errors.append(f"Evaluate parse error for {draft.prospect_id}: {e}")
+            except Exception as e:
+                record_item_failure(espan, e)
+                logger.error("Evaluation failed: %s", e)
+                errors.append(f"Evaluate error for {draft.prospect_id}: {e}")
 
-                    espan.set_attribute("base14.quality_score", score)
-                    espan.set_attribute("base14.passed", passed)
+    passed_count = sum(1 for e in evaluations if e.passed)
+    span.set_attribute("base14.evaluations_count", len(evaluations))
+    span.set_attribute("base14.passed_count", passed_count)
+    logger.info("Evaluated %d drafts, %d passed quality threshold", len(evaluations), passed_count)
 
-                    espan.add_event(
-                        "gen_ai.evaluation.result",
-                        attributes={
-                            "gen_ai.evaluation.name": "email_quality",
-                            "gen_ai.evaluation.score.value": score,
-                            "gen_ai.evaluation.score.label": "passed" if passed else "failed",
-                            "gen_ai.evaluation.explanation": data.get("feedback", "")[:200],
-                        },
-                    )
-
-                    # Record evaluation metric for dashboards
-                    _evaluation_score.record(
-                        score / 100.0,
-                        {
-                            "gen_ai.evaluation.name": "email_quality",
-                            "gen_ai.evaluation.score.label": "passed" if passed else "failed",
-                            "base14.campaign_id": state.campaign_id,
-                        },
-                    )
-
-                    evaluations.append(
-                        EvaluationResult(
-                            draft_id=draft.prospect_id,
-                            quality_score=score,
-                            passed=passed,
-                            feedback=data.get("feedback", ""),
-                            issues=data.get("issues", []),
-                        )
-                    )
-                except json.JSONDecodeError as e:
-                    logger.warning("Failed to parse evaluation: %s", e)
-                    errors.append(f"Evaluate parse error for {draft.prospect_id}: {e}")
-                except Exception as e:
-                    logger.error("Evaluation failed: %s", e)
-                    errors.append(f"Evaluate error for {draft.prospect_id}: {e}")
-
-        passed_count = sum(1 for e in evaluations if e.passed)
-        span.set_attribute("base14.evaluations_count", len(evaluations))
-        span.set_attribute("base14.passed_count", passed_count)
-        logger.info(
-            "Evaluated %d drafts, %d passed quality threshold", len(evaluations), passed_count
-        )
-
-        return state.model_copy(
-            update={
-                "evaluations": evaluations,
-                "errors": errors,
-                "current_step": "complete",
-            }
-        )
+    return state.model_copy(
+        update={
+            "evaluations": evaluations,
+            "errors": errors,
+            "current_step": "complete",
+        }
+    )

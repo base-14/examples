@@ -1,14 +1,18 @@
 """LLM client tests driven by the shared test vectors.
 
-Each test loads a vector from `_shared/test-vectors`, drives the client with a
-fake provider SDK that behaves as the vector describes, and asserts the spans
-and metrics that reach the in-memory exporters.
+Each test loads a vector from `_shared/test-vectors`, drives the client with the
+real provider SDK answering from a mock transport, and asserts the spans and
+metrics that reach the in-memory exporters. The spans come from the OpenTelemetry
+GenAI instrumentations, so two things differ from the vectors, which were written
+for one hand-written span per call: every retry attempt is its own span, and a
+failed attempt's `error.type` is the SDK's exception class, such as
+`InternalServerError`, not `Exception`.
 """
 
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from opentelemetry import trace
@@ -17,6 +21,12 @@ from opentelemetry.trace import SpanKind, StatusCode
 
 from sales_intelligence.llm import LLMClient
 from tests.conftest import METRIC_READER
+from tests.sdk_transports import (
+    anthropic_message,
+    anthropic_responses,
+    openai_completion,
+    openai_responses,
+)
 
 
 VECTORS_DIR = Path(__file__).parents[3] / "_shared" / "test-vectors"
@@ -28,34 +38,6 @@ def load_vector(name: str) -> dict[str, Any]:
     with (VECTORS_DIR / name).open() as f:
         data: dict[str, Any] = json.load(f)
     return data
-
-
-def anthropic_response(mock: dict[str, Any]) -> MagicMock:
-    response = MagicMock()
-    response.content = [MagicMock(text=mock["content"])]
-    response.usage = MagicMock(
-        input_tokens=mock["input_tokens"], output_tokens=mock["output_tokens"]
-    )
-    response.model = mock["model"]
-    response.id = mock["response_id"]
-    response.stop_reason = mock["finish_reason"]
-    return response
-
-
-def openai_response(mock: dict[str, Any]) -> MagicMock:
-    response = MagicMock()
-    response.choices = [
-        MagicMock(
-            message=MagicMock(content=mock["content"]),
-            finish_reason=mock["finish_reason"],
-        )
-    ]
-    response.usage = MagicMock(
-        prompt_tokens=mock["input_tokens"], completion_tokens=mock["output_tokens"]
-    )
-    response.model = mock["model"]
-    response.id = mock["response_id"]
-    return response
 
 
 def metric_total(name: str, attrs: dict[str, Any]) -> float:
@@ -107,9 +89,9 @@ def client_for(setup: dict[str, Any]) -> LLMClient:
         settings.fallback_model = setup["fallback_model"]
         settings.default_temperature = setup.get("temperature", 0.7)
         settings.default_max_tokens = setup.get("max_tokens", 1024)
-        settings.anthropic_api_key = ""
-        settings.google_api_key = ""
-        settings.openai_api_key = ""
+        settings.anthropic_api_key = "test-key"
+        settings.google_api_key = "test-key"
+        settings.openai_api_key = "test-key"
         settings.ollama_base_url = "http://localhost:11434"
         get_settings.return_value = settings
         return LLMClient()
@@ -121,23 +103,46 @@ def find_span(spans: Any, name: str) -> Any:
     return matches[0]
 
 
+# Where the instrumentation's span differs from a vector written for the hand-written
+# span: Anthropic's `end_turn` is reported as the convention's `stop`, and the
+# instrumentations leave out `server.port` when it is the default 443.
+INSTRUMENTATION_VALUES: dict[str, Any] = {"gen_ai.response.finish_reasons": ["stop"]}
+DEFAULT_PORT = 443
+
+
+def assert_attributes(span: Any, expected: dict[str, Any]) -> None:
+    for key, vector_value in expected.items():
+        if key == "server.port" and vector_value == DEFAULT_PORT:
+            assert key not in span.attributes
+            continue
+        value = INSTRUMENTATION_VALUES.get(key, vector_value)
+        if key == COST_ATTRIBUTE:
+            assert span.attributes[key] == pytest.approx(value, rel=0.01)
+        elif isinstance(value, list):
+            assert list(span.attributes[key]) == value
+        else:
+            assert span.attributes[key] == value, key
+
+
+@pytest.fixture(autouse=True)
+def api_keys():
+    """Providers are built on first use, after `client_for` has returned."""
+    with patch("sales_intelligence.llm._get_api_key", return_value="test-key"):
+        yield
+
+
 @pytest.fixture
 def content_capture_off():
     """Content capture defaults to off, as the contract requires."""
-    with patch("sales_intelligence.llm.get_settings") as get_settings:
-        get_settings.return_value = MagicMock(
-            otel_instrumentation_genai_capture_message_content=False
-        )
-        yield
 
 
 @pytest.fixture
-def content_capture_on():
-    with patch("sales_intelligence.llm.get_settings") as get_settings:
-        get_settings.return_value = MagicMock(
-            otel_instrumentation_genai_capture_message_content=True
-        )
-        yield
+def content_capture_on(capture_content):
+    """See `capture_content` in conftest."""
+
+
+def model_spans(spans: Any, name: str) -> list[Any]:
+    return [s for s in spans if s.name == name]
 
 
 class TestChatCompletionVector:
@@ -169,10 +174,7 @@ class TestChatCompletionVector:
         errors_before = metric_total("base14.gen_ai.error.count", {})
         durations_before = metric_count("gen_ai.client.operation.duration", token_attrs)
 
-        with patch("anthropic.AsyncAnthropic") as anthropic_cls:
-            anthropic_cls.return_value.messages.create = AsyncMock(
-                return_value=anthropic_response(vector["mock_response"])
-            )
+        with anthropic_responses([anthropic_message(vector["mock_response"])]):
             result = await client_for(setup).generate(
                 prompt=request["prompt"], system=request["system"]
             )
@@ -185,17 +187,9 @@ class TestChatCompletionVector:
         # successful span UNSET rather than setting OK explicitly.
         assert span.status.status_code is not StatusCode.ERROR
 
-        for key, value in expected["attributes"].items():
-            if key == COST_ATTRIBUTE:
-                assert span.attributes[key] == pytest.approx(value, rel=0.01)
-            elif isinstance(value, list):
-                assert list(span.attributes[key]) == value
-            else:
-                assert span.attributes[key] == value
+        assert_attributes(span, expected["attributes"])
 
-        assert [e.name for e in span.events] == [], (
-            "content capture is off, so no inference event is expected"
-        )
+        assert "gen_ai.input.messages" not in span.attributes, "content capture is off"
 
         assert metric_total("gen_ai.client.token.usage", input_attrs) - input_before == (
             pytest.approx(vector["mock_response"]["input_tokens"])
@@ -214,7 +208,7 @@ class TestChatCompletionVector:
         assert metric_total("base14.gen_ai.fallback.count", {}) == fallbacks_before
         assert metric_total("base14.gen_ai.error.count", {}) == errors_before
 
-    async def test_inference_event_when_capture_is_on(
+    async def test_content_on_span_when_capture_is_on(
         self, vector, span_exporter, content_capture_on
     ):
         request = vector["input"]
@@ -225,20 +219,13 @@ class TestChatCompletionVector:
             "fallback_model": "gpt-4.1-mini",
         }
 
-        with patch("anthropic.AsyncAnthropic") as anthropic_cls:
-            anthropic_cls.return_value.messages.create = AsyncMock(
-                return_value=anthropic_response(vector["mock_response"])
-            )
+        with anthropic_responses([anthropic_message(vector["mock_response"])]):
             await client_for(setup).generate(prompt=request["prompt"], system=request["system"])
 
         span = find_span(span_exporter.get_finished_spans(), vector["expected_span"]["name"])
-        expected_event = vector["expected_span"]["events"][0]["name"]
-        assert [e.name for e in span.events] == [expected_event]
-
-        event = span.events[0]
-        assert event.attributes["gen_ai.input.messages"] == request["prompt"]
-        assert event.attributes["gen_ai.system_instructions"] == request["system"]
-        assert event.attributes["gen_ai.output.messages"] == vector["mock_response"]["content"]
+        assert request["prompt"] in span.attributes["gen_ai.input.messages"]
+        assert request["system"] in span.attributes["gen_ai.system_instructions"]
+        assert vector["mock_response"]["content"] in span.attributes["gen_ai.output.messages"]
 
 
 class TestChatWithRetryVector:
@@ -255,29 +242,24 @@ class TestChatWithRetryVector:
         retry_metric = next(
             m for m in vector["expected_metrics"] if m["name"] == "base14.gen_ai.retry.count"
         )
-        retries_before = metric_total("base14.gen_ai.retry.count", retry_metric["attrs"])
         fallbacks_before = metric_total("base14.gen_ai.fallback.count", {})
         errors_before = metric_total("base14.gen_ai.error.count", {})
 
         assert "raise Exception" in behavior["attempt_1"]
-        with patch("anthropic.AsyncAnthropic") as anthropic_cls:
-            anthropic_cls.return_value.messages.create = AsyncMock(
-                side_effect=[
-                    Exception("Rate limit"),
-                    anthropic_response(behavior["attempt_2"]),
-                ]
-            )
+        retry_attrs = {**retry_metric["attrs"], "error.type": "RateLimitError"}
+        retries_before = metric_total("base14.gen_ai.retry.count", retry_attrs)
+        with anthropic_responses([429, anthropic_message(behavior["attempt_2"])]):
             result = await client_for(setup).generate(prompt="Hello", system="You are helpful.")
 
         assert result == behavior["attempt_2"]["content"]
 
-        span = find_span(span_exporter.get_finished_spans(), expected["name"])
-        assert span.status.status_code is not StatusCode.ERROR
-        for key, value in expected["attributes"].items():
-            assert span.attributes[key] == value
+        failed, succeeded = model_spans(span_exporter.get_finished_spans(), expected["name"])
+        assert failed.status.status_code is StatusCode.ERROR
+        assert succeeded.status.status_code is not StatusCode.ERROR
+        assert_attributes(succeeded, expected["attributes"])
 
         assert (
-            metric_total("base14.gen_ai.retry.count", retry_metric["attrs"]) - retries_before
+            metric_total("base14.gen_ai.retry.count", retry_attrs) - retries_before
             == retry_metric["value"]
         )
         assert metric_total("base14.gen_ai.fallback.count", {}) == fallbacks_before
@@ -308,41 +290,38 @@ class TestChatWithFallbackVector:
         fallbacks_before = metric_total(
             "base14.gen_ai.fallback.count", metrics_by_name["base14.gen_ai.fallback.count"]["attrs"]
         )
-        errors_before = metric_total(
-            "base14.gen_ai.error.count", metrics_by_name["base14.gen_ai.error.count"]["attrs"]
-        )
+        error_attrs = {
+            **metrics_by_name["base14.gen_ai.error.count"]["attrs"],
+            "error.type": "InternalServerError",
+        }
+        errors_before = metric_total("base14.gen_ai.error.count", error_attrs)
         primary_tokens_before = metric_total(
             "gen_ai.client.token.usage", {"gen_ai.request.model": setup["primary_model"]}
         )
 
         tracer = trace.get_tracer(__name__)
         with (
-            patch("anthropic.AsyncAnthropic") as anthropic_cls,
-            patch("openai.AsyncOpenAI") as openai_cls,
+            anthropic_responses([503, 503, 503]),
+            openai_responses([openai_completion(vector["mock_behavior"]["fallback"])]),
+            tracer.start_as_current_span("pipeline.run"),
         ):
-            anthropic_cls.return_value.messages.create = AsyncMock(
-                side_effect=Exception("Service unavailable")
+            result = await client_for(client_setup).generate(
+                prompt="Hello", system="You are helpful."
             )
-            openai_cls.return_value.chat.completions.create = AsyncMock(
-                return_value=openai_response(vector["mock_behavior"]["fallback"])
-            )
-            with tracer.start_as_current_span("pipeline.run"):
-                result = await client_for(client_setup).generate(
-                    prompt="Hello", system="You are helpful."
-                )
 
         assert result == vector["mock_behavior"]["fallback"]["content"]
 
         spans = span_exporter.get_finished_spans()
-        primary_span = find_span(spans, primary["name"])
-        assert primary_span.status.status_code is StatusCode.ERROR
-        for key, value in primary["attributes"].items():
-            assert primary_span.attributes[key] == value
+        primary_spans = model_spans(spans, primary["name"])
+        assert len(primary_spans) == 3, "one span per attempt"
+        for primary_span in primary_spans:
+            assert primary_span.status.status_code is StatusCode.ERROR
+            assert primary_span.attributes["gen_ai.provider.name"] == "anthropic"
+            assert primary_span.attributes["error.type"].endswith("InternalServerError")
 
         fallback_span = find_span(spans, fallback["name"])
         assert fallback_span.status.status_code is not StatusCode.ERROR
-        for key, value in fallback["attributes"].items():
-            assert fallback_span.attributes[key] == value
+        assert_attributes(fallback_span, fallback["attributes"])
 
         parent_span = find_span(spans, "pipeline.run")
         assert parent_span.status.status_code is not StatusCode.ERROR
@@ -366,11 +345,7 @@ class TestChatWithFallbackVector:
             == metrics_by_name["base14.gen_ai.fallback.count"]["value"]
         )
         assert (
-            metric_total(
-                "base14.gen_ai.error.count",
-                metrics_by_name["base14.gen_ai.error.count"]["attrs"],
-            )
-            - errors_before
+            metric_total("base14.gen_ai.error.count", error_attrs) - errors_before
             == metrics_by_name["base14.gen_ai.error.count"]["value"]
         )
 

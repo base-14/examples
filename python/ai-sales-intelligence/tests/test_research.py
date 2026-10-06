@@ -3,6 +3,7 @@
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
+from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
 from sales_intelligence.agents.research import DATA_SOURCE_ID, _build_websearch, research_agent
@@ -51,7 +52,8 @@ class TestRetrievalSpan:
             target_titles=["CTO"],
         )
 
-        await research_agent(state, session)
+        with trace.get_tracer(__name__).start_as_current_span("invoke_agent research"):
+            await research_agent(state, session)
 
         spans = {s.name: s for s in span_exporter.get_finished_spans()}
         retrieval = spans[f"retrieval {DATA_SOURCE_ID}"]
@@ -59,4 +61,4 @@ class TestRetrievalSpan:
         assert retrieval.attributes["gen_ai.operation.name"] == "retrieval"
         assert retrieval.attributes["gen_ai.data_source.id"] == DATA_SOURCE_ID
         assert retrieval.attributes["app.retrieval.chunk_count"] == 0
-        assert retrieval.parent.span_id == spans["agent.research"].context.span_id
+        assert retrieval.parent.span_id == spans["invoke_agent research"].context.span_id

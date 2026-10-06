@@ -8,26 +8,35 @@ AI-powered sales intelligence agent demonstrating **unified observability** for 
 
 1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`,
    `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-sqlalchemy`,
-   `opentelemetry-instrumentation-httpx` and `opentelemetry-instrumentation-logging` from
-   `pyproject.toml`. No LangGraph-specific instrumentation package is used.
+   `opentelemetry-instrumentation-httpx`, `opentelemetry-instrumentation-logging` and the
+   OpenTelemetry GenAI instrumentations `opentelemetry-instrumentation-genai-openai`,
+   `opentelemetry-instrumentation-genai-anthropic` and
+   `opentelemetry-instrumentation-google-genai` from `pyproject.toml`.
 2. Call `setup_telemetry(engine)` from `src/sales_intelligence/telemetry.py` before creating
    the FastAPI app. It registers OTLP trace and metric exporters and calls
-   `HTTPXClientInstrumentor().instrument()`, `LoggingInstrumentor().instrument(...)` and
-   `SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)`. After creating the app,
-   call `instrument_fastapi(app)`. Each LangGraph node is wrapped in `src/sales_intelligence/graph.py` with
-   `tracer.start_as_current_span(f"invoke_agent {name}")` because there is no
-   auto-instrumentation for the graph itself.
+   `HTTPXClientInstrumentor().instrument()`, `LoggingInstrumentor().instrument(...)`,
+   `SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)` and `instrument()` on
+   `OpenAIInstrumentor`, `AnthropicInstrumentor` and `GoogleGenAiSdkInstrumentor`. After
+   creating the app, call `instrument_fastapi(app)`. Each LangGraph node is wrapped in
+   `src/sales_intelligence/graph.py` with `tracer.start_as_current_span(f"invoke_agent {name}")`,
+   because the nodes are plain functions and no instrumentation gives them a span.
+
+   `opentelemetry-instrumentation-genai-langchain` is not used. For a graph of plain function
+   nodes it adds one `invoke_workflow` span per run, and under `ainvoke` the work inside the
+   graph does not nest under that span.
 3. Set `OTEL_SERVICE_NAME=ai-sales-intelligence`,
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and `OTEL_ENABLED=true` as in
    `compose.yaml` (`.env.example` uses `http://localhost:4318` for local runs).
 
-This example adds `chat {model}` CLIENT spans with GenAI semantic convention attributes,
-token usage, duration, cost, retry and fallback metrics from `src/sales_intelligence/llm.py`, a
+The GenAI instrumentations create a `chat {model}` CLIENT span and the
+`gen_ai.client.token.usage` and `gen_ai.client.operation.duration` metrics for every SDK call.
+This example adds the agent, the campaign, the real provider for Ollama, the cost and PII
+scrubbing of captured content to those spans in `src/sales_intelligence/genai_spans.py`; cost,
+retry, fallback and error counters in `src/sales_intelligence/llm.py`; a
 `retrieval prospects_fts` span around the Postgres full-text search in
-`src/sales_intelligence/agents/research.py`, and custom HTTP request metrics from
-`src/sales_intelligence/middleware/metrics.py`. Prompt and completion content is recorded on a
-`gen_ai.client.inference.operation.details` event only when
-`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`. The full guide is
+`src/sales_intelligence/agents/research.py`; and custom HTTP request metrics from
+`src/sales_intelligence/middleware/metrics.py`. Prompt and completion content is recorded on the
+chat spans only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=span_only`. The full guide is
 [LangGraph OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/langgraph/).
 
 ## Why Unified Observability?
@@ -114,9 +123,9 @@ flowchart TD
   and are not regenerated.
 
 Each agent runs in an `invoke_agent {name}` span, and every model call gets its own
-`chat {model}` span. With `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, the
-rendered prompt and the completion are recorded, PII-scrubbed, on that span's
-`gen_ai.client.inference.operation.details` event.
+`chat {model}` span from the SDK's instrumentation. With
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=span_only`, the prompt and the completion
+are recorded on that span and PII-scrubbed before export.
 
 ## Stack Profile
 
@@ -127,7 +136,8 @@ rendered prompt and the completion are recorded, PII-scrubbed, on that span's
 | Agent Framework | LangGraph | 1.2.11 |
 | LLM Providers | Ollama, Anthropic, Gemini, OpenAI | Latest |
 | Database | PostgreSQL | 18 |
-| Observability | OpenTelemetry SDK | 1.44.0 |
+| Observability | OpenTelemetry SDK | 1.45.0 |
+| GenAI instrumentation | OpenTelemetry GenAI packages | 1.2b0 |
 | Observability Backend | Base14 Scout | - |
 
 ## What's Instrumented
@@ -136,9 +146,10 @@ rendered prompt and the completion are recorded, PII-scrubbed, on that span's
 |-------|--------|--------------|
 | **HTTP Requests** | Auto (`FastAPIInstrumentor`) | Request spans with method, path, status, duration |
 | **Database Queries** | Auto (`SQLAlchemyInstrumentor`) | Query spans with SQL, parameters, duration |
-| **External HTTP** | Auto (`HTTPXClientInstrumentor`) | Outbound call spans (LLM API requests) |
+| **External HTTP** | Auto (`HTTPXClientInstrumentor`) | Outbound call spans for Anthropic and Gemini; the OpenAI SDK sends through `httpx2`, which it does not patch |
 | **Logging** | Auto (`LoggingInstrumentor`) | Trace-correlated log records |
-| **LLM Calls** | Custom (`llm.py`) | GenAI semantic attributes, token/cost metrics |
+| **LLM Calls** | Auto (GenAI instrumentations) | `chat {model}` spans, token and duration metrics |
+| **LLM Call Context** | Custom (`genai_spans.py`, `llm.py`) | Agent, campaign, provider and cost on chat spans; cost, retry, fallback and error counters |
 | **Agent Pipeline** | Custom (`graph.py`) | `invoke_agent {name}` spans with business context |
 | **Evaluations** | Custom (`evaluate.py`) | `gen_ai.evaluation.result` events |
 
@@ -147,15 +158,19 @@ rendered prompt and the completion are recorded, PII-scrubbed, on that span's
 **Auto-instrumentation** (zero code changes):
 
 - Handled by OpenTelemetry instrumentors.
-- Captures HTTP, DB, external calls automatically.
-- Provides infrastructure visibility.
+- Captures HTTP, DB and model calls, with GenAI attributes, token counts and durations.
 
-**Custom instrumentation** (in this project):
+**Custom instrumentation** (in this project) fills what the instrumentations cannot know:
 
-- Required because auto-instrumentation doesn't understand LLM semantics.
-- Adds GenAI-specific attributes (model, tokens, cost, provider).
-- Enables business context (`gen_ai.agent.name`, `base14.campaign_id` for attribution).
-- Records GenAI metrics for dashboards and alerts.
+- The agent and campaign behind a model call (`gen_ai.agent.name`, `base14.campaign_id`).
+- `gen_ai.provider.name=ollama`, where the OpenAI instrumentation reports `openai` for
+  Ollama's OpenAI-compatible endpoint. The token and duration metric points still say
+  `openai`; only the spans are corrected.
+- Cost per call, from `_shared/pricing.json`.
+- Agent spans for the graph nodes, and retry, fallback and error counters.
+
+The SDK clients are built with `max_retries=0`. The client's own tenacity retries are the
+only retry layer, so each attempt is one `chat {model}` span.
 
 ## Quick Start
 
@@ -189,8 +204,11 @@ make run
 ### Test the API
 
 ```bash
-# Run the test script
+# Run the test script on a one-prospect sample
 ./scripts/test-api.sh
+
+# Or on the full sample of eight prospects, which is slow on a local model
+CONNECTIONS_CSV=data/sample-connections.csv PIPELINE_TIMEOUT=3600 ./scripts/test-api.sh
 
 # Or manually:
 # 1. Health check
@@ -231,8 +249,7 @@ curl -X POST http://localhost:8000/campaigns/{id}/run \
 | `OTEL_SERVICE_NAME` | Service name in traces | `ai-sales-intelligence` |
 | `SCOUT_ENVIRONMENT` | Deployment environment tag | `development` |
 | `OTEL_ENABLED` | Enable/disable telemetry | `true` |
-| `OTEL_SEMCONV_STABILITY_OPT_IN` | Opt in to the latest GenAI attribute names | `gen_ai_latest_experimental` |
-| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Record prompt and completion content on the inference event | `false` |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Prompt and completion capture: `no_content`, `span_only`, `event_only` or `span_and_event`. `true` and `false` are not valid | `no_content` |
 | `PROMPTS_CONFIG_PATH` | Custom path to prompts.yaml | `config/prompts.yaml` |
 
 The provider value `google` selects Gemini. Telemetry reports it as `gcp.gemini`, the semantic convention name.
@@ -340,21 +357,17 @@ reload_config()  # Clears cache, next call loads fresh config
 
 ## OpenTelemetry GenAI Conventions
 
-This project implements the [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/):
+The GenAI instrumentations emit the [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+in their latest experimental form.
 
 ### Span Attributes
 
-```python
-# Required
-span.set_attribute("gen_ai.operation.name", "chat")
-span.set_attribute("gen_ai.provider.name", "anthropic")
-
-# Recommended
-span.set_attribute("gen_ai.request.model", "claude-sonnet-4-6")
-span.set_attribute("gen_ai.usage.input_tokens", 1240)
-span.set_attribute("gen_ai.usage.output_tokens", 320)
-span.set_attribute("server.address", "api.anthropic.com")
-```
+The instrumentations set `gen_ai.operation.name`, `gen_ai.provider.name`,
+`gen_ai.request.model`, `gen_ai.request.temperature`, `gen_ai.request.max_tokens`,
+`gen_ai.response.model`, `gen_ai.response.id`, `gen_ai.response.finish_reasons`,
+`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` and `server.address` on each
+`chat {model}` span. `server.port` is left out when it is the default 443. The example adds
+`gen_ai.agent.name`, `base14.campaign_id` and `base14.gen_ai.cost_usd`.
 
 ### Metrics
 
@@ -370,20 +383,13 @@ span.set_attribute("server.address", "api.anthropic.com")
 
 ### Events
 
-One `gen_ai.client.inference.operation.details` event per LLM call carries the prompt and
-completion. It replaces the two per-message events the semconv removed, and it is emitted
-only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`.
-Content is PII-scrubbed and truncated: 1000 characters for the input, 500 for the system
-instructions, 2000 for the output.
+With `span_only`, `gen_ai.input.messages`, `gen_ai.system_instructions` and
+`gen_ai.output.messages` are set on the chat span. `GenAISpanExporter` scrubs emails, phone
+numbers, LinkedIn URLs and card numbers from them before export. `event_only` and
+`span_and_event` emit a `gen_ai.client.inference.operation.details` log event instead or as
+well, which this example does not scrub.
 
 ```python
-# Inference content, gated on the capture env var
-span.add_event("gen_ai.client.inference.operation.details", {
-    "gen_ai.input.messages": scrubbed_prompt,
-    "gen_ai.system_instructions": scrubbed_system,
-    "gen_ai.output.messages": scrubbed_completion,
-})
-
 # Evaluation results
 span.add_event("gen_ai.evaluation.result", {
     "gen_ai.evaluation.name": "email_quality",
@@ -394,7 +400,9 @@ span.add_event("gen_ai.evaluation.result", {
 
 ### Error Handling
 
-A failed chat span records the exception, sets `error.type` and sets status ERROR. When the
+The instrumentation records a failed call's exception, sets `error.type` to the SDK's
+exception class and sets status ERROR on that attempt's chat span. A prospect or draft the
+pipeline skips after a failure has its own span marked ERROR. When the
 primary provider fails after its retries, the calling span gets a `provider_fallback` event and
 `gen_ai.fallback.triggered=true`, and is not marked ERROR if the fallback succeeds. Unhandled
 route errors are recorded on the active span by `src/sales_intelligence/errors.py`, and HTTP

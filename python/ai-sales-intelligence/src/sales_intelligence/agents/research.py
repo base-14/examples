@@ -58,65 +58,65 @@ async def research_agent(state: AgentState, session: AsyncSession) -> AgentState
     Returns:
         Updated state with prospects list
     """
-    with tracer.start_as_current_span("agent.research") as span:
-        span.set_attribute("base14.campaign_id", state.campaign_id)
-        span.set_attribute("base14.target_keywords", state.target_keywords)
-        span.set_attribute("base14.target_titles", state.target_titles)
+    span = trace.get_current_span()
+    span.set_attribute("base14.campaign_id", state.campaign_id)
+    span.set_attribute("base14.target_keywords", state.target_keywords)
+    span.set_attribute("base14.target_titles", state.target_titles)
 
-        campaign_id = state.campaign_id
+    campaign_id = state.campaign_id
 
-        if not state.target_keywords and not state.target_titles:
-            logger.warning("No targeting criteria provided")
-            return state.model_copy(update={"current_step": "enrich"})
+    if not state.target_keywords and not state.target_titles:
+        logger.warning("No targeting criteria provided")
+        return state.model_copy(update={"current_step": "enrich"})
 
-        websearch_str = _build_websearch(state.target_keywords, state.target_titles)
-        if not websearch_str:
-            logger.warning("No valid search terms after filtering")
-            return state.model_copy(update={"current_step": "enrich"})
+    websearch_str = _build_websearch(state.target_keywords, state.target_titles)
+    if not websearch_str:
+        logger.warning("No valid search terms after filtering")
+        return state.model_copy(update={"current_step": "enrich"})
 
-        span.set_attribute("base14.fts.query", websearch_str)
+    span.set_attribute("base14.fts.query", websearch_str)
 
-        tsquery = func.websearch_to_tsquery("english", websearch_str)
+    tsquery = func.websearch_to_tsquery("english", websearch_str)
 
-        query = (
-            select(Connection)
-            .where(Connection.campaign_id == uuid.UUID(campaign_id))
-            .where(_TSVECTOR_EXPR.bool_op("@@")(tsquery))
-            .order_by(func.ts_rank(_TSVECTOR_EXPR, tsquery).desc())
-            .limit(50)
+    query = (
+        select(Connection)
+        .where(Connection.campaign_id == uuid.UUID(campaign_id))
+        .where(_TSVECTOR_EXPR.bool_op("@@")(tsquery))
+        .order_by(func.ts_rank(_TSVECTOR_EXPR, tsquery).desc())
+        .limit(50)
+    )
+
+    # The SQLAlchemy instrumentation's Postgres span is a child of this one.
+    with tracer.start_as_current_span(
+        f"retrieval {DATA_SOURCE_ID}",
+        kind=SpanKind.CLIENT,
+        attributes={
+            "gen_ai.operation.name": "retrieval",
+            "gen_ai.data_source.id": DATA_SOURCE_ID,
+        },
+    ) as retrieval_span:
+        result = await session.execute(query)
+        connections = result.scalars().all()
+        retrieval_span.set_attribute("app.retrieval.chunk_count", len(connections))
+
+    prospects = [
+        ProspectData(
+            connection_id=str(c.id),
+            first_name=c.first_name,
+            last_name=c.last_name,
+            company=c.company or "",
+            position=c.position or "",
+            email=c.email,
         )
+        for c in connections
+    ]
 
-        # The SQLAlchemy instrumentation's Postgres span is a child of this one.
-        with tracer.start_as_current_span(
-            f"retrieval {DATA_SOURCE_ID}",
-            kind=SpanKind.CLIENT,
-            attributes={
-                "gen_ai.operation.name": "retrieval",
-                "gen_ai.data_source.id": DATA_SOURCE_ID,
-            },
-        ) as retrieval_span:
-            result = await session.execute(query)
-            connections = result.scalars().all()
-            retrieval_span.set_attribute("app.retrieval.chunk_count", len(connections))
+    span.set_attribute("base14.prospects_found", len(prospects))
+    logger.info("Found %d prospects", len(prospects))
 
-        prospects = [
-            ProspectData(
-                connection_id=str(c.id),
-                first_name=c.first_name,
-                last_name=c.last_name,
-                company=c.company or "",
-                position=c.position or "",
-                email=c.email,
-            )
-            for c in connections
-        ]
-
-        span.set_attribute("base14.prospects_found", len(prospects))
-        logger.info("Found %d prospects", len(prospects))
-
-        return state.model_copy(
-            update={
-                "prospects": prospects,
-                "current_step": "enrich",
-            }
-        )
+    return state.model_copy(
+        update={
+            "prospects": prospects,
+            "current_step": "enrich",
+        }
+    )

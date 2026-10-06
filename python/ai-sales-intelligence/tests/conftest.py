@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from opentelemetry import metrics, trace
+from opentelemetry.instrumentation.genai.anthropic import AnthropicInstrumentor
+from opentelemetry.instrumentation.genai.openai import OpenAIInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import TracerProvider
@@ -14,6 +16,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from sales_intelligence.database import Base
+from sales_intelligence.genai_spans import GenAISpanExporter, LLMCallAttributesProcessor
 
 
 os.environ["OTEL_ENABLED"] = "false"
@@ -26,9 +29,32 @@ SPAN_EXPORTER = InMemorySpanExporter()
 METRIC_READER = InMemoryMetricReader()
 
 _tracer_provider = TracerProvider()
-_tracer_provider.add_span_processor(SimpleSpanProcessor(SPAN_EXPORTER))
+_tracer_provider.add_span_processor(LLMCallAttributesProcessor())
+_tracer_provider.add_span_processor(SimpleSpanProcessor(GenAISpanExporter(SPAN_EXPORTER)))
 trace.set_tracer_provider(_tracer_provider)
 metrics.set_meter_provider(MeterProvider(metric_readers=[METRIC_READER]))
+
+# The same GenAI instrumentations the app enables, so the tests see the spans and
+# metrics they create when the real SDKs run against the mock transports.
+AnthropicInstrumentor().instrument()
+OpenAIInstrumentor().instrument()
+
+
+@pytest.fixture
+def capture_content(monkeypatch):
+    """Re-instruments with `SPAN_ONLY` capture. The instrumentations read the variable once,
+    when they are instrumented, so setting it inside a test changes nothing on its own."""
+
+    def reinstrument() -> None:
+        for instrumentor in (AnthropicInstrumentor(), OpenAIInstrumentor()):
+            instrumentor.uninstrument()
+            instrumentor.instrument()
+
+    monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "SPAN_ONLY")
+    reinstrument()
+    yield
+    monkeypatch.delenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT")
+    reinstrument()
 
 
 @pytest.fixture

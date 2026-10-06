@@ -4,7 +4,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sales_intelligence.llm import PRICING, PROVIDER_PORTS, LLMClient, _calculate_cost
+from sales_intelligence.llm import LLMClient
+from sales_intelligence.pricing import PRICING
+from sales_intelligence.pricing import calculate_cost as _calculate_cost
+from tests.sdk_transports import (
+    anthropic_message,
+    anthropic_responses,
+    openai_completion,
+    openai_responses,
+)
 
 
 class TestCostCalculation:
@@ -26,16 +34,6 @@ class TestCostCalculation:
     def test_unknown_model_zero_cost(self):
         cost = _calculate_cost("unknown-model", 1000, 500)
         assert cost == 0.0
-
-
-class TestProviderPorts:
-    def test_ollama_port_is_11434(self):
-        assert PROVIDER_PORTS["ollama"] == 11434
-
-    def test_cloud_providers_use_443(self):
-        assert PROVIDER_PORTS["anthropic"] == 443
-        assert PROVIDER_PORTS["google"] == 443
-        assert PROVIDER_PORTS["openai"] == 443
 
 
 class TestOllamaProvider:
@@ -95,7 +93,6 @@ class TestLLMClient:
             settings.google_api_key = "test-key"
             settings.openai_api_key = "test-key"
             settings.ollama_base_url = "http://localhost:11434"
-            settings.otel_instrumentation_genai_capture_message_content = False
             mock.return_value = settings
             yield settings
 
@@ -149,29 +146,6 @@ class TestLLMClient:
         assert result == "Hello from Gemini"
         mock_gemini.return_value.aio.models.generate_content.assert_called_once()
 
-    async def test_gemini_span_reports_the_semconv_provider_name(
-        self, mock_settings, mock_anthropic, mock_gemini, span_exporter
-    ):
-        """LLM_PROVIDER=google is reported as gen_ai.provider.name=gcp.gemini."""
-        mock_response = MagicMock()
-        mock_response.text = "Hello from Gemini"
-        mock_response.usage_metadata = MagicMock(
-            prompt_token_count=10,
-            candidates_token_count=5,
-        )
-        mock_response.candidates = [MagicMock(finish_reason="STOP")]
-
-        mock_gemini.return_value.aio.models.generate_content = AsyncMock(return_value=mock_response)
-
-        client = LLMClient()
-        await client.generate(prompt="Say hello", provider="google", model="gemini-2.5-flash")
-
-        span = span_exporter.get_finished_spans()[-1]
-        assert span.name == "chat gemini-2.5-flash"
-        assert span.attributes["gen_ai.provider.name"] == "gcp.gemini"
-        assert span.attributes["server.address"] == "generativelanguage.googleapis.com"
-        assert span.attributes["server.port"] == 443
-
     async def test_fallback_on_error(self, mock_settings, mock_anthropic, mock_gemini):
         mock_anthropic.return_value.messages.create = AsyncMock(side_effect=Exception("API error"))
 
@@ -202,24 +176,21 @@ class TestLLMClient:
         with pytest.raises(Exception, match="API error"):
             await client.generate(prompt="Say hello", use_fallback=False)
 
-    async def test_agent_name_and_campaign_on_span(
-        self, mock_settings, mock_anthropic, mock_gemini, span_exporter
-    ):
-        mock_response = MagicMock()
-        mock_response.content = [MagicMock(text="Response")]
-        mock_response.usage = MagicMock(input_tokens=10, output_tokens=5)
-        mock_response.model = "claude-sonnet-4-6"
-        mock_response.id = "msg_123"
-        mock_response.stop_reason = "end_turn"
-
-        mock_anthropic.return_value.messages.create = AsyncMock(return_value=mock_response)
-
-        client = LLMClient()
-        result = await client.generate(
-            prompt="Test",
-            agent_name="enrich",
-            campaign_id="campaign-123",
-        )
+    async def test_agent_name_and_campaign_on_span(self, mock_settings, span_exporter):
+        reply = {
+            "content": "Response",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "model": "claude-sonnet-4-6",
+            "response_id": "msg_123",
+            "finish_reason": "end_turn",
+        }
+        with anthropic_responses([anthropic_message(reply)]):
+            result = await LLMClient().generate(
+                prompt="Test",
+                agent_name="enrich",
+                campaign_id="campaign-123",
+            )
 
         assert result == "Response"
 
@@ -230,9 +201,53 @@ class TestLLMClient:
         assert span.attributes["base14.campaign_id"] == "campaign-123"
 
 
+class TestOllamaSpan:
+    async def test_provider_is_ollama_not_openai(self, span_exporter):
+        """The OpenAI instrumentation names any OpenAI-compatible endpoint `openai`."""
+        with patch("sales_intelligence.llm.get_settings") as get_settings:
+            settings = MagicMock()
+            settings.llm_provider = "ollama"
+            settings.llm_model_capable = "qwen3.5:9B"
+            settings.llm_model_fast = "qwen3.5:9B"
+            settings.fallback_provider = "ollama"
+            settings.fallback_model = "qwen3.5:9B"
+            settings.default_temperature = 0.7
+            settings.default_max_tokens = 256
+            settings.ollama_base_url = "http://localhost:11434"
+            get_settings.return_value = settings
+            client = LLMClient()
+
+        reply = {
+            "content": "hi",
+            "input_tokens": 8,
+            "output_tokens": 4,
+            "model": "qwen3.5:9B",
+            "response_id": "chatcmpl-1",
+            "finish_reason": "stop",
+        }
+        with openai_responses([openai_completion(reply)]):
+            await client.generate(prompt="Hello", agent_name="score")
+
+        span = next(s for s in span_exporter.get_finished_spans() if s.name == "chat qwen3.5:9B")
+        assert span.attributes["gen_ai.provider.name"] == "ollama"
+        assert span.attributes["server.port"] == 11434
+        assert span.attributes["gen_ai.agent.name"] == "score"
+        assert span.attributes["base14.gen_ai.cost_usd"] == 0.0
+
+
+PII_REPLY = {
+    "content": "Reach Dana on dana@example.com",
+    "input_tokens": 10,
+    "output_tokens": 5,
+    "model": "claude-sonnet-4-6",
+    "response_id": "msg_123",
+    "finish_reason": "end_turn",
+}
+
+
 class TestContentCapture:
     @pytest.fixture
-    def mock_settings(self, request):
+    def mock_settings(self):
         with patch("sales_intelligence.llm.get_settings") as mock:
             settings = MagicMock()
             settings.llm_provider = "anthropic"
@@ -244,59 +259,29 @@ class TestContentCapture:
             settings.default_max_tokens = 1024
             settings.anthropic_api_key = "test-key"
             settings.ollama_base_url = "http://localhost:11434"
-            settings.otel_instrumentation_genai_capture_message_content = request.param
             mock.return_value = settings
             yield settings
 
-    @pytest.fixture
-    def anthropic_client(self):
-        with patch("anthropic.AsyncAnthropic") as mock:
-            response = MagicMock()
-            response.content = [MagicMock(text="Reach Dana on dana@example.com")]
-            response.usage = MagicMock(input_tokens=10, output_tokens=5)
-            response.model = "claude-sonnet-4-6"
-            response.id = "msg_123"
-            response.stop_reason = "end_turn"
-            mock.return_value.messages.create = AsyncMock(return_value=response)
-            yield mock
+    async def test_no_content_by_default(self, mock_settings, span_exporter, monkeypatch):
+        monkeypatch.delenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", raising=False)
+        with anthropic_responses([anthropic_message(PII_REPLY)]):
+            await LLMClient().generate(prompt="Email alex@example.com", system="Be brief.")
 
-    @pytest.mark.parametrize("mock_settings", [False], indirect=True)
-    async def test_no_event_when_capture_is_off(
-        self, mock_settings, anthropic_client, span_exporter
+        span = _chat_span(span_exporter)
+        assert "gen_ai.input.messages" not in span.attributes
+        assert "gen_ai.output.messages" not in span.attributes
+
+    async def test_captured_content_is_scrubbed(
+        self, mock_settings, span_exporter, capture_content
     ):
-        await LLMClient().generate(prompt="Email alex@example.com", system="Be brief.")
+        with anthropic_responses([anthropic_message(PII_REPLY)]):
+            await LLMClient().generate(prompt="Email alex@example.com", system="Be brief.")
 
         span = _chat_span(span_exporter)
-        assert [e.name for e in span.events] == []
-
-    @pytest.mark.parametrize("mock_settings", [True], indirect=True)
-    async def test_event_content_is_scrubbed(self, mock_settings, anthropic_client, span_exporter):
-        await LLMClient().generate(prompt="Email alex@example.com", system="Be brief.")
-
-        span = _chat_span(span_exporter)
-        event = span.events[0]
-
-        assert event.name == "gen_ai.client.inference.operation.details"
-        assert event.attributes["gen_ai.input.messages"] == "Email [EMAIL]"
-        assert event.attributes["gen_ai.output.messages"] == "Reach Dana on [EMAIL]"
-        assert event.attributes["gen_ai.system_instructions"] == "Be brief."
-
-    @pytest.mark.parametrize("mock_settings", [True], indirect=True)
-    async def test_system_instructions_omitted_when_empty(
-        self, mock_settings, anthropic_client, span_exporter
-    ):
-        await LLMClient().generate(prompt="Hello", system="")
-
-        span = _chat_span(span_exporter)
-        assert "gen_ai.system_instructions" not in span.events[0].attributes
-
-    @pytest.mark.parametrize("mock_settings", [True], indirect=True)
-    async def test_content_is_truncated(self, mock_settings, anthropic_client, span_exporter):
-        await LLMClient().generate(prompt="x" * 2000, system="y" * 800)
-
-        event = _chat_span(span_exporter).events[0]
-        assert len(event.attributes["gen_ai.input.messages"]) == 1000
-        assert len(event.attributes["gen_ai.system_instructions"]) == 500
+        assert "Email [EMAIL]" in span.attributes["gen_ai.input.messages"]
+        assert "alex@example.com" not in span.attributes["gen_ai.input.messages"]
+        assert "Reach Dana on [EMAIL]" in span.attributes["gen_ai.output.messages"]
+        assert "Be brief." in span.attributes["gen_ai.system_instructions"]
 
 
 def _chat_span(span_exporter):

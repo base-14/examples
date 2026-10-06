@@ -5,6 +5,7 @@ import logging
 
 from opentelemetry import trace
 
+from sales_intelligence.errors import record_item_failure
 from sales_intelligence.llm import get_llm_client
 from sales_intelligence.parsing import extract_json
 from sales_intelligence.prompts import format_prompt
@@ -24,57 +25,59 @@ async def enrich_agent(state: AgentState) -> AgentState:
     Returns:
         Updated state with enrichment data
     """
-    with tracer.start_as_current_span("agent.enrich") as span:
-        span.set_attribute("base14.campaign_id", state.campaign_id)
-        span.set_attribute("base14.prospects_count", len(state.prospects))
+    span = trace.get_current_span()
+    span.set_attribute("base14.campaign_id", state.campaign_id)
+    span.set_attribute("base14.prospects_count", len(state.prospects))
 
-        if not state.prospects:
-            logger.info("No prospects to enrich")
-            return state.model_copy(update={"current_step": "score"})
+    if not state.prospects:
+        logger.info("No prospects to enrich")
+        return state.model_copy(update={"current_step": "score"})
 
-        llm = get_llm_client()
-        enriched: list[EnrichedData] = []
-        errors: list[str] = list(state.errors)
+    llm = get_llm_client()
+    enriched: list[EnrichedData] = []
+    errors: list[str] = list(state.errors)
 
-        for prospect in state.prospects:
-            with tracer.start_as_current_span("enrich.prospect") as pspan:
-                pspan.set_attribute("base14.prospect_id", prospect.connection_id)
-                pspan.set_attribute("base14.company", prospect.company)
+    for prospect in state.prospects:
+        with tracer.start_as_current_span("enrich.prospect") as pspan:
+            pspan.set_attribute("base14.prospect_id", prospect.connection_id)
+            pspan.set_attribute("base14.company", prospect.company)
 
-                system_prompt = format_prompt("enrich", "system")
-                user_prompt = format_prompt(
-                    "enrich",
-                    "user",
-                    company=prospect.company,
-                    position=prospect.position,
-                    first_name=prospect.first_name,
-                    last_name=prospect.last_name,
+            system_prompt = format_prompt("enrich", "system")
+            user_prompt = format_prompt(
+                "enrich",
+                "user",
+                company=prospect.company,
+                position=prospect.position,
+                first_name=prospect.first_name,
+                last_name=prospect.last_name,
+            )
+
+            try:
+                response = await llm.generate(
+                    prompt=user_prompt,
+                    system=system_prompt,
+                    agent_name="enrich",
+                    campaign_id=state.campaign_id,
                 )
+                data = extract_json(response)
+                enriched.append(EnrichedData(**data))
+            except json.JSONDecodeError as e:
+                record_item_failure(pspan, e)
+                logger.warning("Failed to parse enrichment for %s: %s", prospect.company, e)
+                enriched.append(EnrichedData(confidence=0.0))
+                errors.append(f"Enrich parse error for {prospect.connection_id}: {e}")
+            except Exception as e:
+                record_item_failure(pspan, e)
+                logger.error("Enrichment failed for %s: %s", prospect.company, e)
+                enriched.append(EnrichedData(confidence=0.0))
+                errors.append(f"Enrich error for {prospect.connection_id}: {e}")
 
-                try:
-                    response = await llm.generate(
-                        prompt=user_prompt,
-                        system=system_prompt,
-                        agent_name="enrich",
-                        campaign_id=state.campaign_id,
-                    )
-                    data = extract_json(response)
-                    enriched.append(EnrichedData(**data))
-                except json.JSONDecodeError as e:
-                    logger.warning("Failed to parse enrichment for %s: %s", prospect.company, e)
-                    enriched.append(EnrichedData(confidence=0.0))
-                    errors.append(f"Enrich parse error for {prospect.connection_id}: {e}")
-                except Exception as e:
-                    logger.error("Enrichment failed for %s: %s", prospect.company, e)
-                    enriched.append(EnrichedData(confidence=0.0))
-                    errors.append(f"Enrich error for {prospect.connection_id}: {e}")
+    span.set_attribute("base14.enriched_count", len(enriched))
 
-        span.set_attribute("base14.enriched_count", len(enriched))
-
-        return state.model_copy(
-            update={
-                "enriched": enriched,
-                "errors": errors,
-                "current_step": "score",
-            }
-        )
+    return state.model_copy(
+        update={
+            "enriched": enriched,
+            "errors": errors,
+            "current_step": "score",
+        }
+    )

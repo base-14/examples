@@ -9,10 +9,17 @@ import logging
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
+from opentelemetry.trace import Span, Status, StatusCode
 
 
 logger = logging.getLogger(__name__)
+
+
+def record_item_failure(span: Span, exc: Exception) -> None:
+    """Mark one prospect's or draft's span failed when the pipeline skips it and goes on."""
+    span.record_exception(exc)
+    span.set_attribute("error.type", type(exc).__qualname__)
+    span.set_status(Status(StatusCode.ERROR, str(exc)))
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

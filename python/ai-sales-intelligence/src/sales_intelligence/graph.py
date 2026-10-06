@@ -46,9 +46,9 @@ def create_pipeline(session: AsyncSession) -> Any:
     ) -> Callable[[AgentState], Awaitable[AgentState]]:
         """Wrap agent function with OTel GenAI agent span convention.
 
-        CUSTOM SPAN: OTel GenAI semantic conventions for agent invocation.
-        This is required because there's no auto-instrumentation for LangGraph.
-        Span naming follows: "invoke_agent {agent_name}" per GenAI semconv.
+        The nodes are plain functions that call the provider SDKs directly, so no
+        instrumentation gives them a span. Span naming follows the GenAI
+        conventions: "invoke_agent {agent_name}".
         """
 
         async def wrapped(state: AgentState) -> AgentState:

@@ -52,6 +52,9 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy==0.66b0",
     "opentelemetry-instrumentation-httpx==0.66b0",
     "opentelemetry-instrumentation-logging==0.66b0",
+    "opentelemetry-instrumentation-genai-openai==1.2b0",
+    "opentelemetry-instrumentation-genai-anthropic==1.2b0",
+    "opentelemetry-instrumentation-google-genai==1.2b0",
 ]
 
 [project.optional-dependencies]

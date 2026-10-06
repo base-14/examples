@@ -27,7 +27,6 @@ def test_settings_defaults():
     assert settings.fallback_model == "qwen3.5:9B"
     assert settings.ollama_base_url == "http://localhost:11434"
     assert settings.otel_service_name == "ai-sales-intelligence"
-    assert settings.otel_instrumentation_genai_capture_message_content is False
 
 
 def test_settings_from_env():
@@ -71,18 +70,6 @@ def test_gemini_provider_is_selected_by_its_contract_key():
         assert settings.llm_provider == "google"
     finally:
         os.environ.pop("LLM_PROVIDER", None)
-
-
-def test_content_capture_from_env():
-    """OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT switches content capture on."""
-    os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "true"
-    try:
-        from sales_intelligence.config import Settings
-
-        settings = Settings()
-        assert settings.otel_instrumentation_genai_capture_message_content is True
-    finally:
-        os.environ.pop("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", None)
 
 
 def test_ollama_base_url_from_env():

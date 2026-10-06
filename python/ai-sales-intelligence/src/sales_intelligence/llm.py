@@ -1,72 +1,26 @@
-"""LLM client with unified observability.
+"""LLM client for Anthropic, Gemini, OpenAI and Ollama.
 
-Provider-agnostic client for Anthropic, Gemini, OpenAI and Ollama, instrumented
-to the OpenTelemetry GenAI semantic conventions.
-
-httpx auto-instrumentation records the HTTP layer of every provider call. This
-module adds what auto-instrumentation cannot know: the `chat {model}` span with
-GenAI attributes, the inference content event, the token, duration and cost
-metrics, and the retry, fallback and error counters.
+The OpenTelemetry GenAI instrumentations for the OpenAI, Anthropic and Google Gen AI
+SDKs create the `chat {model}` span, its GenAI attributes and the
+`gen_ai.client.token.usage` and `gen_ai.client.operation.duration` metrics for every
+call. This module adds what they cannot know: the agent and campaign behind a call,
+its cost, and the retry, fallback and error counters.
 """
 
-import json
 import logging
-import re
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from opentelemetry import metrics, trace
-from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_exponential
 
 from sales_intelligence.config import LLMProvider, get_settings
-from sales_intelligence.pii import scrub_completion, scrub_prompt
+from sales_intelligence.genai_spans import LLMCallAttributes, llm_call_attributes
+from sales_intelligence.pricing import calculate_cost
 
 
 logger = logging.getLogger(__name__)
-
-PROMPT_MAX_CHARS = 1000
-SYSTEM_MAX_CHARS = 500
-COMPLETION_MAX_CHARS = 2000
-
-
-def _load_pricing() -> dict[str, dict[str, float]]:
-    this_file = Path(__file__)
-    for depth in (4, 2):
-        if depth < len(this_file.parents):
-            candidate = this_file.parents[depth] / "_shared" / "pricing.json"
-            if candidate.exists():
-                with candidate.open() as f:
-                    data = json.load(f)
-                return {
-                    model: {"input": info["input"], "output": info["output"]}
-                    for model, info in data["models"].items()
-                }
-    raise FileNotFoundError(
-        "pricing.json not found. Ensure _shared/pricing.json exists at the repo root "
-        "and _shared/ is mounted into the container."
-    )
-
-
-PRICING: dict[str, dict[str, float]] = _load_pricing()
-
-PROVIDER_SERVERS: dict[LLMProvider, str] = {
-    "anthropic": "api.anthropic.com",
-    "google": "generativelanguage.googleapis.com",
-    "openai": "api.openai.com",
-    "ollama": "localhost",
-}
-
-PROVIDER_PORTS: dict[LLMProvider, int] = {
-    "anthropic": 443,
-    "google": 443,
-    "openai": 443,
-    "ollama": 11434,
-}
 
 # The config value for Gemini is `google`, matching the gateway contract. The
 # telemetry attribute uses the semantic convention name.
@@ -77,19 +31,8 @@ PROVIDER_SEMCONV_NAMES: dict[LLMProvider, str] = {
     "ollama": "ollama",
 }
 
-tracer = trace.get_tracer("gen_ai.client")
 meter = metrics.get_meter("gen_ai.client")
 
-_token_usage = meter.create_histogram(
-    name="gen_ai.client.token.usage",
-    description="Number of tokens used per LLM call",
-    unit="{token}",
-)
-_operation_duration = meter.create_histogram(
-    name="gen_ai.client.operation.duration",
-    description="Duration of GenAI operations",
-    unit="s",
-)
 _cost_counter = meter.create_counter(
     name="base14.gen_ai.cost",
     description="Cost of GenAI operations in USD",
@@ -147,8 +90,6 @@ class BaseLLMProvider(ABC):
     """Abstract base for LLM providers."""
 
     provider_name: LLMProvider
-    server_address: str
-    server_port: int
 
     @abstractmethod
     def __init__(self, api_key: str) -> None: ...
@@ -168,13 +109,12 @@ class AnthropicProvider(BaseLLMProvider):
     """Anthropic Claude provider."""
 
     provider_name: LLMProvider = "anthropic"
-    server_address: str = PROVIDER_SERVERS["anthropic"]
-    server_port: int = PROVIDER_PORTS["anthropic"]
 
     def __init__(self, api_key: str) -> None:
         from anthropic import AsyncAnthropic
 
-        self._client = AsyncAnthropic(api_key=api_key)
+        # tenacity in generate() is the only retry layer, so each attempt is one span.
+        self._client = AsyncAnthropic(api_key=api_key, max_retries=0)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -221,8 +161,6 @@ class GeminiProvider(BaseLLMProvider):
     """Google Gemini provider."""
 
     provider_name: LLMProvider = "google"
-    server_address: str = PROVIDER_SERVERS["google"]
-    server_port: int = PROVIDER_PORTS["google"]
 
     def __init__(self, api_key: str) -> None:
         from google import genai
@@ -278,13 +216,12 @@ class OpenAIProvider(BaseLLMProvider):
     """OpenAI GPT provider."""
 
     provider_name: LLMProvider = "openai"
-    server_address: str = PROVIDER_SERVERS["openai"]
-    server_port: int = PROVIDER_PORTS["openai"]
 
     def __init__(self, api_key: str) -> None:
         from openai import AsyncOpenAI
 
-        self._client = AsyncOpenAI(api_key=api_key)
+        # tenacity in generate() is the only retry layer, so each attempt is one span.
+        self._client = AsyncOpenAI(api_key=api_key, max_retries=0)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -331,13 +268,10 @@ class OllamaProvider(BaseLLMProvider):
     def __init__(self, api_key: str, base_url: str = "http://localhost:11434") -> None:
         from openai import AsyncOpenAI
 
-        parsed_base_url = urlparse(base_url)
-        self.server_address = parsed_base_url.hostname or PROVIDER_SERVERS["ollama"]
-        self.server_port = parsed_base_url.port or PROVIDER_PORTS["ollama"]
         # Ollama's OpenAI-compatible API lives at /v1
         if not base_url.endswith("/v1"):
             base_url = f"{base_url.rstrip('/')}/v1"
-        self._client = AsyncOpenAI(api_key=api_key or "ollama", base_url=base_url)
+        self._client = AsyncOpenAI(api_key=api_key or "ollama", base_url=base_url, max_retries=0)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -399,88 +333,34 @@ def _get_api_key(provider: LLMProvider) -> str:
     return keys[provider]
 
 
-_MODEL_DATE_SUFFIX = re.compile(r"-\d{8}$")
-_MODEL_MINOR_VERSION = re.compile(r"^(claude-(?:sonnet|opus|haiku))-(\d+)-(\d+)$")
-
-
-def _normalize_model_id(model: str) -> str:
-    """Map a provider-returned model ID to its pricing.json key.
-
-    Providers return dated IDs (claude-sonnet-4-5-20250929) and dash-minor
-    forms (claude-opus-4-6); pricing keys are dot-form (claude-opus-4.6).
-    """
-    stripped = _MODEL_DATE_SUFFIX.sub("", model)
-    return _MODEL_MINOR_VERSION.sub(r"\1-\2.\3", stripped)
-
-
-def _calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    """Calculate cost in USD for a model call. Unknown models cost 0.0."""
-    pricing = PRICING.get(model) or PRICING.get(
-        _normalize_model_id(model), {"input": 0.0, "output": 0.0}
-    )
-    return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
-
-
-def _emit_content_event(span: Span, prompt: str, system: str, response: LLMResponse | None) -> None:
-    """Emit the inference content event when content capture is switched on.
-
-    Content is PII-scrubbed and truncated. The system prompt goes on
-    gen_ai.system_instructions, not into the input messages.
-    """
-    if not get_settings().otel_instrumentation_genai_capture_message_content:
-        return
-
-    attributes: dict[str, Any] = {
-        "gen_ai.input.messages": scrub_prompt(prompt)[:PROMPT_MAX_CHARS],
-    }
-    system_instructions = scrub_prompt(system)[:SYSTEM_MAX_CHARS]
-    if system_instructions:
-        attributes["gen_ai.system_instructions"] = system_instructions
-    if response is not None:
-        attributes["gen_ai.output.messages"] = scrub_completion(response.content)[
-            :COMPLETION_MAX_CHARS
-        ]
-
-    span.add_event("gen_ai.client.inference.operation.details", attributes=attributes)
-
-
-def _record_duration(base_attrs: dict[str, Any], duration: float, error_type: str | None) -> None:
-    attrs = dict(base_attrs)
-    if error_type:
-        attrs["error.type"] = error_type
-    _operation_duration.record(duration, attrs)
-
-
-def _record_usage(
-    base_attrs: dict[str, Any],
-    response: LLMResponse,
+def _record_cost(
+    provider: LLMProvider,
     model: str,
+    response: LLMResponse,
     agent_name: str | None,
     campaign_id: str | None,
-    span: Span,
 ) -> None:
-    usage_attrs = {**base_attrs, "gen_ai.response.model": response.model}
-
-    _token_usage.record(response.input_tokens, {**usage_attrs, "gen_ai.token.type": "input"})
-    _token_usage.record(response.output_tokens, {**usage_attrs, "gen_ai.token.type": "output"})
-
-    cost = _calculate_cost(model, response.input_tokens, response.output_tokens)
-    cost_attrs = dict(usage_attrs)
+    attributes: dict[str, Any] = {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.provider.name": PROVIDER_SEMCONV_NAMES[provider],
+        "gen_ai.request.model": model,
+        "gen_ai.response.model": response.model,
+    }
     if agent_name:
-        cost_attrs["gen_ai.agent.name"] = agent_name
+        attributes["gen_ai.agent.name"] = agent_name
     if campaign_id:
-        cost_attrs["base14.campaign_id"] = campaign_id
-    _cost_counter.add(cost, cost_attrs)
-
-    span.set_attribute("base14.gen_ai.cost_usd", cost)
+        attributes["base14.campaign_id"] = campaign_id
+    _cost_counter.add(
+        calculate_cost(response.model, response.input_tokens, response.output_tokens),
+        attributes,
+    )
 
 
 class LLMClient:
-    """Provider-agnostic LLM client with OTel GenAI instrumentation.
+    """Provider-agnostic LLM client.
 
-    Each call opens a CLIENT span named `chat {model}`. When the primary
-    provider fails after its retries, the client switches to the fallback
-    provider and records the switch on the calling span.
+    When the primary provider fails after its retries, the client switches to the
+    fallback provider and records the switch on the calling span.
     """
 
     def __init__(self) -> None:
@@ -588,36 +468,15 @@ class LLMClient:
         agent_name: str | None,
         campaign_id: str | None,
     ) -> str:
-        """Run one chat completion inside a `chat {model}` CLIENT span."""
+        """Run one chat completion. The SDK's instrumentation records the `chat {model}` span."""
         llm_provider = self._get_provider(provider)
-
-        metric_attrs: dict[str, Any] = {
-            "gen_ai.operation.name": "chat",
-            "gen_ai.provider.name": PROVIDER_SEMCONV_NAMES[provider],
-            "gen_ai.request.model": model,
-            "server.address": llm_provider.server_address,
-            "server.port": llm_provider.server_port,
-        }
-
-        # Sampling-relevant attributes are set at span creation.
-        span_attrs: dict[str, Any] = {
-            **metric_attrs,
-            "gen_ai.request.temperature": temperature,
-            "gen_ai.request.max_tokens": max_tokens,
-        }
-        if agent_name:
-            span_attrs["gen_ai.agent.name"] = agent_name
-        if campaign_id:
-            span_attrs["base14.campaign_id"] = campaign_id
-
-        with tracer.start_as_current_span(
-            f"chat {model}", kind=SpanKind.CLIENT, attributes=span_attrs
-        ) as span:
-            start_time = time.perf_counter()
-            response: LLMResponse | None = None
-            error_type: str | None = None
-
-            try:
+        call = LLMCallAttributes(
+            provider=PROVIDER_SEMCONV_NAMES[provider],
+            agent_name=agent_name,
+            campaign_id=campaign_id,
+        )
+        try:
+            with llm_call_attributes(call):
                 response = await llm_provider.generate(
                     model=model,
                     system=system,
@@ -625,37 +484,18 @@ class LLMClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
-
-                span.set_attribute("gen_ai.response.model", response.model)
-                if response.response_id:
-                    span.set_attribute("gen_ai.response.id", response.response_id)
-                if response.finish_reason:
-                    span.set_attribute("gen_ai.response.finish_reasons", [response.finish_reason])
-                span.set_attribute("gen_ai.usage.input_tokens", response.input_tokens)
-                span.set_attribute("gen_ai.usage.output_tokens", response.output_tokens)
-
-                _record_usage(metric_attrs, response, model, agent_name, campaign_id, span)
-
-                return response.content
-
-            except Exception as exc:
-                error_type = type(exc).__qualname__
-                span.record_exception(exc)
-                span.set_attribute("error.type", error_type)
-                span.set_status(Status(StatusCode.ERROR, str(exc)))
-                _error_counter.add(
-                    1,
-                    {
-                        "gen_ai.provider.name": PROVIDER_SEMCONV_NAMES[provider],
-                        "gen_ai.request.model": model,
-                        "error.type": error_type,
-                    },
-                )
-                raise
-
-            finally:
-                _record_duration(metric_attrs, time.perf_counter() - start_time, error_type)
-                _emit_content_event(span, prompt, system, response)
+        except Exception as exc:
+            _error_counter.add(
+                1,
+                {
+                    "gen_ai.provider.name": PROVIDER_SEMCONV_NAMES[provider],
+                    "gen_ai.request.model": model,
+                    "error.type": type(exc).__qualname__,
+                },
+            )
+            raise
+        _record_cost(provider, model, response, agent_name, campaign_id)
+        return response.content
 
 
 _client: LLMClient | None = None
