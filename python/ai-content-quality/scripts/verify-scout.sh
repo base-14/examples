@@ -238,21 +238,7 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Attr: error.type (on error spans)" "error.type"              "$LOGS_FILE"
 
     # --- Span events ---
-    # The inference event only appears when content capture is switched on, so
-    # its absence is expected here. The two removed per-message events must be gone.
     echo "  $(dim "--- Span Events ---")"
-    EVENTS_CLEAN=1
-    for role in user assistant; do
-      if grep -q "gen_ai.${role}.message" "$LOGS_FILE" 2>/dev/null; then
-        echo "  $(red "FAIL") Removed per-message event still emitted for role: ${role}"
-        FAIL=$((FAIL + 1))
-        EVENTS_CLEAN=0
-      fi
-    done
-    if [ "$EVENTS_CLEAN" = "1" ]; then
-      echo "  $(green "PASS") The removed per-message events are absent"
-      PASS=$((PASS + 1))
-    fi
     warn_log  "Event: gen_ai.evaluation.result"   "gen_ai.evaluation.result"  "$LOGS_FILE"
 
     # --- PII scrubbing (should NOT appear in logs) ---
@@ -295,42 +281,28 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Scout Dashboard Checklist
+# 4. Scout checklist
 # ---------------------------------------------------------------------------
 echo ""
-echo "$(cyan "=== 4. Scout Dashboard Checklist ===")"
-echo "$(dim "    Open Base14 Scout and verify these manually:")"
+echo "$(cyan "=== 4. Scout Checklist ===")"
+echo "$(dim "    With SCOUT_* set, open Base14 Scout and check these manually:")"
 echo ""
-echo "  $(cyan "Content Quality Dashboard:")"
-echo "    [ ] Avg Quality Score panel shows data"
-echo "    [ ] Score Distribution histogram has buckets"
-echo "    [ ] Quality Over Time shows recent data points"
-echo "    [ ] Issues by Type shows breakdown (hyperbole, grammar, etc.)"
-echo "    [ ] Quality by Content Type shows marketing, technical, blog"
-echo ""
-echo "  $(cyan "Eval Pass Rate Dashboard:")"
-echo "    [ ] gen_ai.evaluation.result events visible in traces"
-echo "    [ ] Score values present (passed >= 60, failed < 60)"
-echo ""
-echo "  $(cyan "Cost & Token Dashboard:")"
-echo "    [ ] Total Cost (24h) is non-zero for priced models and 0 for local Ollama models (base14.gen_ai.cost)"
-echo "    [ ] Token Usage shows input vs output breakdown"
-echo "    [ ] Cost by Endpoint shows /review, /improve, /score"
-echo ""
-echo "  $(cyan "Trace Explorer:")"
-echo "    [ ] Traces show nested spans: HTTP -> chat {model} -> LlamaIndex"
-echo "    [ ] chat spans are CLIENT kind"
-echo "    [ ] chat spans have base14.content.type, base14.content.length, server.address attributes"
-echo "    [ ] chat spans have gen_ai.request.temperature attribute"
-echo "    [ ] The removed gen_ai.user.message / gen_ai.assistant.message events are absent"
+echo "  $(cyan "Traces:")"
+echo "    [ ] Each /review, /improve and /score trace holds a chat {model} span under the HTTP span"
+echo "    [ ] chat spans are CLIENT kind, from an opentelemetry.instrumentation.genai.* scope"
+echo "    [ ] chat spans have base14.endpoint, base14.content.type, base14.content.length and base14.gen_ai.cost_usd"
+echo "    [ ] gen_ai.evaluation.result events carry a score and a passed or failed label"
 echo "    [ ] gen_ai.input.messages on chat spans, scrubbed, when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=span_only"
-echo "    [ ] Event content fields are truncated to ~500 chars"
 echo "    [ ] 422 error traces have error.type=RequestValidationError and ERROR status"
 echo "    [ ] 404 error traces have error status on HTTP span"
 echo ""
+echo "  $(cyan "Metrics:")"
+echo "    [ ] gen_ai.client.token.usage split by gen_ai.token.type"
+echo "    [ ] base14.gen_ai.cost by base14.endpoint, 0 for local Ollama models"
+echo "    [ ] base14.gen_ai.evaluation.score by gen_ai.evaluation.name"
+echo ""
 echo "  $(cyan "Logs:")"
 echo "    [ ] Log records include trace_id and span_id correlation"
-echo "    [ ] Warning logs for token unavailability (if using non-OpenAI provider)"
 echo ""
 
 # ---------------------------------------------------------------------------

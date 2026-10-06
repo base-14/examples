@@ -43,19 +43,6 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
     scout_environment: str = "development"
 
-    capture_content_mode: str = Field(
-        default="no_content", alias="OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
-    )
-
-    @property
-    def capture_content(self) -> bool:
-        return self.capture_content_mode.strip().lower() in {
-            "true",
-            "span_only",
-            "event_only",
-            "span_and_event",
-        }
-
 
 @lru_cache
 def get_settings() -> Settings:

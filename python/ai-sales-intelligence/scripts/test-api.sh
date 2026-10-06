@@ -2,9 +2,9 @@
 set -euo pipefail
 
 BASE_URL="${API_URL:-http://localhost:8000}"
-# The pipeline makes four model calls per prospect. The default sample has one
-# prospect; set CONNECTIONS_CSV=data/sample-connections.csv for the full sample of
-# eight, and raise PIPELINE_TIMEOUT on a local model.
+# The pipeline makes up to four model calls per matching prospect. The default sample
+# has one connection; set CONNECTIONS_CSV=data/sample-connections.csv for the full
+# sample of ten, and raise PIPELINE_TIMEOUT if a run needs longer than the default.
 CONNECTIONS_CSV="${CONNECTIONS_CSV:-data/sample-connections-verify-scout.csv}"
 PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-600}"
 

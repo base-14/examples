@@ -1,8 +1,9 @@
 """OpenTelemetry bootstrap: providers, exporters and instrumentation.
 
-Import and call setup_telemetry() BEFORE creating the FastAPI app. LangChain is
-traced by the OpenTelemetry GenAI LangChain instrumentation, and the spans it
-creates are enriched by `telemetry/genai_spans.py`.
+`setup_telemetry()` runs in the FastAPI lifespan, before the agent is built.
+`instrument_fastapi(app)` runs when the app is created. LangChain is traced by the
+OpenTelemetry GenAI LangChain instrumentation, and the spans it creates are enriched
+by `telemetry/genai_spans.py`.
 """
 
 import logging

@@ -174,7 +174,7 @@ STATUS=$(curl -s --max-time 600 -o /dev/null -w "%{http_code}" \
   -d '{"content": "This is literally the most amazing revolutionary groundbreaking product ever created! Everyone agrees it is the best. Studies show 100% satisfaction. Buy now!!", "content_type": "marketing"}')
 check "Review hyperbolic marketing (eval event path)" "200" "$STATUS"
 
-echo "  $(dim "[PII scrubbing] Content with PII (should be scrubbed from span events)...")"
+echo "  $(dim "[PII scrubbing] Content with PII (scrubbed from span content when capture is on)...")"
 sleep "$DELAY"
 STATUS=$(curl -s --max-time 600 -o /dev/null -w "%{http_code}" \
   -X POST "${BASE_URL}/review" \

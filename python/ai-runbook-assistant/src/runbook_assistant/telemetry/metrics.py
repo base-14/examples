@@ -1,7 +1,9 @@
-"""GenAI metric instruments.
+"""GenAI metric instruments the example records itself.
 
-The two histograms are semantic convention metrics. The four counters are
-application-specific and carry the `base14.` prefix, per the naming rule in
+The LangChain instrumentation records `gen_ai.client.token.usage` and
+`gen_ai.client.operation.duration` for chat calls. This module records the
+duration of embeddings calls, which the instrumentation does not trace, and four
+application counters, which carry the `base14.` prefix per the naming rule in
 `_shared/llm-gateway-contract.yaml`.
 """
 
@@ -13,11 +15,6 @@ from opentelemetry import metrics
 class GenAIMetrics:
     def __init__(self) -> None:
         meter = metrics.get_meter("gen_ai.client")
-        self._tokens = meter.create_histogram(
-            "gen_ai.client.token.usage",
-            unit="{token}",
-            description="Tokens used per LLM call",
-        )
         self._duration = meter.create_histogram(
             "gen_ai.client.operation.duration",
             unit="s",
@@ -43,10 +40,6 @@ class GenAIMetrics:
             unit="{error}",
             description="GenAI errors by type",
         )
-
-    def record_tokens(self, attrs: dict[str, Any], input_tokens: int, output_tokens: int) -> None:
-        self._tokens.record(input_tokens, {**attrs, "gen_ai.token.type": "input"})
-        self._tokens.record(output_tokens, {**attrs, "gen_ai.token.type": "output"})
 
     def record_duration(self, attrs: dict[str, Any], seconds: float) -> None:
         self._duration.record(seconds, attrs)

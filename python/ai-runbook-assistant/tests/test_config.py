@@ -10,8 +10,6 @@ def test_defaults():
     assert s.default_max_tokens == 4096
     assert s.ollama_base_url == "http://localhost:11434"
     assert s.ollama_reasoning is False
-    assert s.capture_content is False
-    assert s.capture_content_mode == "no_content"
     assert s.otel_exporter_otlp_endpoint == "http://localhost:4318"
     assert s.scout_environment == "development"
 
