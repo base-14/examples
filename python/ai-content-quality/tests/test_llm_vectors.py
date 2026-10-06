@@ -1,40 +1,36 @@
 """LLM client tests driven by the shared test vectors.
 
-Each test loads a vector from `_shared/test-vectors`, drives the LLM client
-with a fake LlamaIndex `LLM` that behaves as the vector describes, and
-asserts the spans and metrics that reach the in-memory exporters.
-
-content-quality wraps LlamaIndex's `LLM.achat()` rather than calling a
-provider SDK directly, and returns structured JSON validated against a
-Pydantic schema rather than a raw string. The vectors describe raw
-provider responses, so `mock_response.content` is wrapped as
-`{"answer": "<content>"}` JSON to satisfy the structured-output parser,
-and requests go through a mocked `LLM` object instead of a patched
-provider SDK client. `gen_ai.request.max_tokens` is not part of
-content-quality's span attributes (LlamaIndex does not surface a
-request max_tokens knob here), so it is excluded from the attribute
-comparisons below.
+Each test loads a vector from `_shared/test-vectors` and runs the client over
+LlamaIndex's real Anthropic and OpenAI integrations, whose SDK clients answer from
+a mock transport. The spans come from the OpenTelemetry GenAI instrumentations for
+those SDKs, so three things differ from the vectors, which were written for one
+hand-written span per logical call: every retry attempt is its own span, a failed
+attempt's `error.type` is the SDK's exception class, and Anthropic's `end_turn` is
+reported as the convention's `stop`. The vectors' `content` is wrapped as
+`{"answer": "<content>"}` JSON for the structured-output parser.
 """
 
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
+import anthropic
+import httpx
 import pytest
-from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import Histogram, Sum
-from opentelemetry.trace import SpanKind, StatusCode
+from opentelemetry.trace import StatusCode
 from pydantic import BaseModel
 
-from content_quality.services.llm import LLMClient
+from content_quality.services.llm import LLMClient, create_llm
 from tests.conftest import METRIC_READER
 
 
 VECTORS_DIR = Path(__file__).parents[3] / "_shared" / "test-vectors"
 
 COST_ATTRIBUTE = "base14.gen_ai.cost_usd"
-SKIPPED_ATTRIBUTES = {"gen_ai.request.max_tokens"}
+
+Response = dict[str, Any] | int
 
 
 class AnswerResult(BaseModel):
@@ -47,29 +43,67 @@ def load_vector(name: str) -> dict[str, Any]:
     return data
 
 
-def make_llm(model_name: str, temperature: float = 0.7) -> MagicMock:
-    llm = MagicMock()
-    llm.metadata.model_name = model_name
-    llm.temperature = temperature
+def _next(responses: list[Response]) -> httpx.Response:
+    response = responses.pop(0)
+    if isinstance(response, int):
+        return httpx.Response(response, json={"error": {"type": "api_error", "message": "down"}})
+    return httpx.Response(200, json=response)
+
+
+def anthropic_message(mock: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": mock["response_id"],
+        "type": "message",
+        "role": "assistant",
+        "model": mock["model"],
+        "content": [{"type": "text", "text": json.dumps({"answer": mock["content"]})}],
+        "stop_reason": mock["finish_reason"],
+        "stop_sequence": None,
+        "usage": {"input_tokens": mock["input_tokens"], "output_tokens": mock["output_tokens"]},
+    }
+
+
+def openai_completion(mock: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": mock["response_id"],
+        "object": "chat.completion",
+        "created": 1,
+        "model": mock["model"],
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": json.dumps({"answer": mock["content"]}),
+                },
+                "finish_reason": mock["finish_reason"],
+            }
+        ],
+        "usage": {
+            "prompt_tokens": mock["input_tokens"],
+            "completion_tokens": mock["output_tokens"],
+            "total_tokens": mock["input_tokens"] + mock["output_tokens"],
+        },
+    }
+
+
+def anthropic_llm(model: str, responses: list[Response]) -> Any:
+    llm = create_llm(provider="anthropic", model=model, api_key="test-key")
+    transport = httpx.MockTransport(lambda _request: _next(responses))
+    llm._aclient = anthropic.AsyncAnthropic(
+        api_key="test-key", max_retries=0, http_client=httpx.AsyncClient(transport=transport)
+    )
     return llm
 
 
-def chat_response(mock: dict[str, Any]) -> MagicMock:
-    """Build a fake LlamaIndex chat response from a vector's mock_response block."""
-    response = MagicMock()
-    response.message.content = json.dumps({"answer": mock["content"]})
-    response.additional_kwargs = {
-        "prompt_tokens": mock["input_tokens"],
-        "completion_tokens": mock["output_tokens"],
-        "model": mock["model"],
-        "id": mock["response_id"],
-        "finish_reason": mock["finish_reason"],
-    }
-    response.raw = None
-    return response
+def openai_llm(model: str, responses: list[Response]) -> Any:
+    llm = create_llm(provider="openai", model=model, api_key="test-key")
+    transport = httpx.MockTransport(lambda _request: _next(responses))
+    llm._async_http_client = httpx.AsyncClient(transport=transport)
+    return llm
 
 
-def make_prompt_template(prompt: str) -> MagicMock:
+def prompt_template(prompt: str) -> MagicMock:
     pt = MagicMock()
     pt.format.return_value = prompt
     return pt
@@ -96,37 +130,8 @@ def metric_total(name: str, attrs: dict[str, Any]) -> float:
     return total
 
 
-def metric_count(name: str, attrs: dict[str, Any]) -> int:
-    """Number of histogram observations over points matching attrs."""
-    count = 0
-    data = METRIC_READER.get_metrics_data()
-    if data is None:
-        return count
-    for resource_metrics in data.resource_metrics:
-        for scope_metrics in resource_metrics.scope_metrics:
-            for metric in scope_metrics.metrics:
-                if metric.name != name or not isinstance(metric.data, Histogram):
-                    continue
-                for point in metric.data.data_points:
-                    if all(point.attributes.get(k) == v for k, v in attrs.items()):
-                        count += point.count
-    return count
-
-
-def find_span(spans: Any, name: str) -> Any:
-    matches = [s for s in spans if s.name == name]
-    assert matches, f"span {name!r} not found in {[s.name for s in spans]}"
-    return matches[0]
-
-
-@pytest.fixture
-def content_capture_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", raising=False)
-
-
-@pytest.fixture
-def content_capture_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true")
+def chat_spans(spans: Any, model: str) -> list[Any]:
+    return [s for s in spans if s.name == f"chat {model}"]
 
 
 class TestChatCompletionVector:
@@ -136,102 +141,55 @@ class TestChatCompletionVector:
     def vector(self) -> dict[str, Any]:
         return load_vector("chat-completion.json")
 
-    async def test_span_and_metrics(self, vector, span_exporter, content_capture_off) -> None:
+    async def test_span_and_metrics(self, vector, span_exporter) -> None:
         request = vector["input"]
-        expected = vector["expected_span"]
-        client = LLMClient(
-            provider=request["provider"],
-            model=request["model"],
-            llm=make_llm(request["model"], request["temperature"]),
+        mock = vector["mock_response"]
+        model_attrs = {"gen_ai.request.model": request["model"]}
+        input_before = metric_total(
+            "gen_ai.client.token.usage", {**model_attrs, "gen_ai.token.type": "input"}
         )
+        cost_before = metric_total("base14.gen_ai.cost", model_attrs)
+        counters_before = [
+            metric_total(f"base14.gen_ai.{name}.count", {})
+            for name in ("retry", "fallback", "error")
+        ]
 
-        token_attrs = {"gen_ai.request.model": request["model"]}
-        input_attrs = {**token_attrs, "gen_ai.token.type": "input"}
-        output_attrs = {**token_attrs, "gen_ai.token.type": "output"}
-        input_before = metric_total("gen_ai.client.token.usage", input_attrs)
-        output_before = metric_total("gen_ai.client.token.usage", output_attrs)
-        cost_before = metric_total("base14.gen_ai.cost", token_attrs)
-        retries_before = metric_total("base14.gen_ai.retry.count", {})
-        fallbacks_before = metric_total("base14.gen_ai.fallback.count", {})
-        errors_before = metric_total("base14.gen_ai.error.count", {})
-        durations_before = metric_count("gen_ai.client.operation.duration", token_attrs)
-
-        client.llm.achat = AsyncMock(return_value=chat_response(vector["mock_response"]))
+        llm = anthropic_llm(request["model"], [anthropic_message(mock)])
+        client = LLMClient(provider="anthropic", model=request["model"], llm=llm)
         result = await client.generate_structured(
-            make_prompt_template(request["prompt"]),
-            AnswerResult,
-            request["prompt"],
-            endpoint="/review",
-            system_prompt=request["system"],
+            prompt_template(request["prompt"]), AnswerResult, "content", endpoint="/review"
         )
 
-        assert result.answer == vector["mock_response"]["content"]
-
-        span = find_span(span_exporter.get_finished_spans(), expected["name"])
-        assert span.kind is SpanKind.CLIENT
+        assert isinstance(result, AnswerResult)
+        assert result.answer == mock["content"]
+        (span,) = chat_spans(span_exporter.get_finished_spans(), request["model"])
         assert span.status.status_code is not StatusCode.ERROR
+        expected = vector["expected_span"]["attributes"]
+        for key in (
+            "gen_ai.operation.name",
+            "gen_ai.provider.name",
+            "gen_ai.request.model",
+            "gen_ai.response.model",
+            "gen_ai.response.id",
+            "gen_ai.usage.input_tokens",
+            "gen_ai.usage.output_tokens",
+            "server.address",
+        ):
+            assert span.attributes[key] == expected[key], key
+        assert list(span.attributes["gen_ai.response.finish_reasons"]) == ["stop"]
+        assert span.attributes[COST_ATTRIBUTE] == pytest.approx(expected[COST_ATTRIBUTE], rel=0.01)
+        assert "gen_ai.input.messages" not in span.attributes, "content capture is off"
 
-        for key, value in expected["attributes"].items():
-            if key in SKIPPED_ATTRIBUTES:
-                continue
-            if key == COST_ATTRIBUTE:
-                assert span.attributes[key] == pytest.approx(value, rel=0.01)
-            elif isinstance(value, list):
-                assert list(span.attributes[key]) == value
-            else:
-                assert span.attributes[key] == value
-
-        assert [e.name for e in span.events] == [], (
-            "content capture is off, so no inference event is expected"
+        assert metric_total(
+            "gen_ai.client.token.usage", {**model_attrs, "gen_ai.token.type": "input"}
+        ) - input_before == pytest.approx(mock["input_tokens"])
+        assert metric_total("base14.gen_ai.cost", model_attrs) - cost_before == pytest.approx(
+            expected[COST_ATTRIBUTE], rel=0.01
         )
-
-        assert metric_total("gen_ai.client.token.usage", input_attrs) - input_before == (
-            pytest.approx(vector["mock_response"]["input_tokens"])
-        )
-        assert metric_total("gen_ai.client.token.usage", output_attrs) - output_before == (
-            pytest.approx(vector["mock_response"]["output_tokens"])
-        )
-        assert metric_count("gen_ai.client.operation.duration", token_attrs) == (
-            durations_before + 1
-        )
-        assert metric_total("base14.gen_ai.cost", token_attrs) - cost_before == pytest.approx(
-            expected["attributes"][COST_ATTRIBUTE], rel=0.01
-        )
-
-        assert metric_total("base14.gen_ai.retry.count", {}) == retries_before
-        assert metric_total("base14.gen_ai.fallback.count", {}) == fallbacks_before
-        assert metric_total("base14.gen_ai.error.count", {}) == errors_before
-
-    async def test_inference_event_when_capture_is_on(
-        self, vector, span_exporter, content_capture_on
-    ) -> None:
-        request = vector["input"]
-        client = LLMClient(
-            provider=request["provider"],
-            model=request["model"],
-            llm=make_llm(request["model"], request["temperature"]),
-        )
-        client.llm.achat = AsyncMock(return_value=chat_response(vector["mock_response"]))
-
-        await client.generate_structured(
-            make_prompt_template(request["prompt"]),
-            AnswerResult,
-            request["prompt"],
-            endpoint="/review",
-            system_prompt=request["system"],
-        )
-
-        span = find_span(span_exporter.get_finished_spans(), vector["expected_span"]["name"])
-        expected_event = vector["expected_span"]["events"][0]["name"]
-        assert [e.name for e in span.events] == [expected_event]
-
-        event = span.events[0]
-        assert event.attributes["gen_ai.input.messages"] == request["prompt"]
-        assert event.attributes["gen_ai.system_instructions"] == request["system"]
-        assert (
-            json.loads(event.attributes["gen_ai.output.messages"])["answer"]
-            == vector["mock_response"]["content"]
-        )
+        assert [
+            metric_total(f"base14.gen_ai.{name}.count", {})
+            for name in ("retry", "fallback", "error")
+        ] == counters_before
 
 
 class TestChatWithRetryVector:
@@ -241,55 +199,26 @@ class TestChatWithRetryVector:
     def vector(self) -> dict[str, Any]:
         return load_vector("chat-with-retry.json")
 
-    async def test_retry_is_transparent(self, vector, span_exporter, content_capture_off) -> None:
+    async def test_retry_leaves_a_failed_attempt(self, vector, span_exporter) -> None:
         setup = vector["setup"]
-        behavior = vector["mock_behavior"]
-        expected = vector["expected_span"]
-        retry_metric = next(
-            m for m in vector["expected_metrics"] if m["name"] == "base14.gen_ai.retry.count"
-        )
-        retries_before = metric_total(
-            "base14.gen_ai.retry.count",
-            {"gen_ai.provider.name": retry_metric["attrs"]["gen_ai.provider.name"]},
-        )
-        fallbacks_before = metric_total("base14.gen_ai.fallback.count", {})
+        second = vector["mock_behavior"]["attempt_2"]
+        retry_attrs = {"gen_ai.provider.name": "anthropic", "error.type": "RateLimitError"}
+        retries_before = metric_total("base14.gen_ai.retry.count", retry_attrs)
         errors_before = metric_total("base14.gen_ai.error.count", {})
 
-        assert "raise Exception" in behavior["attempt_1"]
-        client = LLMClient(
-            provider=setup["provider"],
-            model=setup["model"],
-            llm=make_llm(setup["model"]),
-        )
-        client.llm.achat = AsyncMock(
-            side_effect=[
-                Exception("Rate limit"),
-                chat_response(behavior["attempt_2"]),
-            ]
-        )
-
+        assert "raise Exception" in vector["mock_behavior"]["attempt_1"]
+        llm = anthropic_llm(setup["model"], [429, anthropic_message(second)])
+        client = LLMClient(provider="anthropic", model=setup["model"], llm=llm)
         result = await client.generate_structured(
-            make_prompt_template("Hello"), AnswerResult, "Hello", endpoint="/review"
+            prompt_template("Hello"), AnswerResult, "content", endpoint="/review"
         )
 
-        assert result.answer == behavior["attempt_2"]["content"]
-
-        span = find_span(span_exporter.get_finished_spans(), expected["name"])
-        assert span.status.status_code is not StatusCode.ERROR
-        for key, value in expected["attributes"].items():
-            if key in SKIPPED_ATTRIBUTES:
-                continue
-            assert span.attributes[key] == value
-
-        assert (
-            metric_total(
-                "base14.gen_ai.retry.count",
-                {"gen_ai.provider.name": retry_metric["attrs"]["gen_ai.provider.name"]},
-            )
-            - retries_before
-            == retry_metric["value"]
-        )
-        assert metric_total("base14.gen_ai.fallback.count", {}) == fallbacks_before
+        assert isinstance(result, AnswerResult)
+        failed, succeeded = chat_spans(span_exporter.get_finished_spans(), setup["model"])
+        assert failed.status.status_code is StatusCode.ERROR
+        assert succeeded.status.status_code is not StatusCode.ERROR
+        assert succeeded.attributes["gen_ai.usage.output_tokens"] == second["output_tokens"]
+        assert metric_total("base14.gen_ai.retry.count", retry_attrs) - retries_before == 1
         assert metric_total("base14.gen_ai.error.count", {}) == errors_before
 
 
@@ -300,102 +229,51 @@ class TestChatWithFallbackVector:
     def vector(self) -> dict[str, Any]:
         return load_vector("chat-with-fallback.json")
 
-    async def test_primary_fails_and_fallback_succeeds(
-        self, vector, span_exporter, content_capture_off
-    ) -> None:
+    async def test_primary_fails_and_fallback_answers(self, vector, span_exporter) -> None:
         setup = vector["setup"]
-        primary, fallback = vector["expected_spans"]
-        metrics_by_name = {m["name"]: m for m in vector["expected_metrics"]}
-
+        served = vector["mock_behavior"]["fallback"]
+        by_name = {m["name"]: m for m in vector["expected_metrics"]}
+        fallback_attrs = by_name["base14.gen_ai.fallback.count"]["attrs"]
         retries_before = metric_total("base14.gen_ai.retry.count", {})
-        fallbacks_before = metric_total(
-            "base14.gen_ai.fallback.count",
-            metrics_by_name["base14.gen_ai.fallback.count"]["attrs"],
-        )
+        fallbacks_before = metric_total("base14.gen_ai.fallback.count", fallback_attrs)
         errors_before = metric_total(
-            "base14.gen_ai.error.count", metrics_by_name["base14.gen_ai.error.count"]["attrs"]
-        )
-        primary_tokens_before = metric_total(
-            "gen_ai.client.token.usage", {"gen_ai.request.model": setup["primary_model"]}
-        )
-
-        primary_llm = make_llm(setup["primary_model"])
-        primary_llm.achat = AsyncMock(side_effect=Exception("Service unavailable"))
-        fallback_llm = make_llm(setup["fallback_model"])
-        fallback_llm.achat = AsyncMock(
-            return_value=chat_response(vector["mock_behavior"]["fallback"])
+            "base14.gen_ai.error.count", {"gen_ai.provider.name": "anthropic"}
         )
 
         client = LLMClient(
-            provider=setup["primary_provider"],
+            provider="anthropic",
             model=setup["primary_model"],
-            llm=primary_llm,
-            fallback_provider=setup["fallback_provider"],
+            llm=anthropic_llm(setup["primary_model"], [503, 503, 503]),
+            fallback_provider="openai",
             fallback_model=setup["fallback_model"],
-            fallback_llm=fallback_llm,
+            fallback_llm=openai_llm(setup["fallback_model"], [openai_completion(served)]),
+        )
+        result = await client.generate_structured(
+            prompt_template("Hello"), AnswerResult, "content", endpoint="/review"
         )
 
-        tracer = trace.get_tracer(__name__)
-        with tracer.start_as_current_span("pipeline.run"):
-            result = await client.generate_structured(
-                make_prompt_template("Hello"), AnswerResult, "Hello", endpoint="/review"
-            )
-
-        assert result.answer == vector["mock_behavior"]["fallback"]["content"]
-
+        assert isinstance(result, AnswerResult)
+        assert result.answer == served["content"]
         spans = span_exporter.get_finished_spans()
-        primary_span = find_span(spans, primary["name"])
-        assert primary_span.status.status_code is StatusCode.ERROR
-        for key, value in primary["attributes"].items():
-            if key in SKIPPED_ATTRIBUTES:
-                continue
-            assert primary_span.attributes[key] == value
-
-        fallback_span = find_span(spans, fallback["name"])
+        primary_spans = chat_spans(spans, setup["primary_model"])
+        assert len(primary_spans) == 3, "one span per attempt"
+        assert all(s.status.status_code is StatusCode.ERROR for s in primary_spans)
+        (fallback_span,) = chat_spans(spans, setup["fallback_model"])
         assert fallback_span.status.status_code is not StatusCode.ERROR
-        for key, value in fallback["attributes"].items():
-            if key in SKIPPED_ATTRIBUTES:
-                continue
-            assert fallback_span.attributes[key] == value
-
-        parent_span = find_span(spans, "pipeline.run")
-        assert parent_span.status.status_code is not StatusCode.ERROR
-        assert parent_span.attributes["gen_ai.fallback.triggered"] is True
-        fallback_event = next(e for e in parent_span.events if e.name == "provider_fallback")
-        assert (
-            fallback_event.attributes["base14.gen_ai.fallback.provider"]
-            == setup["fallback_provider"]
-        )
+        assert fallback_span.attributes["gen_ai.provider.name"] == "openai"
+        assert fallback_span.attributes["gen_ai.usage.input_tokens"] == served["input_tokens"]
 
         assert (
             metric_total("base14.gen_ai.retry.count", {}) - retries_before
-            == metrics_by_name["base14.gen_ai.retry.count"]["value"]
+            == by_name["base14.gen_ai.retry.count"]["value"]
         )
+        assert metric_total("base14.gen_ai.fallback.count", fallback_attrs) - fallbacks_before == 1
         assert (
-            metric_total(
-                "base14.gen_ai.fallback.count",
-                metrics_by_name["base14.gen_ai.fallback.count"]["attrs"],
-            )
-            - fallbacks_before
-            == metrics_by_name["base14.gen_ai.fallback.count"]["value"]
-        )
-        assert (
-            metric_total(
-                "base14.gen_ai.error.count",
-                metrics_by_name["base14.gen_ai.error.count"]["attrs"],
-            )
+            metric_total("base14.gen_ai.error.count", {"gen_ai.provider.name": "anthropic"})
             - errors_before
-            == metrics_by_name["base14.gen_ai.error.count"]["value"]
+            == 1
         )
-
-        fallback_tokens = {"gen_ai.request.model": setup["fallback_model"]}
-        assert metric_total(
-            "gen_ai.client.token.usage", {**fallback_tokens, "gen_ai.token.type": "input"}
-        ) == pytest.approx(vector["mock_behavior"]["fallback"]["input_tokens"])
-        assert metric_total("base14.gen_ai.cost", fallback_tokens) > 0
         assert (
-            metric_total(
-                "gen_ai.client.token.usage", {"gen_ai.request.model": setup["primary_model"]}
-            )
-            == primary_tokens_before
+            metric_total("base14.gen_ai.cost", {"gen_ai.request.model": setup["fallback_model"]})
+            > 0
         )

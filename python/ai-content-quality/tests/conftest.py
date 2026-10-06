@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from opentelemetry import metrics, trace
+from opentelemetry.instrumentation.genai.anthropic import AnthropicInstrumentor
+from opentelemetry.instrumentation.genai.openai import OpenAIInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import TracerProvider
@@ -10,6 +12,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import content_quality.telemetry as telemetry_mod
+from content_quality.genai_spans import GenAISpanExporter, LLMCallAttributesProcessor
 
 
 # Registered here, before any test module imports content_quality.main, so the
@@ -22,9 +25,12 @@ SPAN_EXPORTER = InMemorySpanExporter()
 METRIC_READER = InMemoryMetricReader()
 
 _tracer_provider = TracerProvider()
-_tracer_provider.add_span_processor(SimpleSpanProcessor(SPAN_EXPORTER))
+_tracer_provider.add_span_processor(LLMCallAttributesProcessor())
+_tracer_provider.add_span_processor(SimpleSpanProcessor(GenAISpanExporter(SPAN_EXPORTER)))
 trace.set_tracer_provider(_tracer_provider)
 metrics.set_meter_provider(MeterProvider(metric_readers=[METRIC_READER]))
+OpenAIInstrumentor().instrument()
+AnthropicInstrumentor().instrument()
 
 
 # content_quality.main calls setup_telemetry(...) at import time, which would
@@ -54,6 +60,19 @@ def span_exporter() -> InMemorySpanExporter:
     """In-memory span exporter, cleared before each test that uses it."""
     SPAN_EXPORTER.clear()
     return SPAN_EXPORTER
+
+
+@pytest.fixture
+def capture_content(monkeypatch):
+    """Re-instruments with `SPAN_ONLY` capture. The instrumentation reads the variable once,
+    when it is instrumented, so setting it inside a test changes nothing on its own."""
+    monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "SPAN_ONLY")
+    OpenAIInstrumentor().uninstrument()
+    OpenAIInstrumentor().instrument()
+    yield
+    monkeypatch.delenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT")
+    OpenAIInstrumentor().uninstrument()
+    OpenAIInstrumentor().instrument()
 
 
 @pytest.fixture

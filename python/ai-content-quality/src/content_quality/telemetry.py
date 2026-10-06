@@ -16,6 +16,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from content_quality.genai_spans import GenAISpanExporter, LLMCallAttributesProcessor
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +34,10 @@ def setup_telemetry(
     3. Log provider with OTLP exporter (for logs with trace correlation)
     4. Auto-instrumentation for logging (trace_id/span_id correlation)
 
-    GenAI telemetry (spans, metrics, events) is handled by custom instrumentation
-    in llm.py following OTel GenAI semantic conventions. LlamaIndex has no OTel GenAI
-    instrumentation that emits the current semconv names, so this example instruments
-    the LLM calls by hand.
+    5. The OpenTelemetry GenAI instrumentations for the OpenAI, Anthropic and Google
+       Gen AI SDKs, which LlamaIndex's integrations call. They record a `chat {model}`
+       span and the gen_ai.client.* metrics per call. `genai_spans.py` adds the request
+       context, the provider for Ollama, the cost and PII scrubbing to those spans.
 
     Args:
         service_name: Service identifier for all telemetry
@@ -59,8 +61,11 @@ def setup_telemetry(
 
     # Traces
     trace_provider = TracerProvider(resource=resource)
+    trace_provider.add_span_processor(LLMCallAttributesProcessor())
     trace_provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{otlp_endpoint}/v1/traces"))
+        BatchSpanProcessor(
+            GenAISpanExporter(OTLPSpanExporter(endpoint=f"{otlp_endpoint}/v1/traces"))
+        )
     )
     trace.set_tracer_provider(trace_provider)
 
@@ -87,6 +92,15 @@ def setup_telemetry(
 
     # Auto-instrumentation: logging (adds trace_id/span_id to log records)
     LoggingInstrumentor().instrument(set_logging_format=True)
+
+    # GenAI: one `chat {model}` span per SDK call, plus the gen_ai.client.* metrics.
+    from opentelemetry.instrumentation.genai.anthropic import AnthropicInstrumentor
+    from opentelemetry.instrumentation.genai.openai import OpenAIInstrumentor
+    from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
+
+    OpenAIInstrumentor().instrument()  # type: ignore[no-untyped-call]
+    AnthropicInstrumentor().instrument()
+    GoogleGenAiSdkInstrumentor().instrument()
 
     logger.info(
         "OpenTelemetry initialized",

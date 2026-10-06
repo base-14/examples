@@ -1,25 +1,19 @@
-import os
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 from llama_index.core.llms import ChatMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 import content_quality.services.llm as llm_mod
+from content_quality.pricing import PRICING, calculate_cost
 from content_quality.services.llm import (
-    PRICING,
     LLMClient,
-    _calculate_cost,
     _chat_and_parse,
     _extract_raw_usage,
     _extract_token_counts,
-    _is_content_capture_enabled,
     _on_retry,
-    _raw_get,
-    _record_token_metrics,
-    _set_initial_span_attrs,
-    _set_response_attrs,
     _strip_markdown_json,
     create_llm,
 )
@@ -85,165 +79,28 @@ def _make_prompt_template(template: str = "Analyze: {content}") -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# _calculate_cost
+# calculate_cost
 # ---------------------------------------------------------------------------
 
 
 def test_calculate_cost_known_model() -> None:
-    cost = _calculate_cost("gpt-4.1-nano", 1000, 500)
-    expected = (1000 * 0.10 + 500 * 0.40) / 1_000_000
-    assert cost == pytest.approx(expected)
+    assert calculate_cost("gpt-4.1", 1_000_000, 0) == pytest.approx(2.0)
 
 
-def test_calculate_cost_anthropic_model() -> None:
-    cost = _calculate_cost("claude-sonnet-4-20250514", 1000, 200)
-    expected = (1000 * 3.0 + 200 * 15.0) / 1_000_000
-    assert cost == pytest.approx(expected)
+def test_calculate_cost_dash_minor_anthropic_id() -> None:
+    assert calculate_cost("claude-opus-4-6", 0, 0) == 0.0
+    assert calculate_cost("claude-opus-4-6", 1_000_000, 0) == pytest.approx(
+        PRICING["claude-opus-4.6"]["input"]
+    )
 
 
-def test_calculate_cost_opus_4_6() -> None:
-    cost = _calculate_cost("claude-opus-4-6", 1000, 500)
-    expected = (1000 * 5.0 + 500 * 25.0) / 1_000_000
-    assert cost == pytest.approx(expected)
+def test_calculate_cost_unknown_model_is_zero() -> None:
+    assert calculate_cost("qwen3.5:9B", 1000, 1000) == 0.0
 
 
-def test_calculate_cost_unknown_model_uses_fallback() -> None:
-    cost = _calculate_cost("unknown-model-xyz", 1000, 500)
-    assert cost == 0.0
-
-
-def test_calculate_cost_zero_tokens() -> None:
-    assert _calculate_cost("gpt-4.1-nano", 0, 0) == 0.0
-
-
-# ---------------------------------------------------------------------------
-# _is_content_capture_enabled
-# ---------------------------------------------------------------------------
-
-
-def test_content_capture_disabled_by_default() -> None:
-    with patch.dict(os.environ, {}, clear=False):
-        os.environ.pop("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", None)
-        assert _is_content_capture_enabled() is False
-
-
-def test_content_capture_enabled_when_true() -> None:
-    with patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}):
-        assert _is_content_capture_enabled() is True
-
-
-def test_content_capture_enabled_case_insensitive() -> None:
-    with patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "True"}):
-        assert _is_content_capture_enabled() is True
-
-
-def test_content_capture_disabled_when_false() -> None:
-    with patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "false"}):
-        assert _is_content_capture_enabled() is False
-
-
-# ---------------------------------------------------------------------------
-# _record_token_metrics
-# ---------------------------------------------------------------------------
-
-
-def test_token_metrics_records_when_tokens_available() -> None:
-    span = MagicMock()
-    mock_histogram = MagicMock()
-    mock_cost = MagicMock()
-    chat_resp = _make_chat_response(input_tokens=150, output_tokens=80)
-    common_attrs = {
-        "gen_ai.request.model": "gpt-4.1-nano",
-        "gen_ai.provider.name": "openai",
-        "gen_ai.response.model": "gpt-4.1-nano",
-        "server.address": "api.openai.com",
-        "server.port": 443,
-    }
-
-    with (
-        patch.object(llm_mod, "token_usage", mock_histogram),
-        patch.object(llm_mod, "cost_counter", mock_cost),
-    ):
-        _record_token_metrics(chat_resp, common_attrs, "gpt-4.1-nano", "blog", "/review", span)
-
-    span.set_attribute.assert_any_call("gen_ai.usage.input_tokens", 150)
-    span.set_attribute.assert_any_call("gen_ai.usage.output_tokens", 80)
-
-    histogram_calls = mock_histogram.record.call_args_list
-    assert len(histogram_calls) == 2
-    assert histogram_calls[0].args[0] == 150
-    assert histogram_calls[0].args[1]["gen_ai.token.type"] == "input"
-    assert histogram_calls[1].args[0] == 80
-    assert histogram_calls[1].args[1]["gen_ai.token.type"] == "output"
-
-    mock_cost.add.assert_called_once()
-    cost_attrs = mock_cost.add.call_args.args[1]
-    assert cost_attrs["base14.content.type"] == "blog"
-    assert cost_attrs["base14.endpoint"] == "/review"
-
-
-def test_token_metrics_skipped_when_tokens_unavailable() -> None:
-    span = MagicMock()
-    mock_histogram = MagicMock()
-    chat_resp = _make_chat_response(input_tokens=None, output_tokens=None)
-    common_attrs = {
-        "gen_ai.request.model": "gpt-4.1-nano",
-        "gen_ai.provider.name": "openai",
-        "gen_ai.response.model": "gpt-4.1-nano",
-        "server.address": "api.openai.com",
-        "server.port": 443,
-    }
-
-    with patch.object(llm_mod, "token_usage", mock_histogram):
-        _record_token_metrics(chat_resp, common_attrs, "gpt-4.1-nano", "blog", "/review", span)
-
-    mock_histogram.record.assert_not_called()
-    span.set_attribute.assert_not_called()
-
-
-def test_token_metrics_uses_alternate_key_names() -> None:
-    span = MagicMock()
-    resp = MagicMock()
-    resp.additional_kwargs = {"input_tokens": 200, "output_tokens": 100}
-    common_attrs = {
-        "gen_ai.request.model": "gemini-2.5-flash-lite",
-        "gen_ai.provider.name": "gcp.gemini",
-        "gen_ai.response.model": "gemini-2.5-flash-lite",
-        "server.address": "generativelanguage.googleapis.com",
-        "server.port": 443,
-    }
-
-    with (
-        patch.object(llm_mod, "token_usage", MagicMock()),
-        patch.object(llm_mod, "cost_counter", MagicMock()),
-    ):
-        _record_token_metrics(
-            resp, common_attrs, "gemini-2.5-flash-lite", "technical", "/score", span
-        )
-
-    span.set_attribute.assert_any_call("gen_ai.usage.input_tokens", 200)
-    span.set_attribute.assert_any_call("gen_ai.usage.output_tokens", 100)
-
-
-def test_token_metrics_records_cost_on_span() -> None:
-    span = MagicMock()
-    chat_resp = _make_chat_response(input_tokens=1000, output_tokens=500)
-    common_attrs = {
-        "gen_ai.request.model": "gpt-4.1-nano",
-        "gen_ai.provider.name": "openai",
-        "gen_ai.response.model": "gpt-4.1-nano",
-        "server.address": "api.openai.com",
-        "server.port": 443,
-    }
-
-    with (
-        patch.object(llm_mod, "token_usage", MagicMock()),
-        patch.object(llm_mod, "cost_counter", MagicMock()),
-    ):
-        _record_token_metrics(chat_resp, common_attrs, "gpt-4.1-nano", "general", "/review", span)
-
-    expected_cost = _calculate_cost("gpt-4.1-nano", 1000, 500)
-    span.set_attribute.assert_any_call("base14.gen_ai.cost_usd", expected_cost)
+def test_pricing_loaded_from_shared_json() -> None:
+    assert PRICING["gpt-4.1"]["input"] == pytest.approx(2.0)
+    assert PRICING["gpt-4.1"]["output"] == pytest.approx(8.0)
 
 
 # ---------------------------------------------------------------------------
@@ -323,82 +180,6 @@ def test_extract_token_counts_returns_none_when_absent() -> None:
     assert output_tokens is None
 
 
-def test_raw_get_from_dict() -> None:
-    raw = {"model": "claude-3-5-haiku", "id": "msg_abc", "stop_reason": "end_turn"}
-    get = _raw_get(raw)
-    assert get("model") == "claude-3-5-haiku"
-    assert get("id") == "msg_abc"
-    assert get("stop_reason") == "end_turn"
-    assert get("missing") is None
-
-
-def test_raw_get_from_object() -> None:
-    raw = MagicMock()
-    raw.model = "gpt-4.1-nano"
-    get = _raw_get(raw)
-    assert get("model") == "gpt-4.1-nano"
-
-
-def test_raw_get_from_none() -> None:
-    get = _raw_get(None)
-    assert get("model") is None
-
-
-# ---------------------------------------------------------------------------
-# _record_token_metrics - Anthropic-style (tokens in raw dict)
-# ---------------------------------------------------------------------------
-
-
-def test_token_metrics_from_anthropic_raw_dict() -> None:
-    span = MagicMock()
-    resp = MagicMock()
-    resp.additional_kwargs = {}
-    resp.raw = {"usage": {"input_tokens": 400, "output_tokens": 150}, "id": "msg_123"}
-
-    common_attrs = {
-        "gen_ai.request.model": "claude-3-5-haiku-20241022",
-        "gen_ai.provider.name": "anthropic",
-        "gen_ai.response.model": "claude-3-5-haiku-20241022",
-        "server.address": "api.anthropic.com",
-        "server.port": 443,
-    }
-
-    with (
-        patch.object(llm_mod, "token_usage", MagicMock()),
-        patch.object(llm_mod, "cost_counter", MagicMock()),
-    ):
-        _record_token_metrics(
-            resp, common_attrs, "claude-3-5-haiku-20241022", "marketing", "/review", span
-        )
-
-    span.set_attribute.assert_any_call("gen_ai.usage.input_tokens", 400)
-    span.set_attribute.assert_any_call("gen_ai.usage.output_tokens", 150)
-
-
-# ---------------------------------------------------------------------------
-# _set_response_attrs - Anthropic-style (attrs in raw dict)
-# ---------------------------------------------------------------------------
-
-
-def test_set_response_attrs_from_anthropic_raw_dict() -> None:
-    span = MagicMock()
-    resp = MagicMock()
-    resp.additional_kwargs = {}
-    resp.raw = {
-        "model": "claude-3-5-haiku-20241022",
-        "id": "msg_abc123",
-        "stop_reason": "end_turn",
-    }
-
-    response_model, finish_reason = _set_response_attrs(resp, span, "claude-3-5-haiku-20241022")
-
-    assert response_model == "claude-3-5-haiku-20241022"
-    assert finish_reason == "end_turn"
-    span.set_attribute.assert_any_call("gen_ai.response.model", "claude-3-5-haiku-20241022")
-    span.set_attribute.assert_any_call("gen_ai.response.id", "msg_abc123")
-    span.set_attribute.assert_any_call("gen_ai.response.finish_reasons", ["end_turn"])
-
-
 # ---------------------------------------------------------------------------
 # _strip_markdown_json
 # ---------------------------------------------------------------------------
@@ -464,412 +245,93 @@ def test_on_retry_handles_missing_kwargs() -> None:
 
 
 # ---------------------------------------------------------------------------
-# generate_structured - span creation & attributes
+# generate_structured - behaviour over a mocked LlamaIndex LLM
 # ---------------------------------------------------------------------------
 
 
-def _setup_generate_mocks(
-    content: str = '{"answer": "yes"}',
-    input_tokens: int | None = 100,
-    output_tokens: int | None = 50,
-    model_name: str = "gpt-4.1-nano",
-    provider: str = "openai",
-    response_model: str | None = None,
-    response_id: str | None = None,
-    finish_reason: str | None = None,
-) -> tuple[LLMClient, MagicMock, MagicMock]:
-    llm = _make_llm(model_name)
-    chat_resp = _make_chat_response(
-        content,
-        input_tokens,
-        output_tokens,
-        response_model=response_model,
-        response_id=response_id,
-        finish_reason=finish_reason,
-    )
-    llm.achat = AsyncMock(return_value=chat_resp)
-
-    client = LLMClient(
-        provider=provider,
-        model=model_name,
-        llm=llm,
-        fallback_provider="google",
-        fallback_model="gemini-2.5-flash-lite",
-        fallback_llm=None,
-    )
-
-    span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-
-    tracer = MagicMock()
-    tracer.start_as_current_span.return_value = span
-
-    return client, tracer, span
+def _client_with(llm: MagicMock, provider: str = "openai") -> LLMClient:
+    return LLMClient(provider=provider, model=llm.metadata.model_name, llm=llm)
 
 
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_creates_span_with_correct_name() -> None:
-    client, tracer, _span = _setup_generate_mocks()
+async def test_generate_returns_parsed_pydantic_model() -> None:
+    llm = _make_llm()
+    llm.achat = AsyncMock(return_value=_make_chat_response(content='{"answer": "42"}'))
 
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
+    with patch.object(llm_mod, "cost_counter", MagicMock()):
+        result = await _client_with(llm).generate_structured(
+            _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
-    from opentelemetry.trace import SpanKind
-
-    tracer.start_as_current_span.assert_called_once_with("chat gpt-4.1-nano", kind=SpanKind.CLIENT)
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_sets_content_attributes_on_span() -> None:
-    client, tracer, span = _setup_generate_mocks()
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client,
-            _make_prompt_template(),
-            FakeResult,
-            "hello world",
-            content_type="marketing",
-            endpoint="/review",
-        )
-
-    span.set_attribute.assert_any_call("base14.content.type", "marketing")
-    span.set_attribute.assert_any_call("base14.content.length", 11)
-    span.set_attribute.assert_any_call("base14.endpoint", "/review")
-    span.set_attribute.assert_any_call("gen_ai.operation.name", "chat")
-    span.set_attribute.assert_any_call("gen_ai.output.type", "json")
-    span.set_attribute.assert_any_call("server.address", "api.openai.com")
-    span.set_attribute.assert_any_call("server.port", 443)
+    assert isinstance(result, FakeResult)
+    assert result.answer == "42"
 
 
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_sets_model_attributes_on_span() -> None:
-    client, tracer, span = _setup_generate_mocks(
-        model_name="gemini-2.5-flash-lite", provider="google"
-    )
+async def test_generate_passes_system_prompt_and_schema_first() -> None:
+    llm = _make_llm()
+    llm.achat = AsyncMock(return_value=_make_chat_response())
 
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/score"
-        )
-
-    span.set_attribute.assert_any_call("gen_ai.request.model", "gemini-2.5-flash-lite")
-    span.set_attribute.assert_any_call("gen_ai.provider.name", "gcp.gemini")
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_sets_temperature_on_span() -> None:
-    client, tracer, span = _setup_generate_mocks()
-    client.llm.temperature = 0.7
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    span.set_attribute.assert_any_call("gen_ai.request.temperature", 0.7)
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_skips_temperature_when_not_available() -> None:
-    client, tracer, span = _setup_generate_mocks()
-    del client.llm.temperature
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    temp_calls = [
-        c for c in span.set_attribute.call_args_list if c.args[0] == "gen_ai.request.temperature"
-    ]
-    assert len(temp_calls) == 0
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-async def test_generate_records_operation_duration() -> None:
-    client, tracer, _span = _setup_generate_mocks()
-    mock_duration = MagicMock()
-
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.object(llm_mod, "operation_duration", mock_duration),
-    ):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    mock_duration.record.assert_called_once()
-    duration_val = mock_duration.record.call_args.args[0]
-    assert duration_val > 0
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_records_token_histograms() -> None:
-    client, tracer, _span = _setup_generate_mocks(input_tokens=200, output_tokens=100)
-    mock_tokens = MagicMock()
-
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.object(llm_mod, "token_usage", mock_tokens),
-    ):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    assert mock_tokens.record.call_count == 2
-    input_call, output_call = mock_tokens.record.call_args_list
-    assert input_call.args[0] == 200
-    assert input_call.args[1]["gen_ai.token.type"] == "input"
-    assert output_call.args[0] == 100
-    assert output_call.args[1]["gen_ai.token.type"] == "output"
-
-
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_records_cost() -> None:
-    client, tracer, _span = _setup_generate_mocks(input_tokens=1000, output_tokens=500)
-    mock_cost = MagicMock()
-
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.object(llm_mod, "cost_counter", mock_cost),
-    ):
-        await LLMClient._generate_with_retry(
-            client,
+    with patch.object(llm_mod, "cost_counter", MagicMock()):
+        await _client_with(llm).generate_structured(
             _make_prompt_template(),
             FakeResult,
             "test",
-            content_type="technical",
-            endpoint="/score",
-        )
-
-    mock_cost.add.assert_called_once()
-    cost_val = mock_cost.add.call_args.args[0]
-    expected = _calculate_cost("gpt-4.1-nano", 1000, 500)
-    assert cost_val == pytest.approx(expected)
-    attrs = mock_cost.add.call_args.args[1]
-    assert attrs["base14.content.type"] == "technical"
-    assert attrs["base14.endpoint"] == "/score"
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_emits_single_inference_event() -> None:
-    client, tracer, span = _setup_generate_mocks()
-
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
-    ):
-        await LLMClient._generate_with_retry(
-            client,
-            _make_prompt_template(),
-            FakeResult,
-            "test",
-            system_prompt="Contact john@test.com",
             endpoint="/review",
+            system_prompt="Be helpful",
         )
 
-    assert span.add_event.call_count == 1
-    assert span.add_event.call_args_list[0].args[0] == "gen_ai.client.inference.operation.details"
-
-    event_attrs = span.add_event.call_args_list[0].args[1]
-    assert "gen_ai.input.messages" in event_attrs
-    assert "[EMAIL]" in event_attrs["gen_ai.system_instructions"]
-    assert "john@test.com" not in event_attrs["gen_ai.system_instructions"]
-    assert "gen_ai.output.messages" in event_attrs
+    messages = llm.achat.call_args.args[0]
+    assert len(messages) == 2
+    assert messages[0].role == "system"
+    assert "Be helpful" in messages[0].content
+    assert "JSON" in messages[0].content
+    assert messages[1].role == "user"
 
 
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_user_event_omits_system_instructions_when_no_system_prompt() -> None:
-    client, tracer, span = _setup_generate_mocks()
+async def test_generate_records_cost_counter() -> None:
+    llm = _make_llm("gpt-4.1")
+    llm.achat = AsyncMock(return_value=_make_chat_response(input_tokens=1_000_000, output_tokens=0))
+    cost = MagicMock()
 
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
-    ):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
+    with patch.object(llm_mod, "cost_counter", cost):
+        await _client_with(llm).generate_structured(
+            _make_prompt_template(), FakeResult, "test", content_type="blog", endpoint="/review"
         )
 
-    event_attrs = span.add_event.call_args_list[0].args[1]
-    assert "gen_ai.system_instructions" not in event_attrs
-    assert "gen_ai.input.messages" in event_attrs
+    value, attrs = cost.add.call_args.args
+    assert value == pytest.approx(2.0)
+    assert attrs["gen_ai.request.model"] == "gpt-4.1"
+    assert attrs["base14.content.type"] == "blog"
+    assert attrs["base14.endpoint"] == "/review"
 
 
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_span_events_truncate_content() -> None:
-    client, tracer, span = _setup_generate_mocks()
-    long_response = _make_chat_response(content='{"answer": "' + "x" * 2500 + '"}')
-    client.llm.achat = AsyncMock(return_value=long_response)
+async def test_generate_skips_cost_when_tokens_unavailable() -> None:
+    llm = _make_llm()
+    llm.achat = AsyncMock(return_value=_make_chat_response(input_tokens=None, output_tokens=None))
+    cost = MagicMock()
 
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}),
-    ):
-        await LLMClient._generate_with_retry(
-            client,
-            _make_prompt_template(),
-            FakeResult,
-            "test",
-            system_prompt="y" * 1000,
-            endpoint="/review",
+    with patch.object(llm_mod, "cost_counter", cost):
+        await _client_with(llm).generate_structured(
+            _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
-    event_attrs = span.add_event.call_args_list[0].args[1]
-    assert len(event_attrs["gen_ai.system_instructions"]) <= 500
-    assert len(event_attrs["gen_ai.output.messages"]) <= 2000
+    cost.add.assert_not_called()
 
 
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_skips_span_event_when_content_capture_disabled() -> None:
-    client, tracer, span = _setup_generate_mocks()
-
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.dict(os.environ, {}, clear=False),
-    ):
-        os.environ.pop("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", None)
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    span.add_event.assert_not_called()
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_sets_response_model_on_span() -> None:
-    client, tracer, span = _setup_generate_mocks(
-        model_name="gpt-4.1-nano", response_model="gpt-4.1-nano-2025-04-14"
-    )
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    span.set_attribute.assert_any_call("gen_ai.response.model", "gpt-4.1-nano-2025-04-14")
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_response_model_falls_back_to_request_model() -> None:
-    client, tracer, span = _setup_generate_mocks(model_name="gpt-4.1-nano")
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    span.set_attribute.assert_any_call("gen_ai.response.model", "gpt-4.1-nano")
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_common_attrs_include_server_address_and_response_model() -> None:
-    client, tracer, _span = _setup_generate_mocks(input_tokens=100, output_tokens=50)
-    mock_tokens = MagicMock()
-
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.object(llm_mod, "token_usage", mock_tokens),
-    ):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    token_attrs = mock_tokens.record.call_args_list[0].args[1]
-    assert token_attrs["server.address"] == "api.openai.com"
-    assert token_attrs["server.port"] == 443
-    assert token_attrs["gen_ai.response.model"] == "gpt-4.1-nano"
-
-
-# ---------------------------------------------------------------------------
-# generate_structured - error path
-# ---------------------------------------------------------------------------
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_error_records_exception_on_span() -> None:
-    client = _make_client()
-    client.llm.achat = AsyncMock(side_effect=RuntimeError("LLM crashed"))
-
-    span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-    tracer = MagicMock()
-    tracer.start_as_current_span.return_value = span
-
-    with (
-        patch.object(llm_mod, "tracer", tracer),
-        pytest.raises(RuntimeError, match="LLM crashed"),
-    ):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    span.record_exception.assert_called_once()
-    span.set_status.assert_called_once()
-    status_args = span.set_status.call_args.args
-    from opentelemetry.trace import StatusCode
-
-    assert status_args[0] == StatusCode.ERROR
-    span.set_attribute.assert_any_call("error.type", "RuntimeError")
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
 async def test_generate_error_increments_error_counter() -> None:
-    client = _make_client("gpt-4.1-mini")
-    client.llm.achat = AsyncMock(side_effect=ValueError("bad response"))
-
-    span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-    tracer = MagicMock()
-    tracer.start_as_current_span.return_value = span
-    mock_errors = MagicMock()
+    llm = _make_llm("gpt-4.1-mini")
+    llm.achat = AsyncMock(side_effect=ValueError("bad response"))
+    errors = MagicMock()
 
     with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.object(llm_mod, "error_counter", mock_errors),
+        patch.object(llm_mod, "error_counter", errors),
+        patch.object(llm_mod, "_chat_and_parse_with_retry", _no_retry),
         pytest.raises(ValueError, match="bad response"),
     ):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
+        await _client_with(llm).generate_structured(
+            _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
-    mock_errors.add.assert_called_once_with(
+    errors.add.assert_called_once_with(
         1,
         {
             "gen_ai.request.model": "gpt-4.1-mini",
@@ -879,166 +341,74 @@ async def test_generate_error_increments_error_counter() -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# generate_structured - retry triggers retry_counter via @retry decorator
-# ---------------------------------------------------------------------------
+async def _no_retry(**kwargs: object) -> BaseModel:
+    kwargs["messages"] = list(kwargs.pop("base_messages"))  # type: ignore[arg-type]
+    return await _chat_and_parse(
+        kwargs["llm"],  # type: ignore[arg-type]
+        kwargs["messages"],  # type: ignore[arg-type]
+        kwargs["achat_kwargs"],  # type: ignore[arg-type]
+        kwargs["output_cls"],  # type: ignore[arg-type]
+        kwargs["model_name"],  # type: ignore[arg-type]
+        kwargs["provider"],  # type: ignore[arg-type]
+        kwargs["content_type"],  # type: ignore[arg-type]
+        kwargs["endpoint"],  # type: ignore[arg-type]
+    )
 
 
 async def test_generate_retry_increments_retry_counter() -> None:
-    client = _make_client()
-    chat_resp = _make_chat_response()
-
-    call_count = 0
-
-    async def flaky_achat(*args: object, **kwargs: object) -> MagicMock:
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            raise httpx.ConnectError("connection refused")
-        return chat_resp
-
-    client.llm.achat = flaky_achat
-
-    span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-    tracer = MagicMock()
-    tracer.start_as_current_span.return_value = span
-    mock_retries = MagicMock()
+    llm = _make_llm()
+    llm.achat = AsyncMock(
+        side_effect=[httpx.ConnectError("connection refused"), _make_chat_response()]
+    )
+    retries = MagicMock()
 
     with (
-        patch.object(llm_mod, "tracer", tracer),
-        patch.object(llm_mod, "retry_counter", mock_retries),
-        patch.object(llm_mod, "token_usage", MagicMock()),
-        patch.object(llm_mod, "operation_duration", MagicMock()),
+        patch.object(llm_mod, "retry_counter", retries),
         patch.object(llm_mod, "cost_counter", MagicMock()),
     ):
-        result = await client.generate_structured(
+        result = await _client_with(llm).generate_structured(
             _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
     assert isinstance(result, FakeResult)
-    mock_retries.add.assert_called_once()
-    retry_attrs = mock_retries.add.call_args.args[1]
-    assert "error.type" in retry_attrs
-    assert "base14.retry.attempt" in retry_attrs
+    retries.add.assert_called_once()
+    retry_attrs = retries.add.call_args.args[1]
+    assert retry_attrs["error.type"] == "ConnectError"
+    assert retry_attrs["base14.retry.attempt"] == 1
 
 
-# ---------------------------------------------------------------------------
-# generate_structured - returns parsed result
-# ---------------------------------------------------------------------------
+async def test_generate_asks_again_on_validation_error() -> None:
+    llm = _make_llm()
+    llm.achat = AsyncMock(
+        side_effect=[
+            _make_chat_response(content='{"wrong_field": "oops"}'),
+            _make_chat_response(content='{"answer": "fixed"}'),
+        ]
+    )
 
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_returns_parsed_pydantic_model() -> None:
-    client, tracer, _span = _setup_generate_mocks(content='{"answer": "42"}')
-
-    with patch.object(llm_mod, "tracer", tracer):
-        result = await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    assert isinstance(result, FakeResult)
-    assert result.answer == "42"
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_passes_system_prompt_as_first_message() -> None:
-    client, tracer, _span = _setup_generate_mocks()
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client,
-            _make_prompt_template(),
-            FakeResult,
-            "test",
-            system_prompt="Be helpful",
-            endpoint="/review",
-        )
-
-    messages = client.llm.achat.call_args.args[0]
-    assert messages[0].role == "system"
-    assert "Be helpful" in messages[0].content
-    assert messages[1].role == "user"
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_includes_json_schema_in_system_message() -> None:
-    client, tracer, _span = _setup_generate_mocks()
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    messages = client.llm.achat.call_args.args[0]
-    assert len(messages) == 2
-    assert messages[0].role == "system"
-    assert "JSON" in messages[0].content
-    assert messages[1].role == "user"
-
-
-# ---------------------------------------------------------------------------
-# generate_structured - parse retry on ValidationError
-# ---------------------------------------------------------------------------
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_retries_on_validation_error() -> None:
-    client = _make_client()
-    bad_resp = _make_chat_response(content='{"wrong_field": "oops"}')
-    good_resp = _make_chat_response(content='{"answer": "fixed"}')
-
-    client.llm.achat = AsyncMock(side_effect=[bad_resp, good_resp])
-
-    span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-    tracer = MagicMock()
-    tracer.start_as_current_span.return_value = span
-
-    with patch.object(llm_mod, "tracer", tracer):
-        result = await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
+    with patch.object(llm_mod, "cost_counter", MagicMock()):
+        result = await _client_with(llm).generate_structured(
+            _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
     assert isinstance(result, FakeResult)
     assert result.answer == "fixed"
-    assert client.llm.achat.call_count == 2
-    correction_msgs = client.llm.achat.call_args.args[0]
-    assert any(m.role == "user" and "schema" in str(m.content).lower() for m in correction_msgs)
+    assert llm.achat.call_count == 2
+    correction = llm.achat.call_args.args[0]
+    assert any(m.role == "user" and "schema" in str(m.content).lower() for m in correction)
 
 
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_raises_after_max_parse_retries() -> None:
-    """_chat_and_parse's own schema-correction loop, isolated from the outer
-    network-level retry that wraps it via _chat_and_parse_with_retry."""
+async def test_chat_and_parse_raises_after_max_parse_retries() -> None:
     llm = _make_llm()
-    bad_resp = _make_chat_response(content='{"wrong": "data"}')
-    llm.achat = AsyncMock(return_value=bad_resp)
-    span = MagicMock()
+    llm.achat = AsyncMock(return_value=_make_chat_response(content='{"wrong": "data"}'))
 
-    from pydantic import ValidationError
-
-    with pytest.raises(ValidationError):
+    with patch.object(llm_mod, "cost_counter", MagicMock()), pytest.raises(ValidationError):
         await _chat_and_parse(
             llm,
             [ChatMessage(role="system", content="schema"), ChatMessage(role="user", content="x")],
             {},
             FakeResult,
-            span,
             "gpt-4.1-nano",
-            "api.openai.com",
             "openai",
             "general",
             "/review",
@@ -1047,141 +417,27 @@ async def test_generate_raises_after_max_parse_retries() -> None:
     assert llm.achat.call_count == 3  # initial + 2 corrections
 
 
-# ---------------------------------------------------------------------------
-# _set_initial_span_attrs - direct unit tests
-# ---------------------------------------------------------------------------
-
-
-def test_set_initial_span_attrs_skips_server_address_when_empty() -> None:
-    span = MagicMock()
-    llm = _make_llm(temperature=0.5)
-
-    _set_initial_span_attrs(span, llm, "gpt-4.1-nano", "", "blog", "hello", "/review")
-
-    server_addr_calls = [
-        c for c in span.set_attribute.call_args_list if c.args[0] == "server.address"
-    ]
-    assert len(server_addr_calls) == 0
-    span.set_attribute.assert_any_call("gen_ai.request.temperature", 0.5)
-    span.set_attribute.assert_any_call("base14.content.type", "blog")
-    span.set_attribute.assert_any_call("base14.content.length", 5)
-
-
-def test_set_initial_span_attrs_sets_all_attributes() -> None:
-    span = MagicMock()
-    llm = _make_llm(temperature=0.3)
-
-    _set_initial_span_attrs(
-        span, llm, "gpt-4.1-nano", "api.openai.com", "technical", "test content", "/score"
-    )
-
-    span.set_attribute.assert_any_call("gen_ai.operation.name", "chat")
-    span.set_attribute.assert_any_call("gen_ai.request.model", "gpt-4.1-nano")
-    span.set_attribute.assert_any_call("server.address", "api.openai.com")
-    span.set_attribute.assert_any_call("server.port", 443)
-    span.set_attribute.assert_any_call("gen_ai.output.type", "json")
-    span.set_attribute.assert_any_call("gen_ai.request.temperature", 0.3)
-    span.set_attribute.assert_any_call("base14.content.type", "technical")
-    span.set_attribute.assert_any_call("base14.content.length", 12)
-    span.set_attribute.assert_any_call("base14.endpoint", "/score")
-
-
-# ---------------------------------------------------------------------------
-# create_llm - error case
-# ---------------------------------------------------------------------------
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_sets_response_id_and_finish_reason_on_span() -> None:
-    client, tracer, span = _setup_generate_mocks(
-        response_id="chatcmpl-abc123", finish_reason="stop"
-    )
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    span.set_attribute.assert_any_call("gen_ai.response.id", "chatcmpl-abc123")
-    span.set_attribute.assert_any_call("gen_ai.response.finish_reasons", ["stop"])
-
-
-# ---------------------------------------------------------------------------
-# create_llm - error case
-# ---------------------------------------------------------------------------
-
-
-def test_create_llm_unknown_provider_raises() -> None:
-    with pytest.raises(ValueError, match="Unknown LLM provider"):
-        create_llm(provider="unknown_provider")
-
-
-@patch.object(llm_mod, "cost_counter", MagicMock())
-@patch.object(llm_mod, "token_usage", MagicMock())
-@patch.object(llm_mod, "operation_duration", MagicMock())
-async def test_generate_sets_port_11434_for_ollama() -> None:
-    client, tracer, span = _setup_generate_mocks(model_name="llama3.2", provider="ollama")
-
-    with patch.object(llm_mod, "tracer", tracer):
-        await LLMClient._generate_with_retry(
-            client, _make_prompt_template(), FakeResult, "test", endpoint="/review"
-        )
-
-    span.set_attribute.assert_any_call("server.port", 11434)
-
-
-def test_create_llm_ollama_uses_base_url() -> None:
-    mock_ollama_cls = MagicMock()
-    with patch.dict("sys.modules", {"llama_index.llms.ollama": MagicMock(Ollama=mock_ollama_cls)}):
-        create_llm(
-            provider="ollama",
-            model="llama3.2",
-            ollama_base_url="http://my-ollama:11434",
-            ollama_context_window=16384,
-        )
-    mock_ollama_cls.assert_called_once()
-    call_kwargs = mock_ollama_cls.call_args.kwargs
-    assert call_kwargs["model"] == "llama3.2"
-    assert call_kwargs["base_url"] == "http://my-ollama:11434"
-    assert call_kwargs["context_window"] == 16384
-    assert call_kwargs["thinking"] is False
-
-
-# ---------------------------------------------------------------------------
-# generate_structured - provider fallback
-# ---------------------------------------------------------------------------
-
-
 async def test_generate_uses_fallback_when_primary_fails() -> None:
-    fallback_llm = _make_llm("gemini-2.5-flash-lite")
-    fallback_chat_resp = _make_chat_response(content='{"answer": "from fallback"}')
-    fallback_llm.achat = AsyncMock(return_value=fallback_chat_resp)
-
+    primary = _make_llm()
+    primary.achat = AsyncMock(side_effect=RuntimeError("primary down"))
+    fallback = _make_llm("gemini-2.5-flash-lite")
+    fallback.achat = AsyncMock(
+        return_value=_make_chat_response(content='{"answer": "from fallback"}')
+    )
     client = LLMClient(
         provider="openai",
         model="gpt-4.1-nano",
-        llm=_make_llm(),
+        llm=primary,
         fallback_provider="google",
         fallback_model="gemini-2.5-flash-lite",
-        fallback_llm=fallback_llm,
+        fallback_llm=fallback,
     )
-    client.llm.achat = AsyncMock(side_effect=RuntimeError("primary down"))
-
-    span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-    mock_tracer = MagicMock()
-    mock_tracer.start_as_current_span.return_value = span
-    mock_fallback_ctr = MagicMock()
+    fallbacks = MagicMock()
 
     with (
-        patch.object(llm_mod, "tracer", mock_tracer),
-        patch.object(llm_mod, "fallback_counter", mock_fallback_ctr),
-        patch.object(llm_mod, "token_usage", MagicMock()),
-        patch.object(llm_mod, "operation_duration", MagicMock()),
+        patch.object(llm_mod, "fallback_counter", fallbacks),
         patch.object(llm_mod, "cost_counter", MagicMock()),
+        patch.object(llm_mod, "_chat_and_parse_with_retry", _no_retry),
     ):
         result = await client.generate_structured(
             _make_prompt_template(), FakeResult, "test", endpoint="/review"
@@ -1189,7 +445,7 @@ async def test_generate_uses_fallback_when_primary_fails() -> None:
 
     assert isinstance(result, FakeResult)
     assert result.answer == "from fallback"
-    mock_fallback_ctr.add.assert_called_once_with(
+    fallbacks.add.assert_called_once_with(
         1,
         {
             "gen_ai.provider.name": "openai",
@@ -1200,44 +456,112 @@ async def test_generate_uses_fallback_when_primary_fails() -> None:
 
 
 async def test_generate_raises_when_no_fallback_configured() -> None:
-    client = _make_client()
-    client.llm.achat = AsyncMock(side_effect=RuntimeError("primary down"))
-
-    span = MagicMock()
-    span.__enter__ = MagicMock(return_value=span)
-    span.__exit__ = MagicMock(return_value=False)
-    mock_tracer = MagicMock()
-    mock_tracer.start_as_current_span.return_value = span
+    llm = _make_llm()
+    llm.achat = AsyncMock(side_effect=RuntimeError("primary down"))
 
     with (
-        patch.object(llm_mod, "tracer", mock_tracer),
-        patch.object(llm_mod, "token_usage", MagicMock()),
-        patch.object(llm_mod, "operation_duration", MagicMock()),
-        patch.object(llm_mod, "cost_counter", MagicMock()),
+        patch.object(llm_mod, "_chat_and_parse_with_retry", _no_retry),
         pytest.raises(RuntimeError, match="primary down"),
     ):
-        await client.generate_structured(
+        await _client_with(llm).generate_structured(
             _make_prompt_template(), FakeResult, "test", endpoint="/review"
         )
 
 
 # ---------------------------------------------------------------------------
-# PRICING - loaded from _shared/pricing.json
+# create_llm
 # ---------------------------------------------------------------------------
 
 
-def test_pricing_loaded_from_shared_json() -> None:
-    """PRICING dict is loaded from _shared/pricing.json, not an inline dict.
+def test_create_llm_unknown_provider_raises() -> None:
+    with pytest.raises(ValueError, match="Unknown LLM provider"):
+        create_llm(provider="unknown_provider")
 
-    gpt-4.1 is in _shared/pricing.json but NOT in the old inline PRICING dict.
-    If PRICING is still inline, this test fails (KeyError or zero cost).
-    """
-    assert "gpt-4.1" in PRICING, (
-        "gpt-4.1 not found in PRICING - pricing may still be inline dict, not loaded from _shared/pricing.json"
+
+def test_create_llm_ollama_uses_the_openai_compatible_endpoint() -> None:
+    llm = create_llm(
+        provider="ollama",
+        model="qwen3.5:9B",
+        ollama_base_url="http://my-ollama:11434",
+        ollama_context_window=16384,
     )
-    assert PRICING["gpt-4.1"]["input"] == pytest.approx(2.0)
-    assert PRICING["gpt-4.1"]["output"] == pytest.approx(8.0)
+    assert type(llm).__name__ == "OpenAILike"
+    assert llm.api_base == "http://my-ollama:11434/v1"
+    assert llm.context_window == 16384
+    assert llm.max_retries == 0
+    assert llm.additional_kwargs == {"reasoning_effort": "none"}
 
-    # Cost for 1M input tokens at $2.00/M = $2.00
-    cost = _calculate_cost("gpt-4.1", 1_000_000, 0)
-    assert cost == pytest.approx(2.0)
+
+def test_create_llm_ollama_keeps_reasoning_when_asked() -> None:
+    llm = create_llm(provider="ollama", ollama_reasoning=True)
+    assert llm.additional_kwargs == {}
+
+
+# ---------------------------------------------------------------------------
+# The OpenAI instrumentation's spans, through LlamaIndex and a mock transport
+# ---------------------------------------------------------------------------
+
+
+def _ollama_completion(content: str) -> dict[str, object]:
+    return {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "qwen3.5:9B",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": content},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150},
+    }
+
+
+def _ollama_llm(content: str) -> object:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_ollama_completion(content))
+
+    llm = create_llm(provider="ollama", model="qwen3.5:9B")
+    llm._async_http_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))  # type: ignore[attr-defined]
+    return llm
+
+
+async def test_chat_span_carries_request_context_and_ollama_provider(span_exporter) -> None:
+    llm = _ollama_llm(json.dumps({"answer": "yes"}))
+    client = LLMClient(provider="ollama", model="qwen3.5:9B", llm=llm)  # type: ignore[arg-type]
+
+    with patch.object(llm_mod, "cost_counter", MagicMock()):
+        await client.generate_structured(
+            _make_prompt_template(),
+            FakeResult,
+            "four words of text",
+            content_type="blog",
+            endpoint="/review",
+        )
+
+    (span,) = [s for s in span_exporter.get_finished_spans() if s.name == "chat qwen3.5:9B"]
+    assert span.instrumentation_scope.name.startswith("opentelemetry.instrumentation.genai.openai")
+    assert span.attributes["gen_ai.provider.name"] == "ollama"
+    assert span.attributes["gen_ai.usage.input_tokens"] == 120
+    assert span.attributes["base14.endpoint"] == "/review"
+    assert span.attributes["base14.content.type"] == "blog"
+    assert span.attributes["base14.content.length"] == len("four words of text")
+    assert span.attributes["base14.gen_ai.cost_usd"] == 0.0
+    assert "gen_ai.input.messages" not in span.attributes
+
+
+async def test_captured_content_is_scrubbed(span_exporter, capture_content) -> None:
+    llm = _ollama_llm(json.dumps({"answer": "mail jane@example.com"}))
+    client = LLMClient(provider="ollama", model="qwen3.5:9B", llm=llm)  # type: ignore[arg-type]
+    template = MagicMock()
+    template.format.return_value = "Review: reach me at john@example.com"
+
+    with patch.object(llm_mod, "cost_counter", MagicMock()):
+        await client.generate_structured(template, FakeResult, "x", endpoint="/review")
+
+    (span,) = [s for s in span_exporter.get_finished_spans() if s.name == "chat qwen3.5:9B"]
+    assert "[EMAIL]" in span.attributes["gen_ai.input.messages"]
+    assert "john@example.com" not in span.attributes["gen_ai.input.messages"]
+    assert "jane@example.com" not in span.attributes["gen_ai.output.messages"]

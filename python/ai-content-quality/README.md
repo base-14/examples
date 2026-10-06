@@ -9,28 +9,34 @@ AI-powered content quality analysis with eval-driven development and unified obs
 ## How to instrument LlamaIndex with OpenTelemetry
 
 1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`,
-   `opentelemetry-instrumentation-fastapi` and `opentelemetry-instrumentation-logging` from
-   `pyproject.toml`. No LlamaIndex-specific instrumentation package is used.
+   `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-logging` and the
+   OpenTelemetry GenAI instrumentations `opentelemetry-instrumentation-genai-openai`,
+   `opentelemetry-instrumentation-genai-anthropic` and
+   `opentelemetry-instrumentation-google-genai` from `pyproject.toml`. There is no official
+   LlamaIndex package; LlamaIndex's integrations call these SDKs, and the SDK packages trace
+   the calls.
 2. Call `setup_telemetry(service_name=..., otlp_endpoint=...)` from
-   `src/content_quality/telemetry.py` at import time in `src/content_quality/main.py`, before the app is created.
-   It registers OTLP trace, metric and log exporters and `LoggingInstrumentor()`. After
+   `src/content_quality/telemetry.py` at import time in `src/content_quality/main.py`, before the
+   app is created. It registers OTLP trace, metric and log exporters, the span processor and
+   exporter from `src/content_quality/genai_spans.py`, `LoggingInstrumentor()` and `instrument()`
+   on `OpenAIInstrumentor`, `AnthropicInstrumentor` and `GoogleGenAiSdkInstrumentor`. After
    creating the app, call `instrument_fastapi(app)`, which runs
    `FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])`.
-   LlamaIndex LLM calls are wrapped by hand in `src/content_quality/services/llm.py` with
-   `tracer.start_as_current_span(f"chat {model_name}", kind=SpanKind.CLIENT)`.
+   Ollama is reached through its OpenAI-compatible `/v1` endpoint with LlamaIndex's
+   `OpenAILike`, so the OpenAI package traces it too.
 3. Set `SERVICE_NAME=ai-content-quality` and `OTLP_ENDPOINT=http://otel-collector:4318` as in
    `compose.yaml` and `.env.example` (use `http://localhost:4318` when running the app on the host), plus
-   `OTEL_SDK_DISABLED=false`, `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental` and
-   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false`.
+   `OTEL_SDK_DISABLED=false` and `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=no_content`.
    This example reads its own `SERVICE_NAME` and `OTLP_ENDPOINT` variables rather than the
    standard `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
-This example adds GenAI semantic convention spans and metrics (`gen_ai.client.token.usage`,
-`gen_ai.client.operation.duration`, `base14.gen_ai.cost`, retry and fallback counters), a single
-`gen_ai.client.inference.operation.details` event per call in place of the removed per-message
-events, custom HTTP request metrics from `src/content_quality/middleware/metrics.py`, PII
-scrubbing of captured prompt and completion content, and OTLP logs correlated with traces. The
-full guide is
+The GenAI instrumentations create a `chat {model}` CLIENT span and the
+`gen_ai.client.token.usage` and `gen_ai.client.operation.duration` metrics for every SDK call.
+This example adds the endpoint, the content type and length, the real provider for Ollama, the
+cost and PII scrubbing of captured content to those spans in `src/content_quality/genai_spans.py`;
+cost, retry, fallback and error counters in `src/content_quality/services/llm.py`; custom HTTP
+request metrics from `src/content_quality/middleware/metrics.py`; and OTLP logs correlated with
+traces. The full guide is
 [LlamaIndex OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/llamaindex/).
 
 ## Eval-driven workflow
@@ -129,10 +135,11 @@ Every request produces a unified trace spanning HTTP and LLM calls - all visible
 
 ### Instrumentation Approach
 
-GenAI telemetry (spans, metrics, events) is handled by **custom instrumentation** in `llm.py`
-following [OTel GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/).
-LlamaIndex has no OTel GenAI instrumentation that emits the current semconv names, so this
-example instruments the LLM calls by hand.
+LlamaIndex has no official OpenTelemetry package. Its OpenAI, OpenAI-compatible, Anthropic and
+Google Gen AI integrations call those SDKs, and the OpenTelemetry GenAI instrumentations for the
+SDKs record each call. `genai_spans.py` adds what they cannot know. LlamaIndex's own steps, such as
+query engines and workflows, get no spans this way; this example calls the model directly for
+structured output and has none.
 
 ### What's Instrumented
 
@@ -141,58 +148,38 @@ example instruments the LLM calls by hand.
 | HTTP server | `FastAPIInstrumentor` | Auto | Request spans with method, path, status, duration (excludes `/health`, suppresses ASGI sub-spans) |
 | HTTP server | `MetricsMiddleware` | Custom | `http.server.request.count`, `http.server.request.duration`, `http.server.active_requests` (excludes `/health`) |
 | Logging | `LoggingInstrumentor` | Auto | Trace-correlated log records with `trace_id` and `span_id` |
-| GenAI spans | Custom OTel spans | Custom | `chat {model}` CLIENT spans with OTel GenAI semconv attributes |
-| GenAI inference event | Custom OTel span event | Custom | `gen_ai.client.inference.operation.details` (only when content capture is enabled) |
-| GenAI metrics | Custom OTel meters | Custom | `gen_ai.client.token.usage`, `base14.gen_ai.cost`, `gen_ai.client.operation.duration` |
-| GenAI errors | Custom OTel counters | Custom | `base14.gen_ai.error.count`, `base14.gen_ai.retry.count`, `base14.gen_ai.fallback.count` |
+| Model calls | GenAI SDK instrumentations | Auto | `chat {model}` CLIENT spans, `gen_ai.client.token.usage` and `gen_ai.client.operation.duration` |
+| Call context | `LLMCallAttributesProcessor` | Custom | Endpoint, content type and length, and `ollama` as the provider on chat spans |
+| Cost and scrubbing | `GenAISpanExporter` | Custom | `base14.gen_ai.cost_usd` on chat spans; emails, phone numbers, SSNs and card numbers scrubbed from captured content |
+| GenAI counters | Custom OTel counters | Custom | `base14.gen_ai.cost`, `base14.gen_ai.error.count`, `base14.gen_ai.retry.count`, `base14.gen_ai.fallback.count` |
 | Evaluations | Custom OTel events + metrics | Custom | `gen_ai.evaluation.result` events, `base14.gen_ai.evaluation.score` histogram |
-| PII scrubbing | Custom event processing | Custom | Emails, phone numbers, SSNs scrubbed from span events before export |
 
-### Span Attributes (OTel GenAI Semconv)
+### Span Attributes
 
-Each `chat {model}` span carries these attributes:
-
-| Attribute | Source | Example |
-| --- | --- | --- |
-| `gen_ai.operation.name` | Custom | `chat` |
-| `gen_ai.request.model` | Custom | `claude-haiku-4.5` |
-| `gen_ai.response.model` | Custom | `claude-haiku-4.5` |
-| `gen_ai.provider.name` | Custom | `anthropic` |
-| `gen_ai.request.temperature` | Custom | `0.3` |
-| `gen_ai.output.type` | Custom | `json` |
-| `gen_ai.usage.input_tokens` | Custom | `923` |
-| `gen_ai.usage.output_tokens` | Custom | `150` |
-| `base14.gen_ai.cost_usd` | Custom | `0.001666` |
-| `gen_ai.response.id` | Custom | `msg_abc123` |
-| `gen_ai.response.finish_reasons` | Custom | `["end_turn"]` |
-| `server.address` | Custom | `api.anthropic.com` |
-| `server.port` | Custom | `443` |
-| `base14.content.type` | Custom | `marketing` |
-| `base14.content.length` | Custom | `42` |
-| `base14.endpoint` | Custom | `/review` |
+Each `chat {model}` span carries, from the instrumentation, `gen_ai.operation.name`,
+`gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`,
+`gen_ai.request.temperature`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`,
+`gen_ai.response.id`, `gen_ai.response.finish_reasons`, `server.address` and `server.port` (left
+out when it is 443), and from this example `base14.gen_ai.cost_usd`, `base14.content.type`,
+`base14.content.length` and `base14.endpoint`. The OpenAI instrumentation names the provider
+`openai` for Ollama's endpoint; the span processor corrects it on spans, and the
+`gen_ai.client.*` metric points keep `openai`.
 
 ### Token & Cost Tracking
 
-Token usage and cost are extracted from each LLM response across all supported providers:
-
-| Provider | Token Source | Pricing |
-| --- | --- | --- |
-| OpenAI | `additional_kwargs["prompt_tokens"]` / `["completion_tokens"]` | `_shared/pricing.json` |
-| Google Gemini | `additional_kwargs["prompt_tokens"]` / `["completion_tokens"]` | `_shared/pricing.json` |
-| Anthropic | `raw["usage"]["input_tokens"]` / `["output_tokens"]` | `_shared/pricing.json` |
-
-Only the token count a provider actually returns is recorded; a call that returns just one of
-input or output tokens still records that one and its cost, instead of skipping both.
-
-Cost is calculated from the shared pricing table at `_shared/pricing.json`, keyed by model, and
-recorded as both a span attribute (`base14.gen_ai.cost_usd`) and a counter metric
-(`base14.gen_ai.cost`). An unrecognized model costs `0.0` rather than failing the call.
+The instrumentations record token counts on spans and in `gen_ai.client.token.usage`. Cost is
+calculated from the shared pricing table at `_shared/pricing.json`, keyed by model: the span
+exporter sets `base14.gen_ai.cost_usd` on each chat span, and the client records the
+`base14.gen_ai.cost` counter with the endpoint and content type. An unrecognized model, every
+Ollama model included, costs `0.0`.
 
 ### Error Handling
 
-A failed chat span records the exception, sets `error.type`, and sets status ERROR. Each network
-error is retried up to two more times with exponential backoff, and `base14.gen_ai.retry.count` records
-each retry beyond the initial attempt. When the primary provider still fails after its retries,
+Each SDK call is its own chat span; a failed one has error status, the recorded exception and
+`error.type`. The SDK clients are built with `max_retries=0`, so the client's own retries are the
+only layer: each network error is retried up to two more times with exponential backoff, and
+`base14.gen_ai.retry.count` records each retry beyond the initial attempt. A response that fails
+schema validation is sent back with a correction, and each correction is a chat span too. When the primary provider still fails after its retries,
 the calling span gets a `provider_fallback` event and `gen_ai.fallback.triggered=true`, and is
 not marked ERROR if the fallback succeeds. `REQUEST_TIMEOUT` caps the whole chain; with the
 defaults a call that times out at `LLM_TIMEOUT` gets one retry before the request returns 504.
@@ -211,14 +198,13 @@ Copy `.env.example` to `.env` and configure:
 | `FALLBACK_PROVIDER` | `ollama` | Provider used when `LLM_PROVIDER` fails after all retries |
 | `FALLBACK_MODEL` | `qwen3.5:9B` | Model name for the fallback provider |
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Ollama server URL as compose sets it; the code default is `http://localhost:11434` for running the app directly on the host |
-| `OLLAMA_REASONING` | `false` | Whether Ollama lets a thinking model such as `qwen3.5` reason before answering; leave off, or each review generates over a thousand tokens |
-| `OLLAMA_CONTEXT_WINDOW` | `32768` | Context window requested per Ollama call; without it LlamaIndex requests the model's full trained length (262144 for `qwen3.5:9B`), which makes each call several times slower |
+| `OLLAMA_REASONING` | `false` | Whether a thinking model such as `qwen3.5` reasons before answering; `false` sends `reasoning_effort=none`, or each review generates over a thousand tokens |
+| `OLLAMA_CONTEXT_WINDOW` | `32768` | Context window LlamaIndex assumes for the model; the Ollama server's own setting (`OLLAMA_CONTEXT_LENGTH`) decides what it allocates |
 | `OPENAI_API_KEY` | - | OpenAI API key (when provider is `openai`) |
 | `GOOGLE_API_KEY` | - | Google API key (when provider is `google`) |
 | `ANTHROPIC_API_KEY` | - | Anthropic API key (when provider is `anthropic`) |
 | `OTEL_SDK_DISABLED` | `false` | Disable telemetry (`true` to disable) |
-| `OTEL_SEMCONV_STABILITY_OPT_IN` | `gen_ai_latest_experimental` | Emit the latest GenAI attribute names rather than the deprecated ones |
-| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `false` | Capture prompt/completion content on span events |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `no_content` | `no_content`, `span_only`, `event_only` or `span_and_event`. `true` and `false` are not valid |
 | `SCOUT_ENVIRONMENT` | `development` | Deployment environment tag |
 | `SCOUT_CLIENT_ID` | - | Base14 Scout OAuth client ID |
 | `SCOUT_CLIENT_SECRET` | - | Base14 Scout OAuth client secret |

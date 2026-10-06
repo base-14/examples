@@ -21,6 +21,9 @@ _ENABLED_PATCHES = (
     "content_quality.telemetry.metrics",
     "content_quality.telemetry._logs",
     "content_quality.telemetry.atexit",
+    "opentelemetry.instrumentation.genai.openai.OpenAIInstrumentor",
+    "opentelemetry.instrumentation.genai.anthropic.AnthropicInstrumentor",
+    "opentelemetry.instrumentation.google_genai.GoogleGenAiSdkInstrumentor",
 )
 
 

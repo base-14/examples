@@ -197,6 +197,27 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     check_log "Span: chat {model}"              "Name *: chat "             "$LOGS_FILE"
     check_log "Span kind: Client on chat spans" "Kind *: Client"            "$LOGS_FILE"
 
+    # --- Model call spans come from the GenAI instrumentations ---
+    CHAT_SCOPES=$(awk '/ScopeSpans #/{spans=1} /ScopeMetrics #|ScopeLogs #/{spans=0}
+      spans && /InstrumentationScope/{scope=$2}
+      spans && /Name *: chat /{print scope}' "$LOGS_FILE" | sort | uniq -c)
+    if [ -n "$CHAT_SCOPES" ] && ! echo "$CHAT_SCOPES" | grep -qv "opentelemetry.instrumentation.genai\.\|opentelemetry.instrumentation.google_genai"; then
+      echo "  $(green "PASS") Every chat span comes from a GenAI instrumentation"; PASS=$((PASS + 1))
+    else
+      echo "  $(red "FAIL") chat spans from other scopes, a hand-written span or none at all:"
+      echo "$CHAT_SCOPES" | sed 's/^/      /'; FAIL=$((FAIL + 1))
+    fi
+    if [ "${LLM_PROVIDER:-ollama}" = "ollama" ]; then
+      check_log "Provider: ollama on chat spans" "gen_ai.provider.name: Str(ollama)" "$LOGS_FILE"
+      # Spans only: the instrumentation's metric points still say openai.
+      if awk '/ScopeSpans #/{spans=1} /ScopeMetrics #|ScopeLogs #/{spans=0}
+        spans && /gen_ai.provider.name: Str\(openai\)/{found=1} END{exit !found}' "$LOGS_FILE"; then
+        echo "  $(red "FAIL") A chat span says openai; LLMCallAttributesProcessor did not run"; FAIL=$((FAIL + 1))
+      else
+        echo "  $(green "PASS") No chat span names Ollama as openai"; PASS=$((PASS + 1))
+      fi
+    fi
+
     # --- Span attributes ---
     echo "  $(dim "--- Span Attributes ---")"
     warn_log  "Attr: base14.content.type"       "base14.content.type"       "$LOGS_FILE"
@@ -302,7 +323,7 @@ echo "    [ ] chat spans are CLIENT kind"
 echo "    [ ] chat spans have base14.content.type, base14.content.length, server.address attributes"
 echo "    [ ] chat spans have gen_ai.request.temperature attribute"
 echo "    [ ] The removed gen_ai.user.message / gen_ai.assistant.message events are absent"
-echo "    [ ] gen_ai.client.inference.operation.details event present when content capture is enabled"
+echo "    [ ] gen_ai.input.messages on chat spans, scrubbed, when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=span_only"
 echo "    [ ] Event content fields are truncated to ~500 chars"
 echo "    [ ] 422 error traces have error.type=RequestValidationError and ERROR status"
 echo "    [ ] 404 error traces have error status on HTTP span"
