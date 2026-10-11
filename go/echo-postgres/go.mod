@@ -7,7 +7,7 @@ require (
 	github.com/hibiken/asynq v0.26.0
 	github.com/labstack/echo/v4 v4.16.0
 	github.com/rs/zerolog v1.35.1
-	github.com/uptrace/opentelemetry-go-extra/otelgorm v0.3.2
+	github.com/uptrace/opentelemetry-go-extra/otelgorm v0.4.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.71.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.47.0
@@ -40,7 +40,7 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.2 // indirect
+	github.com/uptrace/opentelemetry-go-extra/otelsql v0.4.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
