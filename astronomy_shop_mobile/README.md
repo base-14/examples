@@ -340,7 +340,7 @@ sends plain OTLP.
 
 ```yaml
 scout-collector:
-  image: otel/opentelemetry-collector-contrib:0.161.0
+  image: otel/opentelemetry-collector-contrib:0.162.0
   command: ["--config=/etc/otel-collector-config.yaml"]
   volumes:
     - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro

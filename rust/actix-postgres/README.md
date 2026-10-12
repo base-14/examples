@@ -35,7 +35,7 @@ background worker binary. The full guide is
 | **tracing-actix-web** | 0.7 | Active | HTTP span instrumentation |
 | **jsonwebtoken** | 10.3.0 | Active | JWT authentication |
 | **argon2** | 0.5.3 | Active | Password hashing |
-| **OTel Collector** | 0.161.0 | Active | Contrib distribution |
+| **OTel Collector** | 0.162.0 | Active | Contrib distribution |
 
 **Version Selection**: Latest Stable
 **Verified**: 2026-09-20
@@ -325,7 +325,7 @@ docker build -f Dockerfile.worker -t actix-postgres-worker .
 | api | 8080 | Main API server |
 | worker | - | Background job processor |
 | postgres | 5432 | PostgreSQL database |
-| otel-collector | 4317 | OpenTelemetry Collector (0.161.0) |
+| otel-collector | 4317 | OpenTelemetry Collector (0.162.0) |
 
 ## OpenTelemetry Configuration
 

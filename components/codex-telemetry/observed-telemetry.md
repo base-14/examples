@@ -11,7 +11,7 @@ live-captured 2026-10-04T16:13Z without the collector filter and 2026-10-04T16:1
 - **Model**: local Ollama 0.34.2 through Codex's built-in `ollama` provider (`model_provider = "ollama"`) on
   `qwen3.5-32k`, which is `qwen3.5:9B` with `num_ctx` 32768. No `OPENAI_API_KEY` in the environment.
   `approval_policy = "never"`, `sandbox_mode = "workspace-write"`.
-- **Collector**: `otel/opentelemetry-collector-contrib:0.161.0`, OTLP receiver, debug exporter (verbosity detailed)
+- **Collector**: `otel/opentelemetry-collector-contrib:0.162.0`, OTLP receiver, debug exporter (verbosity detailed)
   and `otlp_http/b14` to Scout with `oauth2client`. The second run adds a `filter` processor on logs that drops
   `codex.sse_event` records other than `response.completed`.
 - **Traffic driver**: `scripts/drive.sh`, seven headless turns in a scratch workspace: two turns in one thread
