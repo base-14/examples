@@ -9,7 +9,7 @@ Spring Boot 3.5.16 application with OpenTelemetry instrumentation using the
 
 1. Add no OpenTelemetry dependencies. `build.gradle` only lists Spring Boot starters
    (`spring-boot-starter-web`, `spring-boot-starter-data-mongodb`, `spring-boot-starter-actuator`).
-2. Attach the agent at startup. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (2.31.1)
+2. Attach the agent at startup. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (2.32.0)
    and runs `java -javaagent:/app/opentelemetry-javaagent.jar -jar /app/app.jar`. No code changes
    are needed.
 3. Configure export in `compose.yaml` with `OTEL_SERVICE_NAME=java-spring-boot-otel-mongodb`,
@@ -63,7 +63,7 @@ Add custom spans using `@WithSpan` annotations for deeper application visibility
 1. Add dependency to `build.gradle`:
 
    ```gradle
-   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.31.1'
+   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.32.0'
    ```
 
 1. Enable annotations (already configured in `compose.yaml`):
@@ -120,7 +120,7 @@ Check the application logs for the agent startup message:
 docker logs spring-app | grep otel.javaagent
 ```
 
-You should see: `[otel.javaagent] OpenTelemetry Javaagent 2.31.1`
+You should see: `[otel.javaagent] OpenTelemetry Javaagent 2.32.0`
 
 ## Configuration
 
@@ -214,7 +214,7 @@ Requires MongoDB and OTel Collector running locally on standard ports.
 Download the Java Agent first:
 
 ```bash
-wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.31.1/opentelemetry-javaagent.jar
+wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.32.0/opentelemetry-javaagent.jar
 ```
 
 Then run with the agent:
@@ -284,7 +284,7 @@ Check startup logs for the agent message:
 docker logs spring-app | grep otel.javaagent
 ```
 
-Expected: `[otel.javaagent] OpenTelemetry Javaagent 2.31.1`
+Expected: `[otel.javaagent] OpenTelemetry Javaagent 2.32.0`
 
 If missing, verify the agent path in Dockerfile and ENTRYPOINT.
 

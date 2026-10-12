@@ -35,9 +35,9 @@ sdk.start();
 
 const loggerProvider = new LoggerProvider({
   processors: [
-    new BatchLogRecordProcessor(
-      new OTLPLogExporter({ url: `${endpoint}/v1/logs` })
-    ),
+    new BatchLogRecordProcessor({
+      exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs` }),
+    }),
   ],
 });
 logs.setGlobalLoggerProvider(loggerProvider);

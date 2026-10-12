@@ -30,6 +30,12 @@ const app = new Elysia()
         return { status: "received" };
       }
     );
+  }, {
+    body: t.Object({
+      event: t.String(),
+      article_id: t.Number(),
+      title: t.Optional(t.String()),
+    }),
   })
   .listen(PORT);
 

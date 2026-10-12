@@ -54,7 +54,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.81.3",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cors": "^2.8.6",
     "dompurify": "^3.4.16",
     "express": "^5.2.1",
@@ -96,7 +96,9 @@
     "socket.io-parser": ">=4.2.7",
     "body-parser": ">=2.3.0",
     "postcss": ">=8.5.18",
-    "minimatch": ">=10.2.5"
+    "minimatch": ">=10.2.5",
+    "proxy-addr": ">=2.0.8",
+    "source-map-js": ">=1.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

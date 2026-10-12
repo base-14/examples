@@ -36,7 +36,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'
     implementation 'io.opentelemetry:opentelemetry-api'
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5:2.31.1-alpha'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5:2.32.0-alpha'
 
     // Spring AI - LLM providers
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'

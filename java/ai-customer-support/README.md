@@ -4,7 +4,7 @@
 
 Conversational AI customer support agent with RAG retrieval, tool calling, intent classification, escalation routing, and full OpenTelemetry observability.
 
-Java 25, Spring Boot 4.0.8, Spring AI 2.0.1, WebFlux, pgvector, OTel Java agent 2.31.1.
+Java 25, Spring Boot 4.0.8, Spring AI 2.0.1, WebFlux, pgvector, OTel Java agent 2.32.0.
 
 ## How to instrument Spring AI with OpenTelemetry
 
@@ -13,7 +13,7 @@ Java 25, Spring Boot 4.0.8, Spring AI 2.0.1, WebFlux, pgvector, OTel Java agent 
    `spring-boot-starter-actuator`, `micrometer-tracing-bridge-otel` and `opentelemetry-api`,
    to `build.gradle`. The app ships no OTLP exporter and no OpenTelemetry SDK of its own.
 2. Run under the OpenTelemetry Java agent. The `Dockerfile` downloads `opentelemetry-javaagent.jar`
-   (2.31.1) and starts the app with `-javaagent:/app/opentelemetry-javaagent.jar`. The agent is the
+   (2.32.0) and starts the app with `-javaagent:/app/opentelemetry-javaagent.jar`. The agent is the
    only exporter: `OpenTelemetryConfig` publishes `GlobalOpenTelemetry.get()` as the
    `OpenTelemetry` bean, so the Micrometer tracing bridge writes into the agent's tracer, and its
    `MeterRegistry` bean, built with the `opentelemetry-micrometer-1.5` bridge, writes meters into

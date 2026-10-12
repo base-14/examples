@@ -9,7 +9,7 @@ traces, metrics, and logs.
 
 1. Add `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` and
    `io.micrometer:micrometer-tracing-bridge-otel` to `build.gradle`, with versions managed by the
-   `opentelemetry-instrumentation-bom` (2.31.1) platform.
+   `opentelemetry-instrumentation-bom` (2.32.0) platform.
 2. Enable the starter in `application.properties` with
    `otel.java.global-autoconfigure.enabled=true`, `otel.instrumentation.jdbc.enabled=true`,
    `otel.instrumentation.spring-webmvc.enabled=true` and

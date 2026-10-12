@@ -22,7 +22,7 @@
     <!-- Spins up a real Postgres via Docker for BookingStore/RebookingTools tests. Those
          tests probe for a reachable Docker daemon at runtime and skip cleanly, with a
          reason, when there is none. See Support/DockerRequiredFactAttribute.cs. -->
-    <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.16.0" />
   </ItemGroup>
 
   <ItemGroup>
