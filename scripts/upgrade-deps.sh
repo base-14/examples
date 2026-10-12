@@ -220,7 +220,8 @@ verify_make_check() {
   else
     echo "  FAIL"; make check 2>&1 | tail -8 || true
     results+=("$label: FAIL"); failed=$((failed + 1))
-    [[ $# -gt 0 ]] && git checkout -- "$@" 2>/dev/null || true
+    local f
+    for f in "$@"; do [[ -e "$f" ]] && git checkout -- "$f" 2>/dev/null; done
   fi
 }
 
@@ -465,10 +466,14 @@ retry_holding_majors() {
         update --with-all-dependencies --ignore-platform-reqs --no-scripts \
         --no-interaction "${with[@]}" >/dev/null 2>&1 ;;
     ruby)
+      # Names come from the lock, not the Gemfile: a platform-guarded gem such
+      # as tzinfo-data is not in the lock and makes `bundle update` exit 7.
       local gems
-      gems=$(sed -nE 's/^[[:space:]]*gem "([^"]+)".*/\1/p' Gemfile \
+      gems=$(bundle outdated --parseable 2>/dev/null | sed 's/ .*//' \
              | grep -vxF -f <(printf '%s\n' $crossed) | tr '\n' ' ')
-      [[ -n "$gems" ]] && bundle update $gems >/dev/null 2>&1 ;;
+      if [[ -n "$gems" ]] && ! bundle lock --conservative --update $gems >/tmp/ud-retry.log 2>&1; then
+        echo "  Retry failed:"; tail -3 /tmp/ud-retry.log
+      fi ;;
     elixir)
       local deps
       deps=$(sed -nE 's/^[[:space:]]*\{:([a-z_0-9]+),.*/\1/p' mix.exs \
@@ -479,10 +484,16 @@ retry_holding_majors() {
 
 # guard, then one retry with crossers held; REVERTED only if still crossing.
 guard_or_retry() {
-  local label="$1" eco="$3"
+  local label="$1" eco="$3" lockfile="$4"
   guard_major_bump "$@" && return 0
   echo "  Retrying with majors held: $(tr '\n' ' ' <<< "$GUARD_CROSSED")"
   retry_holding_majors "$eco" "$GUARD_CROSSED"
+  if git diff --quiet -- "$lockfile" 2>/dev/null; then
+    echo "  Retry left $lockfile unchanged"
+    results+=("$label: UNCHANGED (retry with majors held changed nothing)")
+    skipped=$((skipped + 1))
+    return 1
+  fi
   guard_major_bump "$@" && return 0
   results+=("$label: REVERTED (major bump under --skip-major)")
   skipped=$((skipped + 1))
@@ -759,7 +770,7 @@ if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "nodejs" ]]; then
   # are reached, not just top-level project dirs
   while IFS= read -r pkg; do
     upgrade_nodejs "$(dirname "$pkg")"
-  done < <(find "$REPO_ROOT"/nodejs -maxdepth 3 -name package.json \
+  done < <(find "$REPO_ROOT"/nodejs "$REPO_ROOT"/bun -maxdepth 3 -name package.json \
             -not -path '*/node_modules/*' -not -path '*/.next/*' \
             -not -path '*/dist/*' -not -path '*/build/*' | sort)
 fi

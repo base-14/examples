@@ -35,6 +35,12 @@ CLEAN_MSG="All up to date"
 
 total_outdated=0
 total_major=0
+total_failed=0
+
+check_failed() {
+  echo "  $1"
+  total_failed=$((total_failed + 1))
+}
 
 print_header() {
   local project="$1"
@@ -338,7 +344,7 @@ check_java() {
     # calling it up to date
     if ! raw=$(cd "$dir" && ./gradlew dependencyUpdates --no-daemon \
                  -I "$REPO_ROOT/scripts/gradle-versions.init.gradle" 2>&1); then
-      echo "  CANNOT CHECK: gradlew dependencyUpdates failed"
+      check_failed "CANNOT CHECK: gradlew dependencyUpdates failed"
       return
     fi
     # keep only upgrade lines; the report also lists up-to-date deps as "- pkg:ver"
@@ -348,7 +354,7 @@ check_java() {
     # default walks the whole managed BOM (1700+ lines on quarkus)
     if ! raw=$(cd "$dir" && mvn versions:display-dependency-updates \
                  -DprocessDependencyManagement=false 2>&1); then
-      echo "  CANNOT CHECK: mvn versions:display-dependency-updates failed"
+      check_failed "CANNOT CHECK: mvn versions:display-dependency-updates failed"
       return
     fi
     output=$(grep -E '^\[INFO\].*->' <<< "$raw" || true)
@@ -400,7 +406,7 @@ check_ruby() {
   # `bundle outdated` exits 1 when outdated gems exist, so only treat a nonzero
   # exit with no parseable rows as a real failure
   if [[ $rc -ne 0 ]] && ! grep -q '(newest ' <<< "$output"; then
-    echo "  Check failed: $(grep -v '^$' <<< "$output" | tail -1)"
+    check_failed "Check failed: $(grep -v '^$' <<< "$output" | tail -1)"
     return
   fi
 
@@ -435,7 +441,7 @@ check_php() {
   output=$(cd "$dir" && docker run --rm -v "$PWD":/app -w /app composer:2 \
             outdated --format=json --ignore-platform-reqs --no-interaction 2>"$errfile") || rc=$?
   if [[ $rc -ne 0 ]] || ! grep -q '"installed"' <<< "$output"; then
-    echo "  Check failed: $(grep -v '^$' "$errfile" | tail -1)"
+    check_failed "Check failed: $(grep -v '^$' "$errfile" | tail -1)"
     rm -f "$errfile"
     return
   fi
@@ -475,7 +481,7 @@ check_elixir() {
   local output
   output=$(cd "$dir" && mix deps.get >/dev/null 2>&1; mix hex.outdated 2>&1 || true)
   if ! grep -q '^Dependency' <<< "$output"; then
-    echo "  Check failed: $(grep -v '^$' <<< "$output" | head -1)"
+    check_failed "Check failed: $(grep -v '^$' <<< "$output" | head -1)"
     return
   fi
 
@@ -511,7 +517,7 @@ check_dotnet() {
   print_header "csharp/$name"
 
   if ! command -v dotnet >/dev/null 2>&1; then
-    echo "  Check failed: dotnet CLI not installed"
+    check_failed "Check failed: dotnet CLI not installed"
     return
   fi
 
@@ -545,7 +551,7 @@ check_dotnet() {
 
   # a failed restore is not a clean result; the SDK pin is the usual cause
   if [[ $failed -gt 0 ]]; then
-    echo "  CANNOT CHECK: $failed project(s) failed restore (dotnet SDK $(dotnet --version 2>/dev/null); set ASDF_DOTNET_CORE_VERSION to match the target framework)"
+    check_failed "CANNOT CHECK: $failed project(s) failed restore (dotnet SDK $(dotnet --version 2>/dev/null); set ASDF_DOTNET_CORE_VERSION to match the target framework)"
   elif [[ $count -eq 0 ]]; then
     echo "  $CLEAN_MSG"
   fi
@@ -559,7 +565,7 @@ echo "Language: $LANGUAGE | Major only: $MAJOR_ONLY"
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "nodejs" ]]; then
   while IFS= read -r pkg; do
     check_nodejs "$(dirname "$pkg")"
-  done < <(find "$REPO_ROOT"/nodejs -maxdepth 3 -name package.json \
+  done < <(find "$REPO_ROOT"/nodejs "$REPO_ROOT"/bun -maxdepth 3 -name package.json \
             -not -path '*/node_modules/*' -not -path '*/.next/*' \
             -not -path '*/dist/*' -not -path '*/build/*' | sort)
 fi
@@ -629,3 +635,4 @@ echo "  Summary"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Total outdated: $total_outdated"
 echo "  Major bumps:    $total_major"
+echo "  Checks failed:  $total_failed"
