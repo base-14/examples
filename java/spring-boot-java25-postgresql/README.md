@@ -215,7 +215,7 @@ All logs include `trace_id` and `span_id` for correlation.
 From `build.gradle` (BOM-managed):
 
 ```groovy
-implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.28.1")
+implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.32.0")
 implementation "io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter"
 implementation "io.micrometer:micrometer-tracing-bridge-otel"
 ```
@@ -277,7 +277,7 @@ logging.level.io.opentelemetry=DEBUG
 | Component | Version |
 | --- | --- |
 | Spring Boot | 3.5.9 |
-| OpenTelemetry Instrumentation | 2.28.1 |
+| OpenTelemetry Instrumentation | 2.32.0 |
 | OpenTelemetry SDK | managed by instrumentation BOM |
 | PostgreSQL | 18 |
 | OTel Collector | 0.163.1 |

@@ -238,7 +238,7 @@ logging.level.io.opentelemetry=DEBUG
 | Component | Version |
 | --------- | ------- |
 | Spring Boot | 3.5.9 |
-| OpenTelemetry Instrumentation | 2.28.1 |
+| OpenTelemetry Instrumentation | 2.32.0 |
 | OpenTelemetry SDK | managed by instrumentation BOM |
 | MySQL | 9.1 |
 | Gradle | 9.2.1 |

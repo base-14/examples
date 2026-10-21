@@ -19,13 +19,13 @@
     "index": "tsx scripts/build-index.ts"
   },
   "dependencies": {
-    "@ai-sdk/otel": "1.0.137",
-    "@hono/node-server": "2.1.4",
-    "@mastra/core": "1.75.0",
-    "@mastra/observability": "1.18.4",
-    "@mastra/otel-bridge": "1.5.14",
+    "@ai-sdk/otel": "1.0.143",
+    "@hono/node-server": "2.1.5",
+    "@mastra/core": "1.78.0",
+    "@mastra/observability": "1.20.1",
+    "@mastra/otel-bridge": "1.5.17",
     "@opentelemetry/api": "1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "0.81.0",
+    "@opentelemetry/auto-instrumentations-node": "0.81.2",
     "@opentelemetry/exporter-logs-otlp-http": "0.223.0",
     "@opentelemetry/exporter-metrics-otlp-http": "0.223.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
@@ -33,11 +33,11 @@
     "@opentelemetry/sdk-node": "0.223.0",
     "@opentelemetry/sdk-trace-base": "2.12.0",
     "@opentelemetry/semantic-conventions": "1.43.0",
-    "ai": "7.0.137",
+    "ai": "7.0.143",
     "hono": "4.13.13",
     "ollama-ai-provider-v2": "4.0.1",
     "pino": "10.4.0",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
@@ -45,7 +45,7 @@
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.3",
+    "vitest": "5.0.5",
     "yaml": "2.9.1"
   },
   "overrides": {

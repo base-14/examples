@@ -9,7 +9,7 @@ Articles CRUD API with distributed tracing, structured logging, and custom metri
 1. Add `io.opentelemetry:opentelemetry-api:1.48.0` to `app/build.gradle.kts` for custom metrics and
    span attributes. HTTP, JDBC and Netty tracing come from the OpenTelemetry Java agent, which
    needs no code dependency.
-2. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (`OTEL_AGENT_VERSION=2.28.1`) and
+2. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (`OTEL_AGENT_VERSION=2.32.0`) and
    sets `JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"`. There is no
    `install(...)` telemetry plugin in `app/src/main/kotlin/com/example/Application.kt`; the agent instruments Ktor at startup.
 3. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://otel-collector:4318`),
@@ -28,7 +28,7 @@ and a second `notify` service called over `java.net.http.HttpClient`. The full g
 | Ktor | 3.2.0 |
 | Exposed ORM | 0.61.0 |
 | PostgreSQL | 18 |
-| OTel Java Agent | 2.28.1 |
+| OTel Java Agent | 2.32.0 |
 | OTel Collector | 0.163.1 (contrib) |
 
 ## Architecture

@@ -1,7 +1,7 @@
-fastapi[all]==0.143.0
-pydantic==2.14.0
+fastapi[all]==0.146.0
+pydantic==2.14.1
 psycopg2-binary==2.9.13
-SQLAlchemy==2.1.4
+SQLAlchemy==2.1.5
 email-validator==2.3.0
 pwdlib[bcrypt]==0.3.1
 bcrypt==5.0.0

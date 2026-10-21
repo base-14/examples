@@ -11,21 +11,21 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.81.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.81.2",
     "@opentelemetry/exporter-logs-otlp-grpc": "^0.223.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.223.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.223.0",
     "@opentelemetry/sdk-node": "^0.223.0",
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
-    "@prisma/instrumentation": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "@prisma/instrumentation": "^7.10.1",
     "@trpc/server": "^11.19.0",
     "pino": "^10.4.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
-    "prisma": "^7.10.0",
+    "prisma": "^7.10.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   },
