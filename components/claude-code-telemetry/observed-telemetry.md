@@ -14,7 +14,7 @@ live-captured 2026-10-04T13:03Z on local Ollama and 2026-10-04T13:07Z on Anthrop
   (`ANTHROPIC_BASE_URL=http://localhost:11434`) on `qwen3.5-32k`, which is `qwen3.5:9B` with `num_ctx` 32768
   and `CLAUDE_CODE_MAX_OUTPUT_TOKENS=1024`. Anthropic's API on `claude-haiku-4-5-20251001`, authenticated with
   `ANTHROPIC_API_KEY`.
-- **Collector**: `otel/opentelemetry-collector-contrib:0.162.0`, OTLP receiver, debug exporter (verbosity detailed)
+- **Collector**: `otel/opentelemetry-collector-contrib:0.163.1`, OTLP receiver, debug exporter (verbosity detailed)
   and `otlp_http/b14` to Scout with `oauth2client`.
 - **Traffic driver**: `scripts/drive.sh`, six headless turns in a scratch workspace: two turns in one session
   (`--session-id`, then `--resume`), one that runs `ls` through an allow rule, one that edits a file under

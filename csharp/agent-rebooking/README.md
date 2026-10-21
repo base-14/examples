@@ -120,7 +120,7 @@ app reaches it through `host.docker.internal:11434`.
 | `Npgsql` | 10.0.3 | Tool storage. |
 | `OpenTelemetry.*` | 1.19.x | SDK, OTLP exporter, ASP.NET Core, HttpClient, Runtime. |
 | PostgreSQL | `postgres:18` | Published on host port **5433**. |
-| OTel Collector contrib | 0.162.0 | oauth2client, otlp_http to Scout, debug to stdout. |
+| OTel Collector contrib | 0.163.1 | oauth2client, otlp_http to Scout, debug to stdout. |
 | Ollama model | `qwen3.5:9b` | On the host, not in Compose. |
 
 **Verified**: 2026-09-16.

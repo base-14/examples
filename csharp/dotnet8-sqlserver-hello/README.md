@@ -26,7 +26,7 @@ The SDK-in-code alternative for the same stack is in [dotnet-sqlserver](../dotne
 | **OpenTelemetry.AutoInstrumentation** | 1.17.0 | Experimental | Zero-code profiler, released 2026-09-22. Targets net8.0 and net462. |
 | **Microsoft.Data.SqlClient** | 7.1.0 | Active | Raw ADO.NET, no ORM. |
 | **Azure SQL Edge** | latest | Retired | SQL Server compatible, runs on ARM64. Swap via `SQL_IMAGE`. |
-| **OpenTelemetry Collector** | 0.162.0 | Active | contrib image, forwards to Scout. |
+| **OpenTelemetry Collector** | 0.163.1 | Active | contrib image, forwards to Scout. |
 
 **Verified**: 2026-09-17 on macOS ARM64 with Docker.
 

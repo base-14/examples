@@ -62,7 +62,7 @@ services:
       - app-network
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.162.0
+    image: otel/opentelemetry-collector-contrib:0.163.1
     container_name: otel-collector
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml

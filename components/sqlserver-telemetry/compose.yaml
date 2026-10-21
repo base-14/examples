@@ -39,7 +39,7 @@ services:
     restart: "no"
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.162.0
+    image: otel/opentelemetry-collector-contrib:0.163.1
     container_name: otel-collector
     environment:
       - GODEBUG=x509negativeserial=1

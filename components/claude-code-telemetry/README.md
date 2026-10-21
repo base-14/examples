@@ -19,7 +19,7 @@ Agent SDK query under a parent span.
        |   OTLP/HTTP protobuf to localhost:4318
        |   model calls to Ollama on the host, or to Anthropic's API
        v
-  otel-collector (otel/opentelemetry-collector-contrib:0.162.0)
+  otel-collector (otel/opentelemetry-collector-contrib:0.163.1)
        |   otlp receiver -> processors[memory_limiter, attributes, batch]
        |   -> exporters[otlp_http/b14, debug]
        v

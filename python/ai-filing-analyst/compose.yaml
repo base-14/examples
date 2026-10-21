@@ -10,7 +10,7 @@ services:
       - ./db/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.162.0
+    image: otel/opentelemetry-collector-contrib:0.163.1
     command: ["--config=/etc/otel-collector-config.yaml"]
     # Must hold a whole harness run of debug output for scripts/verify-scout.sh.
     logging:

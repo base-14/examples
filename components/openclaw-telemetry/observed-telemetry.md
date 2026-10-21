@@ -11,7 +11,7 @@ live-captured 2026-09-28T05:10Z, from an empty state volume
 - **Model**: local Ollama `qwen3.5:9B` over the native `/api/chat` API, `num_ctx` 32768. The agent prompt is about
   12K tokens (38K characters of system prompt and 12 tool definitions), so Ollama's default 4096 context fails
   every turn with a context overflow.
-- **Collector**: `otel/opentelemetry-collector-contrib:0.162.0`, OTLP receiver, debug exporter (verbosity detailed)
+- **Collector**: `otel/opentelemetry-collector-contrib:0.163.1`, OTLP receiver, debug exporter (verbosity detailed)
   and `otlp_http/b14` to Scout with `oauth2client`.
 - **Traffic driver**: `scripts/drive.sh`, four turns on the gateway's OpenAI-compatible `/v1/chat/completions`:
   two turns in one session (`user: conv:rig-a-<run>`), one turn that calls the `ls` tool, and one to an unknown agent,

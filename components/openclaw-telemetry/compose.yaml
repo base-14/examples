@@ -1,6 +1,6 @@
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.162.0
+    image: otel/opentelemetry-collector-contrib:0.163.1
     command: ["--config=/etc/otel/config.yaml"]
     # Must hold a whole drive run of debug output for scripts/verify-scout.sh.
     logging:
