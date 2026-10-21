@@ -343,8 +343,18 @@ upgrade_dotnet() {
 
   print_header "csharp/$name"
 
+  # dotnet resolves the SDK from global.json in the working directory, so run
+  # from the project and give asdf the SDK the project pins
+  cd "$dir" || return
+  local ASDF_DOTNET_CORE_VERSION="${ASDF_DOTNET_CORE_VERSION:-}" sdk_pin
+  sdk_pin=$(sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' global.json 2>/dev/null | head -1 || true)
+  [[ -n "$sdk_pin" ]] && ASDF_DOTNET_CORE_VERSION="$sdk_pin"
+  [[ -n "$ASDF_DOTNET_CORE_VERSION" ]] && export ASDF_DOTNET_CORE_VERSION
+
+  # read every csproj's outdated list before changing any of them; bumping one
+  # project first makes its referencing projects fail restore with NU1605
   local pat="${DOTNET_FILTER:-}"
-  local csproj pkgs p changed=()
+  local csproj pkgs p changed=() plan=() outdated cur lat restore_failed=false
   for csproj in $csprojs; do
     pkgs=$(grep -oE 'PackageReference Include="[^"]+"' "$csproj" | sed 's/.*Include="//;s/"//' \
             | { [[ -n "$pat" ]] && grep -iE "$pat" || cat; } || true)
@@ -356,12 +366,11 @@ upgrade_dotnet() {
       continue
     fi
 
-    echo "  Updating ${csproj#$dir/} (dotnet add package)..."
     # resolve the latest version per package so --skip-major can hold majors;
     # a bare 'dotnet add package' always takes the newest release
-    local outdated cur lat
     if ! dotnet restore "$csproj" >/dev/null 2>&1; then
       echo "  restore failed (dotnet SDK $(dotnet --version 2>/dev/null)); skipping ${csproj#$dir/}"
+      restore_failed=true
       continue
     fi
     # '|| true' keeps a failed 'dotnet list' from ending the script under 'set -e'
@@ -374,8 +383,15 @@ upgrade_dotnet() {
         echo "  skip major: $p $cur -> $lat"
         continue
       fi
-      dotnet add "$csproj" package "$p" --version "$lat" >/dev/null 2>&1 || true
+      plan+=("$csproj $p $lat")
     done
+  done
+
+  local entry
+  for entry in ${plan[@]+"${plan[@]}"}; do
+    read -r csproj p lat <<< "$entry"
+    echo "  Updating ${csproj#$dir/}: $p -> $lat"
+    dotnet add "$csproj" package "$p" --version "$lat" --no-restore >/dev/null 2>&1 || true
   done
 
   if [[ ${#changed[@]} -eq 0 ]]; then
@@ -384,6 +400,10 @@ upgrade_dotnet() {
 
   if [[ "$DRY_RUN" == true ]]; then
     results+=("csharp/$name: DRY-RUN"); skipped=$((skipped + 1)); return
+  fi
+
+  if [[ "$restore_failed" == true ]]; then
+    results+=("csharp/$name: CANNOT CHECK (restore failed)"); failed=$((failed + 1)); return
   fi
 
   cd "$dir" || return
