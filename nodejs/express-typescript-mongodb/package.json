@@ -81,7 +81,7 @@
       "ioredis": "^5.11.1"
     },
     "flatted": ">=3.4.2",
-    "follow-redirects": "^1.16.0",
+    "follow-redirects": "^1.16.1",
     "ip-address": ">=10.7.1",
     "undici": ">=8.10.2",
     "uuid": ">=14.0.0",
@@ -91,7 +91,7 @@
     "isomorphic-dompurify": {
       "dompurify": ">=3.4.16"
     },
-    "vite": ">=8.0.16",
+    "vite": ">=8.2.4",
     "brace-expansion": ">=5.0.12",
     "socket.io-parser": ">=4.2.7",
     "body-parser": ">=2.3.0",
