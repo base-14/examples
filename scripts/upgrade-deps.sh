@@ -16,6 +16,7 @@ SCOPE="all"
 # and a grep that decides whether a project owns any of those deps (so untouched
 # projects are skipped silently). "all" = unfiltered, every dependency.
 NODE_FILTER=""      # passed verbatim to npm-check-updates as package filters
+NODE_REJECT="${NODE_REJECT:-}"  # env: packages npm-check-updates must not touch, e.g. '@opentelemetry/*'
 GO_PATTERNS=""      # passed verbatim to `go get -u`
 SCOPE_GREP=""       # manifest grep guard; empty = no guard
 PY_FILTER=""        # pip/uv package-name prefix to upgrade
@@ -141,6 +142,9 @@ upgrade_nodejs() {
   local ncu_flags=""
   if [[ "$SKIP_MAJOR" == true ]]; then
     ncu_flags="--target minor"
+  fi
+  if [[ -n "$NODE_REJECT" ]]; then
+    ncu_flags="$ncu_flags --reject $NODE_REJECT"
   fi
 
   if [[ "$DRY_RUN" == true ]]; then
@@ -387,13 +391,6 @@ upgrade_dotnet() {
     done
   done
 
-  local entry
-  for entry in ${plan[@]+"${plan[@]}"}; do
-    read -r csproj p lat <<< "$entry"
-    echo "  Updating ${csproj#$dir/}: $p -> $lat"
-    dotnet add "$csproj" package "$p" --version "$lat" --no-restore >/dev/null 2>&1 || true
-  done
-
   if [[ ${#changed[@]} -eq 0 ]]; then
     results+=("csharp/$name: NO_PACKAGES"); skipped=$((skipped + 1)); return
   fi
@@ -403,10 +400,16 @@ upgrade_dotnet() {
   fi
 
   if [[ "$restore_failed" == true ]]; then
-    results+=("csharp/$name: CANNOT CHECK (restore failed)"); failed=$((failed + 1)); return
+    results+=("csharp/$name: CANNOT CHECK (restore failed, nothing changed)"); failed=$((failed + 1)); return
   fi
 
-  cd "$dir" || return
+  local entry
+  for entry in ${plan[@]+"${plan[@]}"}; do
+    read -r csproj p lat <<< "$entry"
+    echo "  Updating ${csproj#$dir/}: $p -> $lat"
+    dotnet add "$csproj" package "$p" --version "$lat" --no-restore >/dev/null 2>&1 || true
+  done
+
   verify_make_check "csharp/$name" "${changed[@]}"
 }
 
