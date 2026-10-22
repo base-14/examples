@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.20.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.20.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.0" />
@@ -22,7 +22,7 @@
     <PackageReference Include="Microsoft.Agents.AI.Anthropic" Version="1.25.0" />
     <PackageReference Include="OllamaSharp" Version="5.5.0" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
-    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
   </ItemGroup>
 
   <ItemGroup>
