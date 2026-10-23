@@ -1,7 +1,7 @@
 /**
- * OTel GenAI semantic convention middleware for AI SDK v6.
+ * OTel GenAI semantic convention middleware for AI SDK v7.
  *
- * `withSemconv` wraps a LanguageModelV3 so every call runs inside a CLIENT span
+ * `withSemconv` wraps a LanguageModelV4 so every call runs inside a CLIENT span
  * named `chat {model}`, retries all errors three times with exponential backoff,
  * and records the token, duration, cost, retry and error instruments.
  *
@@ -11,7 +11,7 @@
  * Usage (providers.ts):
  *   const model = withSemconv(anthropic("claude-sonnet-4-6"), target, pricing);
  */
-import type { LanguageModelV3, LanguageModelV3Middleware } from "@ai-sdk/provider";
+import type { LanguageModelV4, LanguageModelV4Middleware } from "@ai-sdk/provider";
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { wrapLanguageModel } from "ai";
 import {
@@ -37,7 +37,7 @@ const MAX_RETRIES = 2; // 3 total attempts
 const MIN_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 10_000;
 
-type GeneratePrompt = Parameters<LanguageModelV3["doGenerate"]>[0]["prompt"];
+type GeneratePrompt = Parameters<LanguageModelV4["doGenerate"]>[0]["prompt"];
 
 function contentCaptureEnabled(): boolean {
   return process.env.OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT === "true";
@@ -96,9 +96,9 @@ async function sleep(ms: number): Promise<void> {
 export function createSemconvMiddleware(
   target: ProviderTarget,
   pricing?: ModelPricing,
-): LanguageModelV3Middleware {
+): LanguageModelV4Middleware {
   return {
-    specificationVersion: "v3",
+    specificationVersion: "v4",
     async wrapGenerate({ doGenerate, params, model }) {
       const modelId = model.modelId;
       const prompt = extractPromptText(params.prompt);
@@ -218,10 +218,10 @@ export function createSemconvMiddleware(
 
 /** Wrap a raw model with the GenAI semconv span, retry and metrics. */
 export function withSemconv(
-  model: LanguageModelV3,
+  model: LanguageModelV4,
   target: ProviderTarget,
   pricing?: ModelPricing,
-): LanguageModelV3 {
+): LanguageModelV4 {
   return wrapLanguageModel({ model, middleware: createSemconvMiddleware(target, pricing) });
 }
 
@@ -232,13 +232,13 @@ export function withSemconv(
  * `provider_fallback` event, and keeps its OK status if the fallback succeeds.
  */
 export function withFallback(
-  primary: LanguageModelV3,
+  primary: LanguageModelV4,
   primaryTarget: ProviderTarget,
-  fallback: LanguageModelV3,
+  fallback: LanguageModelV4,
   fallbackTarget: ProviderTarget,
-): LanguageModelV3 {
-  const fallbackMiddleware: LanguageModelV3Middleware = {
-    specificationVersion: "v3",
+): LanguageModelV4 {
+  const fallbackMiddleware: LanguageModelV4Middleware = {
+    specificationVersion: "v4",
     async wrapGenerate({ doGenerate, params }) {
       try {
         return await doGenerate();

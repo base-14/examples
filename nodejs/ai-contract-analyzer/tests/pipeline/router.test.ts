@@ -56,8 +56,10 @@ describe("routeDocument", () => {
 describe("routeDocument classifier prompt", () => {
   async function lastSystemPrompt(): Promise<string> {
     const { generateText } = await import("ai");
-    const call = vi.mocked(generateText).mock.calls.at(-1)?.[0] as unknown as { system: string };
-    return call.system;
+    const call = vi.mocked(generateText).mock.calls.at(-1)?.[0] as unknown as {
+      instructions: string;
+    };
+    return call.instructions;
   }
 
   it("defines every contract type the schema accepts", async () => {

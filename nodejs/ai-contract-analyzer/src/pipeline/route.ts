@@ -39,7 +39,7 @@ export async function routeDocument(fullText: string): Promise<RouteResult> {
   const { output, usage } = await generateText({
     model: fastDescriptor.model,
     output: Output.object({ schema: RouteSchema }),
-    system: SYSTEM_PROMPT,
+    instructions: SYSTEM_PROMPT,
     prompt: preview,
   });
 

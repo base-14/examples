@@ -87,7 +87,7 @@ Assess the risk level for each present clause and identify which missing clauses
     model: fastDescriptor.model,
     output: Output.object({ schema: riskSchema }),
     maxOutputTokens: 3_000,
-    system: `You are a contract risk analyst. For each present clause, assess:
+    instructions: `You are a contract risk analyst. For each present clause, assess:
 - risk_level: critical (immediate action), high (significant concern), medium (review), low (acceptable), none (standard)
 - risk_factors: specific reasons the clause poses risk
 - recommendation: concrete action for the reviewing attorney

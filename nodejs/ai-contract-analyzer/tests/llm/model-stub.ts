@@ -1,5 +1,5 @@
-/** A LanguageModelV3 stub whose `doGenerate` the tests drive directly. */
-import type { LanguageModelV3 } from "@ai-sdk/provider";
+/** A LanguageModelV4 stub whose `doGenerate` the tests drive directly. */
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import type { ProviderTarget } from "../../src/llm/provider-target.ts";
 
 export const ANTHROPIC_TARGET: ProviderTarget = {
@@ -36,9 +36,9 @@ export function generateResult(mock: MockResponse) {
   };
 }
 
-export function stubModel(modelId: string, doGenerate: () => Promise<unknown>): LanguageModelV3 {
+export function stubModel(modelId: string, doGenerate: () => Promise<unknown>): LanguageModelV4 {
   return {
-    specificationVersion: "v3",
+    specificationVersion: "v4",
     provider: "test",
     modelId,
     supportedUrls: {},
@@ -46,7 +46,7 @@ export function stubModel(modelId: string, doGenerate: () => Promise<unknown>): 
     doStream: async () => {
       throw new Error("streaming is not used in these tests");
     },
-  } as unknown as LanguageModelV3;
+  } as unknown as LanguageModelV4;
 }
 
 export function generateParams(

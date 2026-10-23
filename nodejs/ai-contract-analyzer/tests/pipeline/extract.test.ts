@@ -104,14 +104,14 @@ describe("extractClauses", () => {
 
     // First call is the generator - check its system prompt
     const generatorCall = vi.mocked(generateText).mock.calls[0]?.[0];
-    expect((generatorCall as { system: string }).system).toContain("(41)");
+    expect((generatorCall as { instructions: string }).instructions).toContain("(41)");
   });
 
   it("narrows clause types based on document type", async () => {
     await extractClauses("contract text", undefined, "nda");
 
     const generatorCall = vi.mocked(generateText).mock.calls[0]?.[0];
-    const system = (generatorCall as { system: string }).system;
+    const system = (generatorCall as { instructions: string }).instructions;
     expect(system).toContain("non_disclosure");
     expect(system).not.toContain("(41)");
   });

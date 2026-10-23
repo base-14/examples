@@ -24,10 +24,10 @@
     "docker:down": "docker compose down -v"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "3.0.135",
-    "@ai-sdk/google": "3.0.137",
-    "@ai-sdk/openai": "3.0.131",
-    "@ai-sdk/provider": "3.0.19",
+    "@ai-sdk/anthropic": "4.0.87",
+    "@ai-sdk/google": "4.0.104",
+    "@ai-sdk/openai": "4.0.101",
+    "@ai-sdk/provider": "4.0.33",
     "@opentelemetry/api": "1.10.0",
     "@opentelemetry/exporter-logs-otlp-http": "0.300.0",
     "@opentelemetry/exporter-metrics-otlp-http": "0.300.0",
@@ -36,7 +36,7 @@
     "@opentelemetry/sdk-logs": "3.0.0",
     "@opentelemetry/sdk-metrics": "3.0.0",
     "@opentelemetry/sdk-node": "0.300.0",
-    "ai": "6.0.314",
+    "ai": "7.0.150",
     "hono": "4.13.13",
     "pdf-parse": "2.4.5",
     "pg": "8.23.1",

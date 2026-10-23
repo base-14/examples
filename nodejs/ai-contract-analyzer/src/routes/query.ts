@@ -63,7 +63,7 @@ query.post("/contracts/:id/query", async (c) => {
     const { text, usage } = await generateText({
       model: getCapableModel().model,
       maxOutputTokens: 1_000,
-      system: `You are a contract analysis assistant. Answer questions about the following contract strictly based on the provided text. If the answer cannot be found in the contract, say so clearly.
+      instructions: `You are a contract analysis assistant. Answer questions about the following contract strictly based on the provided text. If the answer cannot be found in the contract, say so clearly.
 
 Contract: ${contract.filename}
 Contract type: ${contract.contract_type ?? "unknown"}

@@ -1,7 +1,7 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
+import { createGoogle, google } from "@ai-sdk/google";
 import { createOpenAI, openai } from "@ai-sdk/openai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import {
   defaultEmbeddingSettingsMiddleware,
   type EmbeddingModel,
@@ -74,7 +74,7 @@ function providerTarget(provider: LlmProvider | EmbeddingProvider): ProviderTarg
   }
 }
 
-const googleV1 = createGoogleGenerativeAI({
+const googleV1 = createGoogle({
   baseURL: "https://generativelanguage.googleapis.com/v1",
 });
 
@@ -88,10 +88,10 @@ function ollamaClient() {
 }
 
 /** Build a raw (unwrapped) language model for the given provider + modelId. */
-function buildRawModel(provider: LlmProvider, modelId: string): LanguageModelV3 {
-  if (provider === "google") return google(modelId) as unknown as LanguageModelV3;
-  if (provider === "ollama") return ollamaClient()(modelId) as unknown as LanguageModelV3;
-  return anthropic(modelId) as unknown as LanguageModelV3;
+function buildRawModel(provider: LlmProvider, modelId: string): LanguageModelV4 {
+  if (provider === "google") return google(modelId) as unknown as LanguageModelV4;
+  if (provider === "ollama") return ollamaClient()(modelId) as unknown as LanguageModelV4;
+  return anthropic(modelId) as unknown as LanguageModelV4;
 }
 
 /**

@@ -99,7 +99,7 @@ export async function extractClauses(
       model: capableDescriptor.model,
       output: Output.object({ schema: extractionSchema }),
       maxOutputTokens: 8_000,
-      system: systemPrompt,
+      instructions: systemPrompt,
       prompt: generatorPrompt,
     });
 
@@ -142,7 +142,7 @@ Check for:
     const { output: evaluation, usage: evalUsage } = await generateText({
       model: fastDescriptor.model,
       output: Output.object({ schema: EvaluationSchema }),
-      system:
+      instructions:
         "You are a contract data validator. Return passed=true only if none of the listed issues are present.",
       prompt: evalPrompt,
     });
