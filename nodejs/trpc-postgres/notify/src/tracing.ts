@@ -20,12 +20,14 @@ const sdk = new NodeSDK({
     [ATTR_SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || "1.0.0",
   }),
   traceExporter: new OTLPTraceExporter({ url: endpoint }),
-  metricReader: new PeriodicExportingMetricReader({
-    exporter: new OTLPMetricExporter({ url: endpoint }),
-    exportIntervalMillis: parseInt(
-      process.env.OTEL_METRIC_EXPORT_INTERVAL || "10000"
-    ),
-  }),
+  metricReaders: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({ url: endpoint }),
+      exportIntervalMillis: parseInt(
+        process.env.OTEL_METRIC_EXPORT_INTERVAL || "10000"
+      ),
+    }),
+  ],
   logRecordProcessors: [
     new BatchLogRecordProcessor({
       exporter: new OTLPLogExporter({ url: endpoint }),

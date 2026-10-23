@@ -11,7 +11,7 @@ import {
   SpanKind,
   metrics,
 } from '@opentelemetry/api';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { logs, SeverityNumber } from '@opentelemetry/api';
 import { ArticlePublishedPayload } from './notification.service';
 import { Article } from '../articles/entities/article.entity';
 import { EventsGateway } from '../events/events.gateway';

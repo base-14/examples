@@ -1,5 +1,5 @@
 import { ErrorHandler, Injectable } from '@angular/core';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { logs, SeverityNumber } from '@opentelemetry/api';
 
 // Single capture point for uncaught errors in a zoneless app (Angular errors +
 // the window error/unhandledrejection events via provideBrowserGlobalErrorListeners).

@@ -1,6 +1,6 @@
 import type { EnrichSpan } from "@ai-sdk/otel";
 import type { Attributes } from "@opentelemetry/api";
-import type { ReadableSpan, SpanProcessor } from "@opentelemetry/sdk-trace-base";
+import type { ReadableSpan, SpanProcessor } from "@opentelemetry/sdk-trace";
 import type { LanguageModelUsage } from "ai";
 import type { Config } from "../config.ts";
 import { costOf } from "../llm/cost.js";
@@ -43,14 +43,16 @@ export const PLAN_RUNTIME_CONTEXT_KEYS = {
   subtopic: true,
 } as const;
 
+// Plain string values: @ai-sdk/otel pins @opentelemetry/api 1.9.1, whose Attributes type is
+// narrower than 1.10's, and EnrichSpan is checked against that copy.
 export function planAttributes(
   runtimeContext: Record<string, unknown> | undefined,
-): Attributes | undefined {
+): Record<string, string> | undefined {
   if (runtimeContext === undefined) {
     return undefined;
   }
 
-  const attributes: Attributes = {};
+  const attributes: Record<string, string> = {};
   const { planId, agentRole, toolCatalogue, subtopic } = runtimeContext;
 
   // One plan is one conversation. The GenAI attribute is what Scout and the agent guides

@@ -12,8 +12,13 @@ import {
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { trace, SpanStatusCode, metrics } from '@opentelemetry/api';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import {
+  logs,
+  metrics,
+  SeverityNumber,
+  SpanStatusCode,
+  trace,
+} from '@opentelemetry/api';
 
 const logger = logs.getLogger('http-exception-filter');
 const meter = metrics.getMeter('http-errors');

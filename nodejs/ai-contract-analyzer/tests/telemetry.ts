@@ -16,16 +16,16 @@ import {
   PeriodicExportingMetricReader,
 } from "@opentelemetry/sdk-metrics";
 import {
-  BasicTracerProvider,
   InMemorySpanExporter,
   type ReadableSpan,
   SimpleSpanProcessor,
-} from "@opentelemetry/sdk-trace-base";
+  TracerProvider,
+} from "@opentelemetry/sdk-trace";
 
 export const spanExporter = new InMemorySpanExporter();
 
-const tracerProvider = new BasicTracerProvider({
-  spanProcessors: [new SimpleSpanProcessor(spanExporter)],
+const tracerProvider = new TracerProvider({
+  spanProcessors: [new SimpleSpanProcessor({ exporter: spanExporter })],
 });
 
 context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());

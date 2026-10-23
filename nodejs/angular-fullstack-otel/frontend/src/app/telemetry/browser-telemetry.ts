@@ -1,4 +1,9 @@
-import { WebTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-web';
+import { TracerProvider, BatchSpanProcessor, StackContextManager } from '@opentelemetry/sdk-trace';
+import {
+  CompositePropagator,
+  W3CBaggagePropagator,
+  W3CTraceContextPropagator,
+} from '@opentelemetry/core';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import {
   MeterProvider,
@@ -9,8 +14,7 @@ import {
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { LoggerProvider, BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
-import { metrics } from '@opentelemetry/api';
-import { logs } from '@opentelemetry/api-logs';
+import { context, logs, metrics, propagation, trace } from '@opentelemetry/api';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
@@ -76,17 +80,23 @@ export function initBrowserTelemetry(): void {
   });
 
   // --- Traces ---
-  const tracerProvider = new WebTracerProvider({
+  const tracerProvider = new TracerProvider({
     resource,
     spanProcessors: [
-      new BatchSpanProcessor(
-        new OTLPTraceExporter({ url: `${environment.otelCollectorUrl}/v1/traces` }),
-      ),
+      new BatchSpanProcessor({
+        exporter: new OTLPTraceExporter({ url: `${environment.otelCollectorUrl}/v1/traces` }),
+      }),
     ],
   });
-  // Zoneless: installs the StackContextManager + W3C propagator and sets the
-  // global TracerProvider.
-  tracerProvider.register();
+  // Zoneless: StackContextManager carries context through synchronous code; W3C
+  // trace-context + baggage headers go on outgoing requests.
+  trace.setGlobalTracerProvider(tracerProvider);
+  context.setGlobalContextManager(new StackContextManager().enable());
+  propagation.setGlobalPropagator(
+    new CompositePropagator({
+      propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()],
+    }),
+  );
 
   // --- Metrics ---
   const meterProvider = new MeterProvider({

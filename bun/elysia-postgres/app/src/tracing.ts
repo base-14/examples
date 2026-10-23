@@ -1,10 +1,9 @@
-import { logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import {
@@ -23,27 +22,24 @@ const resource = resourceFromAttributes({
 const sdk = new NodeSDK({
   resource,
   traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
-  metricReader: new PeriodicExportingMetricReader({
-    exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics` }),
-    exportIntervalMillis: parseInt(
-      process.env.OTEL_METRIC_EXPORT_INTERVAL || "10000"
-    ),
-  }),
-  instrumentations: [new PgInstrumentation({ requireParentSpan: true })],
-});
-sdk.start();
-
-const loggerProvider = new LoggerProvider({
-  processors: [
+  metricReaders: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics` }),
+      exportIntervalMillis: parseInt(
+        process.env.OTEL_METRIC_EXPORT_INTERVAL || "10000"
+      ),
+    }),
+  ],
+  logRecordProcessors: [
     new BatchLogRecordProcessor({
       exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs` }),
     }),
   ],
+  instrumentations: [new PgInstrumentation({ requireParentSpan: true })],
 });
-logs.setGlobalLoggerProvider(loggerProvider);
+sdk.start();
 
 process.on("SIGTERM", async () => {
-  await loggerProvider.shutdown();
   await sdk.shutdown();
   process.exit(0);
 });

@@ -1,5 +1,4 @@
-import { trace, context as otelContext } from "@opentelemetry/api";
-import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+import { trace, context as otelContext, logs, SeverityNumber } from "@opentelemetry/api";
 
 const otelLogger = logs.getLogger("elysia-notify");
 

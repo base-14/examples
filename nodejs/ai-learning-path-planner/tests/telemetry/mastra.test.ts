@@ -1,10 +1,10 @@
 import { context } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import {
-  BasicTracerProvider,
   InMemorySpanExporter,
   SimpleSpanProcessor,
-} from "@opentelemetry/sdk-trace-base";
+  TracerProvider,
+} from "@opentelemetry/sdk-trace";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Config } from "../../src/config.ts";
 import {
@@ -27,12 +27,12 @@ const config = {
 const exporter = new InMemorySpanExporter();
 const contextManager = new AsyncLocalStorageContextManager();
 
-function providerWith(captureMessageContent: boolean): BasicTracerProvider {
-  return new BasicTracerProvider({
+function providerWith(captureMessageContent: boolean): TracerProvider {
+  return new TracerProvider({
     spanProcessors: [
       new MastraPlanSpanProcessor(captureMessageContent),
       new PlanCostSpanProcessor(config),
-      new SimpleSpanProcessor(exporter),
+      new SimpleSpanProcessor({ exporter }),
     ],
   });
 }

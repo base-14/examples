@@ -1,10 +1,9 @@
 import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
-import { logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
-import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
@@ -16,10 +15,12 @@ const serviceName = Bun.env.OTEL_SERVICE_NAME ?? "ai-contract-analyzer";
 if (otelEnabled) {
   diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
 
-  // ── Traces + Metrics ───────────────────────────────────────────────────────
-  // NodeSDK owns the global MeterProvider when metricReader is passed here -
-  // avoids the duplicate-registration error that occurs when a separate
-  // MeterProvider is created after sdk.start() registers one internally.
+  // ── Traces + Metrics + Logs ────────────────────────────────────────────────
+  // NodeSDK owns the global MeterProvider and LoggerProvider when the readers and
+  // processors are passed here - avoids the duplicate-registration error that
+  // occurs when a separate provider is created after sdk.start() registers one.
+  // Logs go to the collector so Scout can correlate them with traces via
+  // trace_id / span_id injected by logger.ts.
   // NodeSDK also handles SIGTERM (flushes pending spans/metrics before exit)
   // and bootstraps PgInstrumentation before pg is imported.
   const sdk = new NodeSDK({
@@ -32,19 +33,12 @@ if (otelEnabled) {
         exportTimeoutMillis: 10_000,
       }),
     ],
-    instrumentations: [new PgInstrumentation()],
-  });
-  sdk.start();
-
-  // ── Logs ───────────────────────────────────────────────────────────────────
-  // Logs are exported to the collector so Scout can correlate them with traces
-  // via trace_id / span_id injected by logger.ts.
-  const loggerProvider = new LoggerProvider({
-    processors: [
+    logRecordProcessors: [
       new BatchLogRecordProcessor({
         exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs` }),
       }),
     ],
+    instrumentations: [new PgInstrumentation()],
   });
-  logs.setGlobalLoggerProvider(loggerProvider);
+  sdk.start();
 }

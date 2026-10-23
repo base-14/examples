@@ -25,12 +25,14 @@ const logExporter = new OTLPLogExporter({ url: endpoint });
 const sdk = new NodeSDK({
   resource,
   traceExporter: new OTLPTraceExporter({ url: endpoint }),
-  metricReader: new PeriodicExportingMetricReader({
-    exporter: new OTLPMetricExporter({ url: endpoint }),
-    exportIntervalMillis: parseInt(
-      process.env.OTEL_METRIC_EXPORT_INTERVAL || "10000"
-    ),
-  }),
+  metricReaders: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({ url: endpoint }),
+      exportIntervalMillis: parseInt(
+        process.env.OTEL_METRIC_EXPORT_INTERVAL || "10000"
+      ),
+    }),
+  ],
   logRecordProcessors: [new BatchLogRecordProcessor({ exporter: logExporter })],
   instrumentations: [
     getNodeAutoInstrumentations({

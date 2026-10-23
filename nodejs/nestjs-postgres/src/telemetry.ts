@@ -15,11 +15,7 @@ import {
   PeriodicExportingMetricReader,
   MeterProvider,
 } from '@opentelemetry/sdk-metrics';
-import {
-  LoggerProvider,
-  BatchLogRecordProcessor,
-} from '@opentelemetry/sdk-logs';
-import { logs } from '@opentelemetry/api-logs';
+import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import { metrics } from '@opentelemetry/api';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
@@ -45,7 +41,9 @@ export function setupTelemetry(): NodeSDK {
       process.env.HOSTNAME || `${serviceName}-${process.pid}`,
   });
 
+  // Binds to localhost by default; 0.0.0.0 keeps the published container port reachable.
   const prometheusExporter = new PrometheusExporter({
+    host: '0.0.0.0',
     port: prometheusPort,
   });
 
@@ -69,15 +67,11 @@ export function setupTelemetry(): NodeSDK {
     url: `${otlpEndpoint}/v1/logs`,
   });
 
-  const loggerProvider = new LoggerProvider({
-    resource,
-    processors: [new BatchLogRecordProcessor({ exporter: logExporter })],
-  });
-
-  logs.setGlobalLoggerProvider(loggerProvider);
-
   const sdk = new NodeSDK({
     resource,
+    logRecordProcessors: [
+      new BatchLogRecordProcessor({ exporter: logExporter }),
+    ],
     traceExporter: new OTLPTraceExporter({
       url: `${otlpEndpoint}/v1/traces`,
     }),

@@ -32,17 +32,21 @@ const sdk = new NodeSDK({
   traceExporter: new OTLPTraceExporter({
     url: `${otlpEndpoint}/v1/traces`,
   }),
-  metricReader: new PeriodicExportingMetricReader({
-    exporter: new OTLPMetricExporter({
-      url: `${otlpEndpoint}/v1/metrics`,
+  metricReaders: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({
+        url: `${otlpEndpoint}/v1/metrics`,
+      }),
+      exportIntervalMillis: 60000,
     }),
-    exportIntervalMillis: 60000,
-  }),
-  logRecordProcessor: new BatchLogRecordProcessor({
-    exporter: new OTLPLogExporter({
-      url: `${otlpEndpoint}/v1/logs`,
+  ],
+  logRecordProcessors: [
+    new BatchLogRecordProcessor({
+      exporter: new OTLPLogExporter({
+        url: `${otlpEndpoint}/v1/logs`,
+      }),
     }),
-  }),
+  ],
   instrumentations: [
     getNodeAutoInstrumentations({
       '@opentelemetry/instrumentation-http': {

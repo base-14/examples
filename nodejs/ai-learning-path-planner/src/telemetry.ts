@@ -6,8 +6,10 @@ import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { NodeSDK, logs as sdkLogs, metrics as sdkMetrics } from "@opentelemetry/sdk-node";
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { registerTelemetry } from "ai";
 import { loadConfig } from "./config.js";
@@ -47,14 +49,16 @@ const sdk = new NodeSDK({
     new MastraPlanSpanProcessor(config.captureMessageContent),
     new ProviderNameSpanProcessor(),
     new PlanCostSpanProcessor(config),
-    new BatchSpanProcessor(new OTLPTraceExporter()),
+    new BatchSpanProcessor({ exporter: new OTLPTraceExporter() }),
   ],
-  metricReader: new sdkMetrics.PeriodicExportingMetricReader({
-    exporter: new OTLPMetricExporter(),
-  }),
+  metricReaders: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter(),
+    }),
+  ],
   // The pino instrumentation in the auto-instrumentations sends every record here, with the
   // active trace and span id. @ai-sdk/otel itself emits no logs.
-  logRecordProcessors: [new sdkLogs.BatchLogRecordProcessor({ exporter: new OTLPLogExporter() })],
+  logRecordProcessors: [new BatchLogRecordProcessor({ exporter: new OTLPLogExporter() })],
   instrumentations: [getNodeAutoInstrumentations()],
 });
 

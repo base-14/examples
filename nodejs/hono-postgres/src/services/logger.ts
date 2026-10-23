@@ -1,6 +1,5 @@
 import pino, { Logger, LoggerOptions } from 'pino';
-import { trace } from '@opentelemetry/api';
-import { logs as otelLogs, SeverityNumber } from '@opentelemetry/api-logs';
+import { logs as otelLogs, SeverityNumber, trace } from '@opentelemetry/api';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 const logLevel = process.env.LOG_LEVEL || 'info';

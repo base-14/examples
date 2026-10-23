@@ -4,12 +4,17 @@ import type {
   LanguageModelV4StreamResult,
   LanguageModelV4Usage,
 } from "@ai-sdk/provider";
-import { NodeSDK, metrics as sdkMetrics } from "@opentelemetry/sdk-node";
+import {
+  AggregationTemporality,
+  InMemoryMetricExporter,
+  PeriodicExportingMetricReader,
+} from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
 import {
   InMemorySpanExporter,
   type ReadableSpan,
   SimpleSpanProcessor,
-} from "@opentelemetry/sdk-trace-base";
+} from "@opentelemetry/sdk-trace";
 import { registerTelemetry } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { Hono } from "hono";
@@ -123,15 +128,13 @@ const FINDINGS = {
 };
 
 const spanExporter = new InMemorySpanExporter();
-const metricExporter = new sdkMetrics.InMemoryMetricExporter(
-  sdkMetrics.AggregationTemporality.CUMULATIVE,
-);
-const metricReader = new sdkMetrics.PeriodicExportingMetricReader({
+const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+const metricReader = new PeriodicExportingMetricReader({
   exporter: metricExporter,
   exportIntervalMillis: 3_600_000,
 });
 
-const spanProcessor = new SimpleSpanProcessor(spanExporter);
+const spanProcessor = new SimpleSpanProcessor({ exporter: spanExporter });
 
 let sdk: NodeSDK;
 
@@ -142,7 +145,7 @@ beforeAll(() => {
   // finished span is exportable as soon as it ends.
   sdk = new NodeSDK({
     spanProcessors: [new PlanCostSpanProcessor(baseConfig()), spanProcessor],
-    metricReader,
+    metricReaders: [metricReader],
     instrumentations: [],
     autoDetectResources: false,
   });

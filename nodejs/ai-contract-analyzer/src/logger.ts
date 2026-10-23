@@ -1,5 +1,4 @@
-import { trace } from "@opentelemetry/api";
-import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+import { logs, SeverityNumber, trace } from "@opentelemetry/api";
 
 const otelLogger = logs.getLogger("ai-contract-analyzer");
 

@@ -6,10 +6,9 @@ import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { LoggerProvider, BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
+import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { trace, metrics, SpanStatusCode } from '@opentelemetry/api';
-import { logs } from '@opentelemetry/api-logs';
 
 const serviceName = process.env.OTEL_SERVICE_NAME || 'nextjs-api-mongodb';
 const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318';
@@ -47,16 +46,10 @@ const logExporter = new OTLPLogExporter({
   url: `${otlpEndpoint}/v1/logs`,
 });
 
-const loggerProvider = new LoggerProvider({
-  resource,
-  processors: [new BatchLogRecordProcessor({ exporter: logExporter })],
-});
-
-logs.setGlobalLoggerProvider(loggerProvider);
-
 const sdk = new NodeSDK({
   resource,
   traceExporter,
+  logRecordProcessors: [new BatchLogRecordProcessor({ exporter: logExporter })],
   instrumentations: [
     getNodeAutoInstrumentations({
       '@opentelemetry/instrumentation-http': {
@@ -84,7 +77,7 @@ const sdk = new NodeSDK({
 sdk.start();
 
 process.on('SIGTERM', () => {
-  Promise.all([sdk.shutdown(), meterProvider.shutdown(), loggerProvider.shutdown()])
+  Promise.all([sdk.shutdown(), meterProvider.shutdown()])
     .then(() => console.log('Telemetry SDK shut down successfully'))
     .catch((error) => console.error('Error shutting down SDK', error))
     .finally(() => process.exit(0));

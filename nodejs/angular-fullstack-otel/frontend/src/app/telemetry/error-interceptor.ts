@@ -1,6 +1,5 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { context } from '@opentelemetry/api';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { context, logs, SeverityNumber } from '@opentelemetry/api';
 import { catchError, throwError } from 'rxjs';
 
 // Trace-correlated ERROR log for every failed HttpClient request. catchError runs

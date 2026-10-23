@@ -3,12 +3,11 @@
  */
 
 const api = require("@opentelemetry/api");
-const { SeverityNumber } = require("@opentelemetry/api-logs");
 const {
   detectResources, hostDetector, osDetector, processDetector, resourceFromAttributes,
 } = require("@opentelemetry/resources");
-const { NodeTracerProvider } = require("@opentelemetry/sdk-trace-node");
-const { BatchSpanProcessor } = require("@opentelemetry/sdk-trace-base");
+const { TracerProvider, BatchSpanProcessor } = require("@opentelemetry/sdk-trace");
+const { AsyncLocalStorageContextManager } = require("@opentelemetry/context-async-hooks");
 const { OTLPTraceExporter } = require("@opentelemetry/exporter-trace-otlp-http");
 const { LoggerProvider, BatchLogRecordProcessor } = require("@opentelemetry/sdk-logs");
 const { OTLPLogExporter } = require("@opentelemetry/exporter-logs-otlp-http");
@@ -32,7 +31,7 @@ function sayHello(tracer, otelLogger, helloCounter) {
   tracer.startActiveSpan("say-hello", (span) => {
     // This log is emitted inside the span, so it carries the span's trace ID.
     // In Scout, you can jump to the trace from a log detail.
-    otelLogger.emit({ severityText: "INFO", severityNumber: SeverityNumber.INFO, body: "Hello, World!" });
+    otelLogger.emit({ severityText: "INFO", severityNumber: api.SeverityNumber.INFO, body: "Hello, World!" });
     helloCounter.add(1);
     span.setAttribute("greeting", "Hello, World!");
     span.end();
@@ -43,7 +42,7 @@ function checkDiskSpace(tracer, otelLogger) {
   // Warnings show up in Scout with a distinct severity level, making
   // them easy to filter and spot before they become errors.
   tracer.startActiveSpan("check-disk-space", (span) => {
-    otelLogger.emit({ severityText: "WARN", severityNumber: SeverityNumber.WARN, body: "Disk usage above 90%" });
+    otelLogger.emit({ severityText: "WARN", severityNumber: api.SeverityNumber.WARN, body: "Disk usage above 90%" });
     span.setAttribute("disk.usage_percent", 92);
     span.end();
   });
@@ -58,7 +57,7 @@ function parseConfig(tracer, otelLogger) {
     span.setStatus({ code: api.SpanStatusCode.ERROR, message: error.message });
     otelLogger.emit({
       severityText: "ERROR",
-      severityNumber: SeverityNumber.ERROR,
+      severityNumber: api.SeverityNumber.ERROR,
       body: `Failed to parse configuration: ${error.message}`,
     });
     span.end();
@@ -77,13 +76,16 @@ async function main() {
   // -- Traces ---------------------------------------------------------------
   // A TracerProvider manages the lifecycle of traces. It batches spans and
   // sends them to the collector via the OTLP/HTTP exporter.
-  const tracerProvider = new NodeTracerProvider({
+  const tracerProvider = new TracerProvider({
     resource,
     spanProcessors: [
-      new BatchSpanProcessor(new OTLPTraceExporter({ url: `${endpoint}/v1/traces` })),
+      new BatchSpanProcessor({ exporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }) }),
     ],
   });
-  tracerProvider.register();
+  // Register the provider globally, and install a context manager so a span
+  // started with startActiveSpan is the active span inside its callback.
+  api.trace.setGlobalTracerProvider(tracerProvider);
+  api.context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
   const tracer = api.trace.getTracer("hello-world-nodejs");
 
   // -- Logs -----------------------------------------------------------------
@@ -93,7 +95,7 @@ async function main() {
   const loggerProvider = new LoggerProvider({
     resource,
     processors: [
-      new BatchLogRecordProcessor(new OTLPLogExporter({ url: `${endpoint}/v1/logs` })),
+      new BatchLogRecordProcessor({ exporter: new OTLPLogExporter({ url: `${endpoint}/v1/logs` }) }),
     ],
   });
   const otelLogger = loggerProvider.getLogger("hello-world-nodejs");

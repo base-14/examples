@@ -1,5 +1,5 @@
 import { type Context, context, createContextKey } from "@opentelemetry/api";
-import type { ReadableSpan, Span, SpanProcessor } from "@opentelemetry/sdk-trace-base";
+import type { ReadableSpan, Span, SpanProcessor } from "@opentelemetry/sdk-trace";
 import { MASTRA_SCOPE, type PlanRuntimeContext, planAttributes } from "./enrich.js";
 
 const PLAN_CONTEXT_KEY = createContextKey("base14.plan.runtime-context");
