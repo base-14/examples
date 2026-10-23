@@ -62,6 +62,9 @@ services:
         condition: service_healthy
       otel-collector:
         condition: service_started
+    # The image's HEALTHCHECK probes the API on :8000, which the worker does not serve.
+    healthcheck:
+      disable: true
     networks:
       - app-network
 

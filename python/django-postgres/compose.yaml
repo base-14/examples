@@ -55,6 +55,9 @@ services:
     networks:
       - app-network
     command: celery -A config worker --loglevel=info
+    # The image's HEALTHCHECK probes the API on :8000, which the worker does not serve.
+    healthcheck:
+      disable: true
 
   postgres:
     image: postgres:18
