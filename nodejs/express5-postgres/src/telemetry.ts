@@ -1,10 +1,12 @@
 /**
  * OpenTelemetry instrumentation setup for Express 5 application.
  *
- * CRITICAL: This file MUST be imported before any other modules
- * to ensure auto-instrumentation captures all dependencies.
+ * Loaded with `node --import ./dist/telemetry.js` before the app. The app is ESM, so its whole
+ * import graph is loaded before any module body runs; a plain `import './telemetry.js'` starts
+ * the SDK too late to patch ESM imports such as pino.
  */
 
+import { register } from 'node:module';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -17,6 +19,8 @@ import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
+
+register('@opentelemetry/instrumentation/hook.mjs', import.meta.url);
 
 const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318';
 const serviceName = process.env.OTEL_SERVICE_NAME || 'express5-postgres-app';

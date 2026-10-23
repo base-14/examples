@@ -1,10 +1,8 @@
 /**
  * BullMQ Worker with OpenTelemetry trace propagation.
  *
- * CRITICAL: telemetry.ts MUST be imported first.
+ * Telemetry is started before this file by `node --import ./dist/telemetry.js`.
  */
-
-import '../telemetry.js';
 
 import { Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';

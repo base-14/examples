@@ -11,9 +11,12 @@ instrumentation from the HTTP request to the database.
    `@opentelemetry/exporter-trace-otlp-http`, `@opentelemetry/exporter-metrics-otlp-http`,
    `@opentelemetry/exporter-logs-otlp-http`, `@opentelemetry/sdk-logs`,
    `@opentelemetry/resources`, `@opentelemetry/semantic-conventions` and `@opentelemetry/api`.
-2. Create `src/telemetry.ts` that builds a `NodeSDK` with `getNodeAutoInstrumentations()` and
-   the three OTLP exporters, then calls `sdk.start()`. Import it as the first line of
-   `src/index.ts` and `src/jobs/worker.ts` with `import './telemetry.js'`.
+2. Create `src/telemetry.ts` that registers the OTel ESM loader hook
+   (`register('@opentelemetry/instrumentation/hook.mjs', import.meta.url)`), builds a `NodeSDK`
+   with `getNodeAutoInstrumentations()` and the three OTLP exporters, then calls `sdk.start()`.
+   Load it before the app with `node --import ./dist/telemetry.js dist/index.js` (and the same
+   for `dist/jobs/worker.js`). The app is ESM, so a first-line `import './telemetry.js'` runs
+   after the import graph is loaded and misses ESM imports such as pino.
 3. Set `OTEL_SERVICE_NAME=express5-postgres-app` and
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in `.env`. The compose file points the
    app at `http://otel-collector:4318` and adds `OTEL_RESOURCE_ATTRIBUTES` for environment
@@ -467,8 +470,10 @@ docker compose up --build app
 
 ### Implementation
 
-Telemetry is initialized in `src/telemetry.ts` and must be imported before all other modules:
+Telemetry is initialized in `src/telemetry.ts`, loaded with `node --import` before the app and
+the worker:
 
+- ESM loader hook registered first, so ESM imports (pino, express) are instrumented
 - NodeSDK with OTLP HTTP exporters for traces, metrics, and logs
 - Auto-instrumentations enabled with health endpoint filtering
 - Graceful shutdown on SIGTERM

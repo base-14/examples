@@ -45,7 +45,7 @@ services:
     build:
       context: .
       target: runtime
-    command: ["node", "dist/jobs/worker.js"]
+    command: ["node", "--import", "./dist/telemetry.js", "dist/jobs/worker.js"]
     environment:
       - NODE_ENV=development
       - LOG_LEVEL=debug

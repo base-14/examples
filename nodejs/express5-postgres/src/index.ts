@@ -1,11 +1,8 @@
 /**
  * Express 5 + PostgreSQL + OpenTelemetry Application Entry Point
  *
- * CRITICAL: telemetry.ts MUST be imported first to ensure
- * auto-instrumentation captures all dependencies.
+ * Telemetry is started before this file by `node --import ./dist/telemetry.js`.
  */
-
-import './telemetry.js';
 
 import type { Server } from 'http';
 import { createApp } from './app.js';

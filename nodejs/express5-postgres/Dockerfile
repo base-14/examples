@@ -51,4 +51,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "--import", "./dist/telemetry.js", "dist/index.js"]
