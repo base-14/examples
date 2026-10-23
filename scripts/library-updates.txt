@@ -30,3 +30,11 @@ npm|nodejs/angular-fullstack-otel/frontend|web-vitals@6
 # npm|nodejs/nestjs-postgres|typescript@7        # same typescript-eslint blocker
 # npm|nodejs/angular-fullstack-otel/backend|typescript@7   # probed 2026-08-25: tsc rc=2
 # npm|nodejs/angular-fullstack-otel/frontend|typescript@7  # probed 2026-08-25: @angular/compiler-cli crashes on init under TS 7
+# npm|nodejs/nestjs-postgres|@nestjs/common@12 @nestjs/core@12 @nestjs/platform-express@12 @nestjs/platform-socket.io@12 @nestjs/websockets@12 @nestjs/testing@12 @nestjs/cli@12 @nestjs/schematics@12 @nestjs/bullmq@12 @nestjs/config@12 @nestjs/jwt@12 @nestjs/passport@12 @nestjs/terminus@12 @nestjs/typeorm@12
+#   checked 2026-10-23: instrumentation-nestjs-core 0.71.0 supports ">=4.0.0 <12", so Nest spans disappear on v12. Upstream support was reverted
+#   (open-telemetry/opentelemetry-js-contrib#3836); retry once #3859 ships in a release.
+# npm|nodejs/nextjs-fullstack-otel|@opentelemetry/*@3 (sdk 3.0 / 0.300)
+#   checked 2026-10-23: the 3.0 packages ship ESM, so Next 16 Turbopack loads require-in-the-middle and
+#   import-in-the-middle as hashed externals that `output: "standalone"` never copies; every page 500s.
+#   webpack builds skip the root instrumentation.ts. Both workarounds change the example's default setup;
+#   retry when Next copies Turbopack externals into standalone output.
