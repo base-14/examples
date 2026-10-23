@@ -1,14 +1,14 @@
 .PHONY: test clean dev docker-up docker-down docker-logs docker-build test-api verify-scout lint format typecheck check
 
 test:
-	pytest
+	uv run --extra dev pytest
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov __pycache__
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 dev:
-	flask run --reload
+	uv run flask run --reload
 
 docker-build:
 	docker compose build
