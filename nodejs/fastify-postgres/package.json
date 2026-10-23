@@ -45,12 +45,12 @@
     "@opentelemetry/sdk-node": "^0.223.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "bcrypt": "^6.0.0",
-    "bullmq": "^5.81.5",
+    "bullmq": "^6.4.0",
     "drizzle-orm": "^0.45.4",
     "fast-jwt": "^6.3.5",
     "fastify": "^5.12.7",
     "fastify-plugin": "^6.0.1",
-    "ioredis": "^5.11.1",
+    "ioredis": "^6.0.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
     "pino-opentelemetry-transport": "^3.0.0",
@@ -78,7 +78,6 @@
     "esbuild": "^0.28.1",
     "fast-uri": ">=4.1.5",
     "flatted": ">=3.4.2",
-    "ioredis": "^5.11.1",
     "@grpc/proto-loader": {
       "protobufjs": ">=8.6.6"
     },

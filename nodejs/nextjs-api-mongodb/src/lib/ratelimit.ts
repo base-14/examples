@@ -29,7 +29,7 @@ export async function checkRateLimit(
     const count = await redis.zcard(redisKey);
 
     if (count >= limit) {
-      const oldestEntry = await redis.zrange(redisKey, 0, 0, 'WITHSCORES');
+      const oldestEntry = await redis.zrange(redisKey, '0', '0', 'WITHSCORES');
       const reset = oldestEntry.length >= 2
         ? Math.ceil((parseInt(oldestEntry[1], 10) + windowMs - now) / 1000)
         : Math.ceil(windowMs / 1000);
