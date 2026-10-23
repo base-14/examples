@@ -1,13 +1,13 @@
-fastapi[all]==0.146.0
+fastapi[all]==0.161.1
 pydantic==2.14.1
 psycopg2-binary==2.9.13
-SQLAlchemy==2.1.5
+SQLAlchemy==2.1.6
 email-validator==2.3.0
 pwdlib[bcrypt]==0.3.1
 bcrypt==5.0.0
 PyJWT==2.15.1
 python-multipart==0.0.32
-alembic==1.20.0
+alembic==1.20.1
 pydantic_settings==2.16.0
 opentelemetry-instrumentation-fastapi>=0.61b0
 opentelemetry-instrumentation-sqlalchemy>=0.61b0
