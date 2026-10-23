@@ -10,7 +10,7 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "task_db")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
 
 SQLALCHEMY_DATABASE_URL = (
-    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DB}"
+    f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DB}"
 )
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
