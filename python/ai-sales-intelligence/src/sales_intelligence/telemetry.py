@@ -19,7 +19,7 @@ from typing import Any
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPX2ClientInstrumentor, HTTPXClientInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
@@ -104,9 +104,9 @@ def setup_telemetry(
     # === AUTO-INSTRUMENTATION ===
     # These instrumentors add spans automatically without any code changes
 
-    # httpx: Traces outbound HTTP calls. The OpenAI SDK sends through httpx2, which this
-    # instrumentor does not patch, so OpenAI and Ollama calls get no HTTP client span.
+    # httpx / httpx2: Traces outbound HTTP calls
     HTTPXClientInstrumentor().instrument()
+    HTTPX2ClientInstrumentor().instrument()
 
     # logging: Adds trace_id and span_id to all log records
     # Benefit: Correlate logs with traces in Scout dashboards

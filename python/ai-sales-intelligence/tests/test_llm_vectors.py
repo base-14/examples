@@ -187,7 +187,11 @@ class TestChatCompletionVector:
         # successful span UNSET rather than setting OK explicitly.
         assert span.status.status_code is not StatusCode.ERROR
 
-        assert_attributes(span, expected["attributes"])
+        expected_attributes = {
+            k: v for k, v in expected["attributes"].items() if k != "gen_ai.request.temperature"
+        }
+        assert_attributes(span, expected_attributes)
+        assert "gen_ai.request.temperature" not in span.attributes
 
         assert "gen_ai.input.messages" not in span.attributes, "content capture is off"
 

@@ -114,7 +114,7 @@ class AnthropicProvider(BaseLLMProvider):
         from anthropic import AsyncAnthropic
 
         # tenacity in generate() is the only retry layer, so each attempt is one span.
-        self._client = AsyncAnthropic(api_key=api_key, max_retries=0)
+        self._client = AsyncAnthropic(api_key=api_key, max_retries=0, open_telemetry=False)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -133,7 +133,6 @@ class AnthropicProvider(BaseLLMProvider):
         response = await self._client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            temperature=temperature,
             system=system,
             messages=[{"role": "user", "content": prompt}],
         )

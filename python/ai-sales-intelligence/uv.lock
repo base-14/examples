@@ -54,7 +54,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = "==0.22.1" },
-    { name = "anthropic", specifier = "==0.125.0" },
+    { name = "anthropic", specifier = "==2.2.0" },
     { name = "asyncpg", specifier = "==0.31.0" },
     { name = "fastapi", specifier = "==0.141.1" },
     { name = "google-genai", specifier = "==2.21.0" },
@@ -65,7 +65,7 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = "==1.45.1" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = "==1.45.1" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = "==0.66b1" },
-    { name = "opentelemetry-instrumentation-genai-anthropic", specifier = "==1.2b0" },
+    { name = "opentelemetry-instrumentation-genai-anthropic", specifier = "==1.3b0" },
     { name = "opentelemetry-instrumentation-genai-openai", specifier = "==1.2b0" },
     { name = "opentelemetry-instrumentation-google-genai", specifier = "==1.2b0" },
     { name = "opentelemetry-instrumentation-httpx", specifier = "==0.66b1" },
@@ -119,21 +119,21 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.125.0"
+version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "distro" },
     { name = "docstring-parser" },
-    { name = "httpx" },
+    { name = "httpx2" },
     { name = "jiter" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/62/f8/6f0560884b5363848347bd640b6c1d04abc25e7aa61787a232f790c6b60a/anthropic-0.125.0.tar.gz", hash = "sha256:e0cdd336580cb7411c1cdab69f80973e9bf4bff7f8e08141811d46307d45c682", size = 1112593, upload-time = "2026-08-19T22:00:42.837Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/15/6e79e28f4a04b54712d646d6156f2d0f74667e049d46c06388f6e3ee4890/anthropic-2.2.0.tar.gz", hash = "sha256:6b28d4b7299587a3a0edbcbd7431b0a06d749a2f4196efaf044fe6dc474ec144", size = 1849600, upload-time = "2026-10-23T13:10:33.258Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/1a/b1bd30cda3790557e8791bec5922a6ec8fabb6fa8b008c76a39cf7be6152/anthropic-0.125.0-py3-none-any.whl", hash = "sha256:3486013602eca76d8b12540764e53654f02cf4951110bca86cf06e67428a9f21", size = 1184067, upload-time = "2026-08-19T22:00:44.596Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/dc/f593c0d9ae20c0b738dac80db7129296060027d5e768af8d1c4585f8279b/anthropic-2.2.0-py3-none-any.whl", hash = "sha256:ba8388e843521b3eb3cfadf99ec415f13e124a8d1587236969b0a3d84e427d36", size = 2172150, upload-time = "2026-10-23T13:10:31.356Z" },
 ]
 
 [[package]]
@@ -1473,7 +1473,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-genai-anthropic"
-version = "1.2b0"
+version = "1.3b0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1481,9 +1481,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-util-genai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3c/b7/38c44a555860bbdd15f13ca84a029d30e8d0648946de43db8b125a928c5b/opentelemetry_instrumentation_genai_anthropic-1.2b0.tar.gz", hash = "sha256:b031fbda4dff59bd2c234707614d7579833ca7676dd8d65a6f70ba1ef87ad6d1", size = 84106, upload-time = "2026-09-24T16:38:31.693Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/55/982325b67d2b5d4bf064137987d6dee5fd7a719a7e3130be7b9881a1a945/opentelemetry_instrumentation_genai_anthropic-1.3b0.tar.gz", hash = "sha256:0581962ba8c79aa317a7d8d23d899de31888465c14e391ab2c5923c512df348e", size = 100890, upload-time = "2026-10-23T03:13:15.972Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/1d/fa8b77244443aa689c507f646f39455fb52adb02008602713f46c27dc37e/opentelemetry_instrumentation_genai_anthropic-1.2b0-py3-none-any.whl", hash = "sha256:901da681a0041036cde0d06548b756b4add0d441e8412988cb6ad163787cdfa3", size = 27380, upload-time = "2026-09-24T16:38:30.426Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/0c/702a6f05d3472bcae65916f2bfa4f5871120a45ecb375eff2b8e6c5db0f4/opentelemetry_instrumentation_genai_anthropic-1.3b0-py3-none-any.whl", hash = "sha256:6764d772f2c38015f69f5643e3a57e452a3bebae5088977baf402501f7c89f02", size = 30118, upload-time = "2026-10-23T03:13:14.621Z" },
 ]
 
 [[package]]

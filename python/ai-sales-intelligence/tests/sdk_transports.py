@@ -12,7 +12,6 @@ from typing import Any
 from unittest.mock import patch
 
 import anthropic
-import httpx
 import httpx2
 import openai
 
@@ -66,13 +65,13 @@ def anthropic_responses(responses: list[Response]) -> Iterator[None]:
     """`anthropic.AsyncAnthropic` answers from `responses`, one per request."""
     real = anthropic.AsyncAnthropic
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         status, body = _next_body(responses)
-        return httpx.Response(status, json=body)
+        return httpx2.Response(status, json=body)
 
     def client(**kwargs: Any) -> anthropic.AsyncAnthropic:
-        transport = httpx.MockTransport(handler)
-        return real(**kwargs, http_client=httpx.AsyncClient(transport=transport))
+        transport = httpx2.MockTransport(handler)
+        return real(**kwargs, http_client=httpx2.AsyncClient(transport=transport))
 
     with patch("anthropic.AsyncAnthropic", side_effect=client):
         yield

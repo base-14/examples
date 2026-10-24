@@ -33,7 +33,7 @@ dependencies = [
 
     # LLM & Agents (provider-agnostic - configure via LLM_PROVIDER env var)
     "langgraph==1.2.11",
-    "anthropic==0.125.0",
+    "anthropic==2.2.0",
     "google-genai==2.21.0",
     "openai==3.7.0",
 
@@ -53,7 +53,7 @@ dependencies = [
     "opentelemetry-instrumentation-httpx==0.66b1",
     "opentelemetry-instrumentation-logging==0.66b1",
     "opentelemetry-instrumentation-genai-openai==1.2b0",
-    "opentelemetry-instrumentation-genai-anthropic==1.2b0",
+    "opentelemetry-instrumentation-genai-anthropic==1.3b0",
     "opentelemetry-instrumentation-google-genai==1.2b0",
 ]
 

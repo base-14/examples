@@ -106,7 +106,7 @@ POST /campaigns/{id}/run                 (FastAPI)
 | --- | --- | --- |
 | HTTP Requests | `FastAPIInstrumentor` | Request spans with method, path, status, duration |
 | Database Queries | `SQLAlchemyInstrumentor` | Query spans with the SQL statement and duration |
-| External HTTP | `HTTPXClientInstrumentor` | Outbound call spans for Anthropic and Gemini; the OpenAI SDK sends through `httpx2`, which it does not patch |
+| External HTTP | `HTTPXClientInstrumentor`, `HTTPX2ClientInstrumentor` | Outbound call spans for every provider: Gemini sends through `httpx`, the Anthropic and OpenAI SDKs (and Ollama) through `httpx2` |
 | Logging | `LoggingInstrumentor` | Trace and span IDs on log lines |
 | LLM Calls | GenAI instrumentations | `chat {model}` spans, token and duration metrics |
 | LLM Call Context | `genai_spans.py`, `llm.py` | Agent, campaign, provider and cost on chat spans; cost, retry, fallback and error counters |
