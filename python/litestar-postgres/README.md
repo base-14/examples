@@ -16,7 +16,7 @@ collector* when traffic flows through it.
 2. Start the server under the `opentelemetry-instrument` CLI, as the `app/Dockerfile` CMD does
    with `opentelemetry-instrument uvicorn src.main:app`. Litestar has its own router, so the
    generic ASGI patch does not produce server spans. `app/src/main.py` therefore registers
-   `OpenTelemetryPlugin(config=OpenTelemetryConfig())` from `litestar.contrib.opentelemetry`
+   `OpenTelemetryPlugin(config=OpenTelemetryConfig())` from `litestar.plugins.opentelemetry`
    and `compose.yaml` sets `OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=asgi`.
 3. Set `OTEL_SERVICE_NAME=litestar-postgres-app`,
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
@@ -33,7 +33,7 @@ and JSON logs carrying `trace_id` and `span_id`. The full guide is
 
 | OpenTelemetry concept             | How it appears here                                                                 |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
-| HTTP server spans                 | `litestar.contrib.opentelemetry` plugin (Litestar's custom router needs this)        |
+| HTTP server spans                 | `litestar.plugins.opentelemetry` plugin (Litestar's custom router needs this)        |
 | Database spans                    | `opentelemetry-instrumentation-asyncpg` patches asyncpg automatically                |
 | Outbound HTTP / context propagation | `opentelemetry-instrumentation-httpx` puts `traceparent` on the wire                 |
 | Distributed traces                | `litestar-postgres-app` → httpx → `litestar-postgres-notify` share one `trace_id`                |
@@ -77,8 +77,8 @@ and JSON logs carrying `trace_id` and `span_id`. The full guide is
 | Alembic                                | 1.18.4   |
 | httpx                                  | 0.28.1   |
 | python-json-logger                     | 4.1.0    |
-| OpenTelemetry SDK / API / Exporter     | 1.41.0   |
-| OpenTelemetry contrib (instrumentations) | 0.62b0  |
+| OpenTelemetry SDK / API / Exporter     | 1.45.1   |
+| OpenTelemetry contrib (instrumentations) | 0.66b1  |
 | OpenTelemetry Collector contrib        | 0.163.1  |
 | Postgres                               | 18-alpine |
 | uv (package manager)                   | 0.6.12   |
