@@ -38,3 +38,13 @@ npm|nodejs/angular-fullstack-otel/frontend|web-vitals@6
 #   import-in-the-middle as hashed externals that `output: "standalone"` never copies; every page 500s.
 #   webpack builds skip the root instrumentation.ts. Both workarounds change the example's default setup;
 #   retry when Next copies Turbopack externals into standalone output.
+# pip|python/ai-kyc-onboarding|opentelemetry-api@1.45 opentelemetry-sdk@1.45 (instrumentation 0.66b1)
+#   checked 2026-10-25: OTel API 1.45 added an abstract Logger.enabled(). temporalio's _ReplaySafeLogger
+#   (contrib/opentelemetry) does not implement it in 1.34.0 (latest) or on main, so any log record inside an
+#   activity raises TypeError. The near-match test in test_agent_tools catches it. Stays on 1.44.0; retry
+#   when temporalio adds enabled().
+#   https://github.com/temporalio/sdk-python/blob/main/temporalio/contrib/opentelemetry/_logger_provider.py
+# pip|python/ai-filing-analyst (adk extra)|opentelemetry-api@1.45 opentelemetry-sdk@1.45
+#   checked 2026-10-25: google-adk caps opentelemetry-api and -sdk at 1.42.1 in 2.10.0 (the version in use)
+#   and at 1.44 in 2.13.0 (latest). The adk extra stays on 1.42.1 and Dependabot #1611 stays open. Retry
+#   when google-adk lifts the cap.

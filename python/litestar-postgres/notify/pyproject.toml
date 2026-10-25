@@ -8,13 +8,13 @@ dependencies = [
     "msgspec==0.21.1",
     "python-json-logger==4.1.0",
     # OpenTelemetry — SDK + auto-instrumentation
-    "opentelemetry-api==1.41.0",
-    "opentelemetry-sdk==1.41.0",
-    "opentelemetry-exporter-otlp==1.41.0",
-    "opentelemetry-distro==0.62b0",
-    "opentelemetry-instrumentation==0.62b0",
-    "opentelemetry-instrumentation-asgi==0.62b0",
-    "opentelemetry-instrumentation-logging==0.62b0",
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
+    "opentelemetry-exporter-otlp==1.45.1",
+    "opentelemetry-distro==0.66b1",
+    "opentelemetry-instrumentation==0.66b1",
+    "opentelemetry-instrumentation-asgi==0.66b1",
+    "opentelemetry-instrumentation-logging==0.66b1",
 ]
 
 [dependency-groups]

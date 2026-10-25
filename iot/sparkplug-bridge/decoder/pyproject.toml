@@ -7,9 +7,9 @@ dependencies = [
     "paho-mqtt>=2.1",
     "protobuf>=6.31.1,<7",
     "grpcio-tools>=1.80",
-    "opentelemetry-api==1.42.1",
-    "opentelemetry-sdk==1.42.1",
-    "opentelemetry-exporter-otlp-proto-http==1.42.1",
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
+    "opentelemetry-exporter-otlp-proto-http==1.45.1",
 ]
 
 [tool.uv]
