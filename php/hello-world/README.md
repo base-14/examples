@@ -29,7 +29,7 @@ log-trace correlation in action.
 
 - Docker (no local PHP installation needed)
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup
-  docs](../../scout-collector/README.md))
+  docs](https://docs.base14.io/instrument/collector-setup/docker-compose-example))
 
 ## Run It
 

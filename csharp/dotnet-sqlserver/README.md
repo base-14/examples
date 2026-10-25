@@ -31,7 +31,7 @@ and a separately instrumented background worker. The full guide is
 | **C#** | 14 | Active | Latest language version |
 | **Azure SQL Edge** | latest | Active | SQL Server compatible, ARM64 native |
 | **Entity Framework Core** | 10.0.11 | Active | Latest ORM version |
-| **OpenTelemetry** | 1.18.0 | Active | Traces, metrics, logs via OTLP |
+| **OpenTelemetry** | 1.20.1 | Active | Traces, metrics, logs via OTLP |
 | **BCrypt.Net-Next** | 4.2.0 | Active | Password hashing |
 
 **Version Selection**: Latest Stable
@@ -94,7 +94,7 @@ SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
 SCOUT_ENVIRONMENT=development
 ```
 
-New to Scout? See [Scout Setup Guide](https://docs.base14.io/get-started/scout-setup)
+New to Scout? See [Getting Started with base14 Scout](https://docs.base14.io/getting-started)
 
 ### 3. Start Services
 

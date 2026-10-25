@@ -34,11 +34,11 @@ guide is
 | --- | --- | --- | --- |
 | **Python** | 3.14 | Oct 2030 | 3.14.2 |
 | **Flask** | 3.1 | Stable | 3.1.2 |
-| **SQLAlchemy** | 2.0 | Active | 2.0.45 |
+| **SQLAlchemy** | 2.1 | Active | 2.1.6 |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
 | **Celery** | 5.6 | Stable | 5.6.0 |
 | **Redis** | 8 | Active | 8.0 |
-| **OpenTelemetry SDK** | 1.39 | N/A | 1.39.1 |
+| **OpenTelemetry SDK** | 1.45 | N/A | 1.45.1 |
 
 **Why This Matters**: Production-ready Flask stack with LTS support, background task processing via Celery,
 and comprehensive OpenTelemetry instrumentation for full observability.

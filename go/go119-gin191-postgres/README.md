@@ -19,6 +19,8 @@ Go application with OpenTelemetry instrumentation.
 This example adds a hand-written GORM callback tracer that emits a client span per query,
 handler-level spans for each user operation, and OTLP export over gRPC on port 4317. The full
 guide is [Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/go/).
+For manual spans and metrics, see
+[Go custom instrumentation](https://docs.base14.io/instrument/apps/custom-instrumentation/go).
 
 ## Stack Profile
 

@@ -28,9 +28,9 @@ guide is [Go OpenTelemetry Instrumentation](https://docs.base14.io/instrument/ap
 | **Fiber** | 2.52 | Active | Express-inspired web framework |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 (database + job queue) |
 | **sqlx** | 1.4 | Active | Lightweight SQL toolkit |
-| **River** | 0.30 | Active | PostgreSQL-native job queue |
+| **River** | 0.49 | Active | PostgreSQL-native job queue |
 | **slog** | stdlib | N/A | Go 1.21+ structured logging |
-| **OpenTelemetry** | 1.39 | N/A | 1.39.0 |
+| **OpenTelemetry** | 1.47 | N/A | 1.47.0 |
 
 **Why This Stack**: Demonstrates Go's performance with Fiber framework, Repository pattern for testability,
 raw SQL control via sqlx, and River for reliable background jobs **without Redis dependency**.

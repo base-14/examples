@@ -36,7 +36,7 @@ Scout. The full guide is
 | PostgreSQL | 18 | Aspire-managed in dev; `postgres:18` image in Compose. |
 | Entity Framework Core | 10.0.11 | `EnsureCreated` at startup; no migrations. |
 | Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 | EF Core 10 provider. |
-| OpenTelemetry .NET (core) | 1.18.0 | OTLP exporter + extensions hosting. |
+| OpenTelemetry .NET (core) | 1.20.1 | OTLP exporter + extensions hosting. |
 | OpenTelemetry instrumentation | AspNetCore 1.18.0, Http 1.18.0, Runtime 1.18.0, EFCore 1.15.1-beta.1 | Per-package latest stable (the contrib EF Core package is still beta). |
 | OTel Collector contrib | 0.163.1 | Receives OTLP from the apps; OAuth2 export to Scout. |
 

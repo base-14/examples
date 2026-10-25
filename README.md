@@ -428,7 +428,7 @@ See [LICENSE](./LICENSE) for details.
 
 [scout]: https://base14.io/scout
 [doc-collector]: https://docs.base14.io/category/opentelemetry-collector-setup
-[doc-apps]: https://docs.base14.io/category/app-instrumentation
+[doc-apps]: https://docs.base14.io/instrument/apps
 [doc-openclaw]: https://docs.base14.io/instrument/component/collecting-openclaw-telemetry
 [doc-claude-code]: https://docs.base14.io/instrument/component/collecting-claude-code-telemetry
 [doc-codex]: https://docs.base14.io/instrument/component/collecting-codex-telemetry

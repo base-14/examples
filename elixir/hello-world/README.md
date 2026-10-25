@@ -30,7 +30,7 @@ Click a span to see its events, attributes, and (for `parse-config`) the recorde
 
 - Elixir 1.20+ / Erlang OTP 29+
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup
-  docs](../../scout-collector/README.md))
+  docs](https://docs.base14.io/instrument/collector-setup/docker-compose-example))
 
 ## Run It
 

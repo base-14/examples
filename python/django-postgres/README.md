@@ -33,11 +33,11 @@ processor. The full guide is
 | --- | --- | --- | --- |
 | **Python** | 3.14 | Oct 2030 | 3.14.2 |
 | **Django** | 5.2 LTS | Apr 2028 | 5.2.9 |
-| **Django REST Framework** | 3.16 | Stable | 3.16.1 |
+| **Django REST Framework** | 3.18 | Stable | 3.18.3 |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
 | **Celery** | 5.6 | Stable | 5.6.0 |
 | **Redis** | 8 | Active | 8.0 |
-| **OpenTelemetry SDK** | 1.39 | N/A | 1.39.1 |
+| **OpenTelemetry SDK** | 1.45 | N/A | 1.45.1 |
 
 **Why This Matters:** Production-ready Django stack with LTS support, background task processing via Celery,
 and comprehensive OpenTelemetry instrumentation for full observability.

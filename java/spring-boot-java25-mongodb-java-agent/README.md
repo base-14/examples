@@ -332,7 +332,7 @@ environment:
 | Component | Version |
 | --- | --- |
 | Spring Boot | 3.5.9 |
-| OpenTelemetry Java Agent | 2.23.0 |
+| OpenTelemetry Java Agent | 2.32.0 |
 | MongoDB | 7.0 |
 | OTel Collector | 0.163.1 |
 | Gradle | 9.2.1 |

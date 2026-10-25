@@ -4,6 +4,8 @@ Runnable example that monitors a Microsoft SQL Server 2022 instance with the
 OpenTelemetry Collector's `sqlserverreceiver` and ships OTLP to base14 Scout
 or any upstream collector.
 
+See the [SQL Server monitoring guide](https://docs.base14.io/instrument/component/collecting-sqlserver-telemetry) on the docs site.
+
 A SQL Server 2022 container, a one-shot init container that creates the
 read-only `otel_monitor` login, and the collector boot together with one
 command.

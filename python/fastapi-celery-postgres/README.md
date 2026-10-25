@@ -41,7 +41,7 @@ the worker, and SQL comments on queries through the SQLAlchemy instrumentor's
 | **PostgreSQL** | 18 | Active |
 | **RabbitMQ** | 4.0 | Active |
 | **Redis** | 8.0 | Active |
-| **OpenTelemetry** | 1.39.0 | N/A |
+| **OpenTelemetry** | 1.45.1 | N/A |
 
 ## Overview
 

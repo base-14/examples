@@ -31,14 +31,14 @@ correlation and a Prometheus `/metrics` endpoint. The full guide is
 | Component | Version | Status | Notes |
 | --- | --- | --- | --- |
 | **Node.js** | 24.x | Active | Latest LTS |
-| **TypeScript** | 5.x | Latest | Strict mode enabled |
+| **TypeScript** | 6.x | Latest | Strict mode enabled |
 | **Fastify** | 5.x | Latest | Latest stable |
 | **PostgreSQL** | 18 | Active | Alpine variant |
 | **Redis** | 8.x | Active | For BullMQ job queue |
 | **Drizzle ORM** | 0.45.x | Latest | Type-safe SQL |
-| **BullMQ** | 5.x | Active | Background job processing |
+| **BullMQ** | 6.x | Active | Background job processing |
 | **Pino** | 10.x | Active | Fast JSON logging |
-| **OpenTelemetry** | 0.211.0 | Latest | SDK Node + auto-instrumentation |
+| **OpenTelemetry** | 0.300.0 | Latest | SDK Node + auto-instrumentation |
 
 **Why This Stack**: Demonstrates Fastify 5 with TypeScript for high-performance
 APIs, PostgreSQL with Drizzle ORM for type-safe database access, Redis/BullMQ

@@ -4,6 +4,8 @@ Runnable example that exports traces, metrics and logs from Claude Code
 2.1.289 and the Claude Agent SDK 0.2.163 to an OpenTelemetry Collector, which
 ships them to base14 Scout.
 
+See the [Claude Code monitoring guide](https://docs.base14.io/instrument/component/collecting-claude-code-telemetry) on the docs site.
+
 Claude Code does all the instrumentation. The rig only sets the telemetry
 variables in `config/telemetry.env`, runs a few headless turns, and runs one
 Agent SDK query under a parent span.

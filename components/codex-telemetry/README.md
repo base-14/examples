@@ -4,6 +4,8 @@ Runnable example that exports traces, metrics and logs from the OpenAI Codex
 CLI 0.160.0 to an OpenTelemetry Collector, which ships them to base14 Scout.
 The model runs on local Ollama.
 
+See the [Codex monitoring guide](https://docs.base14.io/instrument/component/collecting-codex-telemetry) on the docs site.
+
 Codex does all the instrumentation. The rig only sets the `[otel]` table in
 `config/config.toml` and runs a few headless turns.
 

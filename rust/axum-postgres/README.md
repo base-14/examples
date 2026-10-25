@@ -29,11 +29,11 @@ separate PostgreSQL-backed background worker binary. The full guide is
 | --- | --- | --- | --- |
 | **Rust** | 1.98.1 | Active | Edition 2024 |
 | **Axum** | 0.8.8 | Active | Tower-based async web framework |
-| **SQLx** | 0.8.6 | Active | Async PostgreSQL with compile-time queries |
+| **SQLx** | 0.9.0 | Active | Async PostgreSQL with compile-time queries |
 | **PostgreSQL** | 18 | Active (Nov 2029) | Latest stable |
-| **OpenTelemetry** | 0.32.0 | Active | Traces, metrics, logs via OTLP |
+| **OpenTelemetry** | 0.33.0 | Active | Traces, metrics, logs via OTLP |
 | **tracing** | 0.1.44 | Active | Instrumentation framework |
-| **tracing-opentelemetry** | 0.33.0 | Active | OTel bridge |
+| **tracing-opentelemetry** | 0.34.0 | Active | OTel bridge |
 | **jsonwebtoken** | 10.3.0 | Active | JWT authentication |
 | **argon2** | 0.5.3 | Active | Password hashing |
 
@@ -96,7 +96,7 @@ SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
 SCOUT_ENVIRONMENT=development
 ```
 
-New to Scout? See [Scout Setup Guide](https://docs.base14.io/get-started/scout-setup)
+New to Scout? See [Getting Started with base14 Scout](https://docs.base14.io/getting-started)
 
 ### 3. Start Services
 

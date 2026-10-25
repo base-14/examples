@@ -113,7 +113,7 @@ credentials.
 ## What's collected
 
 Full metric list with OIDs, units, and MIB source lives in the
-[Scout docs page](../../docs/instrument/component/snmp.md). High level:
+[Scout docs page](https://docs.base14.io/instrument/component/collecting-snmp-telemetry). High level:
 
 - **Linux host** — memory (total/available/cached/buffered),
   per-CPU utilization, 1/5/15-minute load averages, processes,

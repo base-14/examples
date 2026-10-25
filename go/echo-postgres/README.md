@@ -25,13 +25,13 @@ into Asynq background jobs. The full guide is
 | Component | Version | EOL Status | Current Version |
 | --- | --- | --- | --- |
 | **Go** | 1.27.1 | Aug 2027 | Latest stable |
-| **Echo** | 4.15 | Active | Latest v4 |
+| **Echo** | 4.16 | Active | Latest v4 |
 | **GORM** | 1.31 | Active | ORM with auto-migrations |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
 | **Redis** | 8 | Active | 8.0 |
-| **Asynq** | 0.25 | Active | Background job processing |
-| **OpenTelemetry** | 1.39 | N/A | 1.39.0 |
-| **zerolog** | 1.34 | Active | Structured logging |
+| **Asynq** | 0.26 | Active | Background job processing |
+| **OpenTelemetry** | 1.47 | N/A | 1.47.0 |
+| **zerolog** | 1.35 | Active | Structured logging |
 
 **Why This Stack**: Demonstrates Go's performance with Echo framework, GORM ORM for type-safe database operations,
 Asynq for reliable background jobs, and comprehensive OpenTelemetry instrumentation.

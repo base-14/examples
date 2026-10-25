@@ -32,14 +32,14 @@ guide is
 | Component | Version | EOL Status | Notes |
 | --- | --- | --- | --- |
 | **Node.js** | 24.x | Apr 2027 | LTS release |
-| **TypeScript** | 5.x | Current | Strict mode enabled |
+| **TypeScript** | 6.x | Current | Strict mode enabled |
 | **Express** | 5.x | Active | Latest major version |
 | **PostgreSQL** | 18 | Nov 2029 | Alpine variant |
 | **Redis** | 8.x | Active | For BullMQ job queue |
-| **Drizzle ORM** | 0.38.x | Active | Type-safe ORM with migrations |
-| **BullMQ** | 5.x | Active | Background job processing |
+| **Drizzle ORM** | 0.45.x | Active | Type-safe ORM with migrations |
+| **BullMQ** | 6.x | Active | Background job processing |
 | **Socket.io** | 4.x | Active | Real-time WebSocket events |
-| **OpenTelemetry** | 0.57.x | Latest | SDK Node + auto-instrumentation |
+| **OpenTelemetry** | 0.300.x | Latest | SDK Node + auto-instrumentation |
 
 **Why This Stack**: Demonstrates Express 5 with TypeScript for modern Node.js development, PostgreSQL for relational
 data, Redis/BullMQ for background jobs, Socket.io for real-time updates, and OpenTelemetry for complete observability

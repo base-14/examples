@@ -29,7 +29,7 @@ log-trace correlation in action.
 
 - Rust 1.98+
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup
-  docs](../../scout-collector/README.md))
+  docs](https://docs.base14.io/instrument/collector-setup/docker-compose-example))
 
 ## Run It
 

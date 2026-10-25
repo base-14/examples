@@ -30,7 +30,7 @@ log-trace correlation in action.
 - Java 25+
 - Maven 3.9+
 - A running OpenTelemetry collector accepting OTLP/HTTP on port 4318 (see [collector setup
-  docs](../../scout-collector/README.md))
+  docs](https://docs.base14.io/instrument/collector-setup/docker-compose-example))
 
 ## Run It
 

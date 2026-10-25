@@ -33,14 +33,14 @@ Prometheus `/metrics` endpoint alongside OTLP metrics. The full guide is
 | Component | Version | Status | Notes |
 | --- | --- | --- | --- |
 | **Node.js** | 24.x | Active | Latest |
-| **TypeScript** | 5.x | Latest | Strict mode enabled |
+| **TypeScript** | 6.x | Latest | Strict mode enabled |
 | **NestJS** | 11.x | Latest | Latest stable |
 | **PostgreSQL** | 18 | Active | Alpine variant |
 | **Redis** | 8.x | Active | For BullMQ job queue |
-| **TypeORM** | 0.3.x | Active | NestJS native integration |
-| **BullMQ** | 5.x | Active | Background job processing |
+| **TypeORM** | 1.1.x | Active | NestJS native integration |
+| **BullMQ** | 6.x | Active | Background job processing |
 | **Socket.io** | 4.x | Active | Real-time WebSocket events |
-| **OpenTelemetry** | 0.208.0 | Latest | SDK Node + auto-instrumentation |
+| **OpenTelemetry** | 0.300.0 | Latest | SDK Node + auto-instrumentation |
 
 **Why This Stack**: Demonstrates NestJS with TypeScript for enterprise-grade
 architecture, PostgreSQL for relational data, Redis/BullMQ for background

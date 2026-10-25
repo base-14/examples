@@ -4,7 +4,7 @@ This folder contains the source code used for in the
 process of getting aws cloudwatch metrics to otel
 collector via kinesis streams.
 
-Follow the docs at <https://docs.base14.io/instrument/infra/aws/collecting-aws-cloudwatch-metrics-using-kinesis-streams>
+Follow the docs at <https://docs.base14.io/instrument/infra/aws/cloudwatch-metrics/collecting-aws-cloudwatch-metrics-firehose-s3-lambda>
 
 In this method
 We'll configure the cloudwatch to use kinesis streams

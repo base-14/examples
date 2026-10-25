@@ -5,6 +5,8 @@ gateway through its bundled `diagnostics-otel` plugin to an OpenTelemetry
 Collector, which ships them to base14 Scout. The agent's model runs on local
 Ollama.
 
+See the [OpenClaw monitoring guide](https://docs.base14.io/instrument/component/collecting-openclaw-telemetry) on the docs site.
+
 The plugin does all the instrumentation. The rig only turns it on in
 `config/openclaw.json` and drives a few chat turns through the gateway.
 

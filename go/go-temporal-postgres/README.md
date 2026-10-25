@@ -56,9 +56,6 @@ Microservices architecture with each domain running as an independent Temporal w
 └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
-📊 **[Business Overview](docs/business-overview.md)** - Simplified view for business stakeholders
-🔧 **[Technical Architecture](docs/architecture.md)** - Detailed system diagrams and telemetry flow
-
 ## Decision Paths
 
 | Path | Trigger | Outcome |
@@ -276,8 +273,8 @@ Import the pre-built Grafana dashboards into Scout (uses ClickHouse datasource):
 | --- | --- |
 | Go | 1.25.7 |
 | Temporal SDK | 1.39.0 |
-| Echo | 4.15.0 |
-| GORM | 1.31.1 |
+| Echo | 4.16.2 |
+| GORM | 1.31.2 |
 | PostgreSQL | 18 |
 | OTel SDK | 1.39.0 |
 

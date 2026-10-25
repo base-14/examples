@@ -38,13 +38,13 @@ The full guide is
 | Component | Version | Status | Notes |
 | --- | --- | --- | --- |
 | **Node.js** | 24.x LTS | Active | Krypton - Active until April 2028 |
-| **TypeScript** | 5.7.2 | Latest | Stable |
+| **TypeScript** | 6.0.3 | Latest | Stable |
 | **Express.js** | 5.0.1 | Latest | New v5 with improved security |
 | **MongoDB** | 8.0 | Active | Latest stable |
-| **Mongoose** | 8.0.0 | Active | See note below on v9.0.0 |
+| **Mongoose** | 9.9.3 | Active | See the note below |
 | **Redis** | 8.0 | Latest | Alpine variant |
-| **Socket.io** | 4.7.2 | Latest | Real-time WebSocket communication |
-| **OpenTelemetry** | 0.208.0 | Latest | SDK Node |
+| **Socket.io** | 4.8.3 | Latest | Real-time WebSocket communication |
+| **OpenTelemetry** | 0.221.0 | Latest | SDK Node |
 
 **Why This Stack**: Demonstrates the latest Express.js 5.x with TypeScript for
 type safety, MongoDB for flexible document storage, Socket.io for real-time
@@ -73,14 +73,11 @@ BullMQ → Redis → MongoDB with 10s timeout.
 
 **See detailed architecture**: [docs/architecture.md](./docs/architecture.md)
 
-### ⚠️ Important: Mongoose Version Compatibility
+### Mongoose Version Compatibility
 
-This example uses **Mongoose 8.0.0** with full OpenTelemetry tracing support.
-
-**Note**: Mongoose 9.x is not yet supported by
-`@opentelemetry/instrumentation-mongoose` (currently supports `>=5.9.7 <9`).
-Track Mongoose 9.x support:
-[instrumentation-mongoose](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/packages/instrumentation-mongoose)
+This example uses **Mongoose 9.9.3**.
+[`@opentelemetry/instrumentation-mongoose`](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/packages/instrumentation-mongoose)
+0.67.0 traces Mongoose `>=5.9.7 <10`.
 
 ## What's Instrumented
 
@@ -113,26 +110,26 @@ Track Mongoose 9.x support:
 
 | Package | Version | Purpose |
 | --- | --- | --- |
-| `express` | ^5.0.1 | Web framework |
-| `mongoose` | ^8.0.0 | MongoDB ODM |
-| `bullmq` | ^5.65.0 | Background job queue |
-| `ioredis` | ^5.4.2 | Redis client for BullMQ |
+| `express` | ^5.2.1 | Web framework |
+| `mongoose` | ^9.9.3 | MongoDB ODM |
+| `bullmq` | ^5.81.3 | Background job queue |
+| `ioredis` | ^5.11.1 | Redis client for BullMQ |
 | `bcryptjs` | ^3.0.3 | Password hashing |
 | `jsonwebtoken` | ^9.0.3 | JWT authentication |
-| `zod` | ^4.1.13 | Runtime validation |
-| `isomorphic-dompurify` | ^2.33.0 | XSS protection |
-| `socket.io` | ^4.7.2 | WebSocket server |
-| `winston` | ^3.17.0 | Structured logging |
-| `typescript` | ^5.7.2 | Type safety |
-| `@opentelemetry/sdk-node` | ^0.208.0 | Core SDK |
-| `@opentelemetry/auto-instrumentations-node` | ^0.52.1 | Auto-instrumentation bundle |
-| `@opentelemetry/instrumentation-express` | ^0.45.0 | Express instrumentation |
-| `@opentelemetry/instrumentation-http` | ^0.55.0 | HTTP instrumentation |
-| `@opentelemetry/instrumentation-mongoose` | ^0.44.0 | Mongoose instrumentation |
-| `@opentelemetry/instrumentation-ioredis` | ^0.45.0 | Redis instrumentation |
-| `@opentelemetry/exporter-trace-otlp-http` | ^0.208.0 | OTLP HTTP exporter |
-| `@opentelemetry/exporter-metrics-otlp-http` | ^0.208.0 | Metrics exporter |
-| `@opentelemetry/api` | ^1.9.0 | OpenTelemetry API |
+| `zod` | ^4.6.6 | Runtime validation |
+| `isomorphic-dompurify` | ^3.22.0 | XSS protection |
+| `socket.io` | ^4.8.3 | WebSocket server |
+| `winston` | ^3.19.0 | Structured logging |
+| `typescript` | ^6.0.3 | Type safety |
+| `@opentelemetry/sdk-node` | ^0.221.0 | Core SDK |
+| `@opentelemetry/auto-instrumentations-node` | ^0.79.0 | Auto-instrumentation bundle |
+| `@opentelemetry/instrumentation-express` | ^0.69.0 | Express instrumentation |
+| `@opentelemetry/instrumentation-http` | ^0.221.0 | HTTP instrumentation |
+| `@opentelemetry/instrumentation-mongoose` | ^0.67.0 | Mongoose instrumentation |
+| `@opentelemetry/instrumentation-ioredis` | ^0.69.0 | Redis instrumentation |
+| `@opentelemetry/exporter-trace-otlp-http` | ^0.221.0 | OTLP HTTP exporter |
+| `@opentelemetry/exporter-metrics-otlp-http` | ^0.221.0 | Metrics exporter |
+| `@opentelemetry/api` | ^1.9.1 | OpenTelemetry API |
 
 ## Prerequisites
 
@@ -162,7 +159,7 @@ SCOUT_TOKEN_URL=https://your-tenant.base14.io/oauth/token
 EOF
 ```
 
-> **Note**: See [base14 Scout Setup Guide](https://docs.base14.io/scout/setup)
+> **Note**: See [Getting Started with base14 Scout](https://docs.base14.io/getting-started)
 > for obtaining credentials.
 
 ### 3. Start Services

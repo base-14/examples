@@ -31,10 +31,10 @@ tracing. The full guide is
 | Component | Version | EOL Status | Current Version |
 | --- | --- | --- | --- |
 | **Python** | 3.14 | Active | 3.14.7 |
-| **FastAPI** | 0.128.0 | Stable | 0.128.0 |
+| **FastAPI** | 0.161.1 | Stable | 0.161.1 |
 | **PostgreSQL** | 18 | Active | 18.1 |
-| **OpenTelemetry** | 1.39.1 | N/A | 1.39.1 |
-| **SQLAlchemy** | 2.0.45 | Stable | 2.0.45 |
+| **OpenTelemetry** | 1.45.1 | N/A | 1.45.1 |
+| **SQLAlchemy** | 2.1.6 | Stable | 2.1.6 |
 
 **Why This Matters:** Modern Python stack with FastAPI's high performance
 and automatic OpenTelemetry instrumentation for comprehensive observability.
