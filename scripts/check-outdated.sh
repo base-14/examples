@@ -145,7 +145,7 @@ PY
   fi
   [[ -z "$specs" ]] && return
 
-  print_header "python/$name"
+  print_header "${dir#"$REPO_ROOT"/}"
 
   local pip_bin
   pip_bin=$(command -v pip || command -v pip3 || true)
@@ -573,7 +573,7 @@ fi
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
   while IFS= read -r dir; do
     check_python "$dir"
-  done < <(find "$REPO_ROOT"/python -maxdepth 3 \
+  done < <(find "$REPO_ROOT"/python "$REPO_ROOT"/iot -maxdepth 3 \
             \( -name pyproject.toml -o -name requirements.txt \) \
             -not -path '*/.venv/*' -not -path '*/node_modules/*' \
             -exec dirname {} \; | sort -u)

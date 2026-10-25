@@ -261,6 +261,8 @@ upgrade_python() {
   if is_skipped "$name"; then return; fi
   local mgr=""
   [[ -f "$dir/uv.lock" ]] && mgr="uv"
+  # Treat iot/ projects as uv: they gitignore uv.lock, so a fresh checkout has only pyproject.toml
+  [[ -z "$mgr" && "$dir" == "$REPO_ROOT"/iot/* && -f "$dir/pyproject.toml" ]] && mgr="uv"
   [[ -z "$mgr" && -f "$dir/requirements.txt" ]] && mgr="pip"
   [[ -z "$mgr" ]] && return   # no manifest (e.g. empty shell)
 
@@ -268,7 +270,7 @@ upgrade_python() {
     return
   fi
 
-  print_header "python/$name"
+  print_header "${dir#"$REPO_ROOT"/}"
 
   if [[ "$DRY_RUN" == true ]]; then
     local what="all packages"; [[ -n "$PY_FILTER" ]] && what="packages matching /$PY_FILTER/"
@@ -801,7 +803,7 @@ fi
 if [[ "$LANGUAGE" == "all" || "$LANGUAGE" == "python" ]]; then
   while IFS= read -r dir; do
     upgrade_python "$dir"
-  done < <(find "$REPO_ROOT"/python -maxdepth 3 \
+  done < <(find "$REPO_ROOT"/python "$REPO_ROOT"/iot -maxdepth 3 \
             \( -name pyproject.toml -o -name requirements.txt \) \
             -not -path '*/.venv/*' -not -path '*/node_modules/*' \
             -exec dirname {} \; | sort -u)
