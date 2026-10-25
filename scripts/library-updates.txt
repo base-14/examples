@@ -48,3 +48,6 @@ npm|nodejs/angular-fullstack-otel/frontend|web-vitals@6
 #   checked 2026-10-25: google-adk caps opentelemetry-api and -sdk at 1.42.1 in 2.10.0 (the version in use)
 #   and at 1.44 in 2.13.0 (latest). The adk extra stays on 1.42.1 and Dependabot #1611 stays open. Retry
 #   when google-adk lifts the cap.
+# composer|php/php8-laravel8-sqlite|laravel/framework@12
+#   checked 2026-10-25: a security fix is only on 12.x. Legacy projects take patches for their named versions
+#   only, so this example stays on 8.83.x.
