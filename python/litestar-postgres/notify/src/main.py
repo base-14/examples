@@ -11,7 +11,7 @@ import logging
 
 import msgspec
 from litestar import Controller, Litestar, get, post
-from litestar.contrib.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
+from litestar.plugins.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
 
 from src.logging_config import build_logging_config
 from src.telemetry import notifications_received

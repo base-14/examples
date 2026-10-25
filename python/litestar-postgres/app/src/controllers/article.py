@@ -15,7 +15,7 @@ from advanced_alchemy.filters import LimitOffset
 from litestar import Controller, delete, get, post, put
 from litestar.di import Provide
 from litestar.exceptions import NotFoundException
-from litestar.params import Parameter
+from litestar.params import FromPath, Parameter
 from opentelemetry import trace
 
 from src.models import Article
@@ -94,7 +94,9 @@ class ArticleController(Controller):
         return ArticleRead.from_model(article)
 
     @get("/{article_id:int}")
-    async def get_one(self, article_id: int, repo: ArticleRepository) -> ArticleRead:
+    async def get_one(
+        self, article_id: FromPath[int], repo: ArticleRepository
+    ) -> ArticleRead:
         article = await repo.get_one_or_none(id=article_id)
         if article is None:
             raise NotFoundException(detail=f"Article {article_id} not found")
@@ -120,7 +122,7 @@ class ArticleController(Controller):
     @put("/{article_id:int}")
     async def update(
         self,
-        article_id: int,
+        article_id: FromPath[int],
         data: ArticleUpdate,
         repo: ArticleRepository,
     ) -> ArticleRead:
@@ -133,7 +135,7 @@ class ArticleController(Controller):
         return ArticleRead.from_model(article)
 
     @delete("/{article_id:int}")
-    async def remove(self, article_id: int, repo: ArticleRepository) -> None:
+    async def remove(self, article_id: FromPath[int], repo: ArticleRepository) -> None:
         article = await repo.get_one_or_none(id=article_id)
         if article is None:
             raise NotFoundException(detail=f"Article {article_id} not found")

@@ -16,7 +16,7 @@ from advanced_alchemy.extensions.litestar import (
     SQLAlchemyPlugin,
 )
 from litestar import Litestar
-from litestar.contrib.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
+from litestar.plugins.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
 from litestar.di import Provide
 
 from src.config import Settings
