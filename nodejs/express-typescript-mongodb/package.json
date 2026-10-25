@@ -56,7 +56,7 @@
     "bullmq": "^5.81.3",
     "compression": "^1.8.2",
     "cors": "^2.8.6",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
@@ -82,14 +82,14 @@
     },
     "flatted": ">=3.4.2",
     "follow-redirects": "^1.16.1",
-    "ip-address": ">=10.7.1",
+    "ip-address": ">=10.7.4",
     "undici": ">=8.10.2",
     "uuid": ">=14.0.0",
     "yauzl": ">=3.2.1",
     "ws": ">=8.21.0",
     "form-data": ">=4.0.6",
     "isomorphic-dompurify": {
-      "dompurify": ">=3.4.16"
+      "dompurify": ">=3.4.17"
     },
     "vite": ">=8.2.4",
     "brace-expansion": ">=5.0.12",
