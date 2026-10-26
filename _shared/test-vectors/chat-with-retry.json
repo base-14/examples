@@ -42,11 +42,12 @@
       "note": "1 retry recorded (the first retry attempt)"
     },
     {
-      "name": "gen_ai.client.token.usage",
-      "records": [
-        {"value": 12, "attrs": {"gen_ai.token.type": "input"}},
-        {"value": 6,  "attrs": {"gen_ai.token.type": "output"}}
-      ]
+      "name": "gen_ai.client.inference.operation.input_tokens",
+      "records": [{"value": 12}]
+    },
+    {
+      "name": "gen_ai.client.inference.operation.output_tokens",
+      "records": [{"value": 6}]
     }
   ],
   "not_expected": [

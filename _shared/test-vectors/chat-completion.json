@@ -43,30 +43,33 @@
   },
   "expected_metrics": [
     {
-      "name": "gen_ai.client.token.usage",
+      "name": "gen_ai.client.inference.operation.input_tokens",
       "records": [
         {
           "value": 12,
           "attrs": {
             "gen_ai.operation.name": "chat",
             "gen_ai.provider.name": "anthropic",
-            "gen_ai.request.model": "claude-sonnet-4-20250514",
-            "gen_ai.token.type": "input"
-          }
-        },
-        {
-          "value": 5,
-          "attrs": {
-            "gen_ai.operation.name": "chat",
-            "gen_ai.provider.name": "anthropic",
-            "gen_ai.request.model": "claude-sonnet-4-20250514",
-            "gen_ai.token.type": "output"
+            "gen_ai.request.model": "claude-sonnet-4-20250514"
           }
         }
       ]
     },
     {
-      "name": "gen_ai.client.operation.duration",
+      "name": "gen_ai.client.inference.operation.output_tokens",
+      "records": [
+        {
+          "value": 5,
+          "attrs": {
+            "gen_ai.operation.name": "chat",
+            "gen_ai.provider.name": "anthropic",
+            "gen_ai.request.model": "claude-sonnet-4-20250514"
+          }
+        }
+      ]
+    },
+    {
+      "name": "gen_ai.client.inference.duration",
       "note": "A positive duration value is recorded"
     },
     {

@@ -40,10 +40,10 @@ existing semconv namespace (`gen_ai.*`, `mcp.*`, and so on). Custom names use a
 - [ ] Completion (`gen_ai.output.messages`) is truncated at 2000 chars.
 - [ ] `gen_ai.system_instructions` is omitted if system prompt is empty/absent.
 
-## Metrics (all 6 required)
+## Metrics (all 7 required)
 
-- [ ] `gen_ai.client.token.usage` histogram, input and output recorded separately with `gen_ai.token.type`.
-- [ ] `gen_ai.client.operation.duration` histogram, wall-clock seconds.
+- [ ] `gen_ai.client.inference.operation.input_tokens` and `.output_tokens` histograms, one record each per inference call, failed calls included.
+- [ ] `gen_ai.client.inference.duration` histogram, wall-clock seconds, with `error.type` on failed calls.
 - [ ] `base14.gen_ai.cost` counter, USD from `_shared/pricing.json`.
 - [ ] `base14.gen_ai.retry.count` counter, incremented before each retry.
 - [ ] `base14.gen_ai.fallback.count` counter, incremented when fallback triggers.

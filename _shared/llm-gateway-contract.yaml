@@ -73,23 +73,60 @@ spans:
       - error.type: "{exception class name}"
 
 metrics:
-  - name: gen_ai.client.token.usage
+  # Token and duration metrics follow gen-ai-token-metrics.md and
+  # client-inference.md. Record them for every inference call, failed ones
+  # included, with error.type set when the call failed. Examples that rely on
+  # library instrumentation (LangChain, Spring AI, Agent Framework) emit the
+  # older gen_ai.client.token.usage and gen_ai.client.operation.duration names
+  # until those libraries move to the new ones.
+  - name: gen_ai.client.inference.operation.input_tokens
     type: histogram
     unit: "{token}"
-    description: "Number of tokens used per LLM call, split by type"
+    description: "Input tokens per inference call"
+    bucket_boundaries: [1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864]
     required_attrs:
       - gen_ai.operation.name
       - gen_ai.provider.name
-      - gen_ai.request.model
-      - gen_ai.token.type   # "input" or "output"
+    conditionally_required_attrs:
+      - gen_ai.request.model   # if available
+      - error.type             # if the call failed
 
+  - name: gen_ai.client.inference.operation.output_tokens
+    type: histogram
+    unit: "{token}"
+    description: "Output tokens per inference call"
+    bucket_boundaries: [1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864]
+    required_attrs:
+      - gen_ai.operation.name
+      - gen_ai.provider.name
+    conditionally_required_attrs:
+      - gen_ai.request.model
+      - error.type
+
+  - name: gen_ai.client.inference.duration
+    type: histogram
+    unit: s
+    description: "Wall-clock duration of an inference call"
+    bucket_boundaries: [0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92]
+    required_attrs:
+      - gen_ai.operation.name
+      - gen_ai.provider.name
+    conditionally_required_attrs:
+      - gen_ai.request.model
+      - error.type
+
+  # Non-inference operations such as embeddings record their duration here.
+  # The semconv defines no token metric for them; keep the counts on the span.
   - name: gen_ai.client.operation.duration
     type: histogram
     unit: s
-    description: "Wall-clock duration of LLM API call"
+    description: "Wall-clock duration of a non-inference GenAI operation"
+    bucket_boundaries: [0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92]
     required_attrs:
       - gen_ai.operation.name
+    conditionally_required_attrs:
       - gen_ai.provider.name
+      - error.type
 
   # The four metrics below are application-specific, not part of the semconv.
   # They use a base14. prefix rather than sitting under gen_ai.*, per the
