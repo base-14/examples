@@ -168,6 +168,12 @@ func metricTotal(t *testing.T, reader *sdkmetric.ManualReader, name string, want
 					total += dp.Sum
 				}
 			}
+		case metricdata.Histogram[int64]:
+			for _, dp := range data.DataPoints {
+				if matchesAttrs(dp.Attributes, want) {
+					total += float64(dp.Sum)
+				}
+			}
 		}
 	}
 	return total
@@ -178,7 +184,14 @@ func metricCount(t *testing.T, reader *sdkmetric.ManualReader, name string, want
 	t.Helper()
 	var count uint64
 	for _, m := range collectMetrics(t, reader, name) {
-		if hist, ok := m.Data.(metricdata.Histogram[float64]); ok {
+		switch hist := m.Data.(type) {
+		case metricdata.Histogram[float64]:
+			for _, dp := range hist.DataPoints {
+				if matchesAttrs(dp.Attributes, want) {
+					count += dp.Count
+				}
+			}
+		case metricdata.Histogram[int64]:
 			for _, dp := range hist.DataPoints {
 				if matchesAttrs(dp.Attributes, want) {
 					count += dp.Count
@@ -249,16 +262,12 @@ func TestChatCompletionVector(t *testing.T) {
 		"gen_ai.provider.name":  vector.Input.Provider,
 		"gen_ai.request.model":  vector.Input.Model,
 	}
-	input := map[string]any{"gen_ai.token.type": "input"}
-	output := map[string]any{"gen_ai.token.type": "output"}
-	for k, v := range base {
-		input[k] = v
-		output[k] = v
-	}
 
-	assert.Equal(t, float64(vector.MockResponse.InputTokens), metricTotal(t, rec.metrics, "gen_ai.client.token.usage", input))
-	assert.Equal(t, float64(vector.MockResponse.OutputTokens), metricTotal(t, rec.metrics, "gen_ai.client.token.usage", output))
-	assert.Equal(t, uint64(1), metricCount(t, rec.metrics, "gen_ai.client.operation.duration", base))
+	assert.Equal(t, float64(vector.MockResponse.InputTokens), metricTotal(t, rec.metrics, "gen_ai.client.inference.operation.input_tokens", base))
+	assert.Equal(t, float64(vector.MockResponse.OutputTokens), metricTotal(t, rec.metrics, "gen_ai.client.inference.operation.output_tokens", base))
+	assert.Equal(t, uint64(1), metricCount(t, rec.metrics, "gen_ai.client.inference.duration", base))
+	assert.False(t, metricExists(t, rec.metrics, "gen_ai.client.token.usage"), "the removed token metric is not emitted")
+	assert.False(t, metricExists(t, rec.metrics, "gen_ai.client.operation.duration"), "chat is an inference operation")
 	assert.InDelta(t, vector.ExpectedSpan.Attributes["base14.gen_ai.cost_usd"].(float64),
 		metricTotal(t, rec.metrics, "base14.gen_ai.cost", base), 1e-9)
 
@@ -395,14 +404,31 @@ func TestChatWithFallbackVector(t *testing.T) {
 		"gen_ai.provider.name": vector.Setup.PrimaryProvider,
 	}))
 
-	fallbackTokens := map[string]any{"gen_ai.request.model": vector.Setup.FallbackModel, "gen_ai.token.type": "input"}
+	fallbackModel := map[string]any{"gen_ai.request.model": vector.Setup.FallbackModel}
 	assert.Equal(t, float64(vector.MockBehavior.Fallback.InputTokens),
-		metricTotal(t, rec.metrics, "gen_ai.client.token.usage", fallbackTokens))
-	assert.Greater(t, metricTotal(t, rec.metrics, "base14.gen_ai.cost",
-		map[string]any{"gen_ai.request.model": vector.Setup.FallbackModel}), 0.0)
-	assert.Equal(t, 0.0, metricTotal(t, rec.metrics, "gen_ai.client.token.usage",
+		metricTotal(t, rec.metrics, "gen_ai.client.inference.operation.input_tokens", fallbackModel))
+	assert.Equal(t, float64(vector.MockBehavior.Fallback.OutputTokens),
+		metricTotal(t, rec.metrics, "gen_ai.client.inference.operation.output_tokens", fallbackModel))
+	assert.Greater(t, metricTotal(t, rec.metrics, "base14.gen_ai.cost", fallbackModel), 0.0)
+	assert.Equal(t, 0.0, metricTotal(t, rec.metrics, "base14.gen_ai.cost",
 		map[string]any{"gen_ai.request.model": vector.Setup.PrimaryModel}),
-		"the failed primary records no token usage")
+		"the failed primary records no cost")
+
+	failedPrimary := map[string]any{
+		"gen_ai.provider.name": vector.Setup.PrimaryProvider,
+		"gen_ai.request.model": vector.Setup.PrimaryModel,
+		"error.type":           "unknown_error",
+	}
+	for _, name := range []string{
+		"gen_ai.client.inference.operation.input_tokens",
+		"gen_ai.client.inference.operation.output_tokens",
+		"gen_ai.client.inference.duration",
+	} {
+		assert.Equal(t, uint64(1), metricCount(t, rec.metrics, name, failedPrimary),
+			"the failed primary records %s once with error.type", name)
+	}
+	assert.Equal(t, 0.0, metricTotal(t, rec.metrics, "gen_ai.client.inference.operation.input_tokens", failedPrimary),
+		"the failed primary received no usage, so its tokens are zero")
 }
 
 func vectorMetric(t *testing.T, metrics []expectedMetric, name string) expectedMetric {

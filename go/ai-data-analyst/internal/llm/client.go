@@ -94,7 +94,7 @@ func (c *Client) chat(ctx context.Context, provider Provider, req GenerateReques
 		span.SetAttributes(attribute.String("error.type", errorType))
 		span.SetStatus(codes.Error, err.Error())
 		c.Metrics.RecordError(ctx, call, errorType)
-		c.Metrics.RecordDuration(ctx, call, duration, errorType)
+		c.Metrics.RecordInference(ctx, call, duration, 0, 0, errorType)
 		c.emitContentEvent(span, req, nil)
 		return nil, err
 	}
@@ -114,8 +114,8 @@ func (c *Client) chat(ctx context.Context, provider Provider, req GenerateReques
 		span.SetAttributes(attribute.StringSlice("gen_ai.response.finish_reasons", []string{resp.FinishReason}))
 	}
 
-	c.Metrics.RecordUsage(ctx, call, resp.InputTokens, resp.OutputTokens, resp.CostUSD)
-	c.Metrics.RecordDuration(ctx, call, duration, "")
+	c.Metrics.RecordInference(ctx, call, duration, resp.InputTokens, resp.OutputTokens, "")
+	c.Metrics.RecordCost(ctx, call, resp.CostUSD)
 	c.emitContentEvent(span, req, resp)
 
 	return resp, nil

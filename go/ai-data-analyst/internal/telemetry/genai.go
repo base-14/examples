@@ -8,8 +8,9 @@ import (
 )
 
 type GenAIMetrics struct {
-	TokenUsage        metric.Float64Histogram
-	OperationDuration metric.Float64Histogram
+	InputTokens       metric.Int64Histogram
+	OutputTokens      metric.Int64Histogram
+	InferenceDuration metric.Float64Histogram
 	Cost              metric.Float64Counter
 	RetryCount        metric.Int64Counter
 	FallbackCount     metric.Int64Counter
@@ -22,18 +23,34 @@ type GenAIMetrics struct {
 	Confidence         metric.Float64Histogram
 }
 
+var (
+	tokenBuckets    = []float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864}
+	durationBuckets = []float64{0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92}
+)
+
 func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
-	tokenUsage, err := m.Float64Histogram("gen_ai.client.token.usage",
+	inputTokens, err := m.Int64Histogram("gen_ai.client.inference.operation.input_tokens",
 		metric.WithUnit("{token}"),
-		metric.WithDescription("Number of tokens used per LLM call"),
+		metric.WithDescription("Input tokens per inference call"),
+		metric.WithExplicitBucketBoundaries(tokenBuckets...),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	operationDuration, err := m.Float64Histogram("gen_ai.client.operation.duration",
+	outputTokens, err := m.Int64Histogram("gen_ai.client.inference.operation.output_tokens",
+		metric.WithUnit("{token}"),
+		metric.WithDescription("Output tokens per inference call"),
+		metric.WithExplicitBucketBoundaries(tokenBuckets...),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	inferenceDuration, err := m.Float64Histogram("gen_ai.client.inference.duration",
 		metric.WithUnit("s"),
-		metric.WithDescription("Wall-clock duration of LLM API call"),
+		metric.WithDescription("Wall-clock duration of an inference call"),
+		metric.WithExplicitBucketBoundaries(durationBuckets...),
 	)
 	if err != nil {
 		return nil, err
@@ -112,8 +129,9 @@ func NewGenAIMetrics(m metric.Meter) (*GenAIMetrics, error) {
 	}
 
 	return &GenAIMetrics{
-		TokenUsage:         tokenUsage,
-		OperationDuration:  operationDuration,
+		InputTokens:        inputTokens,
+		OutputTokens:       outputTokens,
+		InferenceDuration:  inferenceDuration,
 		Cost:               cost,
 		RetryCount:         retryCount,
 		FallbackCount:      fallbackCount,
@@ -145,28 +163,23 @@ func (a CallAttrs) keyValues() []attribute.KeyValue {
 	return kv
 }
 
-func (g *GenAIMetrics) RecordUsage(ctx context.Context, a CallAttrs, inputTokens, outputTokens int, costUSD float64) {
-	base := a.keyValues()
-
-	g.TokenUsage.Record(ctx, float64(inputTokens),
-		metric.WithAttributes(base...),
-		metric.WithAttributes(attribute.String("gen_ai.token.type", "input")),
-	)
-	g.TokenUsage.Record(ctx, float64(outputTokens),
-		metric.WithAttributes(base...),
-		metric.WithAttributes(attribute.String("gen_ai.token.type", "output")),
-	)
-	g.Cost.Add(ctx, costUSD, metric.WithAttributes(base...))
-}
-
-// RecordDuration records the call duration on success and on failure. Pass an
-// empty errorType for a successful call.
-func (g *GenAIMetrics) RecordDuration(ctx context.Context, a CallAttrs, seconds float64, errorType string) {
+// RecordInference records the duration and token histograms for one
+// inference call, on success and on failure. Pass an empty errorType for a
+// successful call, and zero tokens when the provider returned no usage.
+func (g *GenAIMetrics) RecordInference(ctx context.Context, a CallAttrs, seconds float64, inputTokens, outputTokens int, errorType string) {
 	attrs := a.keyValues()
 	if errorType != "" {
 		attrs = append(attrs, attribute.String("error.type", errorType))
 	}
-	g.OperationDuration.Record(ctx, seconds, metric.WithAttributes(attrs...))
+	opt := metric.WithAttributes(attrs...)
+
+	g.InferenceDuration.Record(ctx, seconds, opt)
+	g.InputTokens.Record(ctx, int64(inputTokens), opt)
+	g.OutputTokens.Record(ctx, int64(outputTokens), opt)
+}
+
+func (g *GenAIMetrics) RecordCost(ctx context.Context, a CallAttrs, costUSD float64) {
+	g.Cost.Add(ctx, costUSD, metric.WithAttributes(a.keyValues()...))
 }
 
 func (g *GenAIMetrics) RecordError(ctx context.Context, a CallAttrs, errorType string) {

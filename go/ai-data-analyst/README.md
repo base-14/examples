@@ -97,8 +97,9 @@ Every question produces a trace with:
 
 | Metric | Type | Description |
 | --- | --- | --- |
-| `gen_ai.client.token.usage` | Histogram | Tokens per call, split by `gen_ai.token.type`. |
-| `gen_ai.client.operation.duration` | Histogram | LLM call duration, recorded on success and failure. |
+| `gen_ai.client.inference.operation.input_tokens` | Histogram | Input tokens per call, recorded on success and failure (0 when the call failed). |
+| `gen_ai.client.inference.operation.output_tokens` | Histogram | Output tokens per call, recorded on success and failure (0 when the call failed). |
+| `gen_ai.client.inference.duration` | Histogram | LLM call duration, recorded on success and failure. |
 | `base14.gen_ai.cost` | Counter | Cost in USD from `_shared/pricing.json`. |
 | `base14.gen_ai.retry.count` | Counter | Retry attempts, excluding the initial attempt. |
 | `base14.gen_ai.fallback.count` | Counter | Provider switches. |

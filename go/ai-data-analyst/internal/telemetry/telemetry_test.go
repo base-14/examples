@@ -42,8 +42,9 @@ func TestGenAIMetricsInit(t *testing.T) {
 
 	metrics, err := NewGenAIMetrics(mp.Meter("test"))
 	require.NoError(t, err)
-	assert.NotNil(t, metrics.TokenUsage)
-	assert.NotNil(t, metrics.OperationDuration)
+	assert.NotNil(t, metrics.InputTokens)
+	assert.NotNil(t, metrics.OutputTokens)
+	assert.NotNil(t, metrics.InferenceDuration)
 	assert.NotNil(t, metrics.Cost)
 	assert.NotNil(t, metrics.RetryCount)
 	assert.NotNil(t, metrics.FallbackCount)
@@ -51,8 +52,9 @@ func TestGenAIMetricsInit(t *testing.T) {
 }
 
 // TestGenAIMetricsRecord verifies the recorded metrics carry the OTel GenAI
-// semantic-convention names and split token usage by input and output.
-// Fully in-memory, so no collector is required.
+// semantic-convention names, with input and output tokens on separate
+// histograms and the semconv bucket boundaries. Fully in-memory, so no
+// collector is required.
 func TestGenAIMetricsRecord(t *testing.T) {
 	ctx := context.Background()
 	reader := sdkmetric.NewManualReader()
@@ -63,11 +65,61 @@ func TestGenAIMetricsRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	call := CallAttrs{Provider: "openai", Model: "gpt-4.1", Stage: "generate"}
-	metrics.RecordUsage(ctx, call, 120, 45, 0.0021)
-	metrics.RecordDuration(ctx, call, 1.5, "")
+	metrics.RecordInference(ctx, call, 1.5, 120, 45, "")
+	metrics.RecordCost(ctx, call, 0.0021)
 
+	collected := collect(t, reader)
+
+	assert.Contains(t, collected, "base14.gen_ai.cost")
+	assert.NotContains(t, collected, "gen_ai.client.token.usage")
+	assert.NotContains(t, collected, "gen_ai.client.operation.duration")
+
+	want := map[string]string{
+		"gen_ai.operation.name": "chat",
+		"gen_ai.provider.name":  "openai",
+		"gen_ai.request.model":  "gpt-4.1",
+		"base14.nlsql.stage":    "generate",
+	}
+
+	for name, value := range map[string]int64{
+		"gen_ai.client.inference.operation.input_tokens":  120,
+		"gen_ai.client.inference.operation.output_tokens": 45,
+	} {
+		m, ok := collected[name]
+		require.True(t, ok, "%s must be recorded", name)
+		assert.Equal(t, "{token}", m.Unit)
+		hist, ok := m.Data.(metricdata.Histogram[int64])
+		require.True(t, ok, "%s must be an int64 histogram", name)
+		require.Len(t, hist.DataPoints, 1)
+		dp := hist.DataPoints[0]
+		assert.Equal(t, value, dp.Sum, name)
+		assert.Equal(t, wantTokenBuckets, dp.Bounds, name)
+		assertAttrs(t, dp.Attributes, want)
+		_, present := dp.Attributes.Value(attribute.Key("gen_ai.token.type"))
+		assert.False(t, present, "%s carries no gen_ai.token.type", name)
+		_, present = dp.Attributes.Value(attribute.Key("error.type"))
+		assert.False(t, present, "a successful call carries no error.type")
+	}
+
+	duration, ok := collected["gen_ai.client.inference.duration"]
+	require.True(t, ok, "gen_ai.client.inference.duration must be recorded")
+	assert.Equal(t, "s", duration.Unit)
+	hist, ok := duration.Data.(metricdata.Histogram[float64])
+	require.True(t, ok)
+	require.Len(t, hist.DataPoints, 1)
+	assert.Equal(t, 1.5, hist.DataPoints[0].Sum)
+	assert.Equal(t, wantDurationBuckets, hist.DataPoints[0].Bounds)
+	assertAttrs(t, hist.DataPoints[0].Attributes, want)
+}
+
+var wantTokenBuckets = []float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864}
+
+var wantDurationBuckets = []float64{0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92}
+
+func collect(t *testing.T, reader *sdkmetric.ManualReader) map[string]metricdata.Metrics {
+	t.Helper()
 	var rm metricdata.ResourceMetrics
-	require.NoError(t, reader.Collect(ctx, &rm))
+	require.NoError(t, reader.Collect(context.Background(), &rm))
 
 	collected := make(map[string]metricdata.Metrics)
 	for _, sm := range rm.ScopeMetrics {
@@ -75,24 +127,16 @@ func TestGenAIMetricsRecord(t *testing.T) {
 			collected[m.Name] = m
 		}
 	}
+	return collected
+}
 
-	assert.Contains(t, collected, "gen_ai.client.operation.duration")
-	assert.Contains(t, collected, "base14.gen_ai.cost")
-
-	tokenUsage, ok := collected["gen_ai.client.token.usage"]
-	require.True(t, ok, "gen_ai.client.token.usage must be recorded")
-
-	hist, ok := tokenUsage.Data.(metricdata.Histogram[float64])
-	require.True(t, ok, "token usage must be a float64 histogram")
-
-	byType := make(map[string]float64)
-	for _, dp := range hist.DataPoints {
-		typ, present := dp.Attributes.Value(attribute.Key("gen_ai.token.type"))
-		require.True(t, present, "each token-usage point carries gen_ai.token.type")
-		byType[typ.AsString()] = dp.Sum
+func assertAttrs(t *testing.T, set attribute.Set, want map[string]string) {
+	t.Helper()
+	for key, value := range want {
+		got, ok := set.Value(attribute.Key(key))
+		require.True(t, ok, "missing attribute %s", key)
+		assert.Equal(t, value, got.AsString(), "attribute %s", key)
 	}
-	assert.Equal(t, 120.0, byType["input"], "input tokens recorded under token.type=input")
-	assert.Equal(t, 45.0, byType["output"], "output tokens recorded under token.type=output")
 }
 
 // TestOTLPExportIntegration exercises the real OTLP export path end to end
@@ -115,8 +159,8 @@ func TestOTLPExportIntegration(t *testing.T) {
 	metrics, err := NewGenAIMetrics(p.Meter)
 	require.NoError(t, err)
 	call := CallAttrs{Provider: "openai", Model: "gpt-4.1"}
-	metrics.RecordUsage(ctx, call, 10, 5, 0.0001)
-	metrics.RecordDuration(ctx, call, 0.2, "")
+	metrics.RecordInference(ctx, call, 0.2, 10, 5, "")
+	metrics.RecordCost(ctx, call, 0.0001)
 
 	require.NoError(t, p.Shutdown(ctx), "flush/export to live collector should succeed")
 }
@@ -138,9 +182,10 @@ func collectorReachable(endpoint string) bool {
 	return true
 }
 
-// TestRecordDurationOnFailure verifies the duration histogram is recorded on
-// the failure path as well, carrying error.type.
-func TestRecordDurationOnFailure(t *testing.T) {
+// TestRecordInferenceOnFailure verifies the duration and token histograms
+// are recorded on the failure path as well, carrying error.type, with zero
+// tokens when no usage came back.
+func TestRecordInferenceOnFailure(t *testing.T) {
 	ctx := context.Background()
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
@@ -150,27 +195,37 @@ func TestRecordDurationOnFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	call := CallAttrs{Provider: "ollama", Model: "qwen3.5:9B"}
-	metrics.RecordDuration(ctx, call, 0.4, "server_error")
+	metrics.RecordInference(ctx, call, 0.4, 0, 0, "server_error")
 	metrics.RecordError(ctx, call, "server_error")
 
-	var rm metricdata.ResourceMetrics
-	require.NoError(t, reader.Collect(ctx, &rm))
-
-	collected := make(map[string]metricdata.Metrics)
-	for _, sm := range rm.ScopeMetrics {
-		for _, m := range sm.Metrics {
-			collected[m.Name] = m
-		}
+	collected := collect(t, reader)
+	want := map[string]string{
+		"gen_ai.operation.name": "chat",
+		"gen_ai.provider.name":  "ollama",
+		"gen_ai.request.model":  "qwen3.5:9B",
+		"error.type":            "server_error",
 	}
 
-	duration, ok := collected["gen_ai.client.operation.duration"]
+	duration, ok := collected["gen_ai.client.inference.duration"]
 	require.True(t, ok, "duration is recorded on failure")
 	hist, ok := duration.Data.(metricdata.Histogram[float64])
 	require.True(t, ok)
 	require.Len(t, hist.DataPoints, 1)
-	errorType, present := hist.DataPoints[0].Attributes.Value(attribute.Key("error.type"))
-	require.True(t, present, "the failed duration point carries error.type")
-	assert.Equal(t, "server_error", errorType.AsString())
+	assertAttrs(t, hist.DataPoints[0].Attributes, want)
+
+	for _, name := range []string{
+		"gen_ai.client.inference.operation.input_tokens",
+		"gen_ai.client.inference.operation.output_tokens",
+	} {
+		m, ok := collected[name]
+		require.True(t, ok, "%s is recorded on failure", name)
+		tokens, ok := m.Data.(metricdata.Histogram[int64])
+		require.True(t, ok)
+		require.Len(t, tokens.DataPoints, 1)
+		assert.Equal(t, uint64(1), tokens.DataPoints[0].Count, name)
+		assert.Equal(t, int64(0), tokens.DataPoints[0].Sum, name)
+		assertAttrs(t, tokens.DataPoints[0].Attributes, want)
+	}
 
 	errorCount, ok := collected["base14.gen_ai.error.count"]
 	require.True(t, ok, "base14.gen_ai.error.count is recorded")
