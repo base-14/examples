@@ -252,7 +252,7 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     # GenAI Metrics
     echo "  $(dim "--- GenAI Metrics ---")"
     warn_log  "Metric: gen_ai.client.token.usage"        "gen_ai.client.token.usage"        "$LOGS_FILE"
-    warn_log  "Metric: gen_ai.client.operation.duration" "gen_ai.client.operation.duration" "$LOGS_FILE"
+    warn_log  "Metric: gen_ai.client.inference.duration" "gen_ai.client.inference.duration" "$LOGS_FILE"
     warn_log  "Metric: base14.gen_ai.cost"               "Name *: base14.gen_ai.cost"       "$LOGS_FILE"
     warn_log  "Metric: base14.gen_ai.retry.count"        "base14.gen_ai.retry.count"        "$LOGS_FILE"
     warn_log  "Metric: base14.gen_ai.fallback.count"     "base14.gen_ai.fallback.count"     "$LOGS_FILE"

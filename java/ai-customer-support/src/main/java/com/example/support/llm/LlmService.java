@@ -32,8 +32,9 @@ import com.example.support.telemetry.Telemetry;
 
 /**
  * Calls the chat model with retry and provider fallback. Spring AI's chat observation
- * produces the {@code chat {model}} span; this class adds the operation duration,
- * retry, fallback and error metrics that sit outside a single model call.
+ * produces the {@code chat {model}} span; this class times each model call as
+ * {@code gen_ai.client.inference.duration} and adds the retry, fallback and error
+ * metrics that sit outside a single model call.
  */
 @Service
 public class LlmService {
@@ -52,7 +53,7 @@ public class LlmService {
     private final Pricing pricing;
     private final ConversationScope conversations;
     private final ToolCallingManager toolCallingManager;
-    private final DoubleHistogram operationDuration;
+    private final DoubleHistogram inferenceDuration;
     private final LongCounter retryCounter;
     private final LongCounter fallbackCounter;
     private final LongCounter errorCounter;
@@ -76,9 +77,10 @@ public class LlmService {
             config.fallbackProvider(), config.fallbackModel());
 
         var meter = telemetry.meter();
-        this.operationDuration = meter.histogramBuilder(GenAi.OPERATION_DURATION_METRIC)
+        this.inferenceDuration = meter.histogramBuilder(GenAi.INFERENCE_DURATION_METRIC)
             .setUnit("s")
-            .setDescription("Duration of GenAI operations")
+            .setDescription("GenAI client inference operation duration")
+            .setExplicitBucketBoundariesAdvice(GenAi.DURATION_BUCKETS)
             .build();
         this.retryCounter = meter.counterBuilder(GenAi.RETRY_METRIC)
             .setUnit("{retry}")
@@ -185,60 +187,63 @@ public class LlmService {
         ChatModel chatModel, String provider, String model,
         String systemPrompt, String userPrompt, List<ToolCallback> toolCallbacks
     ) {
+        Prompt prompt = buildPrompt(chatModel, systemPrompt, userPrompt, model, toolCallbacks);
+        ChatResponse response = timedCall(chatModel, prompt, provider, model);
+
+        // Spring AI 2.0 leaves tool execution to the caller. Running it through the
+        // ToolCallingManager keeps the framework's execute_tool observation.
+        int toolRounds = 0;
+        while (response.hasToolCalls()) {
+            if (toolRounds >= MAX_TOOL_ROUNDS) {
+                log.warn("Tool call loop hit the limit of {} rounds, asking for a plain answer",
+                    MAX_TOOL_ROUNDS);
+                conversations.recordOnConversation(GenAi.TOOL_LOOP_LIMIT_EVENT, Attributes.of(
+                    AttributeKey.longKey(GenAi.TOOL_LOOP_ROUNDS), (long) toolRounds));
+                // Breaking here would leave the caller with a tool-call-only message and no
+                // text, so ask the model once more with the tools taken away.
+                response = timedCall(chatModel,
+                    toolFreePrompt(chatModel, prompt.getInstructions(), model), provider, model);
+                break;
+            }
+            ToolExecutionResult toolResult = toolCallingManager.executeToolCalls(prompt, response);
+            if (toolResult.returnDirect()) {
+                break;
+            }
+            prompt = new Prompt(toolResult.conversationHistory(), prompt.getOptions());
+            response = timedCall(chatModel, prompt, provider, model);
+            toolRounds++;
+        }
+
+        var generation = response.getResult();
+        var usage = response.getMetadata().getUsage();
+        int inputTokens = usage != null && usage.getPromptTokens() != null ? usage.getPromptTokens() : 0;
+        int outputTokens = usage != null && usage.getCompletionTokens() != null ? usage.getCompletionTokens() : 0;
+        String responseModel = response.getMetadata().getModel() != null && !response.getMetadata().getModel().isBlank()
+            ? response.getMetadata().getModel() : model;
+        String finishReason = generation != null && generation.getMetadata().getFinishReason() != null
+            ? generation.getMetadata().getFinishReason() : "";
+        String content = generation != null ? generation.getOutput().getText() : null;
+        if (content == null || content.isBlank()) {
+            content = DEGRADED_ANSWER;
+        }
+
+        return new LlmResponse(
+            content, responseModel, provider,
+            inputTokens, outputTokens,
+            pricing.calculateCost(responseModel, inputTokens, outputTokens), finishReason);
+    }
+
+    private ChatResponse timedCall(ChatModel chatModel, Prompt prompt, String provider, String model) {
         long start = System.nanoTime();
         try {
-            Prompt prompt = buildPrompt(chatModel, systemPrompt, userPrompt, model, toolCallbacks);
             ChatResponse response = chatModel.call(prompt);
-
-            // Spring AI 2.0 leaves tool execution to the caller. Running it through the
-            // ToolCallingManager keeps the framework's execute_tool observation.
-            int toolRounds = 0;
-            while (response.hasToolCalls()) {
-                if (toolRounds >= MAX_TOOL_ROUNDS) {
-                    log.warn("Tool call loop hit the limit of {} rounds, asking for a plain answer",
-                        MAX_TOOL_ROUNDS);
-                    conversations.recordOnConversation(GenAi.TOOL_LOOP_LIMIT_EVENT, Attributes.of(
-                        AttributeKey.longKey(GenAi.TOOL_LOOP_ROUNDS), (long) toolRounds));
-                    // Breaking here would leave the caller with a tool-call-only message and no
-                    // text, so ask the model once more with the tools taken away.
-                    response = chatModel.call(
-                        toolFreePrompt(chatModel, prompt.getInstructions(), model));
-                    break;
-                }
-                ToolExecutionResult toolResult = toolCallingManager.executeToolCalls(prompt, response);
-                if (toolResult.returnDirect()) {
-                    break;
-                }
-                prompt = new Prompt(toolResult.conversationHistory(), prompt.getOptions());
-                response = chatModel.call(prompt);
-                toolRounds++;
-            }
-
-            var generation = response.getResult();
-            var usage = response.getMetadata().getUsage();
-            int inputTokens = usage != null && usage.getPromptTokens() != null ? usage.getPromptTokens() : 0;
-            int outputTokens = usage != null && usage.getCompletionTokens() != null ? usage.getCompletionTokens() : 0;
-            String responseModel = response.getMetadata().getModel() != null && !response.getMetadata().getModel().isBlank()
-                ? response.getMetadata().getModel() : model;
-            String finishReason = generation != null && generation.getMetadata().getFinishReason() != null
-                ? generation.getMetadata().getFinishReason() : "";
-            String content = generation != null ? generation.getOutput().getText() : null;
-            if (content == null || content.isBlank()) {
-                content = DEGRADED_ANSWER;
-            }
-
-            operationDuration.record(elapsedSeconds(start), Attributes.of(
+            inferenceDuration.record(elapsedSeconds(start), Attributes.of(
                 AttributeKey.stringKey(GenAi.OPERATION_NAME), "chat",
                 AttributeKey.stringKey(GenAi.PROVIDER_NAME), provider,
                 AttributeKey.stringKey(GenAi.REQUEST_MODEL), model));
-
-            return new LlmResponse(
-                content, responseModel, provider,
-                inputTokens, outputTokens,
-                pricing.calculateCost(responseModel, inputTokens, outputTokens), finishReason);
-
-        } catch (Exception e) {
-            operationDuration.record(elapsedSeconds(start), Attributes.of(
+            return response;
+        } catch (RuntimeException e) {
+            inferenceDuration.record(elapsedSeconds(start), Attributes.of(
                 AttributeKey.stringKey(GenAi.OPERATION_NAME), "chat",
                 AttributeKey.stringKey(GenAi.PROVIDER_NAME), provider,
                 AttributeKey.stringKey(GenAi.REQUEST_MODEL), model,

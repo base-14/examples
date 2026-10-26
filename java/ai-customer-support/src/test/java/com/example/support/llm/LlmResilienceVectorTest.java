@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.sdk.metrics.data.HistogramPointData;
 import io.opentelemetry.sdk.metrics.data.LongPointData;
 import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.trace.data.EventData;
@@ -54,6 +55,9 @@ class LlmResilienceVectorTest {
 
     private static final String CONVERSATION_ID = "conv-1";
     private static final int MAX_TOOL_ROUNDS = 8;
+    private static final double TOOL_DELAY_SECONDS = 0.3;
+    private static final List<Double> DURATION_BUCKETS = List.of(
+        0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92);
 
     private final TestOtel otel = new TestOtel();
     private final ConversationScope conversations = new ConversationScope();
@@ -104,7 +108,7 @@ class LlmResilienceVectorTest {
         assertTrue(metric("base14.gen_ai.fallback.count").isEmpty(), "retry succeeded, no fallback");
         assertTrue(conversationEvents(GenAi.FALLBACK_EVENT).isEmpty(), "retry succeeded, no fallback event");
         assertTrue(metric("base14.gen_ai.error.count").isEmpty(), "retry succeeded, no error");
-        assertTrue(metric("gen_ai.client.operation.duration").isPresent());
+        assertInferenceDuration(setup);
     }
 
     @Test
@@ -226,6 +230,49 @@ class LlmResilienceVectorTest {
         assertEquals(1, conversationEvents(GenAi.TOOL_LOOP_LIMIT_EVENT).size());
     }
 
+    @Test
+    void aToolTurnRecordsOneInferenceDurationPerModelCall() {
+        JsonNode setup = TestVectors.load("chat-with-retry.json").get("setup");
+
+        Span conversation = beginConversation();
+        ChatModel primary = mock(ChatModel.class);
+        when(primary.call(any(Prompt.class)))
+            .thenReturn(toolCallResponse())
+            .thenReturn(textResponse("Your order has shipped."));
+
+        LlmResponse response = service(setup, primary, mock(ChatModel.class), slowToolManager())
+            .generateCapable("You are helpful.", "Where is my order?");
+        conversation.end();
+
+        assertEquals("Your order has shipped.", response.content());
+        verify(primary, times(2)).call(any(Prompt.class));
+
+        MetricData duration = metric("gen_ai.client.inference.duration")
+            .orElseThrow(() -> new AssertionError("gen_ai.client.inference.duration was not recorded"));
+        var points = duration.getHistogramData().getPoints();
+        assertEquals(1, points.size(), "both calls share one attribute set");
+        HistogramPointData point = points.iterator().next();
+        assertEquals(2L, point.getCount(), "one point per model call");
+        assertTrue(point.getMax() < TOOL_DELAY_SECONDS, "tool execution time is not included");
+        assertEquals("chat", point.getAttributes().get(AttributeKey.stringKey("gen_ai.operation.name")));
+        assertEquals(setup.get("provider").asText(),
+            point.getAttributes().get(AttributeKey.stringKey("gen_ai.provider.name")));
+        assertEquals(setup.get("model").asText(),
+            point.getAttributes().get(AttributeKey.stringKey("gen_ai.request.model")));
+    }
+
+    private static ToolCallingManager slowToolManager() {
+        ToolCallingManager manager = mock(ToolCallingManager.class);
+        ToolExecutionResult result = mock(ToolExecutionResult.class);
+        when(result.returnDirect()).thenReturn(false);
+        when(result.conversationHistory()).thenReturn(List.of(new UserMessage("Where is my order?")));
+        when(manager.executeToolCalls(any(Prompt.class), any(ChatResponse.class))).thenAnswer(invocation -> {
+            Thread.sleep((long) (TOOL_DELAY_SECONDS * 1000));
+            return result;
+        });
+        return manager;
+    }
+
     private static ToolCallingManager loopingToolManager() {
         ToolCallingManager manager = mock(ToolCallingManager.class);
         ToolExecutionResult result = mock(ToolExecutionResult.class);
@@ -314,6 +361,29 @@ class LlmResilienceVectorTest {
             .model(mock.get("model").asText())
             .usage(new DefaultUsage(mock.get("input_tokens").asInt(), mock.get("output_tokens").asInt()))
             .build());
+    }
+
+    private void assertInferenceDuration(JsonNode setup) {
+        assertTrue(metric("gen_ai.client.operation.duration").isEmpty(),
+            "chat calls are inference, not a generic operation");
+        MetricData duration = metric("gen_ai.client.inference.duration")
+            .orElseThrow(() -> new AssertionError("gen_ai.client.inference.duration was not recorded"));
+        assertEquals("s", duration.getUnit());
+
+        var points = duration.getHistogramData().getPoints();
+        assertEquals(2, points.size(), "one failed and one successful attempt");
+        for (HistogramPointData point : points) {
+            assertEquals(DURATION_BUCKETS, point.getBoundaries());
+            assertEquals("chat", point.getAttributes().get(AttributeKey.stringKey("gen_ai.operation.name")));
+            assertEquals(setup.get("provider").asText(),
+                point.getAttributes().get(AttributeKey.stringKey("gen_ai.provider.name")));
+            assertEquals(setup.get("model").asText(),
+                point.getAttributes().get(AttributeKey.stringKey("gen_ai.request.model")));
+        }
+        assertEquals(1, points.stream()
+            .filter(point -> "RuntimeException".equals(
+                point.getAttributes().get(AttributeKey.stringKey("error.type"))))
+            .count(), "the failed attempt carries error.type");
     }
 
     private Optional<MetricData> metric(String name) {

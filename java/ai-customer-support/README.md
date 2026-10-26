@@ -153,15 +153,16 @@ Every message produces a trace with:
 | Metric | Source | Instrument |
 | --- | --- | --- |
 | `gen_ai.client.token.usage` | Spring AI | Counter |
-| `gen_ai.client.operation.duration` | This app | Histogram |
+| `gen_ai.client.inference.duration` | This app | Histogram |
 | `base14.gen_ai.cost` | This app | Counter |
 | `base14.gen_ai.retry.count` | This app | Counter |
 | `base14.gen_ai.fallback.count` | This app | Counter |
 | `base14.gen_ai.error.count` | This app | Counter |
 
-Spring AI records token usage as a counter rather than the histogram the GenAI conventions
-describe. The framework instrument is kept, because adding a second one would count the
-same tokens twice.
+Spring AI records token usage as the older `gen_ai.client.token.usage` counter rather than
+the `gen_ai.client.inference.operation.input_tokens` and `output_tokens` histograms the GenAI
+conventions now describe. The framework instrument is kept, because adding a second one would
+count the same tokens twice.
 
 Domain metrics: `base14.support.conversation.turns`, `base14.support.conversation.duration`,
 `base14.support.escalation.count`, `base14.support.tool_calls` and `base14.support.rag.similarity`.
