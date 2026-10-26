@@ -194,3 +194,27 @@ describe("the healthcheck spans the README says are filtered are filtered", () =
     expect(local.service.pipelines.traces.processors).toContain("filter/noisy");
   });
 });
+
+describe("the GenAI client metrics the collector derives from chat spans", () => {
+  type DerivedMetric = { name: string; attributes: { key: string }[] };
+  const derived = () =>
+    (
+      parse(read("config/otel-collector.yaml")) as {
+        connectors: { signal_to_metrics: { spans: DerivedMetric[] } };
+      }
+    ).connectors.signal_to_metrics.spans;
+
+  it("uses the inference metric names from the current semantic conventions", () => {
+    expect(derived().map((m) => m.name)).toEqual([
+      "gen_ai.client.inference.duration",
+      "gen_ai.client.inference.operation.input_tokens",
+      "gen_ai.client.inference.operation.output_tokens",
+    ]);
+  });
+
+  it("drops the gen_ai.token.type attribute the split metrics replace", () => {
+    for (const metric of derived()) {
+      expect(metric.attributes.map((a) => a.key)).not.toContain("gen_ai.token.type");
+    }
+  });
+});

@@ -909,7 +909,7 @@ fi
 
 # --- 4. Metrics ------------------------------------------------------------
 #
-# Six instruments from the app, one point each, tagged, plus the two GenAI client
+# Six instruments from the app, one point each, tagged, plus the three GenAI inference
 # metrics the collector derives from chat spans. The Node metric reader exports on a 60s
 # period, so these land up to a minute after the runs finish.
 echo ""
@@ -953,14 +953,13 @@ metric_point_tagged "base14.gen_ai.tool_definition.tokens tagged role=researcher
     "base14.gen_ai.tool_definition.tokens" "role: Str(researcher)"
 
 echo "  $(dim "--- the GenAI client metrics the collector derives from chat spans ---")"
-log_has "gen_ai.client.operation.duration" "Name: gen_ai.client.operation.duration"
-log_has "gen_ai.client.token.usage"        "Name: gen_ai.client.token.usage"
-metric_point_tagged "gen_ai.client.token.usage tagged gen_ai.token.type=input" \
-    "gen_ai.client.token.usage" "gen_ai.token.type: Str(input)"
-metric_point_tagged "gen_ai.client.token.usage tagged gen_ai.token.type=output" \
-    "gen_ai.client.token.usage" "gen_ai.token.type: Str(output)"
-metric_point_tagged "gen_ai.client.operation.duration tagged gen_ai.provider.name=ollama" \
-    "gen_ai.client.operation.duration" "gen_ai.provider.name: Str(ollama)"
+log_has "gen_ai.client.inference.duration"                "Name: gen_ai.client.inference.duration"
+log_has "gen_ai.client.inference.operation.input_tokens"  "Name: gen_ai.client.inference.operation.input_tokens"
+log_has "gen_ai.client.inference.operation.output_tokens" "Name: gen_ai.client.inference.operation.output_tokens"
+metric_point_tagged "gen_ai.client.inference.operation.input_tokens tagged gen_ai.provider.name=ollama" \
+    "gen_ai.client.inference.operation.input_tokens" "gen_ai.provider.name: Str(ollama)"
+metric_point_tagged "gen_ai.client.inference.duration tagged gen_ai.provider.name=ollama" \
+    "gen_ai.client.inference.duration" "gen_ai.provider.name: Str(ollama)"
 
 echo "  $(dim "--- the values the tags are there to separate ---")"
 # A decline researches nothing, so its fan-out is zero rather than absent. Asserted on

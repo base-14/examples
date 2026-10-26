@@ -32,7 +32,8 @@ Mastra variant is covered by
    span carries the run's `gen_ai.conversation.id` and `base14.plan.id`, the agent's role and the active tool
    catalogue.
 4. Add the `signal_to_metrics` connector in `config/otel-collector.yaml`, which derives
-   `gen_ai.client.operation.duration` and `gen_ai.client.token.usage` from `chat` spans.
+   `gen_ai.client.inference.duration` and the `gen_ai.client.inference.operation.*` token histograms from
+   `chat` spans.
 5. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
    `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` as `.env.example` and `compose.yaml` ship them.
 
@@ -361,13 +362,14 @@ per gap, so a run with no gaps adds none.
 The cost, fan-out and duration bucket boundaries are set explicitly rather than left on the SDK defaults, which
 start at 0 and jump to 5 and would put every measurement this service produces in one bucket.
 
-`@ai-sdk/otel` records no metrics. The collector's `signal_to_metrics` connector derives the two GenAI client
-metrics from `chat` spans, so a dashboard built on `gen_ai.client.*` has data:
+`@ai-sdk/otel` records no metrics. The collector's `signal_to_metrics` connector derives the three GenAI inference
+metrics from `chat` spans, so a dashboard built on `gen_ai.client.inference.*` has data:
 
 | Metric | Type | Attributes |
 | --- | --- | --- |
-| `gen_ai.client.operation.duration` | histogram, seconds, from the span duration | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model` |
-| `gen_ai.client.token.usage` | histogram, tokens, from `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens` | The same, plus `gen_ai.token.type` |
+| `gen_ai.client.inference.duration` | histogram, seconds, from the span duration | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model` |
+| `gen_ai.client.inference.operation.input_tokens` | histogram, tokens, from `gen_ai.usage.input_tokens` | The same |
+| `gen_ai.client.inference.operation.output_tokens` | histogram, tokens, from `gen_ai.usage.output_tokens` | The same |
 
 Only `chat` spans count. `invoke_agent` spans carry the same tokens summed over the run, so counting both would
 double them. The bucket boundaries are the ones the GenAI conventions advise. The connector emits delta
@@ -505,8 +507,8 @@ verifying the hosted side by hand.
 
 In `@ai-sdk/otel` 1.0.123 with `ai` 7.0.123, checked 2026-09-30:
 
-- **No metrics and no logs.** Durations and token counts are span attributes only. The collector derives the two
-  GenAI client metrics, and the service's logs come from pino.
+- **No metrics and no logs.** Durations and token counts are span attributes only. The collector derives the three
+  GenAI inference metrics, and the service's logs come from pino.
 - **No `error.type`.** A failed call gets an error status and a recorded exception, plus
   `http.response.status_code` when the provider returned one.
 - **No `server.address` or `server.port`** on `chat` spans. The child HTTP client span has them.
