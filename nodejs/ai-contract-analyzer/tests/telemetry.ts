@@ -101,3 +101,17 @@ export async function metricCount(name: string, attrs: Attributes = {}): Promise
   }
   return count;
 }
+
+export async function histogramBoundaries(name: string): Promise<number[] | undefined> {
+  const { resourceMetrics } = await metricReader.collect();
+  for (const scope of resourceMetrics.scopeMetrics) {
+    for (const metric of scope.metrics) {
+      if (metric.descriptor.name !== name || metric.dataPointType !== DataPointType.HISTOGRAM) {
+        continue;
+      }
+      const point = metric.dataPoints[0];
+      if (point) return (point.value as Histogram).buckets.boundaries;
+    }
+  }
+  return undefined;
+}

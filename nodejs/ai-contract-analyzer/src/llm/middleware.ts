@@ -3,7 +3,8 @@
  *
  * `withSemconv` wraps a LanguageModelV4 so every call runs inside a CLIENT span
  * named `chat {model}`, retries all errors three times with exponential backoff,
- * and records the token, duration, cost, retry and error instruments.
+ * and records the inference token, inference duration, cost, retry and error
+ * instruments. Failed calls record zero tokens and their duration with `error.type`.
  *
  * `withFallback` wraps a wrapped model with a second provider. A switch is
  * recorded as a `provider_fallback` event on the calling span, which stays OK.
@@ -18,9 +19,10 @@ import {
   costCounter,
   errorCounter,
   fallbackCounter,
-  opDurationHistogram,
+  inferenceDurationHistogram,
+  inputTokensHistogram,
+  outputTokensHistogram,
   retryCounter,
-  tokenUsageHistogram,
 } from "./instruments.ts";
 import type { ModelPricing, ProviderTarget } from "./provider-target.ts";
 import { scrubPii } from "./scrub.ts";
@@ -141,14 +143,8 @@ export function createSemconvMiddleware(
               span.setAttribute("gen_ai.usage.input_tokens", inputTokens);
               span.setAttribute("gen_ai.usage.output_tokens", outputTokens);
 
-              tokenUsageHistogram.record(inputTokens, {
-                ...metricAttrs,
-                "gen_ai.token.type": "input",
-              });
-              tokenUsageHistogram.record(outputTokens, {
-                ...metricAttrs,
-                "gen_ai.token.type": "output",
-              });
+              inputTokensHistogram.record(inputTokens, metricAttrs);
+              outputTokensHistogram.record(outputTokens, metricAttrs);
 
               const costUsd = pricing
                 ? (inputTokens * pricing.inputCostPerMToken +
@@ -158,7 +154,7 @@ export function createSemconvMiddleware(
               span.setAttribute("base14.gen_ai.cost_usd", costUsd);
               costCounter.add(costUsd, metricAttrs);
 
-              opDurationHistogram.record((Date.now() - startMs) / 1000, metricAttrs);
+              inferenceDurationHistogram.record((Date.now() - startMs) / 1000, metricAttrs);
 
               const completionText = result.content
                 .filter((c): c is { type: "text"; text: string } => c.type === "text")
@@ -201,10 +197,10 @@ export function createSemconvMiddleware(
             "gen_ai.request.model": modelId,
             "error.type": type,
           });
-          opDurationHistogram.record((Date.now() - startMs) / 1000, {
-            ...metricAttrs,
-            "error.type": type,
-          });
+          const failedAttrs = { ...metricAttrs, "error.type": type };
+          inputTokensHistogram.record(0, failedAttrs);
+          outputTokensHistogram.record(0, failedAttrs);
+          inferenceDurationHistogram.record((Date.now() - startMs) / 1000, failedAttrs);
 
           emitInferenceEvent(span, prompt, undefined);
 

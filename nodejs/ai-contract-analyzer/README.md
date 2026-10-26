@@ -195,9 +195,9 @@ tokens differ from extraction tokens.
 | HTTP server | Hono `requestMetrics` middleware | Custom | `http.server.request.duration`, `http.server.request.count` per method, path and status |
 | Database | `@opentelemetry/instrumentation-pg` | Auto | Query spans with SQL and duration |
 | LLM calls | `LanguageModelV3Middleware` | Custom | `chat {model}` CLIENT spans with GenAI semconv attributes, retry and cost |
-| Embeddings | `src/llm/embeddings.ts` | Custom | `embeddings {model}` CLIENT spans with token usage and cost |
+| Embeddings | `src/llm/embeddings.ts` | Custom | `embeddings {model}` CLIENT spans with token usage and cost, plus operation duration |
 | Retrieval | `src/llm/retrieval.ts` | Custom | `retrieval contract_chunks` CLIENT spans around the pgvector lookup |
-| LLM metrics | `src/llm/instruments.ts` | Custom | Token usage, cost, operation duration, retry count, fallback count, error count |
+| LLM metrics | `src/llm/instruments.ts` | Custom | Input and output tokens, inference duration, operation duration, cost, retry count, fallback count, error count |
 | Pipeline stages | `orchestrator.ts` | Custom | `pipeline_stage {name}` child spans with stage-specific attributes |
 | Logs | `@opentelemetry/sdk-logs` | Custom | OTLP log export correlated with the active trace via `trace_id` and `span_id` |
 
@@ -240,8 +240,10 @@ One span event per call, `gen_ai.client.inference.operation.details`, carries
 
 | Metric | Type | Description |
 |---|---|---|
-| `gen_ai.client.operation.duration` | Histogram | Call duration per operation, provider and model, with `error.type` on failure |
-| `gen_ai.client.token.usage` | Histogram | Tokens per call, split by `gen_ai.token.type` (`input` / `output`) |
+| `gen_ai.client.inference.operation.input_tokens` | Histogram | Input tokens per chat call, recorded as 0 with `error.type` when the call fails |
+| `gen_ai.client.inference.operation.output_tokens` | Histogram | Output tokens per chat call, recorded as 0 with `error.type` when the call fails |
+| `gen_ai.client.inference.duration` | Histogram | Chat call duration per provider and model, with `error.type` on failure |
+| `gen_ai.client.operation.duration` | Histogram | Embedding call duration per provider and model, with `error.type` on failure |
 | `base14.gen_ai.cost` | Counter | Cost in USD per model |
 | `base14.gen_ai.retry.count` | Counter | Retry attempts, excluding the initial attempt |
 | `base14.gen_ai.fallback.count` | Counter | Fallback activations per primary provider |

@@ -208,6 +208,8 @@ else
   absent_log "No gen_ai.client.retry.count metric"    "gen_ai.client.retry.count"    "$LOGS_FILE"
   absent_log "No gen_ai.client.fallback.count metric" "gen_ai.client.fallback.count" "$LOGS_FILE"
   absent_log "No gen_ai.client.error.count metric"    "gen_ai.client.error.count"    "$LOGS_FILE"
+  absent_log "No gen_ai.client.token.usage metric"    "gen_ai.client.token.usage"    "$LOGS_FILE"
+  absent_log "No gen_ai.token.type attr"              "gen_ai.token.type"            "$LOGS_FILE"
 
   # The inference event appears only when content capture is switched on, so
   # its absence in a default run is expected.
@@ -220,7 +222,11 @@ else
   check_log "Status: Error on 4xx HTTP spans"   "Status code .*: Error"       "$LOGS_FILE"
 
   echo "  $(dim "--- Metrics ---")"
-  check_log "Metric: gen_ai.client.token.usage"        "gen_ai.client.token.usage"        "$LOGS_FILE"
+  check_log "Metric: gen_ai.client.inference.operation.input_tokens" \
+            "gen_ai.client.inference.operation.input_tokens" "$LOGS_FILE"
+  check_log "Metric: gen_ai.client.inference.operation.output_tokens" \
+            "gen_ai.client.inference.operation.output_tokens" "$LOGS_FILE"
+  check_log "Metric: gen_ai.client.inference.duration" "gen_ai.client.inference.duration" "$LOGS_FILE"
   check_log "Metric: gen_ai.client.operation.duration" "gen_ai.client.operation.duration" "$LOGS_FILE"
   check_log "Metric: base14.gen_ai.cost"               "base14.gen_ai.cost"               "$LOGS_FILE"
   warn_log  "Metric: base14.gen_ai.retry.count"        "base14.gen_ai.retry.count"        "$LOGS_FILE"
@@ -252,7 +258,8 @@ echo "    [ ] 400 and 404 responses leave the HTTP span with error status"
 echo ""
 echo "  $(cyan "Cost and Token Dashboard:")"
 echo "    [ ] base14.gen_ai.cost is non-zero for a hosted provider, zero for Ollama"
-echo "    [ ] gen_ai.client.token.usage splits by gen_ai.token.type"
+echo "    [ ] gen_ai.client.inference.operation.input_tokens and output_tokens record every chat call"
+echo "    [ ] gen_ai.client.inference.duration covers chat calls, gen_ai.client.operation.duration covers embeddings"
 echo "    [ ] base14.gen_ai.cost_usd appears per chat span"
 echo ""
 echo "  $(cyan "Error and Retry Dashboard:")"

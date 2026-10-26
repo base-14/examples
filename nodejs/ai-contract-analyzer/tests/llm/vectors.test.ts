@@ -57,15 +57,9 @@ async function metricSnapshot(
   notExpected: any[],
 ) {
   return {
-    inputTokens: await metricTotal("gen_ai.client.token.usage", {
-      ...modelAttrs,
-      "gen_ai.token.type": "input",
-    }),
-    outputTokens: await metricTotal("gen_ai.client.token.usage", {
-      ...modelAttrs,
-      "gen_ai.token.type": "output",
-    }),
-    durationCount: await metricCount("gen_ai.client.operation.duration", modelAttrs),
+    inputTokens: await metricTotal("gen_ai.client.inference.operation.input_tokens", modelAttrs),
+    outputTokens: await metricTotal("gen_ai.client.inference.operation.output_tokens", modelAttrs),
+    durationCount: await metricCount("gen_ai.client.inference.duration", modelAttrs),
     cost: await metricTotal("base14.gen_ai.cost", modelAttrs),
     absent: await absentTotals(notExpected),
   };
@@ -196,9 +190,20 @@ describe("_shared/test-vectors/chat-with-fallback.json", () => {
       "base14.gen_ai.error.count",
       metricsByName["base14.gen_ai.error.count"].attrs,
     );
-    const primaryTokensBefore = await metricTotal("gen_ai.client.token.usage", {
-      "gen_ai.request.model": setup.primary_model,
-    });
+    const primaryAttrs = { "gen_ai.request.model": setup.primary_model };
+    const primaryFailedAttrs = { ...primaryAttrs, "error.type": "Exception" };
+    const primaryTokensBefore = await metricTotal(
+      "gen_ai.client.inference.operation.input_tokens",
+      primaryAttrs,
+    );
+    const primaryTokenCountBefore = await metricCount(
+      "gen_ai.client.inference.operation.input_tokens",
+      primaryFailedAttrs,
+    );
+    const primaryDurationCountBefore = await metricCount(
+      "gen_ai.client.inference.duration",
+      primaryFailedAttrs,
+    );
 
     vi.useFakeTimers();
     const primaryDoGenerate = vi.fn().mockRejectedValue(new Exception("Service unavailable"));
@@ -259,18 +264,29 @@ describe("_shared/test-vectors/chat-with-fallback.json", () => {
 
     // Token usage and cost belong to the provider that answered.
     expect(
-      await metricTotal("gen_ai.client.token.usage", {
+      await metricTotal("gen_ai.client.inference.operation.input_tokens", {
         "gen_ai.request.model": setup.fallback_model,
-        "gen_ai.token.type": "input",
       }),
     ).toBe(fallbackMock.input_tokens);
     expect(
+      await metricTotal("gen_ai.client.inference.operation.output_tokens", {
+        "gen_ai.request.model": setup.fallback_model,
+      }),
+    ).toBe(fallbackMock.output_tokens);
+    expect(
       await metricTotal("base14.gen_ai.cost", { "gen_ai.request.model": setup.fallback_model }),
     ).toBeGreaterThan(0);
+    expect(await metricTotal("gen_ai.client.inference.operation.input_tokens", primaryAttrs)).toBe(
+      primaryTokensBefore,
+    );
+
     expect(
-      await metricTotal("gen_ai.client.token.usage", {
-        "gen_ai.request.model": setup.primary_model,
-      }),
-    ).toBe(primaryTokensBefore);
+      (await metricCount("gen_ai.client.inference.operation.input_tokens", primaryFailedAttrs)) -
+        primaryTokenCountBefore,
+    ).toBe(1);
+    expect(
+      (await metricCount("gen_ai.client.inference.duration", primaryFailedAttrs)) -
+        primaryDurationCountBefore,
+    ).toBe(1);
   });
 });

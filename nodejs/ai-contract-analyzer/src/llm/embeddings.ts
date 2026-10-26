@@ -7,12 +7,7 @@
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { embedMany } from "ai";
 import { getEmbeddingModel } from "../providers.ts";
-import {
-  costCounter,
-  errorCounter,
-  opDurationHistogram,
-  tokenUsageHistogram,
-} from "./instruments.ts";
+import { costCounter, errorCounter, opDurationHistogram } from "./instruments.ts";
 
 const tracer = trace.getTracer("ai-contract-analyzer");
 
@@ -53,7 +48,6 @@ export async function embedValues(values: string[]): Promise<EmbedOutcome> {
         span.setAttribute("gen_ai.usage.input_tokens", usage.tokens);
         span.setAttribute("base14.gen_ai.cost_usd", costUsd);
 
-        tokenUsageHistogram.record(usage.tokens, { ...metricAttrs, "gen_ai.token.type": "input" });
         costCounter.add(costUsd, metricAttrs);
         opDurationHistogram.record((Date.now() - startMs) / 1000, metricAttrs);
 

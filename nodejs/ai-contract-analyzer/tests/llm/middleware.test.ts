@@ -5,7 +5,14 @@
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withFallback, withSemconv } from "../../src/llm/middleware.ts";
-import { findSpan, metricTotal, resetTelemetry, shutdownTelemetry } from "../telemetry.ts";
+import {
+  findSpan,
+  histogramBoundaries,
+  metricCount,
+  metricTotal,
+  resetTelemetry,
+  shutdownTelemetry,
+} from "../telemetry.ts";
 import {
   ANTHROPIC_TARGET,
   generateParams,
@@ -132,6 +139,59 @@ describe("withSemconv", () => {
     expect(span.attributes["error.type"]).toBe("Error");
     expect(await metricTotal("base14.gen_ai.retry.count", {})).toBe(2);
     expect(await metricTotal("base14.gen_ai.error.count", { "error.type": "Error" })).toBe(1);
+
+    const failedAttrs = {
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "anthropic",
+      "gen_ai.request.model": "claude-sonnet-4",
+      "error.type": "Error",
+    };
+    for (const name of [
+      "gen_ai.client.inference.operation.input_tokens",
+      "gen_ai.client.inference.operation.output_tokens",
+      "gen_ai.client.inference.duration",
+    ]) {
+      expect(await metricCount(name, failedAttrs)).toBe(1);
+    }
+    expect(await metricTotal("gen_ai.client.inference.operation.input_tokens", failedAttrs)).toBe(
+      0,
+    );
+    expect(await metricTotal("gen_ai.client.inference.operation.output_tokens", failedAttrs)).toBe(
+      0,
+    );
+  });
+
+  it("records inference tokens and duration with the spec attributes and buckets", async () => {
+    const model = withSemconv(
+      stubModel("claude-haiku-4", async () => generateResult(RESPONSE)),
+      ANTHROPIC_TARGET,
+    );
+
+    await model.doGenerate(generateParams("Hello"));
+
+    const attrs = {
+      "gen_ai.operation.name": "chat",
+      "gen_ai.provider.name": "anthropic",
+      "gen_ai.request.model": "claude-haiku-4",
+    };
+    expect(await metricTotal("gen_ai.client.inference.operation.input_tokens", attrs)).toBe(100);
+    expect(await metricTotal("gen_ai.client.inference.operation.output_tokens", attrs)).toBe(50);
+    expect(await metricCount("gen_ai.client.inference.duration", attrs)).toBe(1);
+    expect(await metricCount("gen_ai.client.operation.duration", attrs)).toBe(0);
+    expect(await metricCount("gen_ai.client.token.usage", {})).toBe(0);
+
+    const tokenBuckets = [
+      1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864,
+    ];
+    expect(await histogramBoundaries("gen_ai.client.inference.operation.input_tokens")).toEqual(
+      tokenBuckets,
+    );
+    expect(await histogramBoundaries("gen_ai.client.inference.operation.output_tokens")).toEqual(
+      tokenBuckets,
+    );
+    expect(await histogramBoundaries("gen_ai.client.inference.duration")).toEqual([
+      0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92,
+    ]);
   });
 });
 
