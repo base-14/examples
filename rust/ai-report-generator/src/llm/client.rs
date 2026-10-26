@@ -11,8 +11,8 @@ use super::pricing::calculate_cost;
 use super::provider::{endpoint, semconv_name};
 use super::{GenerateRequest, GenerateResponse, Provider};
 use crate::telemetry::metrics::{
-    GEN_AI_COST, GEN_AI_ERROR_COUNT, GEN_AI_FALLBACK_COUNT, GEN_AI_OPERATION_DURATION,
-    GEN_AI_RETRY_COUNT, GEN_AI_TOKEN_USAGE,
+    GEN_AI_COST, GEN_AI_ERROR_COUNT, GEN_AI_FALLBACK_COUNT, GEN_AI_INFERENCE_DURATION,
+    GEN_AI_INPUT_TOKENS, GEN_AI_OUTPUT_TOKENS, GEN_AI_RETRY_COUNT,
 };
 
 const MAX_ATTEMPTS: u32 = 3;
@@ -122,21 +122,9 @@ impl LlmClient {
 
                 self.emit_content_event(&span, req, Some(&resp));
 
-                GEN_AI_TOKEN_USAGE.record(
-                    f64::from(resp.input_tokens),
-                    &with_attr(
-                        &operation_attrs,
-                        KeyValue::new("gen_ai.token.type", "input"),
-                    ),
-                );
-                GEN_AI_TOKEN_USAGE.record(
-                    f64::from(resp.output_tokens),
-                    &with_attr(
-                        &operation_attrs,
-                        KeyValue::new("gen_ai.token.type", "output"),
-                    ),
-                );
-                GEN_AI_OPERATION_DURATION.record(duration, &operation_attrs);
+                GEN_AI_INPUT_TOKENS.record(u64::from(resp.input_tokens), &operation_attrs);
+                GEN_AI_OUTPUT_TOKENS.record(u64::from(resp.output_tokens), &operation_attrs);
+                GEN_AI_INFERENCE_DURATION.record(duration, &operation_attrs);
                 GEN_AI_COST.add(resp.cost_usd, &operation_attrs);
 
                 Ok(resp)
@@ -158,7 +146,9 @@ impl LlmClient {
 
                 let error_attrs =
                     with_attr(&operation_attrs, KeyValue::new("error.type", error_type));
-                GEN_AI_OPERATION_DURATION.record(duration, &error_attrs);
+                GEN_AI_INPUT_TOKENS.record(0, &error_attrs);
+                GEN_AI_OUTPUT_TOKENS.record(0, &error_attrs);
+                GEN_AI_INFERENCE_DURATION.record(duration, &error_attrs);
                 GEN_AI_ERROR_COUNT.add(1, &error_attrs);
 
                 Err(err)

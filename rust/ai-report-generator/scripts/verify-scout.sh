@@ -220,15 +220,28 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     check_log "Event: exception on failed spans"      "exception.type"         "$LOGS_FILE"
     warn_log  "Event: provider_fallback"              "provider_fallback"      "$LOGS_FILE"
 
-    # ── GenAI Metrics (6 required) ──
+    # ── GenAI Metrics (7 required) ──
     echo "  $(dim "--- GenAI Metrics ---")"
-    check_log "Metric: gen_ai.client.token.usage"        "gen_ai.client.token.usage"        "$LOGS_FILE"
-    check_log "Metric: gen_ai.client.operation.duration"  "gen_ai.client.operation.duration" "$LOGS_FILE"
+    check_log "Metric: gen_ai.client.inference.operation.input_tokens"  "gen_ai.client.inference.operation.input_tokens"  "$LOGS_FILE"
+    check_log "Metric: gen_ai.client.inference.operation.output_tokens" "gen_ai.client.inference.operation.output_tokens" "$LOGS_FILE"
+    check_log "Metric: gen_ai.client.inference.duration"  "gen_ai.client.inference.duration" "$LOGS_FILE"
     check_log "Metric: base14.gen_ai.cost"               "base14.gen_ai.cost"               "$LOGS_FILE"
     check_log "Metric: base14.gen_ai.retry.count"        "base14.gen_ai.retry.count"        "$LOGS_FILE"
     warn_log  "Metric: base14.gen_ai.fallback.count"     "base14.gen_ai.fallback.count"     "$LOGS_FILE"
     check_log "Metric: base14.gen_ai.error.count"        "base14.gen_ai.error.count"        "$LOGS_FILE"
     echo "  $(dim "(fallback.count only emits when a fallback provider is configured and triggered)")"
+    METRICS_CLEAN=1
+    for metric in gen_ai.client.token.usage gen_ai.client.operation.duration; do
+      if grep -q "$metric" "$LOGS_FILE" 2>/dev/null; then
+        echo "  $(red "FAIL") Replaced metric still emitted: ${metric}"
+        FAIL=$((FAIL + 1))
+        METRICS_CLEAN=0
+      fi
+    done
+    if [ "$METRICS_CLEAN" = "1" ]; then
+      echo "  $(green "PASS") The replaced token and duration metrics are absent"
+      PASS=$((PASS + 1))
+    fi
 
     # ── Domain Metrics ──
     echo "  $(dim "--- Domain Metrics ---")"

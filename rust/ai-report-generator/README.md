@@ -90,8 +90,9 @@ Every report generation produces a trace with:
 
 | Metric | Type | What it records |
 | --- | --- | --- |
-| `gen_ai.client.token.usage` | histogram | Input and output tokens, split by `gen_ai.token.type`. |
-| `gen_ai.client.operation.duration` | histogram | Wall-clock seconds per LLM call, on success and failure. |
+| `gen_ai.client.inference.operation.input_tokens` | histogram | Input tokens per LLM call. A failed call records 0 with `error.type`. |
+| `gen_ai.client.inference.operation.output_tokens` | histogram | Output tokens per LLM call. A failed call records 0 with `error.type`. |
+| `gen_ai.client.inference.duration` | histogram | Wall-clock seconds per LLM call, on success and failure. |
 | `base14.gen_ai.cost` | counter | Cost in USD from `_shared/pricing.json`. Models missing from the file cost 0. |
 | `base14.gen_ai.retry.count` | counter | Retry attempts, excluding the initial attempt. |
 | `base14.gen_ai.fallback.count` | counter | Switches to the fallback provider. |

@@ -316,6 +316,34 @@ fn metric_count(metrics: &[ResourceMetrics], name: &str, expected: &[(&str, &str
     count
 }
 
+const TOKEN_BOUNDARIES: [f64; 14] = [
+    1.0, 4.0, 16.0, 64.0, 256.0, 1024.0, 4096.0, 16384.0, 65536.0, 262144.0, 1048576.0, 4194304.0,
+    16777216.0, 67108864.0,
+];
+const DURATION_BOUNDARIES: [f64; 14] = [
+    0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92,
+];
+
+fn histogram_bounds(metrics: &[ResourceMetrics], name: &str) -> Vec<f64> {
+    metrics
+        .iter()
+        .flat_map(|resource| resource.scope_metrics())
+        .flat_map(|scope| scope.metrics())
+        .filter(|metric| metric.name() == name)
+        .find_map(|metric| match metric.data() {
+            AggregatedMetrics::F64(MetricData::Histogram(histogram)) => histogram
+                .data_points()
+                .next()
+                .map(|point| point.bounds().collect()),
+            AggregatedMetrics::U64(MetricData::Histogram(histogram)) => histogram
+                .data_points()
+                .next()
+                .map(|point| point.bounds().collect()),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("no histogram named {name}"))
+}
+
 fn is_error(status: &Status) -> bool {
     matches!(status, Status::Error { .. })
 }
@@ -369,22 +397,48 @@ async fn chat_completion_vector_records_span_attributes_and_metrics() {
         ("gen_ai.provider.name", "anthropic"),
         ("gen_ai.request.model", model),
     ];
-    let mut input_attrs = base.to_vec();
-    input_attrs.push(("gen_ai.token.type", "input"));
-    let mut output_attrs = base.to_vec();
-    output_attrs.push(("gen_ai.token.type", "output"));
 
     assert_eq!(
-        metric_total(&metrics, "gen_ai.client.token.usage", &input_attrs),
+        metric_total(
+            &metrics,
+            "gen_ai.client.inference.operation.input_tokens",
+            &base
+        ),
         mock["input_tokens"].as_f64().unwrap()
     );
     assert_eq!(
-        metric_total(&metrics, "gen_ai.client.token.usage", &output_attrs),
+        metric_total(
+            &metrics,
+            "gen_ai.client.inference.operation.output_tokens",
+            &base
+        ),
         mock["output_tokens"].as_f64().unwrap()
     );
     assert_eq!(
-        metric_count(&metrics, "gen_ai.client.operation.duration", &base),
+        metric_count(&metrics, "gen_ai.client.inference.duration", &base),
         1
+    );
+    assert_eq!(
+        metric_count(&metrics, "gen_ai.client.token.usage", &[]),
+        0,
+        "the token metric split by gen_ai.token.type is gone"
+    );
+    assert_eq!(
+        metric_count(&metrics, "gen_ai.client.operation.duration", &[]),
+        0,
+        "inference calls record gen_ai.client.inference.duration"
+    );
+    assert_eq!(
+        histogram_bounds(&metrics, "gen_ai.client.inference.operation.input_tokens"),
+        TOKEN_BOUNDARIES
+    );
+    assert_eq!(
+        histogram_bounds(&metrics, "gen_ai.client.inference.operation.output_tokens"),
+        TOKEN_BOUNDARIES
+    );
+    assert_eq!(
+        histogram_bounds(&metrics, "gen_ai.client.inference.duration"),
+        DURATION_BOUNDARIES
     );
 
     let expected_cost = expected["attributes"]["base14.gen_ai.cost_usd"]
@@ -532,6 +586,24 @@ async fn chat_with_retry_vector_keeps_the_retry_inside_one_span() {
         metric_total(&metrics, "base14.gen_ai.error.count", &[]),
         0.0
     );
+
+    let expected_records = |name: &str| -> f64 {
+        vector["expected_metrics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|metric| metric["name"] == name)
+            .unwrap()["records"][0]["value"]
+            .as_f64()
+            .unwrap()
+    };
+    for name in [
+        "gen_ai.client.inference.operation.input_tokens",
+        "gen_ai.client.inference.operation.output_tokens",
+    ] {
+        assert_eq!(metric_count(&metrics, name, &[]), 1);
+        assert_eq!(metric_total(&metrics, name, &[]), expected_records(name));
+    }
 }
 
 #[tokio::test(start_paused = true)]
@@ -665,21 +737,66 @@ async fn chat_with_fallback_vector_switches_provider_without_failing_the_parent(
         expected_value("base14.gen_ai.error.count")
     );
 
+    let failed_primary = [
+        ("gen_ai.operation.name", "chat"),
+        ("gen_ai.provider.name", "anthropic"),
+        ("gen_ai.request.model", primary_model),
+        ("error.type", "server_error"),
+    ];
+    for name in [
+        "gen_ai.client.inference.operation.input_tokens",
+        "gen_ai.client.inference.operation.output_tokens",
+        "gen_ai.client.inference.duration",
+    ] {
+        assert_eq!(
+            metric_count(&metrics, name, &failed_primary),
+            1,
+            "the failed primary call records {name} with error.type"
+        );
+    }
     assert_eq!(
         metric_total(
             &metrics,
-            "gen_ai.client.token.usage",
-            &[("gen_ai.request.model", primary_model)]
+            "gen_ai.client.inference.operation.input_tokens",
+            &failed_primary
         ),
         0.0,
-        "the failed primary call records no token usage"
+        "the failed primary call received no usage"
+    );
+    assert_eq!(
+        metric_total(
+            &metrics,
+            "gen_ai.client.inference.operation.output_tokens",
+            &failed_primary
+        ),
+        0.0,
+        "the failed primary call received no usage"
+    );
+    let fallback_attrs = [
+        ("gen_ai.provider.name", "openai"),
+        ("gen_ai.request.model", fallback_model),
+    ];
+    assert!(
+        metric_total(
+            &metrics,
+            "gen_ai.client.inference.operation.input_tokens",
+            &fallback_attrs
+        ) > 0.0
     );
     assert!(
         metric_total(
             &metrics,
-            "gen_ai.client.token.usage",
-            &[("gen_ai.request.model", fallback_model)]
+            "gen_ai.client.inference.operation.output_tokens",
+            &fallback_attrs
         ) > 0.0
+    );
+    assert_eq!(
+        metric_count(
+            &metrics,
+            "gen_ai.client.inference.duration",
+            &fallback_attrs
+        ),
+        1
     );
     assert!(
         metric_total(
