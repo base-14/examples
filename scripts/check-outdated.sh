@@ -127,22 +127,43 @@ check_python() {
 
   if is_skipped "$name"; then return; fi
 
+  # Emits "<package> <current>" per dependency. Packages come from pyproject.toml
+  # (requirements.txt when there is none); the current version comes from uv.lock
+  # when present, otherwise from the first version in the spec.
   local specs
-  if [[ -f "$dir/requirements.txt" ]]; then
-    specs=$(cat "$dir/requirements.txt")
-  elif [[ -f "$dir/pyproject.toml" ]]; then
-    specs=$(python3 - "$dir/pyproject.toml" <<'PY'
-import sys, tomllib
-d = tomllib.load(open(sys.argv[1], 'rb')).get('project', {})
-out = list(d.get('dependencies', []))
-for group in d.get('optional-dependencies', {}).values():
-    out.extend(group)
-print('\n'.join(out))
+  specs=$(python3 - "$dir" <<'PY'
+import os, re, sys, tomllib
+d = sys.argv[1]
+norm = lambda n: re.sub(r'[-_.]+', '-', n).lower()
+lines = []
+if os.path.isfile(os.path.join(d, 'pyproject.toml')):
+    proj = tomllib.load(open(os.path.join(d, 'pyproject.toml'), 'rb')).get('project', {})
+    lines = list(proj.get('dependencies', []))
+    for group in proj.get('optional-dependencies', {}).values():
+        lines.extend(group)
+elif os.path.isfile(os.path.join(d, 'requirements.txt')):
+    lines = open(os.path.join(d, 'requirements.txt')).read().splitlines()
+locked = {}
+if os.path.isfile(os.path.join(d, 'uv.lock')):
+    for p in tomllib.load(open(os.path.join(d, 'uv.lock'), 'rb')).get('package', []):
+        if 'version' in p:
+            locked[norm(p['name'])] = p['version']
+seen = set()
+for line in lines:
+    line = line.split('#')[0].strip()
+    m = re.match(r'([A-Za-z0-9][A-Za-z0-9._-]*)', line)
+    if not m or norm(m.group(1)) in seen:
+        continue
+    name = norm(m.group(1))
+    seen.add(name)
+    current = locked.get(name)
+    if current is None:
+        v = re.search(r'[0-9]+\.[0-9]+(\.[0-9]+)?', line[m.end():])
+        current = v.group(0) if v else None
+    if current:
+        print(name, current)
 PY
 )
-  else
-    return
-  fi
   [[ -z "$specs" ]] && return
 
   print_header "${dir#"$REPO_ROOT"/}"
@@ -157,12 +178,9 @@ PY
   local count=0
   local majors=0
 
-  while IFS= read -r line; do
-    [[ -z "$line" || "$line" =~ ^# ]] && continue
-    local pkg current
-    pkg=$(echo "$line" | sed 's/[>=<~!;].*//; s/\[.*\]//; s/[[:space:]]*$//')
-    current=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    [[ -z "$current" ]] && continue
+  local pkg current
+  while read -r pkg current; do
+    [[ -z "$pkg" ]] && continue
 
     local latest
     latest=$("$pip_bin" index versions "$pkg" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
