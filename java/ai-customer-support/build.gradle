@@ -18,8 +18,8 @@ repositories {
     mavenCentral()
 }
 
-// Match the API version opentelemetry-micrometer-1.5 2.32.0-alpha is built against; 1.67 removes a class it uses
-ext['opentelemetry.version'] = '1.66.0'
+// Match the API version opentelemetry-micrometer-1.5 2.33.0-alpha is built against; Boot 4.1 manages 1.62
+ext['opentelemetry.version'] = '1.67.0'
 
 dependencyManagement {
     imports {
@@ -36,7 +36,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'
     implementation 'io.opentelemetry:opentelemetry-api'
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5:2.32.0-alpha'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5:2.33.0-alpha'
 
     // Spring AI - LLM providers
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'

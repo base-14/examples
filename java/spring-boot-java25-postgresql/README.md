@@ -1,15 +1,14 @@
 # Spring Boot with OpenTelemetry
 
-Spring Boot 3.5.16 application with OpenTelemetry instrumentation using the
+Spring Boot 4.1.2 application with OpenTelemetry instrumentation using the
 **OpenTelemetry SDK Integration** approach.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
 
 ## How to instrument Spring Boot with OpenTelemetry
 
-1. Add `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` and
-   `io.micrometer:micrometer-tracing-bridge-otel` to `build.gradle`, with versions managed by the
-   `opentelemetry-instrumentation-bom` (2.30.0) platform.
+1. Add `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` to `build.gradle`, with
+   its version managed by the `opentelemetry-instrumentation-bom` (2.33.0) platform.
 2. Enable the starter in `application.properties` with
    `otel.java.global-autoconfigure.enabled=true`, `otel.instrumentation.jdbc.enabled=true`,
    `otel.instrumentation.spring-webmvc.enabled=true` and
@@ -25,6 +24,18 @@ records exported over OTLP with trace correlation, Actuator with all Micrometer 
 W3C trace propagation. The full guide is
 [Spring Boot OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot/).
 
+## Older Spring Boot versions
+
+On Spring Boot 2.6, 2.7 or 3.1 and later, use the same starter and BOM with two changes:
+
+- Use `spring-boot-starter-web` instead of `spring-boot-starter-webmvc`.
+- Remove `io.micrometer:micrometer-tracing-bridge-otel` if the app has it, or set
+  `management.tracing.enabled=false`. On Spring Boot 3.x the bridge creates a Micrometer
+  Observation span for each request, such as `http get /users/`, next to the starter's HTTP server
+  span. Actuator metrics do not depend on the bridge.
+
+Spring Boot 3.0 is outside the starter's supported range.
+
 ## Instrumentation Approach
 
 This example uses **OpenTelemetry SDK Integration** (production-ready):
@@ -32,7 +43,7 @@ This example uses **OpenTelemetry SDK Integration** (production-ready):
 - Dependency: `opentelemetry-spring-boot-starter`
 - Direct OpenTelemetry API access
 - Explicit dependency management via BOM
-- Compatible with Spring Boot 2.7+ and 3.x
+- Compatible with Spring Boot 2.6+, 3.1+ and 4.x
 
 ### What's Auto-Instrumented
 
@@ -215,9 +226,8 @@ All logs include `trace_id` and `span_id` for correlation.
 From `build.gradle` (BOM-managed):
 
 ```groovy
-implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.32.0")
+implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.33.0")
 implementation "io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter"
-implementation "io.micrometer:micrometer-tracing-bridge-otel"
 ```
 
 ### Implementation
@@ -276,12 +286,12 @@ logging.level.io.opentelemetry=DEBUG
 
 | Component | Version |
 | --- | --- |
-| Spring Boot | 3.5.9 |
-| OpenTelemetry Instrumentation | 2.32.0 |
+| Spring Boot | 4.1.2 |
+| OpenTelemetry Instrumentation | 2.33.0 |
 | OpenTelemetry SDK | managed by instrumentation BOM |
 | PostgreSQL | 18 |
 | OTel Collector | 0.163.1 |
-| Gradle | 9.2.1 |
+| Gradle | 9.8.2 |
 | Java | 25 |
 
 ## Resources

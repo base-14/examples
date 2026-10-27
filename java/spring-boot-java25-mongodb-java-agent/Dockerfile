@@ -1,5 +1,5 @@
 # -------- Stage 1: Build the application --------
-FROM gradle:9.2.1-jdk25 AS builder
+FROM gradle:9.8.2-jdk25 AS builder
 
 COPY --chown=gradle:gradle . /app
 WORKDIR /app
@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Download OpenTelemetry Java Agent
 RUN apt-get update && apt-get install -y wget && \
-  wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.32.0/opentelemetry-javaagent.jar \
+  wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.33.1/opentelemetry-javaagent.jar \
   -O /app/opentelemetry-javaagent.jar && \
   apt-get remove -y wget && \
   apt-get autoremove -y && \

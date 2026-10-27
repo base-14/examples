@@ -1,15 +1,14 @@
 # Spring Boot with OpenTelemetry
 
-Spring Boot 3.5.9 application with OpenTelemetry auto-instrumentation for
+Spring Boot 4.1.2 application with OpenTelemetry auto-instrumentation for
 traces, metrics, and logs.
 
 > 📚 [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot)
 
 ## How to instrument Spring Boot with OpenTelemetry
 
-1. Add `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` and
-   `io.micrometer:micrometer-tracing-bridge-otel` to `build.gradle`, with versions managed by the
-   `opentelemetry-instrumentation-bom` (2.32.0) platform.
+1. Add `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` to `build.gradle`, with
+   its version managed by the `opentelemetry-instrumentation-bom` (2.33.0) platform.
 2. Enable the starter in `application.properties` with
    `otel.java.global-autoconfigure.enabled=true`, `otel.instrumentation.jdbc.enabled=true`,
    `otel.instrumentation.spring-webmvc.enabled=true` and
@@ -24,6 +23,18 @@ This example adds JDBC and JPA query spans against MySQL (`com.mysql:mysql-conne
 log records exported over OTLP with trace correlation, Actuator with all Micrometer metrics enabled,
 and W3C trace propagation. The full guide is
 [Spring Boot OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot/).
+
+## Older Spring Boot versions
+
+On Spring Boot 2.6, 2.7 or 3.1 and later, use the same starter and BOM with two changes:
+
+- Use `spring-boot-starter-web` instead of `spring-boot-starter-webmvc`.
+- Remove `io.micrometer:micrometer-tracing-bridge-otel` if the app has it, or set
+  `management.tracing.enabled=false`. On Spring Boot 3.x the bridge creates a Micrometer
+  Observation span for each request, such as `http get /users/`, next to the starter's HTTP server
+  span. Actuator metrics do not depend on the bridge.
+
+Spring Boot 3.0 is outside the starter's supported range.
 
 ## What's Instrumented
 
@@ -237,11 +248,11 @@ logging.level.io.opentelemetry=DEBUG
 
 | Component | Version |
 | --------- | ------- |
-| Spring Boot | 3.5.9 |
-| OpenTelemetry Instrumentation | 2.32.0 |
+| Spring Boot | 4.1.2 |
+| OpenTelemetry Instrumentation | 2.33.0 |
 | OpenTelemetry SDK | managed by instrumentation BOM |
 | MySQL | 9.1 |
-| Gradle | 9.2.1 |
+| Gradle | 9.8.2 |
 | Java | 17 (target) / 17-25 (supported) |
 
 ## Resources

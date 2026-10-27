@@ -49,8 +49,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/company
-      SPRING_DATA_MONGODB_DATABASE: company
+      SPRING_MONGODB_URI: mongodb://mongodb:27017/company
+      SPRING_MONGODB_DATABASE: company
       SPRING_APPLICATION_NAME: java-spring-boot-otel-mongodb
       OTEL_SERVICE_NAME: java-spring-boot-otel-mongodb
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf

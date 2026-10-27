@@ -1,6 +1,6 @@
 # Spring Boot with OpenTelemetry - Java Agent Approach
 
-Spring Boot 3.5.16 application with OpenTelemetry instrumentation using the
+Spring Boot 4.1.2 application with OpenTelemetry instrumentation using the
 **Java Agent** approach.
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives#java-agent-approach)
@@ -8,8 +8,8 @@ Spring Boot 3.5.16 application with OpenTelemetry instrumentation using the
 ## How to instrument Spring Boot with the OpenTelemetry Java agent
 
 1. Add no OpenTelemetry dependencies. `build.gradle` only lists Spring Boot starters
-   (`spring-boot-starter-web`, `spring-boot-starter-data-mongodb`, `spring-boot-starter-actuator`).
-2. Attach the agent at startup. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (2.32.0)
+   (`spring-boot-starter-webmvc`, `spring-boot-starter-data-mongodb`, `spring-boot-starter-actuator`).
+2. Attach the agent at startup. The `Dockerfile` downloads `opentelemetry-javaagent.jar` (2.33.1)
    and runs `java -javaagent:/app/opentelemetry-javaagent.jar -jar /app/app.jar`. No code changes
    are needed.
 3. Configure export in `compose.yaml` with `OTEL_SERVICE_NAME=java-spring-boot-otel-mongodb`,
@@ -22,6 +22,17 @@ This example adds Spring Data MongoDB operation spans, controller-level spans en
 `OTEL_INSTRUMENTATION_*_ENABLED` variables. The full guide is
 [Spring Boot OpenTelemetry
 Alternatives](https://docs.base14.io/instrument/apps/auto-instrumentation/spring-boot-alternatives/).
+
+## Older Spring Boot versions
+
+On Spring Boot 2.x or 3.x, use the same Dockerfile and agent settings with two changes:
+
+- Use `spring-boot-starter-web` instead of `spring-boot-starter-webmvc`.
+- Set the MongoDB connection with `spring.data.mongodb.uri` and `spring.data.mongodb.database`, or
+  `SPRING_DATA_MONGODB_URI` and `SPRING_DATA_MONGODB_DATABASE` in `compose.yaml`. Spring Boot 4
+  renamed them to `spring.mongodb.*`.
+
+The agent instruments the libraries, not Spring Boot itself, so no other change is needed.
 
 ## Instrumentation Approach
 
@@ -63,7 +74,7 @@ Add custom spans using `@WithSpan` annotations for deeper application visibility
 1. Add dependency to `build.gradle`:
 
    ```gradle
-   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.32.0'
+   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.33.0'
    ```
 
 1. Enable annotations (already configured in `compose.yaml`):
@@ -120,7 +131,7 @@ Check the application logs for the agent startup message:
 docker logs spring-app | grep otel.javaagent
 ```
 
-You should see: `[otel.javaagent] OpenTelemetry Javaagent 2.32.0`
+You should see: `[otel.javaagent] OpenTelemetry Javaagent 2.33.1`
 
 ## Configuration
 
@@ -214,7 +225,7 @@ Requires MongoDB and OTel Collector running locally on standard ports.
 Download the Java Agent first:
 
 ```bash
-wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.32.0/opentelemetry-javaagent.jar
+wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.33.1/opentelemetry-javaagent.jar
 ```
 
 Then run with the agent:
@@ -227,7 +238,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 export OTEL_TRACES_EXPORTER=otlp
 export OTEL_METRICS_EXPORTER=otlp
 export OTEL_LOGS_EXPORTER=otlp
-export SPRING_DATA_MONGODB_URI=mongodb://localhost:27017/company
+export SPRING_MONGODB_URI=mongodb://localhost:27017/company
 
 # Build and run
 ./gradlew build
@@ -284,7 +295,7 @@ Check startup logs for the agent message:
 docker logs spring-app | grep otel.javaagent
 ```
 
-Expected: `[otel.javaagent] OpenTelemetry Javaagent 2.32.0`
+Expected: `[otel.javaagent] OpenTelemetry Javaagent 2.33.1`
 
 If missing, verify the agent path in Dockerfile and ENTRYPOINT.
 
@@ -331,11 +342,11 @@ environment:
 
 | Component | Version |
 | --- | --- |
-| Spring Boot | 3.5.9 |
-| OpenTelemetry Java Agent | 2.32.0 |
+| Spring Boot | 4.1.2 |
+| OpenTelemetry Java Agent | 2.33.1 |
 | MongoDB | 7.0 |
 | OTel Collector | 0.163.1 |
-| Gradle | 9.2.1 |
+| Gradle | 9.8.2 |
 | Java | 25 |
 
 ## Resources

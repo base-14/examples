@@ -1,5 +1,5 @@
 # -------- Stage 1: Build the application --------
-FROM gradle:9.2.1-jdk17 AS builder
+FROM gradle:9.8.2-jdk17 AS builder
 
 COPY --chown=gradle:gradle . /app
 WORKDIR /app
