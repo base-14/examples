@@ -2,7 +2,7 @@
 
 > [Full Documentation](https://docs.base14.io/instrument/apps/auto-instrumentation/micronaut/)
 
-Articles CRUD API with distributed tracing, structured logging, and custom metrics — instrumented with the OTel Java Agent.
+Articles CRUD API with distributed tracing, structured logging, and custom metrics, instrumented with the OTel Java Agent.
 
 ## How to instrument Micronaut with OpenTelemetry
 
@@ -10,7 +10,7 @@ Articles CRUD API with distributed tracing, structured logging, and custom metri
    `opentelemetry-bom` 1.65.0) alongside `micronaut-data-hibernate-jpa` and `micronaut-jdbc-hikari`.
    The agent itself is not a build dependency.
 2. Attach the agent at startup. Each service's `Dockerfile` downloads `opentelemetry-javaagent.jar`
-   (2.32.0) and sets `JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"`, so HTTP,
+   (2.33.1) and sets `JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"`, so HTTP,
    JDBC and Hibernate are traced with no Micronaut tracing module.
 3. Configure export in `compose.yaml` with `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`,
    `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, an `OTEL_SERVICE_NAME` per service, and
@@ -26,14 +26,17 @@ JSON logs via `logstash-logback-encoder`. The full guide is
 | Component | Version |
 |---|---|
 | Java | 25 (Eclipse Temurin) |
-| Micronaut | 4.8.x |
+| Micronaut | 5.2.x |
 | PostgreSQL | 18 |
-| OTel Java Agent | 2.32.0 |
+| OTel Java Agent | 2.33.1 |
 | OTel Collector | 0.163.1 (contrib) |
+
+Run Gradle on JDK 25 for host builds (`make build`, `make check`). The Micronaut 5
+Gradle plugin requires it.
 
 ## Architecture
 
-```
+```text
 ┌─────────┐    POST /notify    ┌──────────┐
 │   app    │──────────────────▶│  notify   │
 │ :8080    │                   │  :8081    │
@@ -47,7 +50,8 @@ JSON logs via `logstash-logback-encoder`. The full guide is
 └─────────┘                   └───────────────┘
 ```
 
-Both `app` and `notify` run with the OTel Java Agent attached via `JAVA_TOOL_OPTIONS`. The agent provides zero-code instrumentation for HTTP, JDBC, and Netty — plus trace context propagation across services.
+Both `app` and `notify` run with the OTel Java Agent attached via `JAVA_TOOL_OPTIONS`. The agent
+instruments HTTP, JDBC, and Netty with no code changes and propagates trace context across services.
 
 ## Quick Start
 
@@ -72,13 +76,13 @@ docker compose up -d
 
 ## Observability Signals
 
-**Traces** — OTel Java Agent auto-instruments HTTP server/client and JDBC. Distributed trace context propagates from `app` → `notify` via W3C traceparent headers.
+**Traces.** The OTel Java Agent instruments HTTP server and client calls and JDBC. Trace context propagates from `app` to `notify` through W3C `traceparent` headers.
 
-**Logs** — Logback with logstash-encoder produces JSON logs. The Java Agent injects `trace_id` and `span_id` into MDC automatically.
+**Logs.** Logback with logstash-encoder writes JSON logs. The Java Agent adds `trace_id` and `span_id` to the MDC.
 
-**Metrics** — `articles.created` counter registered via OTel Meter API. JVM and HTTP metrics provided by the Java Agent.
+**Metrics.** The `articles.created` counter is registered through the OTel Meter API. The Java Agent provides JVM and HTTP metrics.
 
 ## Scripts
 
-- `scripts/test-api.sh` — Full API + observability test suite
-- `scripts/verify-scout.sh` — Verify telemetry export to Base14 Scout
+- `scripts/test-api.sh` - full API and observability test suite.
+- `scripts/verify-scout.sh` - verifies telemetry export to Base14 Scout.

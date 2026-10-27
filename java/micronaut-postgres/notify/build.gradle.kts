@@ -1,6 +1,6 @@
 plugins {
-    id("io.micronaut.application") version "4.6.2"
-    id("com.gradleup.shadow") version "9.0.0-beta12"
+    id("io.micronaut.application") version "5.0.2"
+    id("com.gradleup.shadow") version "9.6.1"
 }
 
 version = "1.0.0"
@@ -17,7 +17,7 @@ dependencies {
 
     runtimeOnly("org.yaml:snakeyaml")
     runtimeOnly("ch.qos.logback:logback-classic")
-    runtimeOnly("net.logstash.logback:logstash-logback-encoder:8.0")
+    runtimeOnly("net.logstash.logback:logstash-logback-encoder:9.0")
 }
 
 application {
@@ -31,7 +31,7 @@ java {
 }
 
 micronaut {
-    version("4.8.2")
+    version("5.2.4")
     runtime("netty")
     testRuntime("junit5")
     processing {

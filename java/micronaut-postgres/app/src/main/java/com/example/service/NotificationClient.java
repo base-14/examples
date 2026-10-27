@@ -1,7 +1,7 @@
 package com.example.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.context.annotation.Value;
+import io.micronaut.json.JsonMapper;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,16 +17,17 @@ public class NotificationClient {
     private static final Logger LOG = LoggerFactory.getLogger(NotificationClient.class);
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonMapper jsonMapper;
     private final String notifyUrl;
 
-    public NotificationClient(@Value("${notify.url:`http://localhost:8081`}") String notifyUrl) {
+    public NotificationClient(@Value("${notify.url:`http://localhost:8081`}") String notifyUrl, JsonMapper jsonMapper) {
         this.notifyUrl = notifyUrl;
+        this.jsonMapper = jsonMapper;
     }
 
     public void notify(Map<String, Object> payload) {
         try {
-            String json = objectMapper.writeValueAsString(payload);
+            String json = jsonMapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(notifyUrl + "/notify"))
                     .header("Content-Type", "application/json")
