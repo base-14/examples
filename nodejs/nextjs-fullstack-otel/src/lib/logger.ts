@@ -1,4 +1,4 @@
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { logs, SeverityNumber } from '@opentelemetry/api';
 
 const logger = logs.getLogger('sample-nextjs-app');
 

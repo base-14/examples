@@ -1,14 +1,14 @@
 'use client';
 
-import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { TracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { ZoneContextManager } from '@opentelemetry/context-zone';
+import { CompositePropagator, W3CBaggagePropagator, W3CTraceContextPropagator } from '@opentelemetry/core';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
-import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { context, propagation, trace, SpanStatusCode } from '@opentelemetry/api';
 import { onCLS, onLCP, onTTFB, onINP } from 'web-vitals';
 
 let initialized = false;
@@ -34,14 +34,20 @@ export function initBrowserTelemetry() {
     url: `${OTEL_ENDPOINT}/v1/traces`,
   });
 
-  const provider = new WebTracerProvider({
+  const provider = new TracerProvider({
     resource,
-    spanProcessors: [new BatchSpanProcessor(traceExporter)],
+    spanProcessors: [new BatchSpanProcessor({ exporter: traceExporter })],
   });
 
-  provider.register({
-    contextManager: new ZoneContextManager(),
-  });
+  const contextManager = new ZoneContextManager();
+  contextManager.enable();
+  context.setGlobalContextManager(contextManager);
+  propagation.setGlobalPropagator(
+    new CompositePropagator({
+      propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()],
+    })
+  );
+  trace.setGlobalTracerProvider(provider);
 
   // --- 2. Auto-Instrumentations (fetch, XHR, document load, user interaction) ---
   registerInstrumentations({

@@ -7,14 +7,15 @@ A reference implementation showing how to instrument a Next.js App Router applic
 ## How to instrument Next.js with OpenTelemetry
 
 1. Install `@opentelemetry/sdk-node` and `@opentelemetry/auto-instrumentations-node` for the
-   server, `@opentelemetry/sdk-trace-web`, `@opentelemetry/auto-instrumentations-web` and
+   server, `@opentelemetry/sdk-trace`, `@opentelemetry/auto-instrumentations-web` and
    `@opentelemetry/context-zone` for the browser, plus `@opentelemetry/exporter-trace-otlp-http`,
    `@opentelemetry/exporter-metrics-otlp-http`, `@opentelemetry/exporter-logs-otlp-http`,
    `@opentelemetry/resources`, `@opentelemetry/semantic-conventions` and `web-vitals`.
-2. Add `instrumentation.ts` at the project root with a `register()` hook that imports
+   OpenTelemetry JS 3.0 needs Node.js 22.15 or later.
+2. Add `src/instrumentation.ts` with a `register()` hook that imports
    `src/lib/server-telemetry.ts` (a `NodeSDK` with `getNodeAutoInstrumentations()`) when
    `NEXT_RUNTIME === 'nodejs'`. Wrap the root layout in `TelemetryProvider`, which calls
-   `initBrowserTelemetry()` to register a `WebTracerProvider` with `getWebAutoInstrumentations()`.
+   `initBrowserTelemetry()` to register a `TracerProvider` with `getWebAutoInstrumentations()`.
 3. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and `OTEL_SERVICE_NAME=sample-nextjs-app`
    for the server and `NEXT_PUBLIC_OTEL_SERVICE_NAME=sample-nextjs-app-browser` for the browser,
    which exports through the `/api/otel` proxy route unless `NEXT_PUBLIC_OTEL_ENDPOINT` is set.
@@ -78,20 +79,23 @@ npm install \
   @opentelemetry/resources \
   @opentelemetry/semantic-conventions \
   @opentelemetry/sdk-metrics \
-  @opentelemetry/sdk-trace-base \
-  @opentelemetry/sdk-logs \
-  @opentelemetry/api-logs
+  @opentelemetry/sdk-trace \
+  @opentelemetry/sdk-logs
 ```
 
-**Create `instrumentation.ts`** in your project root (next to `package.json`):
+**Create `src/instrumentation.ts`:**
 
 ```ts
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    await import('./src/lib/server-telemetry');
+    await import('./lib/server-telemetry');
   }
 }
 ```
+
+Next.js accepts the hook next to `package.json` or inside `src/`. When the app lives under
+`src/app`, only the `src/` location is traced into `output: "standalone"` builds; a root-level
+hook compiles but its dependencies never reach the standalone image.
 
 **Create `src/lib/server-telemetry.ts`:**
 
@@ -108,6 +112,20 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
 OTEL_SERVICE_NAME=your-app-name
 ```
 
+**Standalone builds:** `@opentelemetry/instrumentation-http` loads `forwarded-parse` through
+`createRequire`, which the Next.js file tracer cannot follow
+([opentelemetry-js#7229](https://github.com/open-telemetry/opentelemetry-js/issues/7229)). Add it to
+the trace in `next.config.ts`:
+
+```ts
+const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/forwarded-parse/**/*"],
+  },
+};
+```
+
 **That's it.** All HTTP requests, SSR renders, fetch calls, and API routes are now automatically traced with zero custom code.
 
 ---
@@ -121,7 +139,7 @@ OTEL_SERVICE_NAME=your-app-name
 The bridge is already included in the [`server-telemetry.ts`](src/lib/server-telemetry.ts) in this repo. The relevant section:
 
 ```ts
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { logs, SeverityNumber } from '@opentelemetry/api';
 import { LoggerProvider } from '@opentelemetry/sdk-logs';
 
 // After sdk.start():
@@ -164,8 +182,9 @@ Each captured log gets:
 
 ```bash
 npm install \
-  @opentelemetry/sdk-trace-web \
-  @opentelemetry/sdk-trace-base \
+  @opentelemetry/api \
+  @opentelemetry/sdk-trace \
+  @opentelemetry/core \
   @opentelemetry/auto-instrumentations-web \
   @opentelemetry/context-zone \
   @opentelemetry/instrumentation \
@@ -181,14 +200,15 @@ See [`src/lib/browser-telemetry.ts`](src/lib/browser-telemetry.ts) in this repo.
 ```ts
 'use client';
 
-import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { TracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { ZoneContextManager } from '@opentelemetry/context-zone';
+import { CompositePropagator, W3CBaggagePropagator, W3CTraceContextPropagator } from '@opentelemetry/core';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
+import { context, propagation, trace } from '@opentelemetry/api';
 
 let initialized = false;
 
@@ -198,16 +218,26 @@ export function initBrowserTelemetry() {
 
   const OTEL_ENDPOINT = process.env.NEXT_PUBLIC_OTEL_ENDPOINT || '/api/otel';
 
-  const provider = new WebTracerProvider({
+  const provider = new TracerProvider({
     resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME || 'your-app-browser',
     }),
     spanProcessors: [
-      new BatchSpanProcessor(new OTLPTraceExporter({ url: `${OTEL_ENDPOINT}/v1/traces` })),
+      new BatchSpanProcessor({
+        exporter: new OTLPTraceExporter({ url: `${OTEL_ENDPOINT}/v1/traces` }),
+      }),
     ],
   });
 
-  provider.register({ contextManager: new ZoneContextManager() });
+  const contextManager = new ZoneContextManager();
+  contextManager.enable();
+  context.setGlobalContextManager(contextManager);
+  propagation.setGlobalPropagator(
+    new CompositePropagator({
+      propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()],
+    })
+  );
+  trace.setGlobalTracerProvider(provider);
 
   registerInstrumentations({
     instrumentations: [
@@ -509,7 +539,7 @@ Level 2 captures all console output as OTel logs, but they're just string bodies
 **Create `src/lib/logger.ts`:**
 
 ```ts
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { logs, SeverityNumber } from '@opentelemetry/api';
 
 const logger = logs.getLogger('your-app-name');
 
@@ -554,8 +584,9 @@ logError('Payment failed', { 'order.id': 'ORD-123', 'error.code': 'TIMEOUT' });
 
 ```
 sample-nextjs-otel/
-├── instrumentation.ts              # Next.js entry — loads server OTel
+├── next.config.ts                  # standalone output + forwarded-parse trace include
 ├── src/
+│   ├── instrumentation.ts          # Next.js entry — loads server OTel
 │   ├── lib/
 │   │   ├── server-telemetry.ts     # Server: NodeSDK + auto-instrumentations + console bridge
 │   │   ├── browser-telemetry.ts    # Browser: auto-instrumentations + errors + web vitals + console bridge

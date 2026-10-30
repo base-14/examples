@@ -5,10 +5,10 @@ import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { logs, SeverityNumber } from '@opentelemetry/api';
 
 const OTEL_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318';
 
@@ -23,19 +23,23 @@ const sdk = new NodeSDK({
   resource,
 
   // Traces — batch and export via OTLP HTTP
-  spanProcessor: new BatchSpanProcessor(
-    new OTLPTraceExporter({
-      url: `${OTEL_ENDPOINT}/v1/traces`,
-    })
-  ),
+  spanProcessors: [
+    new BatchSpanProcessor({
+      exporter: new OTLPTraceExporter({
+        url: `${OTEL_ENDPOINT}/v1/traces`,
+      }),
+    }),
+  ],
 
   // Metrics — periodic export every 10s
-  metricReader: new PeriodicExportingMetricReader({
-    exporter: new OTLPMetricExporter({
-      url: `${OTEL_ENDPOINT}/v1/metrics`,
+  metricReaders: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({
+        url: `${OTEL_ENDPOINT}/v1/metrics`,
+      }),
+      exportIntervalMillis: 10_000,
     }),
-    exportIntervalMillis: 10_000,
-  }),
+  ],
 
   // Logs — batch and export via OTLP HTTP
   logRecordProcessors: [
