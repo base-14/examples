@@ -10,8 +10,8 @@
         "open-telemetry/exporter-otlp": "^1.4",
         "open-telemetry/opentelemetry-auto-wordpress": "^0.2",
         "open-telemetry/opentelemetry-auto-mysqli": "^0.4",
-        "php-http/guzzle7-adapter": "^1.1",
-        "guzzlehttp/psr7": "^2.8"
+        "guzzlehttp/guzzle": "^8.3",
+        "guzzlehttp/psr7": "^3.2"
     },
     "config": {
         "optimize-autoloader": true,

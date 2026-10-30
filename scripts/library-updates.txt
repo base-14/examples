@@ -28,6 +28,12 @@ npm|nodejs/angular-fullstack-otel/frontend|web-vitals@6
 #   The hook moved to src/instrumentation.ts: Next only traces it into standalone output from the
 #   app directory's parent. forwarded-parse is added via outputFileTracingIncludes (opentelemetry-js#7229).
 
+# --- guzzle 8 in the remaining PHP projects, applied 2026-10-30 (live runs verified) ---
+# composer|php/hello-world|guzzlehttp/guzzle@8
+# composer|php/php84-slim4-mongodb|guzzlehttp/guzzle@8 guzzlehttp/psr7@3
+# composer|php/wordpress-mariadb|guzzlehttp/guzzle@8 guzzlehttp/psr7@3
+#   php-http/guzzle7-adapter dropped: it requires guzzle 7 and guzzle is a PSR-18 client on its own.
+
 # --- BLOCKED (do not re-add until upstream lands) ---
 # npm|nodejs/nextjs-api-mongodb|eslint@10        # eslint-plugin-react 7.37.5 (latest) calls removed getFilename(); breaks under eslint 10
 # npm|nodejs/nextjs-fullstack-otel|eslint@10     # same blocker; the 2026-06-12 "clean" classification was wrong (lint crashed, not gated) — reverted to ^9

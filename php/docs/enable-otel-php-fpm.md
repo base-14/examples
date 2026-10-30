@@ -115,12 +115,12 @@ If nothing shows up, walk through these checks:
 
 #### OTLP exporter silently drops spans
 
-If auto-discovery of the HTTP client fails, explicitly install the PSR-18 adapter:
+If auto-discovery of the HTTP client fails, explicitly install a PSR-18 client:
 
 ```bash
 composer require \
-  php-http/guzzle7-adapter:^1.1 \
-  guzzlehttp/psr7:^2.8
+  guzzlehttp/guzzle:^8.3 \
+  guzzlehttp/psr7:^3.2
 ```
 
 #### Notes

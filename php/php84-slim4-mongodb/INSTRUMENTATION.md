@@ -32,8 +32,8 @@ composer require \
   open-telemetry/opentelemetry-auto-slim:^1.3 \
   open-telemetry/opentelemetry-auto-mongodb:^0.2 \
   open-telemetry/opentelemetry-logger-monolog:^1.1 \
-  php-http/guzzle7-adapter:^1.1 \
-  guzzlehttp/psr7:^2.8
+  guzzlehttp/guzzle:^8.3 \
+  guzzlehttp/psr7:^3.2
 ```
 
 What each package does:
@@ -46,7 +46,7 @@ What each package does:
   MongoDB driver operations
 - **opentelemetry-logger-monolog** — Bridges Monolog to OTel logs,
   automatically attaches `traceId` and `spanId` for correlation
-- **guzzle7-adapter + psr7** — HTTP transport for the OTLP exporter
+- **guzzle + psr7** — PSR-18 HTTP client and PSR-7 factories for the OTLP exporter
 
 ## 3. Set environment variables
 
