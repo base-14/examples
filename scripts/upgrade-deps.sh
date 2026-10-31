@@ -225,7 +225,9 @@ verify_make_check() {
     echo "  FAIL"; make check 2>&1 | tail -8 || true
     results+=("$label: FAIL"); failed=$((failed + 1))
     local f
-    for f in "$@"; do [[ -e "$f" ]] && git checkout -- "$f" 2>/dev/null; done
+    for f in "$@"; do
+      if [[ -e "$f" ]]; then git checkout -- "$f" 2>/dev/null || true; fi
+    done
   fi
 }
 
