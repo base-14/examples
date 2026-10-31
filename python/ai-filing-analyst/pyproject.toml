@@ -40,7 +40,7 @@ strands = [
 ]
 adk = [
     "google-adk==2.10.0",
-    "litellm==1.103.0",
+    "litellm==1.103.1",
     "opentelemetry-sdk==1.42.1",
     "opentelemetry-api==1.42.1",
     "opentelemetry-exporter-otlp-proto-http==1.42.1",

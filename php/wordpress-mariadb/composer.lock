@@ -64,20 +64,21 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-09-12T10:28:18+00:00"
+            "time": "2026-09-12T10:28:18+00:00",
+            "published-time": "2026-09-12T12:23:30+00:00"
         },
         {
             "name": "composer/semver",
-            "version": "3.5.2",
+            "version": "3.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/composer/semver.git",
-                "reference": "9dfce66f1e97360ea5e6d3e38ab14277e4cc591e"
+                "reference": "d92543b7ede9c4ec6b59853cefb061e39866d2cf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/composer/semver/zipball/9dfce66f1e97360ea5e6d3e38ab14277e4cc591e",
-                "reference": "9dfce66f1e97360ea5e6d3e38ab14277e4cc591e",
+                "url": "https://api.github.com/repos/composer/semver/zipball/d92543b7ede9c4ec6b59853cefb061e39866d2cf",
+                "reference": "d92543b7ede9c4ec6b59853cefb061e39866d2cf",
                 "shasum": ""
             },
             "require": {
@@ -129,7 +130,7 @@
             "support": {
                 "irc": "ircs://irc.libera.chat:6697/composer",
                 "issues": "https://github.com/composer/semver/issues",
-                "source": "https://github.com/composer/semver/tree/3.5.2"
+                "source": "https://github.com/composer/semver/tree/3.6.0"
             },
             "funding": [
                 {
@@ -141,7 +142,8 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-10-22T15:37:26+00:00"
+            "time": "2026-10-29T09:13:34+00:00",
+            "published-time": "2026-10-29T09:14:11+00:00"
         },
         {
             "name": "google/protobuf",
@@ -185,7 +187,8 @@
             "support": {
                 "source": "https://github.com/protocolbuffers/protobuf-php/tree/v5.36.2"
             },
-            "time": "2026-09-17T15:56:42+00:00"
+            "time": "2026-09-17T15:56:42+00:00",
+            "published-time": "2026-09-17T15:56:48+00:00"
         },
         {
             "name": "guzzlehttp/guzzle",
@@ -595,7 +598,8 @@
                     "type": "github"
                 }
             ],
-            "time": "2024-09-09T07:06:30+00:00"
+            "time": "2024-09-09T07:06:30+00:00",
+            "published-time": "2024-09-09T07:07:05+00:00"
         },
         {
             "name": "nyholm/psr7-server",
@@ -661,7 +665,8 @@
                     "type": "github"
                 }
             ],
-            "time": "2023-11-08T09:30:43+00:00"
+            "time": "2023-11-08T09:30:43+00:00",
+            "published-time": "2023-11-08T09:33:01+00:00"
         },
         {
             "name": "open-telemetry/api",
@@ -731,7 +736,8 @@
                 "issues": "https://github.com/open-telemetry/opentelemetry-php/issues",
                 "source": "https://github.com/open-telemetry/opentelemetry-php"
             },
-            "time": "2026-09-16T01:59:09+00:00"
+            "time": "2026-09-16T01:59:09+00:00",
+            "published-time": "2026-10-20T00:48:16+00:00"
         },
         {
             "name": "open-telemetry/context",
@@ -790,7 +796,8 @@
                 "issues": "https://github.com/open-telemetry/opentelemetry-php/issues",
                 "source": "https://github.com/open-telemetry/opentelemetry-php"
             },
-            "time": "2025-10-19T06:44:33+00:00"
+            "time": "2025-10-19T06:44:33+00:00",
+            "published-time": "2026-03-25T14:04:42+00:00"
         },
         {
             "name": "open-telemetry/exporter-otlp",
@@ -854,7 +861,8 @@
                 "issues": "https://github.com/open-telemetry/opentelemetry-php/issues",
                 "source": "https://github.com/open-telemetry/opentelemetry-php"
             },
-            "time": "2026-02-05T09:44:52+00:00"
+            "time": "2026-02-05T09:44:52+00:00",
+            "published-time": "2026-02-10T10:37:07+00:00"
         },
         {
             "name": "open-telemetry/gen-otlp-protobuf",
@@ -917,7 +925,8 @@
                 "issues": "https://github.com/open-telemetry/opentelemetry-php/issues",
                 "source": "https://github.com/open-telemetry/opentelemetry-php"
             },
-            "time": "2026-06-17T12:06:32+00:00"
+            "time": "2026-06-17T12:06:32+00:00",
+            "published-time": "2026-07-15T15:51:53+00:00"
         },
         {
             "name": "open-telemetry/opentelemetry-auto-mysqli",
@@ -982,7 +991,8 @@
             "support": {
                 "source": "https://github.com/opentelemetry-php/contrib-auto-mysqli/tree/0.4.0"
             },
-            "time": "2026-03-24T16:33:16+00:00"
+            "time": "2026-03-24T16:33:16+00:00",
+            "published-time": "2026-03-25T14:10:32+00:00"
         },
         {
             "name": "open-telemetry/opentelemetry-auto-wordpress",
@@ -1043,7 +1053,8 @@
             "support": {
                 "source": "https://github.com/opentelemetry-php/contrib-auto-wordpress/tree/0.2.0"
             },
-            "time": "2026-03-24T16:33:16+00:00"
+            "time": "2026-03-24T16:33:16+00:00",
+            "published-time": "2026-03-25T14:11:38+00:00"
         },
         {
             "name": "open-telemetry/sdk",
@@ -1143,7 +1154,8 @@
                 "issues": "https://github.com/open-telemetry/opentelemetry-php/issues",
                 "source": "https://github.com/open-telemetry/opentelemetry-php"
             },
-            "time": "2026-07-14T13:09:54+00:00"
+            "time": "2026-07-14T13:09:54+00:00",
+            "published-time": "2026-07-15T15:52:03+00:00"
         },
         {
             "name": "open-telemetry/sem-conv",
@@ -1200,7 +1212,8 @@
                 "issues": "https://github.com/open-telemetry/opentelemetry-php/issues",
                 "source": "https://github.com/open-telemetry/opentelemetry-php"
             },
-            "time": "2026-09-09T22:06:17+00:00"
+            "time": "2026-09-09T22:06:17+00:00",
+            "published-time": "2026-09-10T00:15:38+00:00"
         },
         {
             "name": "php-http/discovery",
@@ -1279,7 +1292,8 @@
                 "issues": "https://github.com/php-http/discovery/issues",
                 "source": "https://github.com/php-http/discovery/tree/1.20.0"
             },
-            "time": "2024-10-02T11:20:13+00:00"
+            "time": "2024-10-02T11:20:13+00:00",
+            "published-time": "2024-10-02T11:21:00+00:00"
         },
         {
             "name": "psr/http-client",
@@ -1492,7 +1506,8 @@
             "support": {
                 "source": "https://github.com/php-fig/log/tree/3.0.2"
             },
-            "time": "2024-09-11T13:17:53+00:00"
+            "time": "2024-09-11T13:17:53+00:00",
+            "published-time": "2024-09-11T13:21:14+00:00"
         },
         {
             "name": "ramsey/collection",
@@ -1568,7 +1583,8 @@
                 "issues": "https://github.com/ramsey/collection/issues",
                 "source": "https://github.com/ramsey/collection/tree/2.1.1"
             },
-            "time": "2025-03-22T05:38:12+00:00"
+            "time": "2025-03-22T05:38:12+00:00",
+            "published-time": "2025-03-22T05:39:22+00:00"
         },
         {
             "name": "ramsey/uuid",
@@ -1646,7 +1662,8 @@
                 "issues": "https://github.com/ramsey/uuid/issues",
                 "source": "https://github.com/ramsey/uuid/tree/4.9.4"
             },
-            "time": "2026-09-16T11:39:30+00:00"
+            "time": "2026-09-16T11:39:30+00:00",
+            "published-time": "2026-09-16T11:41:15+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
@@ -1722,16 +1739,16 @@
         },
         {
             "name": "symfony/polyfill-mbstring",
-            "version": "v1.43.0",
+            "version": "v1.43.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-mbstring.git",
-                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+                "reference": "122889ed24dc000165bcbfd77ec412f15cbdfc6a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
-                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
+                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/122889ed24dc000165bcbfd77ec412f15cbdfc6a",
+                "reference": "122889ed24dc000165bcbfd77ec412f15cbdfc6a",
                 "shasum": ""
             },
             "require": {
@@ -1783,7 +1800,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.0"
+                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.3"
             },
             "funding": [
                 {
@@ -1803,7 +1820,8 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-24T15:19:04+00:00"
+            "time": "2026-10-28T09:35:49+00:00",
+            "published-time": "2026-10-28T10:07:45+00:00"
         },
         {
             "name": "symfony/polyfill-php80",
@@ -2021,7 +2039,8 @@
                 "issues": "https://github.com/Nevay/spi/issues",
                 "source": "https://github.com/Nevay/spi/tree/v1.0.5"
             },
-            "time": "2025-06-29T15:42:06+00:00"
+            "time": "2025-06-29T15:42:06+00:00",
+            "published-time": "2025-06-30T18:37:38+00:00"
         }
     ],
     "packages-dev": [],

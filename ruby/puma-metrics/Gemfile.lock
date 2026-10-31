@@ -12,7 +12,7 @@ GEM
       base64
     puma (8.0.2)
       nio4r (~> 2.0)
-    rack (3.2.7)
+    rack (3.2.8)
     ruby-next-core (1.2.1)
     yabeda (0.16.0)
       anyway_config (>= 1.0, < 3)
