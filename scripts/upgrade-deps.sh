@@ -238,14 +238,15 @@ sync_requirements_from_lock() {
   python3 - <<'PYSYNC'
 import re
 lock = open('uv.lock').read()
-resolved = {n.lower(): v for n, v in
+norm = lambda n: re.sub(r'[-_.]+', '-', n).lower()
+resolved = {norm(n): v for n, v in
             re.findall(r'^name = "([^"]+)"\nversion = "([^"]+)"', lock, re.M)}
 out, changed = [], 0
 for line in open('requirements.txt'):
     m = re.match(r'^([A-Za-z0-9._-]+)(\[[^\]]*\])?==(\S+)(.*)$', line.rstrip('\n'))
     if m:
         name, extras, cur, rest = m.groups()
-        new = resolved.get(name.lower())
+        new = resolved.get(norm(name))
         if new and new != cur:
             out.append(f"{name}{extras or ''}=={new}{rest}\n"); changed += 1; continue
     out.append(line)
