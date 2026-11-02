@@ -81,7 +81,7 @@
       "ioredis": "^5.11.1"
     },
     "flatted": ">=3.4.2",
-    "follow-redirects": "^1.16.1",
+    "follow-redirects": "^1.16.2",
     "ip-address": ">=10.7.4",
     "undici": ">=8.12.2",
     "uuid": ">=14.0.0",
@@ -96,10 +96,11 @@
     "socket.io-parser": ">=4.2.7",
     "body-parser": ">=2.4.0",
     "postcss": ">=8.5.18",
-    "minimatch": ">=10.2.5",
+    "minimatch": ">=11.0.1",
     "proxy-addr": ">=2.0.8",
     "source-map-js": ">=1.2.2",
-    "systeminformation": ">=5.33.16"
+    "systeminformation": ">=5.33.16",
+    "gaxios": "^7.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

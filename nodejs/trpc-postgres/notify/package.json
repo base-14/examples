@@ -26,6 +26,6 @@
       "protobufjs": "^7.5.6"
     },
     "brace-expansion": ">=5.0.12",
-    "minimatch": ">=10.2.5"
+    "gaxios": "^7.3.1"
   }
 }
