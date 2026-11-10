@@ -25,7 +25,7 @@ background worker binary. The full guide is
 
 | Component | Version | Status | Notes |
 | --- | --- | --- | --- |
-| **Rust** | 1.98.1 | Active | Edition 2024 |
+| **Rust** | 1.99.1 | Active | Edition 2024 |
 | **Actix Web** | 4.12 | Active | High-performance async web framework |
 | **SQLx** | 0.9.0 | Active | Async PostgreSQL with compile-time queries |
 | **PostgreSQL** | 18 | Active (Nov 2029) | Latest stable |

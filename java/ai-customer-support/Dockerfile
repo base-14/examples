@@ -1,4 +1,4 @@
-FROM gradle:9.2.1-jdk25 AS builder
+FROM gradle:9.8.2-jdk25 AS builder
 
 ARG OTEL_AGENT_VERSION=2.33.1
 
