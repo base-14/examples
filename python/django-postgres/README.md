@@ -31,7 +31,7 @@ processor. The full guide is
 
 | Component | Version | EOL Status | Current Version |
 | --- | --- | --- | --- |
-| **Python** | 3.14 | Oct 2030 | 3.14.2 |
+| **Python** | 3.15 | Oct 2031 | 3.15.2 |
 | **Django** | 5.2 LTS | Apr 2028 | 5.2.9 |
 | **Django REST Framework** | 3.18 | Stable | 3.18.3 |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
@@ -73,7 +73,7 @@ and comprehensive OpenTelemetry instrumentation for full observability.
 
 | Component | Package | Version |
 | --- | --- | --- |
-| Python | python | 3.14 |
+| Python | python | 3.15 |
 | Django | django | 5.2.9 |
 | REST Framework | djangorestframework | 3.16.1 |
 | PostgreSQL Driver | psycopg[binary] | 3.2+ |
@@ -92,7 +92,7 @@ and comprehensive OpenTelemetry instrumentation for full observability.
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Python 3.14+** (for local development)
+3. **Python 3.15+** (for local development)
 
 ## Quick Start
 

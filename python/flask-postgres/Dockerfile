@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 
 # Flask + PostgreSQL + OpenTelemetry Example
-# Python 3.14 | Dec 2025
+# Python 3.15
 
 # =============================================================================
 # Builder Stage
 # =============================================================================
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /build
 
@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # =============================================================================
 # Runtime Stage
 # =============================================================================
-FROM python:3.14-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 # Security: Run as non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser

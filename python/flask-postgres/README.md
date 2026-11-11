@@ -32,7 +32,7 @@ guide is
 
 | Component | Version | EOL Status | Current Version |
 | --- | --- | --- | --- |
-| **Python** | 3.14 | Oct 2030 | 3.14.2 |
+| **Python** | 3.15 | Oct 2031 | 3.15.2 |
 | **Flask** | 3.1 | Stable | 3.1.2 |
 | **SQLAlchemy** | 2.1 | Active | 2.1.6 |
 | **PostgreSQL** | 18 | Nov 2029 | 18.1 |
@@ -74,7 +74,7 @@ and comprehensive OpenTelemetry instrumentation for full observability.
 
 1. **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
 2. **base14 Scout Account** - [Sign up](https://base14.io)
-3. **Python 3.14+** (for local development)
+3. **Python 3.15+** (for local development)
 
 ## Quick Start
 

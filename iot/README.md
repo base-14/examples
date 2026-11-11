@@ -34,7 +34,7 @@ will say so in their own README.
 - **Docker Compose:** v2.24+ (the `include:` directive that later
   phases use to reuse the Phase 1 Mosquitto service). Podman Compose
   4.7+ also supports `include:`.
-- **Python:** 3.14.
+- **Python:** 3.15.
 - **OpenTelemetry Collector contrib:** 0.163.1 (bumped track-wide as a
   single update when needed).
 - **OpenTelemetry Python SDK:** 1.41.0 / instrumentation 0.62b0. Note

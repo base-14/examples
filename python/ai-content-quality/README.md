@@ -4,7 +4,7 @@ A FastAPI service that reviews, improves and scores text with LlamaIndex, with P
 evals and OpenTelemetry export to [Base14 Scout](https://base14.io). The model calls are
 traced by the official OpenTelemetry GenAI packages for the SDKs LlamaIndex calls.
 
-**Stack**: Python 3.14 · FastAPI · LlamaIndex · Promptfoo · OpenTelemetry · Base14 Scout
+**Stack**: Python 3.15 · FastAPI · LlamaIndex · Promptfoo · OpenTelemetry · Base14 Scout
 
 The full guide is
 [LlamaIndex OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/llamaindex/).
@@ -46,7 +46,7 @@ SDK. This example adds:
 
 ## Prerequisites
 
-- Python 3.14 and [uv](https://docs.astral.sh/uv/).
+- Python 3.15 and [uv](https://docs.astral.sh/uv/).
 - Docker with Compose.
 - [Ollama](https://ollama.com) on the host, with the model pulled, for the default provider:
 

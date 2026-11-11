@@ -1,5 +1,5 @@
 # Build stage — install deps with uv into a project venv
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.6.12 /uv /usr/local/bin/uv
 
@@ -13,7 +13,7 @@ ENV UV_LINK_MODE=copy \
 RUN uv sync --no-dev --frozen
 
 # Runtime stage
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 

@@ -1,5 +1,5 @@
 # Flask + PostgreSQL + OpenTelemetry Example
-# Python 3.14+ | Dec 2025 Latest Versions
+# Python 3.15+
 
 # Core Framework
 flask>=3.1,<4.0

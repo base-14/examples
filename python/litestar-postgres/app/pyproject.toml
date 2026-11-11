@@ -2,12 +2,12 @@
 name = "litestar-articles"
 version = "0.1.0"
 description = "Litestar + PostgreSQL articles API with OpenTelemetry instrumentation"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "litestar[standard]==2.22.0",
-    "msgspec==0.21.1",
+    "msgspec==0.22.0",
     "sqlalchemy[asyncio]==2.0.49",
-    "asyncpg==0.31.0",
+    "asyncpg==0.32.0",
     "alembic==1.18.4",
     "advanced-alchemy==1.9.3",
     "httpx==0.28.1",
@@ -30,7 +30,7 @@ dev = [
     "pytest==9.0.3",
     "pytest-asyncio==1.3.0",
     "aiosqlite==0.21.0",
-    "greenlet==3.2.4",
+    "greenlet==3.5.6",
 ]
 
 [tool.pytest.ini_options]

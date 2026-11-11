@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "AI content quality agent with eval-driven development and unified observability via Base14 Scout"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 authors = [{ name = "base14", email = "hello@base14.io" }]
 keywords = ["llamaindex", "openai", "anthropic", "gemini", "content-quality", "promptfoo", "opentelemetry", "fastapi", "base14-scout"]
 classifiers = [
@@ -13,7 +13,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed",
 ]
@@ -24,7 +24,7 @@ dependencies = [
     "uvicorn[standard]==0.52.4",
 
     # Validation & settings
-    "pydantic==2.13.5",
+    "pydantic==2.14.3",
     "pydantic-settings==2.16.0",
 
     # LLM
@@ -75,7 +75,7 @@ build-backend = "hatchling.build"
 packages = ["src/content_quality"]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py315"
 line-length = 100
 src = ["src", "tests"]
 
@@ -122,7 +122,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.15"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

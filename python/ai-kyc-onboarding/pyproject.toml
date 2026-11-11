@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "KYC onboarding agent on Pydantic AI and Temporal, instrumented for Base14 Scout"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 authors = [{ name = "base14", email = "hello@base14.io" }]
 keywords = ["pydantic-ai", "temporal", "kyc", "durable-execution", "opentelemetry", "fastapi", "base14-scout"]
 classifiers = [
@@ -13,7 +13,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed",
 ]
@@ -55,7 +55,7 @@ build-backend = "hatchling.build"
 packages = ["src/kyc_onboarding"]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py315"
 line-length = 100
 src = ["src", "tests", "scripts"]
 
@@ -105,7 +105,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.15"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

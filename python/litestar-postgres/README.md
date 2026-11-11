@@ -69,7 +69,7 @@ and JSON logs carrying `trace_id` and `span_id`. The full guide is
 
 | Component                              | Version  |
 | -------------------------------------- | -------- |
-| Python                                 | 3.14     |
+| Python                                 | 3.15     |
 | Litestar                               | 2.21.1   |
 | SQLAlchemy (async)                     | 2.0.49   |
 | asyncpg                                | 0.31.0   |

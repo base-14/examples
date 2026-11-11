@@ -2,7 +2,7 @@
 name = "opcua-otel-bridge"
 version = "0.1.0"
 description = "Bridges OPC-UA node values to OTLP metrics and logs with industrial asset attributes"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "asyncua==2.0.1",
     "pyyaml==6.0.3",

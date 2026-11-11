@@ -7,7 +7,7 @@ before it approves, asks for documents again or escalates to a human reviewer. A
 a review, survive a worker crash, and still come out as one trace, with trace-correlated logs and application metrics
 exported to base14 Scout.
 
-**Stack**: Python 3.14 · FastAPI 0.141 · Pydantic AI 2.49 · Temporal (Python SDK 1.33, server 1.32) · PostgreSQL 18 ·
+**Stack**: Python 3.15 · FastAPI 0.141 · Pydantic AI 2.49 · Temporal (Python SDK 1.33, server 1.32) · PostgreSQL 18 ·
 Ollama (local models) · OpenTelemetry SDK 1.44 · base14 Scout
 
 One of the [Python examples](../README.md) in base14's [OpenTelemetry examples](../../README.md) repository. For an
@@ -41,7 +41,7 @@ All of it lives in `src/kyc_onboarding/telemetry.py`. The API (`main.py`) and th
 
 ## Prerequisites
 
-- Python 3.14 and [uv](https://docs.astral.sh/uv/), for the checks, the tests and `scripts/verify-scout.sh`.
+- Python 3.15 and [uv](https://docs.astral.sh/uv/), for the checks, the tests and `scripts/verify-scout.sh`.
 - Docker and Docker Compose.
 - `curl` and `jq`, for the quick start and the scenario harness.
 - Ollama on the host, with both models pulled: `ollama pull gemma4:e2b` and `ollama pull qwen3.5:9B`. They are about

@@ -1,4 +1,4 @@
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir uv==0.12.18
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --no-dev --frozen --no-install-project
 
-FROM python:3.14-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/* && \
