@@ -10,7 +10,6 @@ import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from opentelemetry import trace
 from strands import Agent, tool
 from strands.agent.conversation_manager import SlidingWindowConversationManager
 from strands.hooks import (
@@ -23,7 +22,7 @@ from strands.hooks import (
 from strands.models.model import Model
 from strands.models.ollama import OllamaModel
 from strands.types.exceptions import EventLoopException, StructuredOutputException
-from strands.types.tools import ToolResultContent
+from strands.types.tools import AgentTool, ToolGenerator, ToolResultContent, ToolSpec, ToolUse
 
 from filing_analyst.agents import (
     ANALYST_NAME,
@@ -52,10 +51,9 @@ from filing_analyst.agents import (
     server_attributes,
 )
 from filing_analyst.answer import FilingAnswer
-from filing_analyst.budget import BUDGET_ERROR_TYPE, CallBudget
+from filing_analyst.budget import BudgetExceeded, CallBudget
 from filing_analyst.frameworks.strands_faults import FaultInjectingModel
 from filing_analyst.model_faults import ModelFault
-from filing_analyst.telemetry import ERROR_TYPE_ATTRIBUTE
 from filing_analyst.tools import BoundTool, bound_tools
 
 
@@ -96,10 +94,35 @@ def _log_answer_retry(event: AfterToolCallEvent) -> None:
         logger.warning("Structured output failed validation, retrying: %s", detail[:500])
 
 
+class _OverBudgetTool(AgentTool):
+    def __init__(self, tool: AgentTool, exceeded: BudgetExceeded) -> None:
+        super().__init__()
+        self._tool = tool
+        self._exceeded = exceeded
+
+    @property
+    def tool_name(self) -> str:
+        return self._tool.tool_name
+
+    @property
+    def tool_spec(self) -> ToolSpec:
+        return self._tool.tool_spec
+
+    @property
+    def tool_type(self) -> str:
+        return self._tool.tool_type
+
+    async def stream(
+        self, tool_use: ToolUse, invocation_state: dict[str, Any], **kwargs: Any
+    ) -> ToolGenerator:
+        raise self._exceeded
+        yield
+
+
 class BudgetHook(HookProvider):
     """Strands' native `limits` count one agent and end the run without error status. A tool
-    call past the budget is cancelled rather than raised, because Strands never ends the
-    `execute_tool` span when a tool hook raises."""
+    call past the budget runs a stand-in that raises, because Strands opens the `execute_tool`
+    span only after the tool hooks, so a cancelled or hook-raised call would have no span."""
 
     def __init__(self, budget: CallBudget) -> None:
         self._budget = budget
@@ -113,9 +136,8 @@ class BudgetHook(HookProvider):
 
     def _on_tool_call(self, event: BeforeToolCallEvent) -> None:
         exceeded = self._budget.count_tool()
-        if exceeded is not None:
-            trace.get_current_span().set_attribute(ERROR_TYPE_ATTRIBUTE, BUDGET_ERROR_TYPE)
-            event.cancel_tool = str(exceeded)
+        if exceeded is not None and event.selected_tool is not None:
+            event.selected_tool = _OverBudgetTool(event.selected_tool, exceeded)
 
 
 class RankingHook(HookProvider):

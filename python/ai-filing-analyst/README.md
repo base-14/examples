@@ -46,7 +46,7 @@ Each adapter in `src/filing_analyst/frameworks/` then does what its framework ne
 ### Google ADK
 
 - Install `google-adk`, which reaches Ollama through LiteLLM with the `ollama_chat/` model prefix. ADK caps
-  OpenTelemetry at 1.42, so this extra pins the SDK at 1.42.1 and the instrumentations at 0.63b1.
+  OpenTelemetry at 1.45.2, so this extra pins the SDK at 1.45.2 and the instrumentations at 0.66b2.
 - ADK emits its spans and `gen_ai.*` metrics through the global providers with no setup.
 - ADK has no per-agent trace attributes. `AgentRunAttributesProcessor` in `telemetry.py` adds the question's
   attributes to each GenAI span as it starts, from a context variable the adapter sets around the run.
@@ -541,7 +541,7 @@ Dockerfile's `uvicorn` command binds the API to port 8000.
 Checked on 2026-09-29 against the versions in `uv.lock`. Each list says what the framework emits on its own, and what
 this example had to add or cannot fix.
 
-### Strands Agents 1.57.1
+### Strands Agents 1.64.0
 
 - **`gen_ai.provider.name` is `strands-agents`**, not the model provider, and no span carries `server.address` or
   `server.port`. The example overrides both through `trace_attributes`.
@@ -552,14 +552,14 @@ this example had to add or cannot fix.
 - **Metric names are Strands' own.** It records `strands.*` metrics, not the semconv `gen_ai.client.*` ones.
 - **Cache token metrics are missing on Ollama.** `strands.event_loop.cache_read.input.tokens` and
   `cache_write.input.tokens` are recorded only when the provider reports prompt caching, and Ollama does not.
-- **A tool hook that raises loses the tool span.** Strands opens `execute_tool` before `BeforeToolCallEvent` and does
-  not end it if a hook raises. The call budget cancels the tool through `cancel_tool` instead, and stops the run at
-  the next model call.
+- **A tool stopped by a hook has no tool span.** Strands opens `execute_tool` only after `BeforeToolCallEvent`, so a
+  call cancelled through `cancel_tool` or a hook that raises records no span. The call budget swaps in a stand-in
+  tool that raises `BudgetExceeded` inside the span, and stops the run at the next model call.
 
-### Google ADK 2.10.0
+### Google ADK 2.14.0
 
-- **OpenTelemetry is capped at 1.42.1.** ADK pins the API and SDK, so this framework's environment runs an older
-  OpenTelemetry than the other three.
+- **OpenTelemetry is capped at 1.45.2.** ADK pins an upper bound on the API and SDK, so this framework's environment
+  can lag the other three when OpenTelemetry releases.
 - **The model name carries the LiteLLM route.** `gen_ai.request.model` reads `ollama_chat/qwen3.5:9B`, and the
   metrics report the provider as `ollama_chat`. ADK's spans have no provider; the exporter sets `ollama` on
   model-call spans only.
