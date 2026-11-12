@@ -98,7 +98,7 @@ def setup_telemetry(
     from opentelemetry.instrumentation.genai.openai import OpenAIInstrumentor
     from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
 
-    OpenAIInstrumentor().instrument()  # type: ignore[no-untyped-call]
+    OpenAIInstrumentor().instrument()
     AnthropicInstrumentor().instrument()
     GoogleGenAiSdkInstrumentor().instrument()
 

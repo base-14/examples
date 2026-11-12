@@ -32,7 +32,7 @@ dependencies = [
     "asyncpg==0.31.0",
 
     # LLM & Agents (provider-agnostic - configure via LLM_PROVIDER env var)
-    "langgraph==1.2.14",
+    "langgraph==1.2.20",
     "anthropic==2.2.0",
     "google-genai==2.21.0",
     "openai==3.7.0",
@@ -45,16 +45,16 @@ dependencies = [
     "pyyaml==6.0.3",
 
     # Observability (OpenTelemetry)
-    "opentelemetry-sdk==1.45.1",
-    "opentelemetry-api==1.45.1",
-    "opentelemetry-exporter-otlp-proto-http==1.45.1",
-    "opentelemetry-instrumentation-fastapi==0.66b1",
-    "opentelemetry-instrumentation-sqlalchemy==0.66b1",
-    "opentelemetry-instrumentation-httpx==0.66b1",
-    "opentelemetry-instrumentation-logging==0.66b1",
-    "opentelemetry-instrumentation-genai-openai==1.2b0",
+    "opentelemetry-sdk==1.45.2",
+    "opentelemetry-api==1.45.2",
+    "opentelemetry-exporter-otlp-proto-http==1.45.2",
+    "opentelemetry-instrumentation-fastapi==0.66b2",
+    "opentelemetry-instrumentation-sqlalchemy==0.66b2",
+    "opentelemetry-instrumentation-httpx==0.66b2",
+    "opentelemetry-instrumentation-logging==0.66b2",
+    "opentelemetry-instrumentation-genai-openai==1.3b0",
     "opentelemetry-instrumentation-genai-anthropic==1.3b0",
-    "opentelemetry-instrumentation-google-genai==1.2b0",
+    "opentelemetry-instrumentation-google-genai==1.3b0",
 ]
 
 [project.optional-dependencies]
