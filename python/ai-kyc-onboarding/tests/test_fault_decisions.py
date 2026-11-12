@@ -3,9 +3,12 @@ from dataclasses import replace
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
+    RetryFeedbackPart,
+    RetryInfo,
     RetryPromptPart,
     TextPart,
     ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
@@ -70,6 +73,45 @@ class TestHasRetryPrompt:
         ]
 
         assert has_retry_prompt(messages) is True
+
+    def test_true_once_retry_feedback_is_present(self) -> None:
+        messages = [
+            ModelRequest(parts=[UserPromptPart(content="hello")]),
+            ModelResponse(parts=[TextPart(content="not json")]),
+            ModelRequest(
+                parts=[
+                    RetryFeedbackPart(
+                        content="invalid output", retry=RetryInfo(cause="validation_error")
+                    )
+                ]
+            ),
+        ]
+
+        assert has_retry_prompt(messages) is True
+
+    def test_true_once_a_tool_call_is_retried(self) -> None:
+        messages = [
+            ModelRequest(parts=[UserPromptPart(content="hello")]),
+            ModelResponse(parts=[ToolCallPart(tool_name="compare_identity", args={})]),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        tool_name="compare_identity", content="invalid", outcome="retried"
+                    )
+                ]
+            ),
+        ]
+
+        assert has_retry_prompt(messages) is True
+
+    def test_false_for_a_successful_tool_return(self) -> None:
+        messages = [
+            ModelRequest(parts=[UserPromptPart(content="hello")]),
+            ModelResponse(parts=[ToolCallPart(tool_name="compare_identity", args={})]),
+            ModelRequest(parts=[ToolReturnPart(tool_name="compare_identity", content="ok")]),
+        ]
+
+        assert has_retry_prompt(messages) is False
 
 
 class TestCorruptResponse:

@@ -13,7 +13,7 @@ from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
-    RetryPromptPart,
+    RetryFeedbackPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -48,6 +48,15 @@ def _build_agent() -> object:
         model_name="unused-in-tests",
         faults=StaticFaultRegistry(),
     )
+
+
+def _retry_feedback(messages: list[ModelMessage]) -> list[str]:
+    return [
+        str(part.content)
+        for message in messages
+        for part in message.parts
+        if isinstance(part, RetryFeedbackPart)
+    ]
 
 
 def _last_tool_return(messages: list[ModelMessage]) -> object:
@@ -109,7 +118,6 @@ class TestBuildAssessmentAgent:
         assert isinstance(result.output, RequestResubmissionDecision)
 
     async def test_an_approval_after_a_missing_expiry_date_is_asked_again(self) -> None:
-        retry_prompts: list[str] = []
         resend_id = RequestResubmissionDecision(
             reasons=["the ID's expiry date is missing"], documents_to_resend=[DocumentType.id]
         )
@@ -120,11 +128,6 @@ class TestBuildAssessmentAgent:
                 return check_calls(
                     ToolCallPart(tool_name="check_expiry", args={"expiry_date": None})
                 )
-            retry_prompts.extend(
-                str(part.content)
-                for part in messages[-1].parts
-                if isinstance(part, RetryPromptPart)
-            )
             return next(replies)
 
         agent = _build_agent()
@@ -133,7 +136,7 @@ class TestBuildAssessmentAgent:
             result = await agent.run("assess this case", deps=deps)
 
         assert result.output == resend_id
-        assert retry_prompts == [MISSING_EXPIRY_RETRY]
+        assert _retry_feedback(result.all_messages()) == [MISSING_EXPIRY_RETRY]
 
     async def test_an_escalation_after_a_missing_expiry_date_is_accepted(self) -> None:
         escalation = EscalateDecision(
@@ -237,7 +240,6 @@ class TestBuildAssessmentAgent:
     async def test_a_decision_before_the_tool_calls_is_asked_again_naming_the_missing_tools(
         self,
     ) -> None:
-        retry_prompts: list[str] = []
         replies = iter(
             [
                 decision_answer(ApproveDecision()),
@@ -256,11 +258,6 @@ class TestBuildAssessmentAgent:
         )
 
         def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-            retry_prompts.extend(
-                str(part.content)
-                for part in messages[-1].parts
-                if isinstance(part, RetryPromptPart)
-            )
             return next(replies)
 
         agent = _build_agent()
@@ -269,11 +266,40 @@ class TestBuildAssessmentAgent:
             result = await agent.run("assess this case", deps=deps)
 
         assert result.output == ApproveDecision()
-        assert retry_prompts == [
+        assert _retry_feedback(result.all_messages()) == [
             "Before deciding, call the tools that have not returned a result yet: "
             "check_expiry, compare_identity, screen_sanctions.",
             "Before deciding, call the tools that have not returned a result yet: "
             "compare_identity.",
+        ]
+
+    async def test_a_decision_after_a_tool_call_that_failed_validation_is_asked_again(
+        self,
+    ) -> None:
+        replies = iter(
+            [
+                check_calls(
+                    ToolCallPart(
+                        tool_name="compare_identity", args={"id_fields": "Jane Doe, born 1990"}
+                    )
+                ),
+                decision_answer(ApproveDecision()),
+                ModelResponse(parts=[ToolCallPart(tool_name="compare_identity", args={})]),
+                decision_answer(ApproveDecision()),
+            ]
+        )
+
+        def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+            return next(replies)
+
+        agent = _build_agent()
+        deps = AssessmentDeps(dsn="postgresql://x", reference_date=date(2026, 1, 1))
+        with agent.override(model=FunctionModel(respond)):
+            result = await agent.run("assess this case", deps=deps)
+
+        assert result.output == ApproveDecision()
+        assert _retry_feedback(result.all_messages()) == [
+            "Before deciding, call the tools that have not returned a result yet: compare_identity."
         ]
 
     async def test_a_decision_never_preceded_by_the_tool_calls_fails(self) -> None:
@@ -329,17 +355,13 @@ class TestBuildAssessmentAgent:
     async def test_an_answer_that_names_no_valid_decision_is_asked_again(
         self, first_answer: dict[str, object]
     ) -> None:
-        retry_prompts: list[str] = []
+        answers: list[dict[str, object]] = []
 
         def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
             if len(messages) == 1:
                 return check_calls()
-            retry_prompts.extend(
-                str(part.content)
-                for part in messages[-1].parts
-                if isinstance(part, RetryPromptPart)
-            )
-            if not retry_prompts:
+            if not answers:
+                answers.append(first_answer)
                 return ModelResponse(parts=[TextPart(content=json.dumps(first_answer))])
             return decision_answer(ApproveDecision())
 
@@ -349,7 +371,7 @@ class TestBuildAssessmentAgent:
             result = await agent.run("assess this case", deps=deps)
 
         assert result.output == ApproveDecision()
-        assert len(retry_prompts) == 1
+        assert len(_retry_feedback(result.all_messages())) == 1
 
     async def test_an_escalation_answer_becomes_an_escalate_decision(self) -> None:
         answer = {
@@ -443,7 +465,8 @@ class TestBuildAssessmentAgent:
     ) -> None:
         reply = await _compare_identity_reply({"id_fields": "Jane Doe, born 1990"})
 
-        assert isinstance(reply, RetryPromptPart)
+        assert isinstance(reply, ToolReturnPart)
+        assert reply.outcome == "retried"
         assert reply.tool_name == "compare_identity"
 
 
@@ -486,8 +509,9 @@ async def _compare_identity_reply(args: dict[str, object]) -> object:
             return check_calls(ToolCallPart(tool_name="compare_identity", args=args))
         if not replies:
             part = messages[-1].parts[-1]
-            replies.append(part.content if isinstance(part, ToolReturnPart) else part)
-            if isinstance(part, RetryPromptPart):
+            retried = isinstance(part, ToolReturnPart) and part.outcome == "retried"
+            replies.append(part if retried else getattr(part, "content", part))
+            if retried:
                 return ModelResponse(parts=[ToolCallPart(tool_name="compare_identity", args={})])
         return decision_answer(ApproveDecision())
 

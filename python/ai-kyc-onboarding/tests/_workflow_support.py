@@ -158,7 +158,7 @@ def checks_done(messages: list[ModelMessage]) -> bool:
         part.tool_name
         for message in messages
         for part in getattr(message, "parts", ())
-        if isinstance(part, ToolReturnPart)
+        if isinstance(part, ToolReturnPart) and part.outcome != "retried"
     }
     return set(REQUIRED_TOOLS) <= returned
 

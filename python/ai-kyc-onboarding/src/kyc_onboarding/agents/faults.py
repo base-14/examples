@@ -128,9 +128,12 @@ def should_raise_sanctions_down(fault: CaseFault | None, attempt: int) -> bool:
 
 
 def has_retry_prompt(messages: list[ModelMessage]) -> bool:
-    """True once Pydantic AI has rejected a response and asked the model again."""
+    """True once Pydantic AI has rejected a response and asked the model again. Pydantic AI
+    records that as a `retry-feedback` part or a tool return with `outcome='retried'`; older
+    recorded histories carry a `retry-prompt` part."""
     return any(
-        getattr(part, "part_kind", None) == "retry-prompt"
+        getattr(part, "part_kind", None) in ("retry-feedback", "retry-prompt")
+        or getattr(part, "outcome", None) == "retried"
         for message in messages
         for part in getattr(message, "parts", ())
     )

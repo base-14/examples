@@ -45,12 +45,12 @@ MISSING_EXPIRY_RETRY = (
 
 def missing_tool_calls(ctx: RunContext[AssessmentDeps]) -> list[str]:
     """The required tools with no `ToolReturnPart` yet. A call whose arguments failed
-    validation leaves a retry prompt, not a return."""
+    validation returns with `outcome='retried'`, which does not count."""
     returned = {
         part.tool_name
         for message in ctx.messages
         for part in message.parts
-        if isinstance(part, ToolReturnPart)
+        if isinstance(part, ToolReturnPart) and part.outcome != "retried"
     }
     return [tool for tool in REQUIRED_TOOLS if tool not in returned]
 

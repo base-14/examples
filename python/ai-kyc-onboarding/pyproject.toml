@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     "fastapi==0.141.1",
     "uvicorn[standard]==0.53.0",
-    "pydantic-ai-slim[temporal,openai]==2.57.0",
+    "pydantic-ai-slim[temporal,openai]==2.68.0",
     "temporalio[opentelemetry]==1.36.0",
     "psycopg[binary]==3.3.6",
     "pyyaml==6.0.3",
