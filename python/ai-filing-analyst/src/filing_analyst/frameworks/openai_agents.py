@@ -257,5 +257,5 @@ def apply_capture_mode() -> None:
 def from_settings(settings: Settings) -> OpenAIAgentsFramework:
     apply_capture_mode()
     OpenAIAgentsInstrumentor().instrument(disable_openai_trace_export=True)
-    OpenAIInstrumentor().instrument()  # type: ignore[no-untyped-call]
+    OpenAIInstrumentor().instrument()
     return OpenAIAgentsFramework(ollama_models(settings.ollama_base_url), settings.ollama_think)
