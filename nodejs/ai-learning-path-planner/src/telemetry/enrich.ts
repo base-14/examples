@@ -186,29 +186,3 @@ export class PlanCostSpanProcessor implements SpanProcessor {
     return Promise.resolve();
   }
 }
-
-const ATTR_PROVIDER_NAME = "gen_ai.provider.name";
-const OLLAMA_PROVIDER_PREFIX = "ollama.";
-
-// @ai-sdk/otel maps well-known provider ids onto the GenAI provider names and passes the
-// rest through, so Ollama arrives as the AI SDK provider id, `ollama.responses` or
-// `ollama.chat`. Registered before the exporting processor, like the cost processor, so the
-// exported span and the metrics the collector derives from it carry `ollama`.
-export class ProviderNameSpanProcessor implements SpanProcessor {
-  onStart(): void {}
-
-  onEnd(span: ReadableSpan): void {
-    const provider = stringAttribute(span.attributes, ATTR_PROVIDER_NAME);
-    if (provider?.startsWith(OLLAMA_PROVIDER_PREFIX)) {
-      span.attributes[ATTR_PROVIDER_NAME] = "ollama";
-    }
-  }
-
-  forceFlush(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  shutdown(): Promise<void> {
-    return Promise.resolve();
-  }
-}

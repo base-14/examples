@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import type { LanguageModel, ToolLoopAgentSettings } from "ai";
+import { type LanguageModel, type ToolLoopAgentSettings, wrapLanguageModel } from "ai";
 import { createOllama } from "ollama-ai-provider-v2";
 import type { Config } from "../config.ts";
 
@@ -47,7 +47,9 @@ export function selectModel(tier: "small" | "large", config: Config): LanguageMo
 
   if (config.llmProvider === "ollama") {
     const ollama = createOllama({ baseURL: config.ollamaBaseUrl });
-    return ollama(modelId);
+    // The provider id becomes gen_ai.provider.name on spans and metrics. ollama-ai-provider-v2
+    // reports `ollama.responses`, which @ai-sdk/otel passes through unmapped.
+    return wrapLanguageModel({ model: ollama(modelId), middleware: {}, providerId: "ollama" });
   }
 
   return buildHostedModel(config.llmProvider, modelId);

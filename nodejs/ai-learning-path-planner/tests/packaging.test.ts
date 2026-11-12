@@ -206,7 +206,6 @@ describe("the GenAI client metrics the collector derives from chat spans", () =>
 
   it("uses the inference metric names from the current semantic conventions", () => {
     expect(derived().map((m) => m.name)).toEqual([
-      "gen_ai.client.inference.duration",
       "gen_ai.client.inference.operation.input_tokens",
       "gen_ai.client.inference.operation.output_tokens",
     ]);

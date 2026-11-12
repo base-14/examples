@@ -952,7 +952,7 @@ metric_point_tagged "base14.gen_ai.tool_definition.tokens tagged role=lead" \
 metric_point_tagged "base14.gen_ai.tool_definition.tokens tagged role=researcher" \
     "base14.gen_ai.tool_definition.tokens" "role: Str(researcher)"
 
-echo "  $(dim "--- the GenAI client metrics the collector derives from chat spans ---")"
+echo "  $(dim "--- the GenAI client metrics: duration from @ai-sdk/otel, tokens derived by the collector ---")"
 log_has "gen_ai.client.inference.duration"                "Name: gen_ai.client.inference.duration"
 log_has "gen_ai.client.inference.operation.input_tokens"  "Name: gen_ai.client.inference.operation.input_tokens"
 log_has "gen_ai.client.inference.operation.output_tokens" "Name: gen_ai.client.inference.operation.output_tokens"

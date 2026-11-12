@@ -14,11 +14,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic
 import { registerTelemetry } from "ai";
 import { loadConfig } from "./config.js";
 import { assertPriceModelIsKnown } from "./llm/cost.js";
-import {
-  enrichSpan,
-  PlanCostSpanProcessor,
-  ProviderNameSpanProcessor,
-} from "./telemetry/enrich.js";
+import { enrichSpan, PlanCostSpanProcessor } from "./telemetry/enrich.js";
 import { MastraPlanSpanProcessor } from "./telemetry/plan-context.js";
 
 // Loaded with `node --import`, so this runs before the app's first import. Under ESM the HTTP
@@ -47,7 +43,6 @@ const sdk = new NodeSDK({
   spanProcessors: [
     // Acts on Mastra's spans only, so it is inert under PLANNER_FRAMEWORK=ai-sdk.
     new MastraPlanSpanProcessor(config.captureMessageContent),
-    new ProviderNameSpanProcessor(),
     new PlanCostSpanProcessor(config),
     new BatchSpanProcessor({ exporter: new OTLPTraceExporter() }),
   ],

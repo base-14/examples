@@ -47,14 +47,14 @@ describe("selectModel", () => {
     const config = baseConfig();
 
     expect(selectedModelId("small", config)).toBe("gemma4:e2b");
-    expect(selectedProvider("small", config)).toContain("ollama");
+    expect(selectedProvider("small", config)).toBe("ollama");
   });
 
   it("returns an Ollama model for the large tier by default", () => {
     const config = baseConfig();
 
     expect(selectedModelId("large", config)).toBe("qwen3.5:9B");
-    expect(selectedProvider("large", config)).toContain("ollama");
+    expect(selectedProvider("large", config)).toBe("ollama");
   });
 
   it("never gates the ollama provider on ALLOW_HOSTED_PROVIDER", () => {

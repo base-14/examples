@@ -36,7 +36,6 @@ import {
   ATTR_TOOL_CATALOGUE,
   enrichSpan,
   PlanCostSpanProcessor,
-  ProviderNameSpanProcessor,
   takeRunCostUsd,
 } from "../../src/telemetry/enrich.ts";
 import { newRunCounters, recordPlan, toolDefinitionTokens } from "../../src/telemetry/metrics.ts";
@@ -595,7 +594,8 @@ describe("recordPlan", () => {
 
     const exported = await exportedMetrics();
 
-    expect([...exported.keys()].sort()).toEqual([
+    const ours = [...exported.keys()].filter((name) => name.startsWith("base14."));
+    expect(ours.sort()).toEqual([
       "base14.gen_ai.tool_definition.tokens",
       "base14.plan.cost",
       "base14.plan.duration",
@@ -947,22 +947,5 @@ describe("recordPlan: the reasons the service writes are tagged, not read as the
     );
 
     expect([...GAP_REASON_TAGS].sort()).toEqual([...recorded].sort());
-  });
-});
-
-describe("ProviderNameSpanProcessor", () => {
-  function endSpanWithProvider(provider: string): unknown {
-    const span = { attributes: { "gen_ai.provider.name": provider } } as unknown as ReadableSpan;
-    new ProviderNameSpanProcessor().onEnd(span);
-    return span.attributes["gen_ai.provider.name"];
-  }
-
-  it("names an Ollama provider id as ollama", () => {
-    expect(endSpanWithProvider("ollama.responses")).toBe("ollama");
-    expect(endSpanWithProvider("ollama.chat")).toBe("ollama");
-  });
-
-  it("leaves a provider the AI SDK already mapped alone", () => {
-    expect(endSpanWithProvider("openai")).toBe("openai");
   });
 });

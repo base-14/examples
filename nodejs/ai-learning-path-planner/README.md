@@ -24,17 +24,18 @@ Mastra variant is covered by
    `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node`, the OTLP trace, metric and log exporters,
    and `pino` for logs.
 2. Load `src/telemetry.ts` with `node --import`, so the ESM loader hook is registered before anything imports
-   `node:http`. It starts a `NodeSDK` with `ProviderNameSpanProcessor` and `PlanCostSpanProcessor` ahead of the
-   exporting processor and a log record processor for the pino records, then calls
+   `node:http`. It starts a `NodeSDK` with `PlanCostSpanProcessor` ahead of the exporting processor, a metric
+   reader, and a log record processor for the pino records, then calls
    `registerTelemetry` from `ai` with the `OpenTelemetry` implementation from `@ai-sdk/otel` to pick up the AI
    SDK's spans.
 3. Hand that registration an `enrichSpan` hook, and pass `includeRuntimeContext` to every agent, so each AI SDK
    span carries the run's `gen_ai.conversation.id` and `base14.plan.id`, the agent's role and the active tool
    catalogue.
-4. Add the `signal_to_metrics` connector in `config/otel-collector.yaml`, which derives
-   `gen_ai.client.inference.duration` and the `gen_ai.client.inference.operation.*` token histograms from
-   `chat` spans.
-5. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
+4. Wrap the Ollama model with `wrapLanguageModel` and `providerId: "ollama"`, so spans and metrics carry
+   `gen_ai.provider.name` `ollama`.
+5. Add the `signal_to_metrics` connector in `config/otel-collector.yaml`, which derives the
+   `gen_ai.client.inference.operation.*` token histograms from `chat` spans.
+6. Set `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
    `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` as `.env.example` and `compose.yaml` ship them.
 
 The full guide is
@@ -320,14 +321,12 @@ fan-out. The fan-out does not shorten a run.
 
 ### Attributes this example adds
 
-The example's own attributes are under a `base14.` prefix, because semconv owns `gen_ai.*`. It also sets two
-GenAI attributes: `gen_ai.conversation.id`, which `@ai-sdk/otel` never sets, and `gen_ai.provider.name`, which it
-reports as the AI SDK provider id for Ollama.
+The example's own attributes are under a `base14.` prefix, because semconv owns `gen_ai.*`. It also sets
+`gen_ai.conversation.id`, which `@ai-sdk/otel` never sets.
 
 | Attribute | On | Source |
 | --- | --- | --- |
 | `gen_ai.conversation.id` | Every AI SDK span in the run, equal to `base14.plan.id`. | Runtime context, read in `enrichSpan`. |
-| `gen_ai.provider.name` | Rewritten from `ollama.responses` or `ollama.chat` to `ollama`. | `ProviderNameSpanProcessor` `onEnd`. |
 | `base14.plan.id` | Every AI SDK span in the run: `invoke_agent`, `step`, `chat` and `execute_tool`. | Runtime context, read in `enrichSpan`. |
 | `base14.agent.role` | `lead` or `researcher`. | Runtime context. |
 | `base14.subtopic` | Researcher spans. | Runtime context, set per researcher agent. |
@@ -362,18 +361,18 @@ per gap, so a run with no gaps adds none.
 The cost, fan-out and duration bucket boundaries are set explicitly rather than left on the SDK defaults, which
 start at 0 and jump to 5 and would put every measurement this service produces in one bucket.
 
-`@ai-sdk/otel` records no metrics. The collector's `signal_to_metrics` connector derives the three GenAI inference
-metrics from `chat` spans, so a dashboard built on `gen_ai.client.inference.*` has data:
+`@ai-sdk/otel` records `gen_ai.client.inference.duration` itself, one point per model call. It records no token
+metrics, so the collector's `signal_to_metrics` connector derives the two token histograms from `chat` spans:
 
-| Metric | Type | Attributes |
-| --- | --- | --- |
-| `gen_ai.client.inference.duration` | histogram, seconds, from the span duration | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model` |
-| `gen_ai.client.inference.operation.input_tokens` | histogram, tokens, from `gen_ai.usage.input_tokens` | The same |
-| `gen_ai.client.inference.operation.output_tokens` | histogram, tokens, from `gen_ai.usage.output_tokens` | The same |
+| Metric | Type | Source | Attributes |
+| --- | --- | --- | --- |
+| `gen_ai.client.inference.duration` | histogram, seconds | `@ai-sdk/otel` | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `error.type` on a failed call |
+| `gen_ai.client.inference.operation.input_tokens` | histogram, tokens, from `gen_ai.usage.input_tokens` | collector | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model` |
+| `gen_ai.client.inference.operation.output_tokens` | histogram, tokens, from `gen_ai.usage.output_tokens` | collector | The same |
 
-Only `chat` spans count. `invoke_agent` spans carry the same tokens summed over the run, so counting both would
-double them. The bucket boundaries are the ones the GenAI conventions advise. The connector emits delta
-temporality.
+The connector counts only `chat` spans. `invoke_agent` spans carry the same tokens summed over the run, so
+counting both would double them. The bucket boundaries are the ones the GenAI conventions advise. The connector
+emits delta temporality.
 
 `base14.gen_ai.tool_definition.tokens` is an estimate, not a token count. No tokeniser is available for a local
 Ollama model, so the value is the serialised tool definitions' character count divided by four, with the `$schema`
@@ -478,7 +477,7 @@ The export to base14 Scout is optional and off by default. The collector's confi
   `debug` exporter. It needs no credentials and stands alone.
 - `config/otel-collector-scout.yaml`, loaded only when `SCOUT_CLIENT_ID` is set. It adds the `oauth2client`
   extension, the `otlp_http/b14` exporter and the exporters list for each of the three pipelines. The traces list
-  keeps `signal_to_metrics`, so the derived metrics reach Scout too.
+  keeps `signal_to_metrics`, so the derived token metrics reach Scout too.
 
 `compose.yaml` does the selecting, in the collector's command line:
 
@@ -505,15 +504,15 @@ verifying the hosted side by hand.
 
 ## Known gaps
 
-In `@ai-sdk/otel` 1.0.123 with `ai` 7.0.123, checked 2026-09-30:
+In `@ai-sdk/otel` 1.0.169 with `ai` 7.0.169:
 
-- **No metrics and no logs.** Durations and token counts are span attributes only. The collector derives the three
-  GenAI inference metrics, and the service's logs come from pino.
+- **No token metrics and no logs.** Token counts are span attributes only. The collector derives the token
+  histograms, and the service's logs come from pino.
 - **No `error.type`.** A failed call gets an error status and a recorded exception, plus
   `http.response.status_code` when the provider returned one.
 - **No `server.address` or `server.port`** on `chat` spans. The child HTTP client span has them.
-- **Provider names are mapped only for well-known providers.** Ollama arrives as `ollama.responses`; the example
-  rewrites it.
+- **Provider names are mapped only for well-known providers.** Ollama arrives as `ollama.responses` unless the
+  model is wrapped with a `providerId`, as the example does.
 - **No `gen_ai.conversation.id`.** The example sets it through `enrichSpan`.
 - **Content capture is on by default.** `recordInputs` and `recordOutputs` default to `true`, and no
   `OTEL_*` variable is read. The example sets both from `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`.
