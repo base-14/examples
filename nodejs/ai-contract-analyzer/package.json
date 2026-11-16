@@ -37,7 +37,7 @@
     "@opentelemetry/sdk-metrics": "3.0.0",
     "@opentelemetry/sdk-node": "0.300.0",
     "ai": "7.0.159",
-    "hono": "4.13.14",
+    "hono": "4.13.18",
     "pdf-parse": "2.4.5",
     "pg": "8.23.1",
     "pgvector": "0.3.0",
