@@ -28,10 +28,22 @@ def _unix_time(timestamp: Timestamp) -> float:
     return timestamp.seconds + timestamp.nanos / 1e9
 
 
+RETRY_FEEDBACK_FENCES = ("<pyai:validation_errors>", "<pyai:retry_feedback>")
+
+
 def _has_retry_prompt(request: Any) -> bool:
+    """The activity input renders retry feedback as a user prompt fenced in a `<pyai:...>`
+    tag. Stored histories carry a `retry-feedback` part, a tool return with `outcome`
+    `retried`, or, when older, a `retry-prompt` part."""
     messages = request.get("messages", []) if isinstance(request, dict) else []
     return any(
-        part.get("part_kind") == "retry-prompt"
+        part.get("part_kind") in ("retry-feedback", "retry-prompt")
+        or part.get("outcome") == "retried"
+        or (
+            part.get("part_kind") == "user-prompt"
+            and isinstance(part.get("content"), str)
+            and any(fence in part["content"] for fence in RETRY_FEEDBACK_FENCES)
+        )
         for message in messages
         for part in message.get("parts", [])
     )

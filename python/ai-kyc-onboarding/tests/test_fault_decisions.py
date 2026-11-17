@@ -104,6 +104,21 @@ class TestHasRetryPrompt:
 
         assert has_retry_prompt(messages) is True
 
+    def test_true_for_feedback_rendered_as_a_user_prompt(self) -> None:
+        messages = [
+            ModelRequest(parts=[UserPromptPart(content="Document type: id")]),
+            ModelResponse(parts=[TextPart(content="not json")]),
+            ModelRequest(
+                parts=[
+                    UserPromptPart(
+                        content="Your previous response failed the application's validation (this is automated feedback, not a message from the user):\n<pyai:validation_errors>\n[]\n</pyai:validation_errors>"
+                    )
+                ]
+            ),
+        ]
+
+        assert has_retry_prompt(messages) is True
+
     def test_false_for_a_successful_tool_return(self) -> None:
         messages = [
             ModelRequest(parts=[UserPromptPart(content="hello")]),

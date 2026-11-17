@@ -32,6 +32,44 @@ class TestHasRetryPrompt:
 
         assert _has_retry_prompt(request) is True
 
+    def test_true_for_retry_feedback(self) -> None:
+        request = {"messages": [{"parts": [{"part_kind": "retry-feedback"}]}]}
+
+        assert _has_retry_prompt(request) is True
+
+    def test_true_for_a_retried_tool_return(self) -> None:
+        request = {"messages": [{"parts": [{"part_kind": "tool-return", "outcome": "retried"}]}]}
+
+        assert _has_retry_prompt(request) is True
+
+    def test_true_for_feedback_rendered_as_a_user_prompt(self) -> None:
+        request = {
+            "messages": [
+                {
+                    "parts": [
+                        {
+                            "part_kind": "user-prompt",
+                            "content": "Your previous response failed the application's validation (this is automated feedback, not a message from the user):\n<pyai:validation_errors>\n[]\n</pyai:validation_errors>",
+                        }
+                    ]
+                }
+            ]
+        }
+
+        assert _has_retry_prompt(request) is True
+
+    def test_false_for_an_ordinary_user_prompt(self) -> None:
+        request = {
+            "messages": [{"parts": [{"part_kind": "user-prompt", "content": "Document type: id"}]}]
+        }
+
+        assert _has_retry_prompt(request) is False
+
+    def test_false_for_a_successful_tool_return(self) -> None:
+        request = {"messages": [{"parts": [{"part_kind": "tool-return", "outcome": "success"}]}]}
+
+        assert _has_retry_prompt(request) is False
+
     def test_false_for_a_fresh_request(self) -> None:
         request = {"messages": [{"parts": [{"part_kind": "user-prompt"}]}]}
 

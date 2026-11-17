@@ -127,13 +127,32 @@ def should_raise_sanctions_down(fault: CaseFault | None, attempt: int) -> bool:
     return fault == CaseFault.sanctions_down and attempt <= SANCTIONS_DOWN_MAX_ATTEMPT
 
 
+RETRY_FEEDBACK_FENCES = ("<pyai:validation_errors>", "<pyai:retry_feedback>")
+
+
+def is_retry_part(part_kind: object, outcome: object, content: object) -> bool:
+    """Pydantic AI stores a retry as a `retry-feedback` part or a tool return with
+    `outcome='retried'`, and older histories as a `retry-prompt` part. A model request, as the
+    model activity receives it, renders the feedback as a user prompt fenced in a `<pyai:...>` tag."""
+    return (
+        part_kind in ("retry-feedback", "retry-prompt")
+        or outcome == "retried"
+        or (
+            part_kind == "user-prompt"
+            and isinstance(content, str)
+            and any(fence in content for fence in RETRY_FEEDBACK_FENCES)
+        )
+    )
+
+
 def has_retry_prompt(messages: list[ModelMessage]) -> bool:
-    """True once Pydantic AI has rejected a response and asked the model again. Pydantic AI
-    records that as a `retry-feedback` part or a tool return with `outcome='retried'`; older
-    recorded histories carry a `retry-prompt` part."""
+    """True once Pydantic AI has rejected a response and asked the model again."""
     return any(
-        getattr(part, "part_kind", None) in ("retry-feedback", "retry-prompt")
-        or getattr(part, "outcome", None) == "retried"
+        is_retry_part(
+            getattr(part, "part_kind", None),
+            getattr(part, "outcome", None),
+            getattr(part, "content", None),
+        )
         for message in messages
         for part in getattr(message, "parts", ())
     )
