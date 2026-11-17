@@ -290,7 +290,7 @@ logging.level.io.opentelemetry=DEBUG
 | OpenTelemetry Instrumentation | 2.33.0 |
 | OpenTelemetry SDK | managed by instrumentation BOM |
 | PostgreSQL | 18 |
-| OTel Collector | 0.163.1 |
+| OTel Collector | 0.165.0 |
 | Gradle | 9.8.2 |
 | Java | 25 |
 

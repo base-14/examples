@@ -29,7 +29,7 @@ JSON logs via `logstash-logback-encoder`. The full guide is
 | Micronaut | 5.2.x |
 | PostgreSQL | 18 |
 | OTel Java Agent | 2.33.1 |
-| OTel Collector | 0.163.1 (contrib) |
+| OTel Collector | 0.165.0 (contrib) |
 
 Run Gradle on JDK 25 for host builds (`make build`, `make check`). The Micronaut 5
 Gradle plugin requires it.

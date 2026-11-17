@@ -111,4 +111,4 @@ When running locally outside Docker, the code defaults (`localhost`) apply. Insi
 | Java | 17 |
 | Temporal SDK | 1.25.0 |
 | OpenTelemetry SDK | 1.67.0 |
-| OpenTelemetry Collector | contrib 0.163.1 |
+| OpenTelemetry Collector | contrib 0.165.0 |

@@ -345,7 +345,7 @@ environment:
 | Spring Boot | 4.1.2 |
 | OpenTelemetry Java Agent | 2.33.1 |
 | MongoDB | 7.0 |
-| OTel Collector | 0.163.1 |
+| OTel Collector | 0.165.0 |
 | Gradle | 9.8.2 |
 | Java | 25 |
 

@@ -29,7 +29,7 @@ and a second `notify` service called over `java.net.http.HttpClient`. The full g
 | Exposed ORM | 0.61.0 |
 | PostgreSQL | 18 |
 | OTel Java Agent | 2.32.0 |
-| OTel Collector | 0.163.1 (contrib) |
+| OTel Collector | 0.165.0 (contrib) |
 
 ## Architecture
 

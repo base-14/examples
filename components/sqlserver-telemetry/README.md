@@ -21,7 +21,7 @@ command.
        |     VIEW SERVER PERFORMANCE STATE
        |     VIEW ANY DATABASE
        |
-  otel-collector (otel/opentelemetry-collector-contrib:0.163.1)
+  otel-collector (otel/opentelemetry-collector-contrib:0.165.0)
        |   sqlserverreceiver -> processors[batch, resource]
        |   -> exporters[otlphttp/b14, debug]
        v

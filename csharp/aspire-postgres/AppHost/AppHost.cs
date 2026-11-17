@@ -8,7 +8,7 @@ var articlesDb = postgres.AddDatabase("articles");
 var collector = builder.AddContainer(
         "otel-collector",
         "otel/opentelemetry-collector-contrib",
-        "0.151.0")
+        "0.165.0")
     .WithBindMount("../config/otel-collector.yaml", "/etc/otel-collector.yaml")
     .WithArgs("--config=/etc/otel-collector.yaml")
     .WithEnvironment("SCOUT_ENDPOINT", builder.Configuration["SCOUT_ENDPOINT"] ?? "")

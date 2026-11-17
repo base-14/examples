@@ -20,7 +20,7 @@ The plugin does all the instrumentation. The rig only turns it on in
        |   diagnostics-otel plugin, OTLP/HTTP protobuf
        |   model calls to Ollama on the host (native /api/chat)
        v
-  otel-collector (otel/opentelemetry-collector-contrib:0.163.1)
+  otel-collector (otel/opentelemetry-collector-contrib:0.165.0)
        |   otlp receiver -> processors[memory_limiter, attributes, batch]
        |   -> exporters[otlp_http/b14, debug]
        v
