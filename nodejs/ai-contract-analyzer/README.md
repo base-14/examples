@@ -82,7 +82,7 @@ POST /api/contracts
 
 - [Bun](https://bun.sh) 1.3+.
 - Docker + Docker Compose.
-- [Ollama](https://ollama.ai) with `qwen3.5:9B` and `embeddinggemma` pulled and a context of at
+- [Ollama](https://ollama.ai) with `qwen3.5:9B` and `embeddinggemma-2` pulled and a context of at
   least 32768 tokens, or an API key for Anthropic or Google.
 
 Ollama serves a 4096-token context by default. The extract and score stages send a prompt, a JSON
@@ -128,7 +128,7 @@ To run Ollama in Compose instead of on the host:
 ```bash
 docker compose --profile ollama up -d
 docker compose exec ollama ollama pull qwen3.5:9B
-docker compose exec ollama ollama pull embeddinggemma
+docker compose exec ollama ollama pull embeddinggemma-2
 ```
 
 ### Analyze a contract
@@ -303,7 +303,7 @@ cp .env.example .env
 
 | Provider | Capable model | Fast model | Embedding model |
 |---|---|---|---|
-| Ollama | `qwen3.5:9B` | `qwen3.5:9B` | `embeddinggemma` |
+| Ollama | `qwen3.5:9B` | `qwen3.5:9B` | `embeddinggemma-2` |
 | Anthropic | `claude-sonnet-4-6` | `claude-haiku-4-5-20251001` | - |
 | Google | `gemini-2.5-flash` | `gemini-2.5-flash-lite` | `gemini-embedding-001` |
 | OpenAI | - | - | `text-embedding-3-small` |
@@ -415,7 +415,7 @@ local model or a hosted provider to get the full six-stage trace.
 ### LLM calls failing
 
 With the default `LLM_PROVIDER=ollama`, check that Ollama is running and that `qwen3.5:9B` and
-`embeddinggemma` are pulled. For a hosted provider, check its API key. The middleware retries 3
+`embeddinggemma-2` are pulled. For a hosted provider, check its API key. The middleware retries 3
 times with exponential backoff before throwing, so transient errors do not surface immediately.
 Set `FALLBACK_PROVIDER` to route to a secondary provider after the retries are exhausted.
 

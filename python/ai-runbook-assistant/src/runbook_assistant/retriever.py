@@ -1,4 +1,4 @@
-"""pgvector retriever backed by local Ollama embeddings (embeddinggemma)."""
+"""pgvector retriever backed by local Ollama embeddings (embeddinggemma-2)."""
 
 from pathlib import Path
 from typing import Any

@@ -29,7 +29,7 @@ class _FakeEmbeddings(Embeddings):
 def _wrap(inner: Embeddings) -> InstrumentedEmbeddings:
     return InstrumentedEmbeddings(
         inner=inner,
-        model="embeddinggemma",
+        model="embeddinggemma-2",
         provider="ollama",
         base_url="http://host.docker.internal:11434",
     )
@@ -39,11 +39,11 @@ def test_embed_query_emits_a_client_span(span_exporter):
     assert _wrap(_FakeEmbeddings()).embed_query("disk full") == [0.1, 0.2]
 
     span = next(s for s in span_exporter.get_finished_spans() if s.name.startswith("embeddings "))
-    assert span.name == "embeddings embeddinggemma"
+    assert span.name == "embeddings embeddinggemma-2"
     assert span.kind is SpanKind.CLIENT
     assert span.attributes["gen_ai.operation.name"] == "embeddings"
     assert span.attributes["gen_ai.provider.name"] == "ollama"
-    assert span.attributes["gen_ai.request.model"] == "embeddinggemma"
+    assert span.attributes["gen_ai.request.model"] == "embeddinggemma-2"
     assert span.attributes["server.address"] == "host.docker.internal"
     assert span.attributes["server.port"] == 11434
 

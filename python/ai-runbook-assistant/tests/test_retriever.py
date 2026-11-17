@@ -13,7 +13,7 @@ def _ollama_up() -> bool:
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not _ollama_up(), reason="needs Ollama with embeddinggemma")
+@pytest.mark.skipif(not _ollama_up(), reason="needs Ollama with embeddinggemma-2")
 def test_seed_and_search_returns_relevant_runbook():
     from testcontainers.postgres import PostgresContainer
 

@@ -37,7 +37,7 @@ const GOOGLE_FAST_DEFAULT = "gemini-2.5-flash-lite";
 const OLLAMA_CAPABLE_DEFAULT = "qwen3.5:9B";
 const OLLAMA_FAST_DEFAULT = "qwen3.5:9B";
 const OPENAI_EMBED_DEFAULT = "text-embedding-3-small";
-const OLLAMA_EMBED_DEFAULT = "embeddinggemma";
+const OLLAMA_EMBED_DEFAULT = "embeddinggemma-2";
 const GOOGLE_EMBED_DEFAULT = "gemini-embedding-001";
 const EMBEDDING_DIMENSIONS = 768;
 

@@ -54,7 +54,7 @@ describe("thinkingOff", () => {
   it("leaves an embeddings request alone", async () => {
     await thinkingOff("http://localhost:11434/v1/embeddings", {
       method: "POST",
-      body: JSON.stringify({ model: "embeddinggemma", input: ["a"] }),
+      body: JSON.stringify({ model: "embeddinggemma-2", input: ["a"] }),
     });
 
     expect(sentBody().reasoning_effort).toBeUndefined();

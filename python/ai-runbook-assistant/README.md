@@ -36,7 +36,7 @@ logs correlated with the active trace.
 - Python 3.14, FastAPI, async SQLAlchemy 2.0.
 - LangChain 1.3 `create_agent` (LangGraph-backed).
 - PostgreSQL 18 + pgvector for the runbook vector store.
-- Ollama (`qwen3.5:9B` chat, `embeddinggemma` embeddings) by default, which runs locally
+- Ollama (`qwen3.5:9B` chat, `embeddinggemma-2` embeddings) by default, which runs locally
   without an API key. Anthropic, OpenAI, and Google are configurable alternatives.
 - Retries and a configurable fallback model around every model call.
 - OpenTelemetry SDK over OTLP/HTTP to an OpenTelemetry Collector, then to Scout.
@@ -49,7 +49,7 @@ logs correlated with the active trace.
 
   ```bash
   ollama pull qwen3.5:9B      # tool-capable chat model
-  ollama pull embeddinggemma  # 768-dim embeddings
+  ollama pull embeddinggemma-2  # 768-dim embeddings
   ```
 
   The app container reaches Ollama on the host through `host.docker.internal`. To run Ollama
@@ -128,7 +128,7 @@ flowchart TD
     fixtures[/data/fixtures/services.json/] -.-> query_metrics & search_logs & get_service_status
 ```
 
-- **search_runbooks** embeds the question with `embeddinggemma` and returns the closest
+- **search_runbooks** embeds the question with `embeddinggemma-2` and returns the closest
   runbooks from pgvector, such as `container-oom` or `p99-latency`.
 - **query_metrics**, **search_logs** and **get_service_status** return a metric value,
   matching log lines and replica or deploy status for a service. They read fixed data
@@ -155,7 +155,7 @@ POST /api/v1/diagnose                 (FastAPI HTTP span)
 │  ├─ chat qwen3.5:9B                 (LLM: decide which tool to call)
 │  ├─ execute_tool search_runbooks
 │  │  └─ retrieval                    (pgvector)
-│  │     ├─ embeddings embeddinggemma (Ollama embedding call)
+│  │     ├─ embeddings embeddinggemma-2 (Ollama embedding call)
 │  │     └─ SELECT runbooks           (SQLAlchemy)
 │  ├─ execute_tool query_metrics
 │  ├─ execute_tool search_logs
@@ -289,7 +289,7 @@ different value, the Notes column says so.
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Compose sets `http://host.docker.internal:11434` |
 | `OLLAMA_REASONING` | `false` | Lets a thinking model such as `qwen3.5` reason before answering |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` | empty | Required only for that provider |
-| `EMBEDDING_MODEL` | `embeddinggemma` | Vector store embeddings, 768-dim |
+| `EMBEDDING_MODEL` | `embeddinggemma-2` | Vector store embeddings, 768-dim |
 | `DATA_SOURCE_ID` | `runbooks` | Becomes `gen_ai.data_source.id` on retrieval spans |
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/runbooks` | Compose uses `postgres:5432`; `make run` uses `localhost:5433` |
 | `DEFAULT_TEMPERATURE` / `DEFAULT_MAX_TOKENS` | `0.0` / `4096` | Passed to every chat model |

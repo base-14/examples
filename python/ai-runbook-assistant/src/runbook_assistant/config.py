@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     default_temperature: float = 0.0
     default_max_tokens: int = 4096
 
-    embedding_model: str = "embeddinggemma"
+    embedding_model: str = "embeddinggemma-2"
     data_source_id: str = "runbooks"
 
     otel_enabled: bool = True
