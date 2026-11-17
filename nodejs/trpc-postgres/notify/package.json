@@ -9,11 +9,11 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.10.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.82.0",
-    "@opentelemetry/exporter-logs-otlp-grpc": "^0.300.0",
-    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.300.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.300.0",
-    "@opentelemetry/sdk-node": "^0.300.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.83.1",
+    "@opentelemetry/exporter-logs-otlp-grpc": "^0.301.2",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.301.2",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.301.2",
+    "@opentelemetry/sdk-node": "^0.301.2",
     "pino": "^10.4.0"
   },
   "devDependencies": {

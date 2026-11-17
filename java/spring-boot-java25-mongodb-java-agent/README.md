@@ -74,7 +74,7 @@ Add custom spans using `@WithSpan` annotations for deeper application visibility
 1. Add dependency to `build.gradle`:
 
    ```gradle
-   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.33.0'
+   implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.33.1'
    ```
 
 1. Enable annotations (already configured in `compose.yaml`):

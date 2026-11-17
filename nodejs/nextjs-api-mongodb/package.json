@@ -19,19 +19,19 @@
   },
   "dependencies": {
     "@opentelemetry/api": "1.10.0",
-    "@opentelemetry/auto-instrumentations-node": "0.82.0",
-    "@opentelemetry/exporter-metrics-otlp-http": "0.300.0",
-    "@opentelemetry/exporter-prometheus": "0.300.0",
-    "@opentelemetry/exporter-trace-otlp-http": "0.300.0",
-    "@opentelemetry/resources": "3.0.0",
-    "@opentelemetry/sdk-metrics": "3.0.0",
-    "@opentelemetry/sdk-node": "0.300.0",
-    "@opentelemetry/semantic-conventions": "1.44.0",
+    "@opentelemetry/auto-instrumentations-node": "0.83.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.301.2",
+    "@opentelemetry/exporter-prometheus": "0.301.2",
+    "@opentelemetry/exporter-trace-otlp-http": "0.301.2",
+    "@opentelemetry/resources": "3.1.1",
+    "@opentelemetry/sdk-metrics": "3.1.1",
+    "@opentelemetry/sdk-node": "0.301.2",
+    "@opentelemetry/semantic-conventions": "1.45.0",
     "bcrypt": "6.0.0",
-    "bullmq": "6.5.3",
+    "bullmq": "6.7.6",
     "ioredis": "6.0.0",
     "jsonwebtoken": "9.0.3",
-    "mongoose": "9.11.4",
+    "mongoose": "9.12.1",
     "next": "^16.4.6",
     "pino": "10.4.0",
     "react": "19.3.1",
@@ -66,6 +66,6 @@
     "eslint-config-next": "16.4.6",
     "tsx": "4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }

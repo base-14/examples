@@ -8,7 +8,7 @@ Spring Boot 4.1.2 application with OpenTelemetry instrumentation using the
 ## How to instrument Spring Boot with OpenTelemetry
 
 1. Add `io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter` to `build.gradle`, with
-   its version managed by the `opentelemetry-instrumentation-bom` (2.33.0) platform.
+   its version managed by the `opentelemetry-instrumentation-bom` (2.33.1) platform.
 2. Enable the starter in `application.properties` with
    `otel.java.global-autoconfigure.enabled=true`, `otel.instrumentation.jdbc.enabled=true`,
    `otel.instrumentation.spring-webmvc.enabled=true` and
@@ -226,7 +226,7 @@ All logs include `trace_id` and `span_id` for correlation.
 From `build.gradle` (BOM-managed):
 
 ```groovy
-implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.33.0")
+implementation platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.33.1")
 implementation "io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter"
 ```
 

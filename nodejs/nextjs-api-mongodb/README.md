@@ -22,7 +22,7 @@ helper for custom spans, and a separately instrumented BullMQ worker process. Th
 
 ## Stack
 
-- **Framework**: Next.js 16.1.2 (Turbopack)
+- **Framework**: Next.js 16.4.6 (Turbopack)
 - **Runtime**: Node.js 26
 - **Database**: MongoDB 8 with Mongoose 9
 - **Cache/Queue**: Redis 7 with BullMQ
