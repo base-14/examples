@@ -7,8 +7,9 @@ set -euo pipefail 2>/dev/null || set -eu
 # Sends a diagnosis request, then inspects the OTel Collector debug logs to
 # confirm the expected GenAI-semconv span tree, attributes, and metrics arrived:
 #   docker compose up -d --build && ./scripts/verify-scout.sh
-# Set OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=span_only for both the
-# stack and this script to check that captured content is scrubbed.
+# The content capture mode comes from OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
+# in the shell or .env, as compose resolves it for the stack. With span_only the script
+# checks that captured content is scrubbed; otherwise it checks that none is captured.
 #
 # With SCOUT_* blank the export to Scout fails (harmless) but the debug exporter
 # still logs every span, so this script passes without Scout credentials.
@@ -16,11 +17,16 @@ set -euo pipefail 2>/dev/null || set -eu
 # Usage:
 #   ./scripts/verify-scout.sh                  # full verification
 #   SKIP_REQUESTS=1 ./scripts/verify-scout.sh  # only re-check logs
+#   COLLECTOR_LOG=/tmp/collector.log ./scripts/verify-scout.sh  # check a saved log, no stack
+#     (save it with: docker compose logs otel-collector --no-log-prefix > /tmp/collector.log)
 # ---------------------------------------------------------------------------
 
 BASE_URL="${API_URL:-http://localhost:8000}"
 COLLECTOR_HEALTH="${COLLECTOR_HEALTH_URL:-http://localhost:13133}"
-CAPTURE="$(echo "${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-no_content}" | tr '[:upper:]' '[:lower:]')"
+# The app gets the capture mode the way compose resolves it: the shell first, then .env.
+ENV_FILE="$(dirname "$0")/../.env"
+ENV_CAPTURE="$(sed -n 's/^OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=//p' "$ENV_FILE" 2>/dev/null | tail -1)"
+CAPTURE="$(echo "${OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT:-${ENV_CAPTURE:-no_content}}" | tr '[:upper:]' '[:lower:]')"
 PASS=0
 FAIL=0
 WARN=0
@@ -65,6 +71,11 @@ echo "$(cyan "  ai-runbook-assistant  [content capture: ${CAPTURE}]")"
 echo "$(cyan "=============================================")"
 
 # --- 1. Prerequisites ------------------------------------------------------
+if [ -n "${COLLECTOR_LOG:-}" ]; then
+  # A saved log needs no running stack: skip the health checks and the requests.
+  SKIP_REQUESTS=1
+  SKIP_LOG_CHECK=0
+else
 echo ""
 echo "$(cyan "=== 1. Prerequisites ===")"
 echo ""
@@ -82,6 +93,7 @@ if [ "$COLLECTOR_STATUS" != "200" ]; then
   echo ""; echo "  $(yellow "WARN: Collector not reachable - log verification will be skipped")"; SKIP_LOG_CHECK=1
 else
   SKIP_LOG_CHECK=0
+fi
 fi
 
 # --- 2. Generate telemetry -------------------------------------------------
