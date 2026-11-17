@@ -256,6 +256,22 @@ if changed:
 PYSYNC
 }
 
+# The newest installed asdf SDK that global.json's pin and rollForward accept,
+# or the pin itself when nothing installed matches (asdf then reports it missing).
+installed_dotnet_sdk() {
+  local pin="$1" roll="$2" band v best=""
+  case "$roll" in
+    latestPatch|patch) band=$(echo "$pin" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9])[0-9]*$/\1/') ;;
+    *) band=$(echo "$pin" | cut -d. -f1-2) ;;
+  esac
+  for v in $(asdf list dotnet-core 2>/dev/null | tr -d ' *'); do
+    [[ "$v" == "$band"* ]] || continue
+    [[ "$(printf '%s\n%s\n' "$pin" "$v" | sort -V | head -1)" == "$pin" ]] || continue
+    best="$v"
+  done
+  echo "${best:-$pin}"
+}
+
 upgrade_python() {
   local dir="$1"
   local name
@@ -293,6 +309,7 @@ upgrade_python() {
       done
       [[ -n "$args" ]] && uv lock $args >/dev/null 2>&1 || true
     else
+      uv run --quiet --no-project --with packaging python "$REPO_ROOT/scripts/bump_exact_pins.py" pyproject.toml || true
       uv lock --upgrade >/dev/null 2>&1 || true
     fi
     if ! guard_or_retry "python/$name" "$before_py" python uv.lock pyproject.toml uv.lock; then return 0; fi
@@ -355,9 +372,10 @@ upgrade_dotnet() {
   # dotnet resolves the SDK from global.json in the working directory, so run
   # from the project and give asdf the SDK the project pins
   cd "$dir" || return
-  local ASDF_DOTNET_CORE_VERSION="${ASDF_DOTNET_CORE_VERSION:-}" sdk_pin
+  local ASDF_DOTNET_CORE_VERSION="${ASDF_DOTNET_CORE_VERSION:-}" sdk_pin roll_forward
   sdk_pin=$(sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' global.json 2>/dev/null | head -1 || true)
-  [[ -n "$sdk_pin" ]] && ASDF_DOTNET_CORE_VERSION="$sdk_pin"
+  roll_forward=$(sed -nE 's/.*"rollForward"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' global.json 2>/dev/null | head -1 || true)
+  [[ -n "$sdk_pin" ]] && ASDF_DOTNET_CORE_VERSION=$(installed_dotnet_sdk "$sdk_pin" "$roll_forward")
   [[ -n "$ASDF_DOTNET_CORE_VERSION" ]] && export ASDF_DOTNET_CORE_VERSION
 
   # read every csproj's outdated list before changing any of them; bumping one
@@ -483,6 +501,8 @@ retry_holding_majors() {
         maj=$(lock_majors python uv.lock | awk -v p="$p" '$1==p{print $2}' | sort -n | tail -1)
         [[ -n "$maj" ]] && holds+=(--upgrade-package "${p}<$((maj+1))")
       done
+      # the guard's revert also undid the exact-pin bumps
+      uv run --quiet --no-project --with packaging python "$REPO_ROOT/scripts/bump_exact_pins.py" pyproject.toml >/dev/null || true
       uv lock --upgrade "${holds[@]}" >/dev/null 2>&1 ;;
     php)
       local with=()
@@ -512,17 +532,21 @@ retry_holding_majors() {
 
 # guard, then one retry with crossers held; REVERTED only if still crossing.
 guard_or_retry() {
-  local label="$1" eco="$3" lockfile="$4"
+  local label="$1" eco="$3" lockfile="$4" held="" round
   guard_major_bump "$@" && return 0
-  echo "  Retrying with majors held: $(tr '\n' ' ' <<< "$GUARD_CROSSED")"
-  retry_holding_majors "$eco" "$GUARD_CROSSED"
-  if git diff --quiet -- "$lockfile" 2>/dev/null; then
-    echo "  Retry left $lockfile unchanged"
-    results+=("$label: UNCHANGED (retry with majors held changed nothing)")
-    skipped=$((skipped + 1))
-    return 1
-  fi
-  guard_major_bump "$@" && return 0
+  # holding one major can let the next one cross, so the holds accumulate
+  for round in 1 2 3; do
+    held=$(printf '%s\n' $held $GUARD_CROSSED | sort -u)
+    echo "  Retrying with majors held: $(tr '\n' ' ' <<< "$held")"
+    retry_holding_majors "$eco" "$held"
+    if git diff --quiet -- "$lockfile" 2>/dev/null; then
+      echo "  Retry left $lockfile unchanged"
+      results+=("$label: UNCHANGED (retry with majors held changed nothing)")
+      skipped=$((skipped + 1))
+      return 1
+    fi
+    guard_major_bump "$@" && return 0
+  done
   results+=("$label: REVERTED (major bump under --skip-major)")
   skipped=$((skipped + 1))
   return 1
