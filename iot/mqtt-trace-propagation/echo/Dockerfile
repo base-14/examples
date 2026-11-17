@@ -32,5 +32,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# opentelemetry-instrument auto-instruments FastAPI + the ASGI server.
+# opentelemetry-instrument sets up the providers and exporters; FastAPI traces requests itself.
 CMD ["opentelemetry-instrument", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

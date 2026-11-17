@@ -12,7 +12,7 @@ The full guide is
 ## How to instrument LlamaIndex with OpenTelemetry
 
 1. The dependencies are pinned in `pyproject.toml`: the OpenTelemetry SDK and OTLP HTTP
-   exporter, the FastAPI and logging instrumentations, and the GenAI instrumentations
+   exporter, the logging instrumentation, and the GenAI instrumentations
    `opentelemetry-instrumentation-genai-openai`, `opentelemetry-instrumentation-genai-anthropic`
    and `opentelemetry-instrumentation-google-genai`. There is no official LlamaIndex package;
    LlamaIndex's integrations call these SDKs, and the SDK packages trace the calls.
@@ -21,8 +21,8 @@ The full guide is
    registers OTLP trace, metric and log exporters, the span processor and exporter from
    `src/content_quality/genai_spans.py`, `LoggingInstrumentor()`, and `instrument()` on
    `OpenAIInstrumentor`, `AnthropicInstrumentor` and `GoogleGenAiSdkInstrumentor`.
-   `instrument_fastapi(app)` runs after the app is created and calls
-   `FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])`.
+   The app is created with `FastAPI(telemetry=FASTAPI_TELEMETRY)`, so FastAPI traces each
+   request and records the HTTP server metrics itself; the config leaves `/health` out.
 3. Ollama is reached through its OpenAI-compatible `/v1` endpoint with LlamaIndex's
    `OpenAILike`, so the OpenAI package traces it too.
 4. `SERVICE_NAME=ai-content-quality`, `OTLP_ENDPOINT=http://otel-collector:4318`,
@@ -41,8 +41,7 @@ SDK. This example adds:
 - Cost, retry, fallback and error counters, in `src/content_quality/services/llm.py`.
 - `gen_ai.evaluation.result` events and a score histogram, in
   `src/content_quality/services/analyzer.py`.
-- HTTP request metrics, in `src/content_quality/middleware/metrics.py`, and OTLP logs
-  correlated with traces.
+- OTLP logs correlated with traces.
 
 ## Prerequisites
 
@@ -197,8 +196,7 @@ none.
 
 | Layer | Instrumentation | Type | What You Get |
 | --- | --- | --- | --- |
-| HTTP server | `FastAPIInstrumentor` | Auto | Request spans with method, path, status, duration (excludes `/health`, suppresses ASGI sub-spans) |
-| HTTP server | `MetricsMiddleware` | Custom | `http.server.request.count`, `http.server.request.duration`, `http.server.active_requests` (excludes `/health`) |
+| HTTP server | FastAPI's native telemetry | Framework | `GET /route` server spans, `http.server.request.duration` and `http.server.active_requests` (excludes `/health`) |
 | Logging | `LoggingInstrumentor` | Auto | Trace-correlated log records with `trace_id` and `span_id` |
 | Model calls | GenAI SDK instrumentations | Auto | `chat {model}` or `generate_content {model}` CLIENT spans, `gen_ai.client.token.usage` and `gen_ai.client.operation.duration` |
 | Call context | `LLMCallAttributesProcessor` | Custom | Endpoint, content type and length on model call spans, and `gen_ai.provider.name` from `LLM_PROVIDER` (so `ollama` rather than `openai` for Ollama) |
@@ -308,8 +306,6 @@ ai-content-quality/
 │   ├── pii.py                   # Scrubbing patterns for captured content
 │   ├── pricing.py               # Prices from _shared/pricing.json
 │   ├── telemetry.py             # OTel SDK setup (traces, metrics, logs, GenAI instrumentations)
-│   ├── middleware/
-│   │   └── metrics.py           # HTTP request metrics middleware
 │   ├── models/
 │   │   ├── requests.py          # ContentRequest with validation
 │   │   └── responses.py         # Pydantic response models (ReviewResult, ImproveResult, ScoreResult)

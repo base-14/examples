@@ -9,7 +9,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from opentelemetry.trace import StatusCode
 
 from filing_analyst.agents import RANKING_UNAVAILABLE
-from filing_analyst.telemetry import QuestionIdFilter, instrument_fastapi_app, question_logging
+from filing_analyst.telemetry import QuestionIdFilter, question_logging
 from tests.agent_support import LOOKUP, Call, Say
 from tests.api_support import KALTURA, Rig
 from tests.metric_capture import captured_metrics, total
@@ -50,9 +50,7 @@ def meters() -> InMemoryMetricReader:
 
 
 def ask(rig: Rig, **body: Any) -> Any:
-    app = rig.app()
-    instrument_fastapi_app(app)
-    with TestClient(app) as client:
+    with TestClient(rig.app()) as client:
         return client.post("/questions", json={"ticker": "WK", "question": "Net income?", **body})
 
 

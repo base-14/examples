@@ -16,7 +16,7 @@ from filing_analyst.model_digests import read_model_digests
 from filing_analyst.prompts import PROMPTS_DIR, load_prompt
 from filing_analyst.sec_client import SecClient
 from filing_analyst.store import PostgresStore
-from filing_analyst.telemetry import configure_telemetry, instrument_fastapi_app
+from filing_analyst.telemetry import FASTAPI_TELEMETRY, configure_telemetry
 
 
 OLLAMA_TAGS_TIMEOUT_SECONDS = 5.0
@@ -58,7 +58,8 @@ def create_app(
     *, with_telemetry: bool = True, services: ServicesFactory = build_services
 ) -> FastAPI:
     """`with_telemetry=False` leaves the process-wide providers to the tests, and `services`
-    lets them run the app on memory stores and scripted models."""
+    lets them run the app on memory stores and scripted models. FastAPI traces requests
+    itself through whichever providers are set."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -69,7 +70,7 @@ def create_app(
         yield
         app.state.services.sec.close()
 
-    app = FastAPI(title="Filing Analyst Agent", lifespan=lifespan)
+    app = FastAPI(title="Filing Analyst Agent", lifespan=lifespan, telemetry=FASTAPI_TELEMETRY)
 
     @app.post("/questions")
     async def post_question(body: QuestionBody) -> JSONResponse:
@@ -98,8 +99,6 @@ def create_app(
             }
         )
 
-    if with_telemetry:
-        instrument_fastapi_app(app)
     return app
 
 

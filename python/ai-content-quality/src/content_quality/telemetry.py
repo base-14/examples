@@ -1,8 +1,10 @@
 import atexit
 import logging
 import os
+from collections.abc import MutableMapping
 from typing import Any
 
+from fastapi.telemetry import TelemetryConfig
 from opentelemetry import _logs, metrics, trace
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -110,16 +112,11 @@ def setup_telemetry(
     return trace.get_tracer(service_name), metrics.get_meter(service_name)
 
 
-def instrument_fastapi(app: Any) -> None:
-    """Instrument FastAPI app after creation.
+def skip_health_check(scope: MutableMapping[str, Any]) -> bool:
+    """Keep the health check out of FastAPI's request spans and metrics."""
+    return bool(scope.get("path") == "/health")
 
-    Creates spans for every HTTP request with method, path, status code, duration.
-    Must be called AFTER the FastAPI app is created.
-    """
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-    FastAPIInstrumentor.instrument_app(
-        app,
-        excluded_urls="health",
-        exclude_spans=["receive", "send"],
-    )
+# Routes tag the request span through trace.get_current_span(), so they run directly
+# under the server span rather than under FastAPI's operation spans.
+FASTAPI_TELEMETRY: TelemetryConfig = {"exclude": skip_health_check, "operation_spans": False}

@@ -6,7 +6,6 @@ from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -69,12 +68,11 @@ def init_telemetry():
     logger.info(f"OpenTelemetry metrics initialized for service: {service_name}")
 
 
-def setup_telemetry(app, engine):
+def setup_telemetry(engine):
     """
     Configure OpenTelemetry auto-instrumentation for all components.
 
     This function sets up zero-code instrumentation for:
-    - FastAPI (HTTP requests, routing, middleware, metrics)
     - SQLAlchemy (database queries, transactions)
     - Celery (task execution, worker operations, metrics)
     - Redis (cache operations, result backend)
@@ -86,11 +84,8 @@ def setup_telemetry(app, engine):
     # Initialize tracing and metrics
     init_telemetry()
 
-    # Auto-instrument FastAPI (includes HTTP metrics)
-    FastAPIInstrumentor.instrument_app(
-        app, excluded_urls="health", exclude_spans=["receive", "send"]
-    )
-    logger.info("FastAPI auto-instrumentation enabled (traces + metrics)")
+    # FastAPI traces requests and records the HTTP server metrics itself once the
+    # providers above are set.
 
     # Auto-instrument SQLAlchemy
     SQLAlchemyInstrumentor().instrument(

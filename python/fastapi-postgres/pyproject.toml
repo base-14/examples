@@ -8,7 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "base14", email = "hello@base14.io" }]
 
 dependencies = [
-    "fastapi[all]>=0.133.1",
+    "fastapi[all]>=0.142",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.14.2",
     "psycopg2-binary>=2.9.11",
@@ -23,7 +23,6 @@ dependencies = [
     "opentelemetry-sdk>=1.39",
     "opentelemetry-exporter-otlp>=1.39",
     "opentelemetry-api>=1.39",
-    "opentelemetry-instrumentation-fastapi>=0.60b1",
     "opentelemetry-instrumentation-sqlalchemy>=0.60b1",
     "opentelemetry-instrumentation-requests>=0.60b1",
 ]

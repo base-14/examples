@@ -70,7 +70,6 @@ def client():
     # Patch telemetry setup to no-op and override DB
     with (
         patch("app.main.setup_telemetry"),
-        patch("app.main.FastAPIInstrumentor"),
         patch("app.main.RequestsInstrumentor"),
         patch("app.main.MetricsMiddleware", lambda app: app),
     ):

@@ -1,14 +1,16 @@
 """OpenTelemetry bootstrap: providers, exporters and instrumentation.
 
-`setup_telemetry()` runs in the FastAPI lifespan, before the agent is built.
-`instrument_fastapi(app)` runs when the app is created. LangChain is traced by the
+`setup_telemetry()` runs in the FastAPI lifespan, before the agent is built. FastAPI
+traces requests itself, configured by `FASTAPI_TELEMETRY`. LangChain is traced by the
 OpenTelemetry GenAI LangChain instrumentation, and the spans it creates are enriched
 by `telemetry/genai_spans.py`.
 """
 
 import logging
+from collections.abc import MutableMapping
 from typing import Any
 
+from fastapi.telemetry import TelemetryConfig
 from opentelemetry import _logs, metrics, trace
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -110,7 +112,14 @@ def setup_telemetry(engine: Any = None) -> tuple[trace.Tracer, metrics.Meter]:
     )
 
 
-def instrument_fastapi(app: Any) -> None:
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+HEALTH_CHECK_PATHS = frozenset({"/healthz", "/readyz"})
 
-    FastAPIInstrumentor.instrument_app(app, excluded_urls="healthz,readyz")
+
+def skip_health_checks(scope: MutableMapping[str, Any]) -> bool:
+    """Keep the health checks out of FastAPI's request spans and metrics."""
+    return scope.get("path") in HEALTH_CHECK_PATHS
+
+
+# Routes tag the request span through trace.get_current_span(), so they run directly
+# under the server span rather than under FastAPI's operation spans.
+FASTAPI_TELEMETRY: TelemetryConfig = {"exclude": skip_health_checks, "operation_spans": False}

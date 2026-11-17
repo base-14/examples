@@ -1,9 +1,8 @@
 """Marks the HTTP server span as failed for error responses.
 
-The ASGI instrumentation only sets ERROR from status 500 up. Client errors are
-failures of the request too, so this middleware sets ERROR from 400 up. The
-instrumentation's later UNSET status for 4xx is ignored by the SDK, so the
-status set here survives.
+FastAPI's telemetry sets ERROR only from status 500 up. Client errors are
+failures of the request too, so this middleware sets ERROR from 400 up on the
+server span, which is the current span while the middleware runs.
 """
 
 from collections.abc import Awaitable, Callable

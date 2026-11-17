@@ -9,12 +9,11 @@ JWT authentication, and PostgreSQL integration with base14 Scout.
 ## How to instrument FastAPI with OpenTelemetry
 
 1. Install `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp`,
-   `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-sqlalchemy` and
-   `opentelemetry-instrumentation-requests` from `requirements.txt`.
+   `opentelemetry-instrumentation-sqlalchemy` and `opentelemetry-instrumentation-requests` from
+   `requirements.txt`. FastAPI traces requests and records the HTTP server metrics itself.
 2. Call `setup_telemetry()` from `app/telemetry.py` at the top of `app/main.py` to register
-   OTLP trace and metric exporters, then call
-   `FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])`
-   and `RequestsInstrumentor().instrument()`. `app/database.py` calls
+   OTLP trace and metric exporters before `FastAPI()` is created, then call
+   `RequestsInstrumentor().instrument()`. `app/database.py` calls
    `SQLAlchemyInstrumentor().instrument(engine=engine)` on the engine it creates.
 3. Set `OTEL_SERVICE_NAME=fastapi-postgres-app`,
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
@@ -66,15 +65,15 @@ and automatic OpenTelemetry instrumentation for comprehensive observability.
 | Component | Package | Version |
 | --- | --- | --- |
 | Python | python | 3.15 |
-| FastAPI | fastapi[all] | 0.128.0 |
-| PostgreSQL Driver | psycopg2-binary | 2.9.10 |
-| SQLAlchemy | SQLAlchemy | 2.0.45 |
-| Pydantic | pydantic | 2.12.5 |
-| Authentication | PyJWT, passlib, bcrypt | 2.10.1, 1.7.4, 4.2.1 |
-| OTel SDK | opentelemetry-sdk | 1.39.1 |
-| OTel Instrumentation | opentelemetry-instrumentation-fastapi | 0.60b0 |
-| OTel Exporter | opentelemetry-exporter-otlp | 1.39.1 |
-| Database Migrations | alembic | 1.14.0 |
+| FastAPI | fastapi[all] | 0.163.1 |
+| PostgreSQL Driver | psycopg2-binary | 2.9.13 |
+| SQLAlchemy | SQLAlchemy | 2.1.9 |
+| Pydantic | pydantic | 2.14.3 |
+| Authentication | PyJWT, pwdlib, bcrypt | 2.15.1, 0.4.2, 5.0.0 |
+| OTel SDK | opentelemetry-sdk | 1.45.2 |
+| OTel Instrumentation | opentelemetry-instrumentation-sqlalchemy | 0.66b2 |
+| OTel Exporter | opentelemetry-exporter-otlp | 1.45.2 |
+| Database Migrations | alembic | 1.20.1 |
 
 ## Prerequisites
 
@@ -291,7 +290,6 @@ Custom metrics via MetricsMiddleware:
 
 ```python
 fastapi[all]
-opentelemetry-instrumentation-fastapi
 opentelemetry-sdk
 opentelemetry-instrumentation-requests
 opentelemetry-exporter-otlp

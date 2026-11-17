@@ -268,7 +268,6 @@ if [ "${SKIP_LOG_CHECK:-0}" = "0" ]; then
     warn_log  "Metric: base14.gen_ai.error.count"        "base14.gen_ai.error.count"         "$LOGS_FILE"
     warn_log  "Metric: base14.gen_ai.retry.count"        "base14.gen_ai.retry.count"         "$LOGS_FILE"
     warn_log  "Metric: base14.gen_ai.fallback.count"     "base14.gen_ai.fallback.count"      "$LOGS_FILE"
-    warn_log  "Metric: http.server.request.count"        "http.server.request.count"        "$LOGS_FILE"
     warn_log  "Metric: http.server.request.duration"     "http.server.request.duration"     "$LOGS_FILE"
 
     # --- Resource attributes ---

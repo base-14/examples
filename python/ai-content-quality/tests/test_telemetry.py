@@ -1,7 +1,7 @@
 import os
 from unittest.mock import MagicMock, patch
 
-from content_quality.telemetry import instrument_fastapi, setup_telemetry
+from content_quality.telemetry import FASTAPI_TELEMETRY, setup_telemetry
 
 
 # Common patches for all enabled-SDK tests
@@ -104,13 +104,11 @@ def test_enabled_registers_atexit_shutdown() -> None:
             _stop_patches()
 
 
-def test_instrument_fastapi_calls_instrumentor() -> None:
-    with patch("opentelemetry.instrumentation.fastapi.FastAPIInstrumentor") as mock_fai:
-        mock_app = MagicMock()
-        instrument_fastapi(mock_app)
-        mock_fai.instrument_app.assert_called_once_with(
-            mock_app, excluded_urls="health", exclude_spans=["receive", "send"]
-        )
+def test_fastapi_telemetry_leaves_the_health_check_out() -> None:
+    exclude = FASTAPI_TELEMETRY["exclude"]
+    assert exclude is not None
+    assert exclude({"type": "http", "path": "/health"}) is True
+    assert exclude({"type": "http", "path": "/analyze"}) is False
 
 
 def test_resource_includes_service_metadata() -> None:

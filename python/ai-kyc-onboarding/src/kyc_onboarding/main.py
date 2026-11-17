@@ -44,9 +44,9 @@ from kyc_onboarding.models import (
     required_documents_for,
 )
 from kyc_onboarding.telemetry import (
+    FASTAPI_TELEMETRY,
     configure_telemetry,
     create_temporal_client,
-    instrument_fastapi_app,
     service_name,
 )
 from kyc_onboarding.workflows import CASE_NOT_IN_REVIEW_ERROR, KycOnboardingWorkflow
@@ -67,8 +67,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="KYC Onboarding Agent", lifespan=lifespan)
-instrument_fastapi_app(app)
+app = FastAPI(title="KYC Onboarding Agent", lifespan=lifespan, telemetry=FASTAPI_TELEMETRY)
 
 
 @app.exception_handler(StarletteHTTPException)

@@ -12,7 +12,7 @@ covers the same example from the model-call side: context, cost, scrubbing and r
 ## How to instrument LangGraph with OpenTelemetry
 
 1. The dependencies are pinned in `pyproject.toml`: the OpenTelemetry SDK and OTLP HTTP
-   exporter, the FastAPI, SQLAlchemy, httpx and logging instrumentations, and the GenAI
+   exporter, the SQLAlchemy, httpx and logging instrumentations, and the GenAI
    instrumentations `opentelemetry-instrumentation-genai-openai`,
    `opentelemetry-instrumentation-genai-anthropic` and
    `opentelemetry-instrumentation-google-genai`.
@@ -20,7 +20,9 @@ covers the same example from the model-call side: context, cost, scrubbing and r
    app is created. It registers OTLP trace and metric exporters, the span processor and
    exporter from `src/sales_intelligence/genai_spans.py`, the httpx, logging and SQLAlchemy
    instrumentors, and `instrument()` on `OpenAIInstrumentor`, `AnthropicInstrumentor` and
-   `GoogleGenAiSdkInstrumentor`. `instrument_fastapi(app)` runs after the app is created.
+   `GoogleGenAiSdkInstrumentor`. The app is created with `FastAPI(telemetry=FASTAPI_TELEMETRY)`,
+   so FastAPI traces each request and records the HTTP server metrics itself; the config
+   leaves `/health` out.
 3. Each LangGraph node is wrapped in `src/sales_intelligence/graph.py` with
    `tracer.start_as_current_span(f"invoke_agent {name}")`, because the nodes are plain
    functions and no instrumentation gives them a span.
@@ -104,7 +106,7 @@ POST /campaigns/{id}/run                 (FastAPI)
 
 | Layer | Method | What You Get |
 | --- | --- | --- |
-| HTTP Requests | `FastAPIInstrumentor` | Request spans with method, path, status, duration |
+| HTTP Requests | FastAPI's native telemetry | `GET /route` server spans, `http.server.request.duration` and `http.server.active_requests` |
 | Database Queries | `SQLAlchemyInstrumentor` | Query spans with the SQL statement and duration |
 | External HTTP | `HTTPXClientInstrumentor`, `HTTPX2ClientInstrumentor` | Outbound call spans for every provider: Gemini sends through `httpx`, the Anthropic and OpenAI SDKs (and Ollama) through `httpx2` |
 | Logging | `LoggingInstrumentor` | Trace and span IDs on log lines |

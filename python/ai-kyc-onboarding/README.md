@@ -7,8 +7,8 @@ before it approves, asks for documents again or escalates to a human reviewer. A
 a review, survive a worker crash, and still come out as one trace, with trace-correlated logs and application metrics
 exported to base14 Scout.
 
-**Stack**: Python 3.15 · FastAPI 0.141 · Pydantic AI 2.49 · Temporal (Python SDK 1.33, server 1.32) · PostgreSQL 18 ·
-Ollama (local models) · OpenTelemetry SDK 1.44 · base14 Scout
+**Stack**: Python 3.15 · FastAPI 0.163 · Pydantic AI 2.68 · Temporal (Python SDK 1.36, server 1.32) · PostgreSQL 18 ·
+Ollama (local models) · OpenTelemetry SDK 1.45 · base14 Scout
 
 One of the [Python examples](../README.md) in base14's [OpenTelemetry examples](../../README.md) repository. For an
 agent without durable execution, read [ai-runbook-assistant](../ai-runbook-assistant) (LangChain and LangGraph). Other
@@ -20,7 +20,8 @@ All of it lives in `src/kyc_onboarding/telemetry.py`. The API (`main.py`) and th
 `configure_telemetry` at startup and connect to Temporal through `create_temporal_client`.
 
 1. Install `pydantic-ai-slim[temporal,openai]`, `temporalio[opentelemetry]`, `opentelemetry-sdk`, the OTLP HTTP
-   exporter and the FastAPI, psycopg and logging instrumentations, as pinned in `pyproject.toml`.
+   exporter and the psycopg and logging instrumentations, as pinned in `pyproject.toml`. FastAPI traces requests
+   itself; the app passes `FastAPI(telemetry=FASTAPI_TELEMETRY)`, which keeps routes directly under the server span.
 2. Build the tracer provider with `create_tracer_provider` from `temporalio.contrib.opentelemetry`, not a plain
    `TracerProvider`. Spans started in workflow code are then emitted once, not again on every replay. Add a
    `BatchSpanProcessor` around the OTLP exporter and set it as the global provider.
@@ -387,7 +388,7 @@ replay records nothing. Durations are in workflow time, and the histograms share
 | `base14.kyc.review.wait` | histogram, seconds | `base14.kyc.review_decision` (`approve`, `reject` or `expired`) |
 | `base14.kyc.sanctions.checks` | counter, `{check}` | `base14.kyc.sanctions.result` (`clear`, `near_match`, `match` or `error`) |
 
-Pydantic AI adds `gen_ai.client.token.usage`, by `gen_ai.token.type`, model and provider. The FastAPI instrumentation
+Pydantic AI adds `gen_ai.client.token.usage`, by `gen_ai.token.type`, model and provider. FastAPI's native telemetry
 adds the `http.server.*` metrics.
 
 ### Temporal SDK metrics

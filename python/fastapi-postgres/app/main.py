@@ -2,7 +2,6 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 from .MetricsMiddleware import MetricsMiddleware
@@ -14,7 +13,6 @@ setup_telemetry()
 app = FastAPI()
 
 app.add_middleware(MetricsMiddleware)
-FastAPIInstrumentor.instrument_app(app, excluded_urls="health", exclude_spans=["receive", "send"])
 RequestsInstrumentor().instrument()
 
 origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")

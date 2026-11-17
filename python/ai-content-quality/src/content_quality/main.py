@@ -11,12 +11,11 @@ from opentelemetry.trace import StatusCode
 
 from content_quality.config import get_settings
 from content_quality.errors import unhandled_exception_handler
-from content_quality.middleware import MetricsMiddleware
 from content_quality.models.requests import ContentRequest  # noqa: TC001
 from content_quality.models.responses import ImproveResult, ReviewResult, ScoreResult  # noqa: TC001
 from content_quality.services.analyzer import ContentAnalyzer
 from content_quality.services.llm import get_llm_client
-from content_quality.telemetry import instrument_fastapi, setup_telemetry
+from content_quality.telemetry import FASTAPI_TELEMETRY, setup_telemetry
 
 
 logger = logging.getLogger(__name__)
@@ -37,10 +36,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
 
 
-app = FastAPI(title="AI Content Quality Agent", lifespan=lifespan)
-app.add_middleware(MetricsMiddleware)
+app = FastAPI(title="AI Content Quality Agent", lifespan=lifespan, telemetry=FASTAPI_TELEMETRY)
 app.add_exception_handler(Exception, unhandled_exception_handler)
-instrument_fastapi(app)
 
 
 def _record_error_on_span(exc: Exception) -> None:

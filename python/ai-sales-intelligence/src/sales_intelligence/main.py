@@ -17,9 +17,9 @@ from sales_intelligence.config import get_settings
 from sales_intelligence.database import close_db, engine, get_session, init_db
 from sales_intelligence.errors import unhandled_exception_handler
 from sales_intelligence.graph import run_pipeline
-from sales_intelligence.middleware import MetricsMiddleware, SpanStatusMiddleware
+from sales_intelligence.middleware import SpanStatusMiddleware
 from sales_intelligence.models import Campaign, Connection, Prospect
-from sales_intelligence.telemetry import instrument_fastapi, setup_telemetry
+from sales_intelligence.telemetry import FASTAPI_TELEMETRY, setup_telemetry
 
 
 logging.basicConfig(level=logging.INFO)
@@ -44,11 +44,10 @@ app = FastAPI(
     description="AI-powered sales prospecting and outreach automation",
     version="2.0.0",
     lifespan=lifespan,
+    telemetry=FASTAPI_TELEMETRY,
 )
-app.add_middleware(MetricsMiddleware)
 app.add_middleware(SpanStatusMiddleware)
 app.add_exception_handler(Exception, unhandled_exception_handler)
-instrument_fastapi(app)
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 

@@ -8,14 +8,14 @@ sending telemetry from the API and its workers to base14 Scout.
 ## How to instrument FastAPI and Celery with OpenTelemetry
 
 1. Install `opentelemetry-distro`, `opentelemetry-exporter-otlp`,
-   `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-celery`,
-   `opentelemetry-instrumentation-sqlalchemy`, `opentelemetry-instrumentation-redis` and
-   `opentelemetry-instrumentation-logging` from `pyproject.toml`.
+   `opentelemetry-instrumentation-celery`, `opentelemetry-instrumentation-sqlalchemy`,
+   `opentelemetry-instrumentation-redis` and `opentelemetry-instrumentation-logging` from
+   `pyproject.toml`. FastAPI 0.142 and later trace requests and record the HTTP server
+   metrics themselves, so there is no FastAPI instrumentation package.
 2. Run both processes under the `opentelemetry-instrument` CLI, as `compose.yaml` does with
    `opentelemetry-instrument uvicorn app.main:app` and
    `opentelemetry-instrument celery -A app.tasks.celery worker`. In code,
-   `setup_telemetry(app, engine)` from `app/telemetry/__init__.py` calls
-   `FastAPIInstrumentor.instrument_app(app, ...)`,
+   `setup_telemetry(engine)` from `app/telemetry/__init__.py` calls
    `SQLAlchemyInstrumentor().instrument(engine=engine, ...)`, `CeleryInstrumentor().instrument()`
    and `RedisInstrumentor().instrument()`, and a `worker_process_init` handler repeats the
    setup inside each Celery worker process.
@@ -36,7 +36,7 @@ the worker, and SQL comments on queries through the SQLAlchemy instrumentor's
 | Component | Version | Status |
 | --- | --- | --- |
 | **Python** | 3.15 | Active |
-| **FastAPI** | 0.124+ | Stable |
+| **FastAPI** | 0.142+ | Stable, native OpenTelemetry |
 | **Celery** | 5.6+ | Stable |
 | **PostgreSQL** | 18 | Active |
 | **RabbitMQ** | 4.0 | Active |
@@ -57,7 +57,7 @@ code. The only manual step is propagating trace context across async boundaries
 
 ## Stack
 
-- **API**: FastAPI 0.124+ (async web framework)
+- **API**: FastAPI 0.142+ (async web framework with native OpenTelemetry)
 - **Tasks**: Celery 5.6+ (distributed task queue)
 - **Database**: PostgreSQL (data persistence + metrics)
 - **Broker**: RabbitMQ (message queue + metrics)

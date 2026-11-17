@@ -11,7 +11,7 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # Set up OpenTelemetry
-setup_telemetry(app, engine)
+setup_telemetry(engine)
 
 
 # Dependency

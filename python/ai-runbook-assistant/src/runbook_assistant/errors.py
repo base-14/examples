@@ -2,7 +2,7 @@
 
 An exception that escapes a route bypasses the span handling inside the
 request, so the handler records it on whichever span is active when it runs.
-The ASGI instrumentation only sets ERROR from status 500 up; the middleware
+FastAPI's telemetry only sets ERROR from status 500 up; the middleware
 sets it from 400 up, because a rejected request is a failed request.
 """
 

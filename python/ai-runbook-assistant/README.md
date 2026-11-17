@@ -11,14 +11,14 @@ instrumentation, and what to add to it. The full guide is
 ## How to instrument LangChain with OpenTelemetry
 
 1. The dependencies are pinned in `pyproject.toml`: the OpenTelemetry SDK and OTLP HTTP
-   exporter, the FastAPI, SQLAlchemy, httpx and logging instrumentations, and
+   exporter, the SQLAlchemy, httpx and logging instrumentations, and
    `opentelemetry-instrumentation-genai-langchain`.
 2. `setup_telemetry(engine=engine)` in `src/runbook_assistant/telemetry/setup.py` runs in the
    FastAPI lifespan. It registers OTLP trace, metric and log exporters, the span processor
    and exporter from `telemetry/genai_spans.py`, the httpx, logging and SQLAlchemy
-   instrumentors, and `LangChainInstrumentor().instrument()`. `instrument_fastapi(app)` runs
-   when the app is created and calls
-   `FastAPIInstrumentor.instrument_app(app, excluded_urls="healthz,readyz")`.
+   instrumentors, and `LangChainInstrumentor().instrument()`. The app is created with
+   `FastAPI(telemetry=FASTAPI_TELEMETRY)`, so FastAPI traces each request and records the
+   HTTP server metrics itself; the config leaves `/healthz` and `/readyz` out.
 3. `OTEL_SERVICE_NAME=ai-runbook-assistant`,
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and
    `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=no_content` are set in `.env.example`
@@ -168,7 +168,7 @@ The example emits all three signals:
 
 | Signal | Source | What you get |
 | --- | --- | --- |
-| Traces | LangChain, FastAPI, SQLAlchemy and HTTPX instrumentation, enriched by `telemetry/genai_spans.py` | The tree above, with tokens and cost on every `chat` span |
+| Traces | FastAPI's native telemetry and the LangChain, SQLAlchemy and HTTPX instrumentation, enriched by `telemetry/genai_spans.py` | The tree above, with tokens and cost on every `chat` span |
 | Metrics | The LangChain instrumentation and `telemetry/metrics.py` | `gen_ai.client.token.usage` and `gen_ai.client.operation.duration` for chat calls from the instrumentation; `gen_ai.client.operation.duration` for embeddings and the `base14.gen_ai.cost`, `.retry.count`, `.fallback.count` and `.error.count` counters from the example |
 | Logs | `LoggerProvider` + `LoggingHandler` in `telemetry/setup.py` | OTLP log records carrying `trace_id` and `span_id` |
 

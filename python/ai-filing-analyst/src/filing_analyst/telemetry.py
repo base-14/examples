@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi.telemetry import TelemetryConfig
 from opentelemetry import context as otel_context
 from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider
@@ -28,7 +28,6 @@ from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.logging.constants import DEFAULT_LOGGING_FORMAT
 from opentelemetry.instrumentation.logging.handler import LoggingHandler
@@ -465,5 +464,6 @@ def configure_telemetry() -> None:
     instrument_libraries()
 
 
-def instrument_fastapi_app(app: FastAPI) -> None:
-    FastAPIInstrumentor.instrument_app(app)
+# Routes tag the request span through trace.get_current_span(), so they run directly
+# under the server span rather than under FastAPI's operation spans.
+FASTAPI_TELEMETRY: TelemetryConfig = {"operation_spans": False}

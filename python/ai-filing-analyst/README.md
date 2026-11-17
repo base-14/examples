@@ -8,8 +8,8 @@ is a fact the company filed with the SEC, cited by the accession number of the f
 checks that before the answer is served. The data comes from the SEC's XBRL APIs, which need no key. Each question is
 one trace, with trace-correlated logs and application metrics exported to base14 Scout.
 
-**Stack**: Python 3.14 · FastAPI 0.141 · Strands Agents 1.57, Google ADK 2.10, Microsoft Agent Framework 1.19 or
-OpenAI Agents SDK 0.22 · PostgreSQL 18 · Ollama (local models) · OpenTelemetry SDK 1.45 (1.42 with ADK) · base14 Scout
+**Stack**: Python 3.14 · FastAPI 0.163 · Strands Agents 1.65, Google ADK 2.14, Microsoft Agent Framework 1.26 or
+OpenAI Agents SDK 0.24 · PostgreSQL 18 · Ollama (local models) · OpenTelemetry SDK 1.45 · base14 Scout
 
 One of the [Python examples](../README.md) in base14's [OpenTelemetry examples](../../README.md) repository. For a
 durable agent on Temporal, read [ai-kyc-onboarding](../ai-kyc-onboarding) (Pydantic AI). Other links are under
@@ -20,8 +20,9 @@ durable agent on Temporal, read [ai-kyc-onboarding](../ai-kyc-onboarding) (Pydan
 The shared part lives in `src/filing_analyst/telemetry.py`. `main.py` calls `configure_telemetry` at startup, before
 the framework is loaded.
 
-1. Install `opentelemetry-sdk`, the OTLP HTTP exporter and the FastAPI, psycopg, httpx and logging
-   instrumentations, as pinned in `pyproject.toml`, plus the framework's extra.
+1. Install `opentelemetry-sdk`, the OTLP HTTP exporter and the psycopg, httpx and logging instrumentations, as
+   pinned in `pyproject.toml`, plus the framework's extra. FastAPI traces requests itself; the app passes
+   `FastAPI(telemetry=FASTAPI_TELEMETRY)`, which keeps routes directly under the server span.
 2. Build a `TracerProvider` with a `BatchSpanProcessor` around the OTLP span exporter, and a `MeterProvider` with a
    `PeriodicExportingMetricReader` around the OTLP metric exporter. Set both as the global providers. Every
    framework here reads the global providers, so its spans and metrics carry this resource.
@@ -331,7 +332,8 @@ an analyst run that ends in text gets one reminder to call `FilingAnswer`, which
 
 ### Hand-written spans
 
-One, `filing.verify_answer`, around the verifier. Strands, FastAPI, httpx and psycopg cover every other step.
+One, `filing.verify_answer`, around the verifier. Strands, FastAPI's native telemetry, httpx and psycopg cover every
+other step.
 
 ### Attributes this example adds
 
@@ -435,7 +437,7 @@ Each framework records its own metrics through the global meter provider:
 | MAF | `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`, `agent_framework.function.invocation.duration`. |
 | OpenAI Agents | `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`, `gen_ai.execute_tool.duration`, `gen_ai.invoke_agent.duration`, `gen_ai.invoke_workflow.duration`. |
 
-The FastAPI and httpx instrumentations add `http.server.*` and `http.client.duration`.
+FastAPI's native telemetry adds `http.server.*`, and the httpx instrumentation `http.client.duration`.
 
 ### Content capture
 

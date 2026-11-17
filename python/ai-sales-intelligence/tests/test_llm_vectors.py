@@ -6,7 +6,7 @@ metrics that reach the in-memory exporters. The spans come from the OpenTelemetr
 GenAI instrumentations, so two things differ from the vectors, which were written
 for one hand-written span per call: every retry attempt is its own span, and a
 failed attempt's `error.type` is the SDK's exception class, such as
-`InternalServerError`, not `Exception`.
+`ServiceUnavailableError` for a 503, not `Exception`.
 """
 
 import json
@@ -296,7 +296,7 @@ class TestChatWithFallbackVector:
         )
         error_attrs = {
             **metrics_by_name["base14.gen_ai.error.count"]["attrs"],
-            "error.type": "InternalServerError",
+            "error.type": "ServiceUnavailableError",
         }
         errors_before = metric_total("base14.gen_ai.error.count", error_attrs)
         primary_tokens_before = metric_total(
@@ -321,7 +321,7 @@ class TestChatWithFallbackVector:
         for primary_span in primary_spans:
             assert primary_span.status.status_code is StatusCode.ERROR
             assert primary_span.attributes["gen_ai.provider.name"] == "anthropic"
-            assert primary_span.attributes["error.type"].endswith("InternalServerError")
+            assert primary_span.attributes["error.type"].endswith("ServiceUnavailableError")
 
         fallback_span = find_span(spans, fallback["name"])
         assert fallback_span.status.status_code is not StatusCode.ERROR

@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import FastAPI
+from fastapi.telemetry import TelemetryConfig as FastAPITelemetryConfig
 from opentelemetry import metrics as otel_metrics
 from opentelemetry import trace
 from opentelemetry._logs import set_logger_provider
@@ -22,7 +22,6 @@ from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging.handler import LoggingHandler
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
@@ -289,8 +288,9 @@ def configure_telemetry(fallback_service_name: str) -> None:
     configure_instrumentation()
 
 
-def instrument_fastapi_app(app: FastAPI) -> None:
-    FastAPIInstrumentor.instrument_app(app)
+# Routes tag the request span through trace.get_current_span(), so they run directly
+# under the server span rather than under FastAPI's operation spans.
+FASTAPI_TELEMETRY: FastAPITelemetryConfig = {"operation_spans": False}
 
 
 def build_temporal_runtime() -> Runtime:

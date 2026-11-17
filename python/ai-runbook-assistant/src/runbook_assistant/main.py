@@ -23,7 +23,7 @@ from runbook_assistant.db import (
     save_diagnosis,
 )
 from runbook_assistant.errors import SpanStatusMiddleware, unhandled_exception_handler
-from runbook_assistant.telemetry.setup import instrument_fastapi, setup_telemetry
+from runbook_assistant.telemetry.setup import FASTAPI_TELEMETRY, setup_telemetry
 from runbook_assistant.tools import _services
 
 
@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="AI Runbook Assistant", lifespan=lifespan)
+    app = FastAPI(title="AI Runbook Assistant", lifespan=lifespan, telemetry=FASTAPI_TELEMETRY)
     app.add_middleware(SpanStatusMiddleware)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
@@ -93,7 +93,6 @@ def create_app() -> FastAPI:
         )
         return DiagnoseResponse(answer=answer, diagnosis_id=diagnosis_id)
 
-    instrument_fastapi(app)
     return app
 
 

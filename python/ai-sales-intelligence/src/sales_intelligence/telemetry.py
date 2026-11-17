@@ -6,7 +6,9 @@ exporting to Base14 Scout via OTLP.
 IMPORTANT: Import this module BEFORE creating the FastAPI app.
 
 Instrumentation Strategy:
-- AUTO-INSTRUMENTATION: FastAPI, SQLAlchemy, httpx, logging, and the OpenTelemetry
+- FRAMEWORK-NATIVE: FastAPI's own request spans and HTTP server metrics, configured
+  through FASTAPI_TELEMETRY
+- AUTO-INSTRUMENTATION: SQLAlchemy, httpx, logging, and the OpenTelemetry
   GenAI instrumentations for the OpenAI, Anthropic and Google Gen AI SDKs, which
   create the `chat {model}` spans and the gen_ai.client.* metrics
 - CUSTOM INSTRUMENTATION: agent spans in graph.py, and the agent, campaign, provider,
@@ -14,8 +16,10 @@ Instrumentation Strategy:
 """
 
 import logging
+from collections.abc import MutableMapping
 from typing import Any
 
+from fastapi.telemetry import TelemetryConfig
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -43,10 +47,11 @@ def setup_telemetry(
     This function sets up:
     1. Trace provider with OTLP exporter (for spans)
     2. Meter provider with OTLP exporter (for metrics)
-    3. Auto-instrumentation for FastAPI, SQLAlchemy, httpx, logging and the GenAI SDKs
+    3. Auto-instrumentation for SQLAlchemy, httpx, logging and the GenAI SDKs
+
+    FastAPI traces every request itself once the providers exist.
 
     Auto-instrumentation provides:
-    - HTTP spans: All FastAPI requests automatically traced
     - DB spans: All SQLAlchemy queries automatically traced
     - Model call spans: `chat {model}` per OpenAI, Anthropic or Gemini SDK call, with
       the gen_ai.client.token.usage and gen_ai.client.operation.duration metrics
@@ -139,21 +144,11 @@ def setup_telemetry(
     )
 
 
-def instrument_fastapi(app: Any) -> None:
-    """Instrument FastAPI app after creation.
+def skip_health_check(scope: MutableMapping[str, Any]) -> bool:
+    """Keep the health check out of FastAPI's request spans and metrics."""
+    return bool(scope.get("path") == "/health")
 
-    AUTO-INSTRUMENTATION for HTTP layer:
-    - Creates spans for every HTTP request
-    - Records method, path, status code, duration
-    - Propagates trace context to child spans
 
-    This must be called AFTER the FastAPI app is created.
-
-    Args:
-        app: FastAPI application instance
-    """
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-    FastAPIInstrumentor.instrument_app(
-        app, excluded_urls="health", exclude_spans=["receive", "send"]
-    )
+# Routes tag the request span through trace.get_current_span(), so they run directly
+# under the server span rather than under FastAPI's operation spans.
+FASTAPI_TELEMETRY: TelemetryConfig = {"exclude": skip_health_check, "operation_spans": False}

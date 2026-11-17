@@ -19,28 +19,27 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastapi==0.141.1",
-    "uvicorn[standard]==0.52.4",
-    "pydantic==2.13.5",
-    "pydantic-settings==2.16.0",
-    "sqlalchemy[asyncio]==2.0.52",
-    "asyncpg==0.31.0",
+    "fastapi==0.163.1",
+    "uvicorn[standard]==0.54.0",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.3",
+    "sqlalchemy[asyncio]==2.1.9",
+    "asyncpg==0.32.0",
     "pgvector==0.3.6",
     "langchain==1.5.0",
-    "langchain-core==1.8.0",
+    "langchain-core==1.8.1",
     "langchain-ollama==1.1.0",
-    "langchain-anthropic==1.7.0",
-    "langchain-openai==1.6.0",
-    "langchain-google-genai==4.4.0",
-    "langchain-postgres==0.0.17",
+    "langchain-anthropic==1.7.10",
+    "langchain-openai==1.8.0",
+    "langchain-google-genai==4.5.0",
+    "langchain-postgres==0.0.19",
     "tenacity==9.1.4",
     "httpx==0.28.1",
-    "python-dotenv==1.2.3",
-    "python-multipart==0.0.32",
+    "python-dotenv==1.2.4",
+    "python-multipart==0.0.34",
     "opentelemetry-sdk==1.45.2",
     "opentelemetry-api==1.45.2",
     "opentelemetry-exporter-otlp-proto-http==1.45.2",
-    "opentelemetry-instrumentation-fastapi==0.66b2",
     "opentelemetry-instrumentation-sqlalchemy==0.66b2",
     "opentelemetry-instrumentation-httpx==0.66b2",
     "opentelemetry-instrumentation-logging==0.66b2",
@@ -49,18 +48,18 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "pytest-asyncio==1.4.0",
-    "ruff==0.16.5",
-    "mypy==2.3.1",
+    "pytest-asyncio==1.5.0",
+    "ruff==0.17.5",
+    "mypy==2.4.1",
     "aiosqlite==0.22.1",
     "pip-audit==2.10.1",
     "testcontainers[postgres]==4.15.0",
     # testcontainers PostgresContainer's default readiness probe uses psycopg2;
     # the integration tests also derive asyncpg/psycopg URLs from its psycopg2 URL.
-    "psycopg2-binary==2.9.12",
-    "types-pyyaml==6.0.12.20260815",
+    "psycopg2-binary==2.9.13",
+    "types-pyyaml==6.0.12.20261113",
 ]
 
 [project.urls]

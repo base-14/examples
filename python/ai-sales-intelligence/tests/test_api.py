@@ -78,7 +78,6 @@ def client(postgres_container):
 
     with (
         patch("sales_intelligence.main.setup_telemetry") as mock_telemetry,
-        patch("sales_intelligence.main.instrument_fastapi"),
         patch("sales_intelligence.main.init_db", mock_init_db),
         patch("sales_intelligence.main.close_db", mock_close_db),
     ):
