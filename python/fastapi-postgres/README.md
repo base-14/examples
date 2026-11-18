@@ -21,9 +21,9 @@ JWT authentication, and PostgreSQL integration with base14 Scout.
    and `compose.yaml`. The exporters read these variables directly.
 
 This example adds SQLAlchemy query spans, a custom `http_requests_total` counter from
-`app/MetricsMiddleware.py`, outbound `requests` spans and a health endpoint excluded from
-tracing. The full guide is
-[FastAPI OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/fast-api/).
+`app/MetricsMiddleware.py` and outbound `requests` spans. FastAPI traces its own requests. The
+collector's `filter/noisy` processor drops health-check spans. The full guide is
+[FastAPI OpenTelemetry](https://docs.base14.io/instrument/apps/auto-instrumentation/fast-api/).
 
 ## Stack Profile
 
