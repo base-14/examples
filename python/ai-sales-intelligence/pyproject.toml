@@ -28,7 +28,7 @@ dependencies = [
     "pydantic-settings==2.16.3",
 
     # Database
-    "sqlalchemy[asyncio]==2.1.9",
+    "sqlalchemy[asyncio]==2.0.58",
     "asyncpg==0.32.0",
 
     # LLM & Agents (provider-agnostic - configure via LLM_PROVIDER env var)
@@ -180,3 +180,8 @@ exclude_lines = [
     "if __name__ == .__main__.:",
 ]
 show_missing = true
+
+[tool.uv]
+# opentelemetry-instrumentation-sqlalchemy 0.66b2 supports sqlalchemy below 2.1 and
+# instruments nothing on 2.1, so the sweep's exact-pin bumps stay on 2.0.
+constraint-dependencies = ["sqlalchemy<2.1"]
