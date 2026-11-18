@@ -288,8 +288,8 @@ def configure_telemetry(fallback_service_name: str) -> None:
     configure_instrumentation()
 
 
-# Routes tag the request span through trace.get_current_span(), so they run directly
-# under the server span rather than under FastAPI's operation spans.
+# Routes, and the spans they start, run directly under the server span rather than
+# under FastAPI's operation spans, so trace.get_current_span() in a route is the request span.
 FASTAPI_TELEMETRY: FastAPITelemetryConfig = {"operation_spans": False}
 
 

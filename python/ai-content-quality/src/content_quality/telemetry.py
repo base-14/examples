@@ -117,6 +117,6 @@ def skip_health_check(scope: MutableMapping[str, Any]) -> bool:
     return bool(scope.get("path") == "/health")
 
 
-# Routes tag the request span through trace.get_current_span(), so they run directly
-# under the server span rather than under FastAPI's operation spans.
+# Routes, and the spans they start, run directly under the server span rather than
+# under FastAPI's operation spans, so trace.get_current_span() in a route is the request span.
 FASTAPI_TELEMETRY: TelemetryConfig = {"exclude": skip_health_check, "operation_spans": False}
