@@ -319,6 +319,12 @@ upgrade_python() {
     # stale == pins forever: the uv branch never touches them, and check-outdated
     # reads requirements.txt, so the same bumps get reported every week
     sync_requirements_from_lock
+    if ! uv run --no-sync python "$REPO_ROOT/scripts/check_instrumentation_conflicts.py"; then
+      echo "  FAIL (an instrumentation cannot instrument the upgraded library)"
+      results+=("python/$name: FAIL (instrumentation version range)"); failed=$((failed + 1))
+      git checkout -- pyproject.toml uv.lock requirements.txt 2>/dev/null || true
+      return 0
+    fi
     verify_make_check "python/$name" pyproject.toml uv.lock requirements.txt
   else
     # pip: upgrade the venv via uv, then rewrite the == pins to resolved versions
