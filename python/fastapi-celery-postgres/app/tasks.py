@@ -19,18 +19,21 @@ celery = Celery(
 )
 
 
+tracer = trace.get_tracer(__name__)
+
+
 @celery.task
 def process_task(task_id: int):
+    # CeleryInstrumentor opens the run/app.tasks.process_task span for this call.
     logger.info(f"Starting to process task {task_id}")
-    tracer = trace.get_tracer(__name__)
-    with tracer.start_as_current_span("process_task") as span:
-        span.set_attribute("task_id", task_id)
-        logger.info(f"Task {task_id}: Beginning heavy processing")
-        # Simulate some heavy processing
-        with tracer.start_span("heavy_processing") as processing_span:
-            time.sleep(10)
-            processing_span.set_attribute("processing_time", 10)
+    run_span = trace.get_current_span()
+    run_span.set_attribute("task_id", task_id)
+    logger.info(f"Task {task_id}: Beginning heavy processing")
 
-        logger.info(f"Task {task_id}: Processing completed successfully")
-        span.set_attribute("status", "completed")
-        return {"task_id": task_id, "status": "completed"}
+    with tracer.start_as_current_span("heavy_processing") as processing_span:
+        time.sleep(10)
+        processing_span.set_attribute("processing_time", 10)
+
+    logger.info(f"Task {task_id}: Processing completed successfully")
+    run_span.set_attribute("status", "completed")
+    return {"task_id": task_id, "status": "completed"}

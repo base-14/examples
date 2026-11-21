@@ -1,5 +1,4 @@
 from fastapi import Depends, FastAPI, HTTPException
-from opentelemetry.propagate import inject
 from sqlalchemy.orm import Session
 
 from . import models, schemas, tasks
@@ -35,13 +34,8 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_task)
 
-    # Distributed Tracing: Propagate trace context across async boundary
-    # Without this, the Celery worker would start a new trace, breaking
-    # the correlation between HTTP request → task queue → worker execution.
-    # The inject() adds W3C traceparent header that the worker extracts.
-    headers: dict[str, str] = {}
-    inject(headers)
-    tasks.process_task.apply_async(args=[db_task.id], headers=headers)
+    # CeleryInstrumentor on the producer side adds the traceparent header on publish.
+    tasks.process_task.apply_async(args=[db_task.id])
 
     return db_task
 

@@ -25,9 +25,8 @@ sending telemetry from the API and its workers to base14 Scout.
    `OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true` as in `.env.example` and
    `compose.yaml`.
 
-This example adds trace propagation from the API into the task by calling `inject(headers)`
-and passing `headers` to `apply_async`, custom `process_task` and `heavy_processing` spans in
-the worker, and SQL comments on queries through the SQLAlchemy instrumentor's
+This example adds a custom `heavy_processing` span and `task_id` and `status` attributes on the
+worker's task span, and SQL comments on queries through the SQLAlchemy instrumentor's
 `enable_commenter` option. The full guide is
 [Celery OpenTelemetry Instrumentation](https://docs.base14.io/instrument/apps/auto-instrumentation/celery/).
 
@@ -152,7 +151,7 @@ poetry run ruff check --fix .
 ## How It Works
 
 1. **HTTP Request**: POST creates task in PostgreSQL (auto-traced via SQLAlchemy)
-2. **Context Propagation**: Trace context injected into Celery headers (`traceparent`)
+2. **Context Propagation**: `CeleryInstrumentor` adds the `traceparent` header when the task is published
 3. **Message Queue**: Task sent to RabbitMQ (auto-traced via Celery instrumentation)
 4. **Worker Processing**: Celery worker extracts trace context, continues trace
 5. **Result Storage**: Results stored in Redis (auto-traced via Redis instrumentation)
@@ -164,26 +163,22 @@ poetry run ruff check --fix .
 POST /tasks/                                    Trace ID: abc123
 ├── INSERT task_db (PostgreSQL)
 ├── apply_async/process_task ─► RabbitMQ ─► run/process_task
-                                            ├── process_task
-                                            │   └── heavy_processing
+                                            ├── heavy_processing
                                             └── SETEX (Redis)
 ```
 
-### Context Propagation Code
+### Context Propagation
 
-The key to distributed tracing across async boundaries is explicit context injection:
+`CeleryInstrumentor().instrument()` runs in the API process as well as in each worker process. On the
+producer side it adds the `traceparent` header when a task is published, so the endpoint calls
+`apply_async` with no extra code:
 
 ```python
-from opentelemetry.propagate import inject
-
-# In FastAPI endpoint
-headers = {}
-inject(headers)  # Adds traceparent header
-task.apply_async(args=[task_id], headers=headers)
+tasks.process_task.apply_async(args=[db_task.id])
 ```
 
-Without this, the Celery worker would start a new trace, losing correlation
-with the HTTP request.
+The worker's `CeleryInstrumentor` reads the header and starts `run/process_task` in the same trace.
+Without the producer-side call, the worker starts a new trace.
 
 ## Scout Dashboard Features
 
