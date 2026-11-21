@@ -196,7 +196,7 @@ describe("the healthcheck spans the README says are filtered are filtered", () =
 });
 
 describe("the GenAI client metrics the collector derives from chat spans", () => {
-  type DerivedMetric = { name: string; attributes: { key: string }[] };
+  type DerivedMetric = { name: string; conditions: string[]; attributes: { key: string }[] };
   const derived = () =>
     (
       parse(read("config/otel-collector.yaml")) as {
@@ -206,9 +206,18 @@ describe("the GenAI client metrics the collector derives from chat spans", () =>
 
   it("uses the inference metric names from the current semantic conventions", () => {
     expect(derived().map((m) => m.name)).toEqual([
+      "gen_ai.client.inference.duration",
       "gen_ai.client.inference.operation.input_tokens",
       "gen_ai.client.inference.operation.output_tokens",
     ]);
+  });
+
+  it("derives the duration from Mastra chat spans only, since @ai-sdk/otel records its own", () => {
+    const duration = derived().find((m) => m.name === "gen_ai.client.inference.duration");
+    expect(duration?.conditions).toHaveLength(1);
+    expect(duration?.conditions[0]).toContain(
+      'instrumentation_scope.name == "@mastra/otel-bridge"',
+    );
   });
 
   it("drops the gen_ai.token.type attribute the split metrics replace", () => {

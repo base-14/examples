@@ -366,9 +366,13 @@ metrics, so the collector's `signal_to_metrics` connector derives the two token 
 
 | Metric | Type | Source | Attributes |
 | --- | --- | --- | --- |
-| `gen_ai.client.inference.duration` | histogram, seconds | `@ai-sdk/otel` | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `error.type` on a failed call |
+| `gen_ai.client.inference.duration` | histogram, seconds | `@ai-sdk/otel`; the collector under Mastra | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `error.type` on a failed call |
 | `gen_ai.client.inference.operation.input_tokens` | histogram, tokens, from `gen_ai.usage.input_tokens` | collector | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model` |
 | `gen_ai.client.inference.operation.output_tokens` | histogram, tokens, from `gen_ai.usage.output_tokens` | collector | The same |
+
+Under `PLANNER_FRAMEWORK=mastra` the bridge records no metrics, so the connector also derives
+`gen_ai.client.inference.duration` from the bridge's `chat` spans. The rule matches the `@mastra/otel-bridge`
+scope only, so the AI SDK's own points are not counted twice.
 
 The connector counts only `chat` spans. `invoke_agent` spans carry the same tokens summed over the run, so
 counting both would double them. The bucket boundaries are the ones the GenAI conventions advise. The connector
