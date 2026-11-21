@@ -504,7 +504,7 @@ verifying the hosted side by hand.
 
 ## Known gaps
 
-In `@ai-sdk/otel` 1.0.169 with `ai` 7.0.169:
+In `@ai-sdk/otel` 1.0.173 with `ai` 7.0.173:
 
 - **No token metrics and no logs.** Token counts are span attributes only. The collector derives the token
   histograms, and the service's logs come from pino.

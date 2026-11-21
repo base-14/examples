@@ -59,9 +59,9 @@ processors:
           - set(severity_text, "WARN") where severity_number >= SEVERITY_NUMBER_WARN and severity_number < SEVERITY_NUMBER_ERROR
           - set(severity_text, "ERROR") where severity_number >= SEVERITY_NUMBER_ERROR
 
-# @ai-sdk/otel records no metrics. This connector derives the three GenAI inference metrics
-# from chat spans, so dashboards built on gen_ai.client.inference.* have data. Only chat spans
-# count: invoke_agent spans carry the same tokens summed, and counting both doubles them.
+# @ai-sdk/otel records gen_ai.client.inference.duration but no token metrics. This connector
+# derives the two token histograms from chat spans. Only chat spans count: invoke_agent spans
+# carry the same tokens summed, and counting both doubles them.
 connectors:
   signal_to_metrics:
     spans:

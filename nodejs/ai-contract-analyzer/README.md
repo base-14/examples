@@ -4,7 +4,7 @@
 
 AI-powered contract analysis pipeline demonstrating **multi-stage LLM observability** with OpenTelemetry GenAI semantic conventions and Base14 Scout.
 
-**Stack**: Bun 1.3 · Hono 4 · Vercel AI SDK 6 · Ollama / Anthropic / Google · PostgreSQL 18 + pgvector · OpenTelemetry
+**Stack**: Bun 1.3 · Hono 4 · Vercel AI SDK 7 · Ollama / Anthropic / Google · PostgreSQL 18 + pgvector · OpenTelemetry
 
 ## How to instrument Vercel AI SDK with OpenTelemetry
 
@@ -179,7 +179,7 @@ curl -X POST http://localhost:3000/api/search \
 
 ### Instrumentation Approach
 
-GenAI telemetry comes from a `LanguageModelV3Middleware` in `src/llm/middleware.ts`. It wraps every
+GenAI telemetry comes from a `LanguageModelV4Middleware` in `src/llm/middleware.ts`. It wraps every
 `doGenerate` call at the model layer, so all routes - pipeline stages, `/query`, `/search` - are
 instrumented the same way with no per-route wiring.
 
@@ -194,7 +194,7 @@ tokens differ from extraction tokens.
 | HTTP server | Hono `httpTracing` middleware | Custom | SERVER spans named `{METHOD} {route}`, ERROR status on 400 and above |
 | HTTP server | Hono `requestMetrics` middleware | Custom | `http.server.request.duration`, `http.server.request.count` per method, path and status |
 | Database | `@opentelemetry/instrumentation-pg` | Auto | Query spans with SQL and duration |
-| LLM calls | `LanguageModelV3Middleware` | Custom | `chat {model}` CLIENT spans with GenAI semconv attributes, retry and cost |
+| LLM calls | `LanguageModelV4Middleware` | Custom | `chat {model}` CLIENT spans with GenAI semconv attributes, retry and cost |
 | Embeddings | `src/llm/embeddings.ts` | Custom | `embeddings {model}` CLIENT spans with token usage and cost, plus operation duration |
 | Retrieval | `src/llm/retrieval.ts` | Custom | `retrieval contract_chunks` CLIENT spans around the pgvector lookup |
 | LLM metrics | `src/llm/instruments.ts` | Custom | Input and output tokens, inference duration, operation duration, cost, retry count, fallback count, error count |
@@ -335,7 +335,7 @@ in-memory OTel exporters.
 ```text
 src/
 ├── llm/
-│   ├── middleware.ts       # LanguageModelV3Middleware - chat spans, retry, metrics, fallback  ⭐
+│   ├── middleware.ts       # LanguageModelV4Middleware - chat spans, retry, metrics, fallback  ⭐
 │   ├── embeddings.ts       # embeddings {model} spans
 │   ├── retrieval.ts        # retrieval {data_source} spans over pgvector
 │   ├── instruments.ts      # The six GenAI metric instruments
