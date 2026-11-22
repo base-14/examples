@@ -6,7 +6,7 @@ email-validator==2.4.0
 pwdlib[bcrypt]==0.4.2
 bcrypt==5.0.0
 PyJWT==2.15.1
-python-multipart==0.0.33
+python-multipart==0.0.34
 alembic==1.20.1
 pydantic_settings==2.16.3
 opentelemetry-instrumentation-sqlalchemy>=0.61b0
