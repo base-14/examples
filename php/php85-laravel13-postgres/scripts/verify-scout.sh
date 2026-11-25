@@ -65,13 +65,14 @@ echo ""
 echo "[4/4] Waiting for traces to export (5 seconds)..."
 sleep 5
 
-# Check collector logs for export success
-EXPORT_SUCCESS=$(docker logs otel-collector 2>&1 | grep -c "Exporting data" || true)
-SPANS_SENT=$(docker logs otel-collector 2>&1 | grep -c "TracesExporter" || true)
+SERVICE_NAME=${OTEL_SERVICE_NAME:-php-laravel13-postgres-otel}
+COLLECTOR_LOGS=$(docker logs otel-collector 2>&1)
+SPANS_RECEIVED=$(echo "$COLLECTOR_LOGS" | grep -c "service.name: Str($SERVICE_NAME)" || true)
+EXPORT_FAILURES=$(echo "$COLLECTOR_LOGS" | grep "otlp_http/scout" | grep -ciE "exporting failed|error" || true)
 
 echo ""
 echo "=== Verification Results ==="
-if [ "$EXPORT_SUCCESS" -gt 0 ] || [ "$SPANS_SENT" -gt 0 ]; then
+if [ "$SPANS_RECEIVED" -gt 0 ] && [ "$EXPORT_FAILURES" -eq 0 ]; then
     echo "OK - Traces are being exported to Scout"
     echo ""
     echo "View your traces at:"
@@ -79,7 +80,7 @@ if [ "$EXPORT_SUCCESS" -gt 0 ] || [ "$SPANS_SENT" -gt 0 ]; then
     echo "  2. Navigate to Traces"
     echo "  3. Filter by service: php-laravel13-postgres-otel"
 else
-    echo "WARN - No export activity detected"
+    echo "WARN - Spans received for $SERVICE_NAME: $SPANS_RECEIVED, Scout export failures: $EXPORT_FAILURES"
     echo ""
     echo "Troubleshooting steps:"
     echo "  1. Check collector logs: docker compose logs otel-collector"
@@ -89,5 +90,5 @@ else
 fi
 
 echo ""
-echo "Collector metrics available at: http://localhost:13133/metrics"
+echo "Collector health available at: http://localhost:13133"
 echo "Collector zPages available at: http://localhost:55679/debug/tracez"

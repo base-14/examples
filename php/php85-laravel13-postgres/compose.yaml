@@ -91,6 +91,7 @@ services:
       - .:/var/www/html
       - vendor:/var/www/html/vendor
       - storage:/var/www/html/storage
+      - bootstrap-cache:/var/www/html/bootstrap/cache
     environment:
       <<: [*app-env, *db-env, *redis-env, *otel-env]
       APP_VERSION: 1.0.0
@@ -123,6 +124,7 @@ services:
       - .:/var/www/html
       - vendor:/var/www/html/vendor
       - storage:/var/www/html/storage
+      - bootstrap-cache:/var/www/html/bootstrap/cache
     environment:
       <<: [*app-env, *db-env, *redis-env, *otel-env]
       OTEL_SERVICE_NAME: php-laravel13-postgres-otel
@@ -150,6 +152,7 @@ volumes:
   postgres-data:
   vendor:
   storage:
+  bootstrap-cache:
 
 networks:
   laravel-network:
